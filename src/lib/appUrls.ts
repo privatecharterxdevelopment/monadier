@@ -4,6 +4,8 @@
  * Vercel preview / local dev: marketing at `/`, Pro Trade at `/app` on the same origin
  */
 
+import { getAdminPath } from './adminPath';
+
 /** Same-origin app entry when marketing + app share one host (Vercel preview, local dev). */
 const DEV_APP_PATH = '/app';
 
@@ -231,7 +233,8 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
   }
 
   if (path === '/dashboard/monitor' || path.startsWith('/dashboard/monitor/')) {
-    return getAdminDashboardPath();
+    // Old admin URL — do not redirect to the obscure path (anti-discovery).
+    return LANDING_PATH;
   }
 
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
@@ -255,7 +258,7 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
 
 /** Full URL to the HL admin monitor (works on app subdomain and local dev). */
 export function getAdminDashboardPath(): string {
-  return '/admin';
+  return getAdminPath();
 }
 
 export function getAdminDashboardUrl(): string {

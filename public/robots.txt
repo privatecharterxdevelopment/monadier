@@ -8,5 +8,7 @@ Disallow: /auth/
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /kyc
+Disallow: /admin
+Disallow: /28858885
 
 Sitemap: https://hypergain.io/sitemap.xml

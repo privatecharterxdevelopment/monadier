@@ -1,0 +1,41 @@
+WALLET 0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c
+SOURCE Hyperliquid userFills
+RANGE 2026-06-26 → now
+
+=== DAILY ===
+2026-06-26  LONG  0    +0.00  SHORT  2    +9.76  LIQ 0 +0.00  NET    +9.76
+2026-06-28  LONG  2    +2.19  SHORT  0    +0.00  LIQ 0 +0.00  NET    +2.19
+2026-06-29  LONG  4    -2.23  SHORT  3    -6.70  LIQ 0 +0.00  NET    -8.93
+2026-06-30  LONG  0    +0.00  SHORT  6    +0.88  LIQ 0 +0.00  NET    +0.88
+2026-07-01  LONG  4    +1.26  SHORT  5    +0.28  LIQ 0 +0.00  NET    +1.54
+2026-07-02  LONG  5    +0.83  SHORT  3    -3.50  LIQ 1 -3.90  NET    -2.68
+2026-07-03  LONG  1    +0.59  SHORT  1    -2.84  LIQ 0 +0.00  NET    -2.25
+2026-07-04  LONG  1    +0.34  SHORT  5    +1.02  LIQ 0 +0.00  NET    +1.35
+2026-07-05  LONG  1    +0.26  SHORT  3    -9.91  LIQ 1 -10.44  NET    -9.65
+2026-07-06  LONG  1   -12.25  SHORT  4    +0.97  LIQ 2 -12.27  NET   -11.28
+2026-07-07  LONG  1    +0.23  SHORT 12    +3.26  LIQ 0 +0.00  NET    +3.49
+2026-07-12  LONG  0    +0.00  SHORT  5    +3.36  LIQ 0 +0.00  NET    +3.36
+2026-07-13  LONG  3    -6.57  SHORT 20   +44.14  LIQ 0 +0.00  NET   +37.58
+2026-07-14  LONG  6    +4.21  SHORT  9    -9.25  LIQ 3 -20.60  NET    -5.04
+2026-07-15  LONG  8   -18.50  SHORT 14   +16.75  LIQ 1 -24.22  NET    -1.74
+2026-07-16  LONG 10   -22.53  SHORT  4   -11.33  LIQ 1 -14.57  NET   -33.86
+2026-07-17  LONG  3   -33.02  SHORT 13    -2.76  LIQ 4 -39.53  NET   -35.78
+
+TOTAL LONG -85.19  SHORT +34.12  NET -51.06
+realized closes: 159  all fills since jun26: 318
+
+=== LIQUIDATIONS ===
+2026-07-02T08:25:18.774000+00:00 BERA SHORT -3.897 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '0.22044', 'method': 'market'}
+2026-07-05T21:56:32.836000+00:00 ETH SHORT -10.445 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1793.1', 'method': 'market'}
+2026-07-06T09:31:19.897000+00:00 ZEC LONG -12.253 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '444.9', 'method': 'market'}
+2026-07-06T15:41:44.644000+00:00 SOL SHORT -0.020 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '81.183', 'method': 'market'}
+2026-07-14T12:35:56.029000+00:00 XRP SHORT -7.912 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1.0837', 'method': 'market'}
+2026-07-14T12:35:56.029000+00:00 XRP SHORT -7.752 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1.0837', 'method': 'market'}
+2026-07-14T12:35:56.029000+00:00 XRP SHORT -4.933 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1.0837', 'method': 'market'}
+2026-07-15T18:47:42.572000+00:00 CASHCAT LONG -24.216 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '0.10134', 'method': 'market'}
+2026-07-16T14:27:49.057000+00:00 BTC SHORT -14.567 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '64786.0', 'method': 'market'}
+2026-07-17T00:31:33.035000+00:00 BTC LONG -11.272 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '63703.0', 'method': 'market'}
+2026-07-17T00:36:27.836000+00:00 ETH LONG -11.787 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1853.0', 'method': 'market'}
+2026-07-17T13:03:01.943000+00:00 XRP LONG -9.960 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1.076', 'method': 'market'}
+2026-07-17T17:09:43.176000+00:00 ETH SHORT -6.511 {'liquidatedUser': '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c', 'markPx': '1849.9', 'method': 'market'}
+pipeline_funnel_log: UNAVAILABLE (HTTPError) — needs service role / Railway stdout

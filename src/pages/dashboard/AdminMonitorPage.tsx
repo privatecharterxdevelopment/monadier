@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Activity,
   Bell,
@@ -8,7 +8,6 @@ import {
   CreditCard,
   DollarSign,
   ExternalLink,
-  Lock,
   MessageCircle,
   RefreshCw,
   Server,
@@ -18,6 +17,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { isAdminEmail } from '../../lib/admin';
+import { recordAdminPathProbe } from '../../lib/authLockout';
+import AdminMfaGate from '../../components/admin/AdminMfaGate';
 import { adminReconcilePlatformFee } from '../../lib/platformFeesApi';
 import {
   fetchAdminHlDashboard,
@@ -109,8 +110,10 @@ function sectionFromQuery(tab: string | null): Section {
 }
 
 const AdminMonitorPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [mfaOk, setMfaOk] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [section, setSection] = useState<Section>(() =>
     sectionFromQuery(searchParams.get('tab'))
@@ -154,24 +157,26 @@ const AdminMonitorPage: React.FC = () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user?.email) {
+      if (user?.email && isAdminEmail(user.email)) {
         setEmail(user.email);
-        setIsAdmin(isAdminEmail(user.email));
-      } else {
-        setIsAdmin(false);
+        setIsAdmin(true);
+        return;
       }
+      setIsAdmin(false);
+      void recordAdminPathProbe();
+      navigate('/', { replace: true });
     })();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !mfaOk) return;
     void refresh();
     const poll = setInterval(() => void refresh({ silent: true }), 60_000);
     return () => clearInterval(poll);
-  }, [isAdmin, refresh]);
+  }, [isAdmin, mfaOk, refresh]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !mfaOk) return;
     const channel = supabase
       .channel('admin-trade-events')
       .on(
@@ -185,7 +190,7 @@ const AdminMonitorPage: React.FC = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [isAdmin, refresh]);
+  }, [isAdmin, mfaOk, refresh]);
 
   const stats = dash?.stats;
 
@@ -213,13 +218,11 @@ const AdminMonitorPage: React.FC = () => {
   }
 
   if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <Lock className="w-16 h-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-primary mb-2">Access Denied</h1>
-        <p className="text-secondary">Admin only · {email ?? 'not signed in'}</p>
-      </div>
-    );
+    return null;
+  }
+
+  if (!mfaOk && email) {
+    return <AdminMfaGate email={email} onVerified={() => setMfaOk(true)} />;
   }
 
   return (

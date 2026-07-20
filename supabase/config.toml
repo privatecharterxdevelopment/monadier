@@ -46,6 +46,13 @@ enable_signup = true
 [auth.email]
 enable_confirmations = true
 
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
 # Google Client ID/Secret live only in the Supabase Dashboard — omit provider
 # block here so `config push` does not disable Google.
 

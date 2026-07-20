@@ -11,14 +11,12 @@ import {
   Activity,
   User,
   History,
-  Shield,
   Menu,
   X
 } from 'lucide-react';
 
 import Logo from '../ui/Logo';
 import { signOut, supabase } from '../../lib/supabase';
-import { isAdminEmail } from '../../lib/admin';
 import { useWeb3 } from '../../contexts/Web3Context';
 
 const SideNavigation: React.FC = () => {
@@ -27,16 +25,6 @@ const SideNavigation: React.FC = () => {
   const currentPath = location.pathname;
   const { address } = useWeb3();
   const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(isAdminEmail(user?.email));
-    };
-    checkAdmin();
-  }, []);
 
   // Subscribe to pending trade approvals
   useEffect(() => {
@@ -87,8 +75,6 @@ const SideNavigation: React.FC = () => {
     { path: '/dashboard/bot-trading', label: 'Bot Trading', icon: Bot },
     { path: '/dashboard/subscriptions', label: 'Subscriptions', icon: Package },
     { path: '/dashboard/profile', label: 'Profile', icon: User },
-    // Admin only
-    ...(isAdmin ? [{ path: '/dashboard/monitor', label: 'Admin', icon: Shield }] : [])
   ];
 
   const handleSignOut = async () => {

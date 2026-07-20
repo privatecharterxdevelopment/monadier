@@ -8,7 +8,7 @@ type Props = {
   children: React.ReactNode;
 };
 
-/** Full-page admin shell — reachable at /admin */
+/** Full-page admin shell — obscure path only (see getAdminPath). */
 const AdminMonitorLayout: React.FC<Props> = ({ children }) => {
   return (
     <div className="admin-monitor-page h-[100dvh] flex flex-col bg-[#0a0a0c] text-[#fafafa] overflow-hidden">

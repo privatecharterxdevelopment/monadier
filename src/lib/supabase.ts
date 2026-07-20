@@ -4,8 +4,8 @@ import { ensureUserProfile, patchUserProfile } from './profile';
 
 export { supabase };
 
-/** Production password-reset landing — never localhost. Keep vercel until DNS cutover. */
-export const PRODUCTION_PASSWORD_RESET_URL = 'https://monadier.vercel.app/reset-password';
+/** Production password-reset landing — same-origin preferred; fallback www. */
+export const PRODUCTION_PASSWORD_RESET_URL = 'https://www.hypergain.io/reset-password';
 
 function passwordResetRedirectUrl(): string {
   if (typeof window !== 'undefined') {

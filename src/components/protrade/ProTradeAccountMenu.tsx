@@ -9,13 +9,11 @@ import {
   Shield,
   User,
   Wallet,
-  LayoutDashboard,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { signOut } from '../../lib/supabase';
-import { getMarketingUrl, LANDING_PATH, getAdminDashboardPath } from '../../lib/appUrls';
-import { isAdminEmail } from '../../lib/admin';
+import { getMarketingUrl, LANDING_PATH } from '../../lib/appUrls';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import ProfileAvatar from '../profile/ProfileAvatar';
 import { displayHandle } from '../../lib/username';
@@ -38,13 +36,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
   const { profile, user } = useAuth();
   const { signOutWithToast } = useTermAuthToast();
   const [open, setOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsAdmin(isAdminEmail(user?.email));
-  }, [user?.email]);
-
   const displayName = displayHandle(profile, user?.email);
   const username = profile?.username?.trim();
   const email = profile?.email || user?.email;
@@ -222,17 +214,6 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             <HelpCircle size={14} aria-hidden />
             {t('common.support')}
           </button>
-          {isAdmin ? (
-            <a
-              href={getAdminDashboardPath()}
-              className="hl-account-item"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-            >
-              <LayoutDashboard size={14} aria-hidden />
-              Admin dashboard
-            </a>
-          ) : null}
 
           <button
             type="button"

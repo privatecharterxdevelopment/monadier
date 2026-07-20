@@ -9,11 +9,9 @@ import {
   Download,
   User,
   History,
-  Shield,
 } from 'lucide-react';
 import Logo from '../ui/Logo';
 import { signOut, supabase } from '../../lib/supabase';
-import { isAdminEmail } from '../../lib/admin';
 import { useWeb3 } from '../../contexts/Web3Context';
 
 type NavItem = {
@@ -29,16 +27,6 @@ const DashboardSidebar: React.FC = () => {
   const currentPath = location.pathname;
   const { address } = useWeb3();
   const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAdmin(isAdminEmail(user?.email));
-    };
-    checkAdmin();
-  }, []);
-
   useEffect(() => {
     if (!address) {
       setPendingApprovals(0);
@@ -84,7 +72,6 @@ const DashboardSidebar: React.FC = () => {
     { path: '/dashboard/subscriptions', label: 'Plans', icon: Package, mobileLabel: 'Plans' },
     { path: '/dashboard/downloads', label: 'Downloads', icon: Download, mobileLabel: 'Apps' },
     { path: '/dashboard/profile', label: 'Profile', icon: User, mobileLabel: 'Profile' },
-    ...(isAdmin ? [{ path: '/dashboard/monitor', label: 'Admin', icon: Shield, mobileLabel: 'Admin' }] : []),
   ];
 
   const isActive = (path: string) =>

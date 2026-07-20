@@ -36,6 +36,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminMonitorPage from './pages/dashboard/AdminMonitorPage';
 import AdminMonitorLayout from './layouts/AdminMonitorLayout';
 import HostRedirects from './components/layout/HostRedirects';
+import { getAdminPath } from './lib/adminPath';
 
 function App() {
   const { isLoading } = useAuth();
@@ -165,7 +166,7 @@ function App() {
           } />
 
           <Route
-            path="/admin"
+            path={getAdminPath()}
             element={
               <ProtectedRoute>
                 <AdminMonitorLayout>
@@ -174,8 +175,11 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/dashboard/monitor" element={<Navigate to="/admin" replace />} />
-          <Route path="/dashboard/monitor/*" element={<Navigate to="/admin" replace />} />
+          {/* Old admin URLs — dead ends (no redirect to secret path) */}
+          <Route path="/admin" element={<Navigate to="/" replace />} />
+          <Route path="/admin/*" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard/monitor" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard/monitor/*" element={<Navigate to="/" replace />} />
           
           <Route path="/dashboard" element={<RedirectToApp />} />
           <Route path="/dashboard/*" element={<RedirectToApp />} />

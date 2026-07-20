@@ -30,9 +30,10 @@ Google provider Client ID/Secret live only in the Supabase Dashboard (do not pus
 OAuth `redirectTo` = **current browser origin** + `/auth/callback`  
 → Works on `www.hypergain.io`, `hypergain.io`, `app.hypergain.io`, `monadier.vercel.app`, and `localhost`.
 
-## Google Cloud — Authorized JavaScript origins
+## Google login (OAuth)
 
-[Google Cloud Console](https://console.cloud.google.com/) → OAuth Web client → **add** (do not remove existing):
+1. [Google Cloud Console](https://console.cloud.google.com/) → Credentials → OAuth Web client  
+2. **Authorized JavaScript origins** (add all):
 
 ```
 https://hypergain.io
@@ -42,11 +43,20 @@ https://monadier.vercel.app
 http://localhost:5173
 ```
 
-**Authorized redirect URI** (unchanged — Supabase only):
+3. **Authorized redirect URI** (Supabase only — do not add hypergain paths here):
 
 ```
 https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback
 ```
+
+4. Paste Client ID + Secret → Supabase → Authentication → Providers → Google → Enable
+
+## Admin panel hardening
+
+- Path: `/28858885` (override `VITE_ADMIN_PATH`) — **not** linked in UI; `/admin` → home
+- Google Authenticator (TOTP MFA) required after admin email sign-in
+- IP lockout: 2 failed admin-email password attempts **or** secret-path probes → 24h block (`auth-lockout` edge function)
+- `robots.txt` disallows `/admin` and `/28858885`
 
 ## Vercel env (production)
 

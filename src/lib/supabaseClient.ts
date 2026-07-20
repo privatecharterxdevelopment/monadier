@@ -59,7 +59,7 @@ export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
  * Prefer the current test host so local/preview deploys keep working until
  * hypergain.io DNS is live.
  */
-export const FALLBACK_SITE_ORIGIN = 'https://monadier.vercel.app';
+export const FALLBACK_SITE_ORIGIN = 'https://www.hypergain.io';
 
 function isLocalhostOrigin(url: string): boolean {
   try {
