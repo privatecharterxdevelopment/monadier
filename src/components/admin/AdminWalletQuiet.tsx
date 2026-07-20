@@ -18,6 +18,9 @@ export default function AdminWalletQuiet(): null {
     } catch {
       /* ignore */
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
+    }
   }, [close]);
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export default function AdminWalletQuiet(): null {
     void (async () => {
       try {
         await switchChainAsync({ chainId: HL_ARBITRUM_CHAIN_ID });
+        close();
       } catch {
         try {
           close();

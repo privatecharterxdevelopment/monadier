@@ -76,3 +76,12 @@
   z-index: 1;
   background: #141416;
 }
+
+
+/* Hide AppKit network/switch overlays while on admin */
+body:has(.admin-monitor-page) w3m-modal,
+body:has(.admin-monitor-page) w3m-router,
+body:has(.admin-monitor-page) aside[class*="w3m"] {
+  display: none !important;
+  pointer-events: none !important;
+}
