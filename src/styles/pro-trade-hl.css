@@ -11625,9 +11625,11 @@
 
   .hl-topnav {
     height: auto;
-    min-height: 48px;
-    padding-left: max(8px, env(safe-area-inset-left));
-    padding-right: max(8px, env(safe-area-inset-right));
+    min-height: 44px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
     gap: 6px;
     flex-wrap: nowrap;
     overflow: hidden;
@@ -11661,9 +11663,12 @@
   }
 
   .hl-topnav--mobile .hl-topnav-betting-balance--primary {
-    padding: 5px 8px;
+    padding: 4px 8px;
     font-size: 10px;
-    max-width: 96px;
+    line-height: 1.15;
+    min-height: 26px;
+    max-width: 92px;
+    border-radius: 7px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -11671,7 +11676,9 @@
 
   .hl-topnav--mobile .hl-topnav-bet-stat--compact {
     font-size: 10px;
-    padding: 4px 7px;
+    padding: 3px 6px;
+    min-height: 26px;
+    border-radius: 7px;
   }
 
   .hl-topnav--mobile .hl-topnav-logo {
@@ -11680,15 +11687,51 @@
 
   .hl-topnav--mobile .hl-topnav-logo img,
   .hl-topnav--mobile .hl-topnav-logo svg {
-    max-height: 22px;
+    max-height: 18px;
     width: auto;
   }
 
   .hl-topnav--mobile .hl-topnav-wallet {
-    max-width: 108px;
+    max-width: 96px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .hl-topnav--mobile .hl-topnav-icon-btn,
+  .hl-topnav--mobile .hl-topnav-menu-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    border-radius: 6px;
+  }
+
+  .hl-topnav--mobile .hl-topnav-icon-btn svg,
+  .hl-topnav--mobile .hl-topnav-menu-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hl-topnav--mobile .hl-account-menu-trigger--signed-in,
+  .hl-topnav--mobile .hl-account-menu-trigger {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+  }
+
+  .hl-topnav--mobile .hl-account-menu-trigger--signed-in img,
+  .hl-topnav--mobile .hl-account-menu-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  .hl-topnav--mobile .hl-topnav-network-switch--compact {
+    padding: 3px 6px;
+    font-size: 9px;
+    min-height: 26px;
+    border-radius: 6px;
   }
 
   .hl-topnav-menu-btn {
@@ -11730,14 +11773,14 @@
   }
 
   .hl-topnav-wallet {
-    padding: 6px 10px;
-    min-height: 32px;
+    padding: 4px 8px;
+    min-height: 26px;
     font-size: 10px;
   }
 
   .hl-account-menu-trigger--signed-in {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
     padding: 0;
   }
 
@@ -12469,10 +12512,19 @@
 }
 
 @media (max-width: 480px) {
+  .hl-topnav {
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+  }
+
   .hl-topnav-right .hl-topnav-icon-btn,
-  .hl-topnav-menu-btn {
-    width: 32px;
-    height: 32px;
+  .hl-topnav-menu-btn,
+  .hl-topnav--mobile .hl-topnav-icon-btn,
+  .hl-topnav--mobile .hl-topnav-menu-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
     flex-shrink: 0;
   }
 
@@ -12485,8 +12537,8 @@
   }
 
   .hl-topnav-wallet {
-    min-height: 32px;
-    padding: 5px 10px;
+    min-height: 26px;
+    padding: 4px 8px;
     font-size: 10px;
     line-height: 1.2;
   }
