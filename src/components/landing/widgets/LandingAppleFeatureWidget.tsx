@@ -60,7 +60,7 @@ const LandingAppleFeatureWidget: React.FC<Props> = ({
           loop
           muted
           playsInline
-          preload="metadata"
+          preload="none"
         />
         <div className="landing-apple-widget-media-shade" />
       </div>

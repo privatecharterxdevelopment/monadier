@@ -368,13 +368,17 @@ const GmxStyleLanding: React.FC = () => {
   const heroVideo = (
     <video
       className="landing-gmx-hero-video"
-      src="/videos/hero-bg.mp4"
       autoPlay
       loop
       muted
       playsInline
       preload="auto"
-    />
+      poster="/videos/hero-bg-poster.jpg"
+      fetchPriority="high"
+    >
+      <source src="/videos/hero-bg.webm" type="video/webm" />
+      <source src="/videos/hero-bg.mp4" type="video/mp4" />
+    </video>
   );
 
   return (

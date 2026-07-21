@@ -81,17 +81,34 @@ const LandingBotPitchSection: React.FC = () => {
 
   useEffect(() => {
     const video = pitchVideoRef.current;
-    if (!video) return;
+    const section = sectionRef.current;
+    if (!video || !section) return;
 
     // Force the correct source — some browsers ignore <source media="…">.
     const nextSrc = isMobilePitch ? PITCH_VIDEO_MP4 : PITCH_VIDEO_WEBM;
     const absolute = new URL(nextSrc, window.location.origin).href;
-    if (video.currentSrc !== absolute) {
-      video.src = nextSrc;
-      video.load();
-    }
-    void video.play().catch(() => {});
-  }, [stepIndex, mp4BlendFallback, isMobilePitch]);
+
+    const attachAndPlay = () => {
+      if (video.currentSrc !== absolute) {
+        video.src = nextSrc;
+        video.load();
+      }
+      void video.play().catch(() => {});
+    };
+
+    // Don't compete with the hero: only fetch the heavy pitch clip near viewport.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          attachAndPlay();
+          io.disconnect();
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.01 }
+    );
+    io.observe(section);
+    return () => io.disconnect();
+  }, [mp4BlendFallback, isMobilePitch, sectionRef]);
 
   const showCtaVisible = onLastStep && (ctaRevealed || complete);
 
@@ -122,7 +139,7 @@ const LandingBotPitchSection: React.FC = () => {
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none"
           />
         </div>
         <div className="landing-gmx-pitch-stage">
