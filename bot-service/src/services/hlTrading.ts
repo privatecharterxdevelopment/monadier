@@ -1783,36 +1783,36 @@ export class HyperliquidTradingService {
       let trailExitReason = trailResult.exitReason;
       let trailCloseDetail = trailResult.closeDetail;
 
-      if (shouldCloseTrail && pnl > 0) {
-        const greenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 300_000;
-        const minPeakRoe =
-          config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 12;
+      if (shouldCloseTrail && pnl > 0 && positionDirection === 'LONG') {
+        const trailCfg = config.hyperliquid.dynamicTrail;
+        // 0 / false = identical to SHORT (no LONG soft-block). Do not use `|| fallback`
+        // — that previously forced 5m / 12% ROE even when config was 0.
+        const greenHoldMs = trailCfg.longMinGreenHoldMs ?? 0;
+        const minPeakRoe = trailCfg.longMinPeakRoePctBeforeTrailClose ?? 0;
         const peakRoe =
           collateralEst > 0
             ? (trailRecord.highestPnlSinceEntry / collateralEst) * 100
             : 0;
-        // LONGs: never sniper-close early — wait green hold + real peak ROE.
-        if (positionDirection === 'LONG') {
-          const beSniper =
-            trailExitReason === 'profit_lock' &&
-            /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
-          const tooYoung = (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
-          const peakTooSmall = peakRoe < minPeakRoe;
-          if (beSniper || tooYoung || peakTooSmall) {
-            shouldCloseTrail = false;
-            logger.info('HL LONG profit exit blocked — let winner run', {
-              user: userAddress.slice(0, 10),
-              coin: pos.coin,
-              timeInProfitMs: trailRecord.timeInProfitMs,
-              pnlUsd: pnl.toFixed(4),
-              peakRoe: peakRoe.toFixed(2),
-              minPeakRoe,
-              exitReason: trailExitReason,
-              beSniper,
-              tooYoung,
-              peakTooSmall,
-            });
-          }
+        const beSniper =
+          trailCfg.longSkipBreakevenLockClose &&
+          trailExitReason === 'profit_lock' &&
+          /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
+        const tooYoung = greenHoldMs > 0 && (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
+        const peakTooSmall = minPeakRoe > 0 && peakRoe < minPeakRoe;
+        if (beSniper || tooYoung || peakTooSmall) {
+          shouldCloseTrail = false;
+          logger.info('HL LONG profit exit blocked — let winner run', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            timeInProfitMs: trailRecord.timeInProfitMs,
+            pnlUsd: pnl.toFixed(4),
+            peakRoe: peakRoe.toFixed(2),
+            minPeakRoe,
+            exitReason: trailExitReason,
+            beSniper,
+            tooYoung,
+            peakTooSmall,
+          });
         }
       }
 
@@ -1877,9 +1877,10 @@ export class HyperliquidTradingService {
       }
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
-      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 300_000;
+      const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs ?? 0;
       const longStillBreathing =
         positionDirection === 'LONG' &&
+        longGreenHoldMs > 0 &&
         pnl > 0 &&
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (

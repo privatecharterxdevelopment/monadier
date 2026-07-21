@@ -186,37 +186,35 @@ export const config = {
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.038),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
-       * LONGs need much more breathing room than SHORTs (grind up, early wicks).
-       * Applied only when direction === LONG — SHORTs keep the base trail.
+       * LONG trail distance vs SHORT. 1 = identical ATR/% gap to peak (user: trail
+       * LONGs as tight as SHORTs). >1 widens LONG stops only.
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 2.1),
-      /** Peak floor drop for LONGs (base profitFloorPeakDropFrac is for SHORT / default). */
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1),
+      /** Peak floor drop for LONGs — default matches SHORT profitFloorPeakDropFrac. */
       longProfitFloorPeakDropFrac: Number(
-        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.55
+        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC ||
+          process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC ||
+          0.3
       ),
-      /** Stretch min-active time before a LONG trail/floor close can fire. */
-      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 5),
+      /** Stretch min-active time before a LONG trail/floor close (1 = same as SHORT). */
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1),
       /**
-       * Once a LONG is green, do not profit-close for this long (trail / floor / peak / TP).
-       * Default 5m — enough breathe room without babysitting a full 15m scalp.
+       * Extra green-hold before LONG profit closes. 0 = same as SHORT (no delay).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 300_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 0),
       /**
-       * LONGs never exit on the stage-1 breakeven lock — only after trailing is armed
-       * (and green-hold elapsed). Prevents “green → BE tick → closed” scalp exits.
+       * If true, LONGs never exit on stage-1 breakeven lock. Default false = same as SHORT.
        */
-      longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE !== 'false',
+      longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE === 'true',
       /**
-       * Stage-2 ATR trail for LONGs only after this peak ROE (SHORTs keep armMinRoePct).
-       * Stops “barely 5% ROE → trail sniper” on fresh LONGs.
+       * Stage-2 ATR trail arm ROE for LONGs. 0 / unset → use armMinRoePct (same as SHORT).
        */
-      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 10),
+      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 0),
       /**
-       * Do not trail-/floor-/peak-close a LONG until peak ROE reached this level.
-       * Lets winners run past the first green scalp tick.
+       * Min peak ROE before LONG trail/floor/peak closes. 0 = same as SHORT.
        */
       longMinPeakRoePctBeforeTrailClose: Number(
-        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 12
+        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 0
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */

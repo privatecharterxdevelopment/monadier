@@ -136,10 +136,9 @@ export function shouldUpgradeToTrailing(
 ): boolean {
   if (pnlUsd <= 0 || collateralUsd <= 0) return false;
   const cfg = config.hyperliquid.dynamicTrail;
-  const need =
-    direction === 'LONG'
-      ? Math.max(cfg.armMinRoePct, cfg.longTrailArmRoePct || cfg.armMinRoePct)
-      : cfg.armMinRoePct;
+  const longArm =
+    cfg.longTrailArmRoePct > 0 ? cfg.longTrailArmRoePct : cfg.armMinRoePct;
+  const need = direction === 'LONG' ? Math.max(cfg.armMinRoePct, longArm) : cfg.armMinRoePct;
   return roePct(pnlUsd, collateralUsd) >= need;
 }
 
@@ -362,8 +361,8 @@ function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: numbe
   const cfg = config.hyperliquid.dynamicTrail;
   const longRoom =
     direction === 'LONG' ? Math.max(1, cfg.longTrailDistanceMult || 1) : 1;
-  const cap = direction === 'LONG' ? 3.2 : 2.4;
-  return Math.max(0.75, Math.min(cap, biasMult * longRoom));
+  // Same cap for LONG and SHORT so a mult of 1 tracks the peak identically.
+  return Math.max(0.75, Math.min(2.4, biasMult * longRoom));
 }
 
 export async function evaluateDynamicTrail(
@@ -539,26 +538,15 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  // Hard peak profit-lock floor — SHORTs keep tight lock; LONGs only after a real run
-  // (peak ROE ≥ longMinPeak…) so early green ticks do not floor-close the winner.
+  // Hard peak profit-lock floor — same rules for LONG and SHORT (tight to peak).
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
-    const peakRoeNow = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
-    const longFloorNeed = Math.max(
-      cfg.armMinRoePct,
-      cfg.longMinPeakRoePctBeforeTrailClose || cfg.armMinRoePct
+    const floorStop = peakProfitFloorStopPx(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      input.collateralUsd,
+      rec.highestPnlSinceEntry
     );
-    const longFloorOk =
-      input.direction !== 'LONG' ||
-      (peakRoeNow >= longFloorNeed && rec.phase === 'trailing');
-    const floorStop = longFloorOk
-      ? peakProfitFloorStopPx(
-          input.direction,
-          input.entryPrice,
-          input.absSize,
-          input.collateralUsd,
-          rec.highestPnlSinceEntry
-        )
-      : null;
     if (floorStop != null) {
       rec.currentTrailStop = ratchetStop(
         input.direction,
