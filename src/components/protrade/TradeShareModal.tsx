@@ -191,17 +191,14 @@ const TradeShareModal: React.FC<Props> = ({
         aria-label={t('dock.shareTitle')}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="hl-trade-share-head">
-          <h2>{t('dock.shareTitle')}</h2>
-          <button
-            type="button"
-            className="hl-topnav-icon-btn"
-            aria-label={t('common.closeMenu')}
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
-        </header>
+        <button
+          type="button"
+          className="hl-trade-share-close"
+          aria-label={t('common.closeMenu')}
+          onClick={onClose}
+        >
+          <X size={16} />
+        </button>
 
         <div className="hl-trade-share-body">
           {busy ? (
@@ -212,81 +209,82 @@ const TradeShareModal: React.FC<Props> = ({
           ) : null}
           {error ? <p className="hl-trade-share-error">{error}</p> : null}
           {previewUrl ? (
-            <img
-              className="hl-trade-share-preview"
-              src={previewUrl}
-              alt={t('dock.shareTitle')}
-            />
+            <div className="hl-trade-share-stage">
+              <img
+                className="hl-trade-share-preview"
+                src={previewUrl}
+                alt={t('dock.shareTitle')}
+              />
+            </div>
           ) : null}
         </div>
 
-        <div className="hl-trade-share-social" aria-label={t('dock.shareVia')}>
-          <button
-            type="button"
-            className="hl-trade-share-social-btn hl-trade-share-social-btn--whatsapp"
-            disabled={!blob}
-            onClick={shareWhatsApp}
-            aria-label="WhatsApp"
-            title="WhatsApp"
-          >
-            <WhatsAppIcon />
-            <span>WhatsApp</span>
-          </button>
-          <button
-            type="button"
-            className="hl-trade-share-social-btn hl-trade-share-social-btn--facebook"
-            disabled={!blob}
-            onClick={shareFacebook}
-            aria-label="Facebook"
-            title="Facebook"
-          >
-            <FacebookIcon />
-            <span>Facebook</span>
-          </button>
-          <button
-            type="button"
-            className="hl-trade-share-social-btn hl-trade-share-social-btn--x"
-            disabled={!blob}
-            onClick={shareX}
-            aria-label="X"
-            title="X"
-          >
-            <XTwitterIcon />
-            <span>X</span>
-          </button>
-          <button
-            type="button"
-            className="hl-trade-share-social-btn hl-trade-share-social-btn--telegram"
-            disabled={!blob}
-            onClick={shareTelegram}
-            aria-label="Telegram"
-            title="Telegram"
-          >
-            <TelegramIcon />
-            <span>Telegram</span>
-          </button>
-        </div>
+        <div className="hl-trade-share-footer">
+          <p className="hl-trade-share-via">{t('dock.shareVia')}</p>
+          <div className="hl-trade-share-social" aria-label={t('dock.shareVia')}>
+            <button
+              type="button"
+              className="hl-trade-share-social-btn hl-trade-share-social-btn--whatsapp"
+              disabled={!blob}
+              onClick={shareWhatsApp}
+              aria-label="WhatsApp"
+              title="WhatsApp"
+            >
+              <WhatsAppIcon />
+            </button>
+            <button
+              type="button"
+              className="hl-trade-share-social-btn hl-trade-share-social-btn--facebook"
+              disabled={!blob}
+              onClick={shareFacebook}
+              aria-label="Facebook"
+              title="Facebook"
+            >
+              <FacebookIcon />
+            </button>
+            <button
+              type="button"
+              className="hl-trade-share-social-btn hl-trade-share-social-btn--x"
+              disabled={!blob}
+              onClick={shareX}
+              aria-label="X"
+              title="X"
+            >
+              <XTwitterIcon />
+            </button>
+            <button
+              type="button"
+              className="hl-trade-share-social-btn hl-trade-share-social-btn--telegram"
+              disabled={!blob}
+              onClick={shareTelegram}
+              aria-label="Telegram"
+              title="Telegram"
+            >
+              <TelegramIcon />
+            </button>
+          </div>
 
-        <footer className="hl-trade-share-actions">
-          <button
-            type="button"
-            className="term-btn-sm"
-            disabled={!blob || sharing}
-            onClick={() => void onShare()}
-          >
-            {sharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-            {t('dock.shareNative')}
-          </button>
-          <button
-            type="button"
-            className="term-btn-sm term-btn-sm--primary"
-            disabled={!blob}
-            onClick={onDownload}
-          >
-            <Download size={14} />
-            {t('dock.shareDownload')}
-          </button>
-        </footer>
+          <div className="hl-trade-share-actions">
+            <button
+              type="button"
+              className="hl-trade-share-action hl-trade-share-action--ghost"
+              disabled={!blob || sharing}
+              onClick={() => void onShare()}
+            >
+              {sharing ? <Loader2 size={15} className="animate-spin" /> : <Share2 size={15} />}
+              {t('dock.shareNative')}
+            </button>
+            <button
+              type="button"
+              className="hl-trade-share-action hl-trade-share-action--primary"
+              disabled={!blob}
+              onClick={onDownload}
+            >
+              <Download size={15} />
+              {t('dock.shareDownload')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
