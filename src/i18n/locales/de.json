@@ -984,14 +984,22 @@
       "trigger": "Trigger",
       "condition": "Bedingung",
       "balanceAfter": "Zwischenbalance",
-      "balanceAfterHint": "Geschätzter Kontostand direkt nach diesem Close (rekonstruiert vom aktuellen Stand; Ein-/Auszahlungen machen ältere Zeilen ungenau)."
+      "balanceAfterHint": "Geschätzter Kontostand direkt nach diesem Close (rekonstruiert vom aktuellen Stand; Ein-/Auszahlungen machen ältere Zeilen ungenau).",
+      "share": "Teilen"
     },
     "usdcUnified": "USDC (unified)",
     "usdcPerp": "USDC (Perp)",
     "usdcSpot": "USDC (Spot)",
     "marginUsed": "Margin genutzt",
     "notional": "Notional",
-    "cancel": "Stornieren"
+    "cancel": "Stornieren",
+    "share": "Teilen",
+    "shareTitle": "Trade teilen",
+    "shareDownload": "Bild speichern",
+    "shareNative": "Teilen…",
+    "shareBuilding": "Karte wird erstellt…",
+    "shareFailed": "Share-Bild konnte nicht erstellt werden.",
+    "shareNeedSignIn": "Einloggen, um mit deinem Referral-QR zu teilen."
   },
   "profile": {
     "tabsAria": "Profilbereiche",

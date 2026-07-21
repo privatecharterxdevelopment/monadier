@@ -8824,18 +8824,113 @@
 }
 
 /* ── HL modals (funds, builder fee) ── */
-.hl-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
+.hl-trade-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--hl-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hl-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hl-trade-share-btn:hover {
+  color: var(--hl-text);
+  border-color: var(--hl-green-bright);
+  background: color-mix(in srgb, var(--hl-green-bright) 10%, transparent);
+}
+
+.hl-trade-share-backdrop {
+  z-index: 1300;
+}
+
+.hl-trade-share-modal {
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(92dvh, 900px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid var(--hl-border-strong);
+  background: var(--hl-bg-panel);
+  box-shadow: var(--hl-shadow-modal, 0 24px 64px rgba(0, 0, 0, 0.28));
+  overflow: hidden;
+}
+
+.hl-trade-share-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hl-border);
 }
+
+.hl-trade-share-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hl-text);
+}
+
+.hl-trade-share-body {
+  padding: 14px;
+  overflow: auto;
+  min-height: 180px;
+}
+
+.hl-trade-share-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  color: var(--hl-text-muted);
+  font-size: 13px;
+}
+
+.hl-trade-share-error {
+  margin: 0 0 10px;
+  color: #ef5350;
+  font-size: 12px;
+}
+
+.hl-trade-share-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  background: #0a0a0a;
+}
+
+.hl-trade-share-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--hl-border);
+}
+
+.hl-trade-share-actions .term-btn-sm {
+  flex: 1;
+  justify-content: center;
+  min-height: 40px;
+}
+
+@media (max-width: 900px) {
+  .hl-trade-share-btn span {
+    display: none;
+  }
+
+  .hl-trade-share-btn {
+    padding: 6px;
+  }
+}
+
 
 .hl-modal-backdrop--auth {
   z-index: 2500;

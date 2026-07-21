@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, Loader2, X } from 'lucide-react';
+import { ExternalLink, Loader2, Share2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { displayHandle } from '../../lib/username';
+import TradeShareModal from './TradeShareModal';
 import type {
   HlAccountState,
   HlFundingPayment,
@@ -175,6 +178,11 @@ const ProTradeDock: React.FC<Props> = ({
   botManagedCoinsLoading = false,
 }) => {
   const { t } = useTranslation();
+  const { user, profile } = useAuth();
+  const shareDisplayName = profile?.username?.trim()
+    ? `@${profile.username.trim()}`
+    : displayHandle(profile, user?.email);
+  const [shareFill, setShareFill] = useState<AggregatedHlCloseFill | null>(null);
   const isSpot = variant === 'spot';
   const isBotMode = mode === 'bot';
   const scope: 'manual' | 'bot' = positionScope ?? (isBotMode ? 'bot' : 'manual');
@@ -856,6 +864,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>{t('dock.cols.closedPnl')}</th>
                   <th>{t('dock.cols.balanceAfter')}</th>
                   {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
+                  <th>{t('dock.cols.share')}</th>
                   {walletAddress ? <th>{t('dock.cols.verify')}</th> : null}
                 </tr>
               </thead>
@@ -908,6 +917,18 @@ const ProTradeDock: React.FC<Props> = ({
                         <TradeReasonHint reason={closeWhy} kind="close" />
                       </td>
                     ) : null}
+                    <td>
+                      <button
+                        type="button"
+                        className="hl-trade-share-btn"
+                        title={t('dock.share')}
+                        aria-label={t('dock.share')}
+                        onClick={() => setShareFill(f)}
+                      >
+                        <Share2 size={13} aria-hidden />
+                        <span>{t('dock.share')}</span>
+                      </button>
+                    </td>
                     {verifyHref ? (
                       <td>
                         <a
@@ -1152,6 +1173,15 @@ const ProTradeDock: React.FC<Props> = ({
           leverage={stopEdit.leverage}
           onClose={() => setStopEdit(null)}
           onSave={onSaveStopLoss}
+        />
+      ) : null}
+      {shareFill ? (
+        <TradeShareModal
+          fill={shareFill}
+          displayName={shareDisplayName}
+          avatarUrl={profile?.avatar_url ?? null}
+          userId={user?.id ?? null}
+          onClose={() => setShareFill(null)}
         />
       ) : null}
     </section>
