@@ -232,7 +232,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     <div
       className={`hl-bot-dock${historyOnly ? ' hl-bot-dock--history-only' : ''}${
         dockTab === 'tradeHistory' && !historyOnly ? ' hl-bot-dock--history-tab' : ''
-      }${className ? ` ${className}` : ''}`}
+      }${!connected && !historyOnly ? ' hl-bot-dock--idle' : ''}${
+        className ? ` ${className}` : ''
+      }`}
     >
       {closeNotice ? (
         <p className="hl-dock-notice" role="status">

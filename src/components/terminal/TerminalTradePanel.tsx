@@ -737,16 +737,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 >
                   {t('tradePanel.signIn')}
                 </button>
-              ) : !walletReady ? (
-                <button
-                  type="button"
-                  className="term-btn-sm term-btn-sm--primary w-full justify-center"
-                  onClick={() => open()}
-                >
-                  <Wallet size={14} />
-                  {t('tradePanel.connectWallet')}
-                </button>
-              ) : (
+              ) : !walletReady ? null : (
                 <>
                   {needsAgentApproval ? (
                     <button

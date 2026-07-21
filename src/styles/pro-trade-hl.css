@@ -11793,9 +11793,9 @@
 
   .hl-terminal--bot .hl-bot-chart-stack .hl-chart-wrap {
     flex: 0 0 auto;
-    min-height: min(42vh, 340px);
-    height: min(42vh, 340px);
-    max-height: min(42vh, 340px);
+    min-height: min(34vh, 260px);
+    height: min(34vh, 260px);
+    max-height: min(34vh, 260px);
     width: 100%;
   }
 
@@ -11821,8 +11821,8 @@
   }
 
   .hl-terminal--bot .hl-chart-wrap {
-    min-height: min(42vh, 340px);
-    max-height: min(42vh, 340px);
+    min-height: min(34vh, 260px);
+    max-height: min(34vh, 260px);
   }
 
   .hl-terminal--bot .hl-chart-canvas,
@@ -11840,8 +11840,8 @@
     position: relative;
     z-index: 1;
     width: 100%;
-    min-height: 200px;
-    max-height: min(48vh, 380px);
+    min-height: 0;
+    max-height: min(42vh, 340px);
     overflow: hidden;
     isolation: isolate;
     background: var(--hl-bg-panel);
@@ -12016,7 +12016,7 @@
 
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    min-height: 140px;
+    min-height: 0;
     max-height: min(42vh, 320px);
     flex: 1 1 auto;
   }
@@ -12024,6 +12024,78 @@
   .hl-bot-dock {
     flex: 0 0 auto;
     min-height: 0;
+  }
+
+  /* No wallet yet: drop empty positions dock so chart → bot panel has no white void */
+  .hl-terminal--bot .hl-bot-dock--idle {
+    display: none;
+  }
+
+  .hl-terminal--bot .hl-bot-analyzer-pill__value {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .hl-terminal--bot .hl-bot-analyzer-pill {
+    padding: 6px 10px;
+    border-radius: 10px;
+    gap: 5px 8px;
+  }
+
+  .hl-terminal--bot .hl-bot-analyzer-pill__label {
+    font-size: 10px;
+  }
+
+  .hl-terminal--bot .hl-bot-analyzer-subline {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .hl-terminal--bot .hl-chart-toolbar--engines {
+    flex-wrap: nowrap;
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
+    padding: 0 6px;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .hl-terminal--bot .hl-chart-toolbar--engines::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hl-terminal--bot .hl-chart-toolbar--engines .hl-chart-tf {
+    padding: 4px 7px;
+    font-size: 11px;
+    line-height: 1.1;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .hl-root:has(.hl-terminal--bot) .hl-topnav {
+    min-height: 44px;
+  }
+
+  .hl-terminal--bot > .hl-market-bar {
+    min-height: 40px;
+  }
+
+  .hl-bot-panel-wrap .term-panel-tab {
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .hl-bot-panel-wrap .term-btn-sm,
+  .hl-bot-panel-wrap .term-btn-sm--primary {
+    min-height: 40px;
+    border-radius: 10px;
+    font-size: 13px;
   }
 
   .hl-chart-wrap,
@@ -12338,7 +12410,7 @@
   .hl-terminal--bot .hl-bot-dock,
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    min-height: 120px;
+    min-height: 0;
     max-height: min(38vh, 260px);
   }
 
@@ -12383,12 +12455,16 @@
   .hl-terminal--bot .hl-bot-dock,
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    max-height: min(50vh, 380px);
+    min-height: 0;
+    max-height: min(42vh, 320px);
   }
 
-  .hl-order-panel,
-  .hl-bot-panel-wrap {
+  .hl-order-panel {
     min-height: 320px;
+  }
+
+  .hl-bot-panel-wrap {
+    min-height: 0;
   }
 }
 
