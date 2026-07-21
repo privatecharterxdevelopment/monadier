@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { getStoredReferralCode } from '../../lib/referralCapture';
 import { submitRegister, startGoogleAuth } from '../../lib/auth/registerFlow';
 import GoogleMark from '../ui/GoogleMark';
+import AuthPasswordField from './AuthPasswordField';
 import '../../styles/auth-form.css';
 
 export type RegisterFormProps = {
@@ -207,14 +208,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           <label className="term-profile-label" htmlFor={`${idPrefix}-password`}>
             {t('auth.password')}
           </label>
-          <input
+          <AuthPasswordField
             id={`${idPrefix}-password`}
-            className="term-profile-input"
-            type="password"
-            autoComplete="new-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            onChange={setPassword}
+            autoComplete="new-password"
             minLength={8}
             required
           />

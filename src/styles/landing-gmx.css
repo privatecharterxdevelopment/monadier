@@ -6507,6 +6507,65 @@
   max-width: 36rem;
 }
 
+/* How it works — non-custodial / Hyperliquid custody */
+.mkt-custody-callout {
+  display: grid;
+  gap: 14px;
+  padding: clamp(22px, 3vw, 28px) clamp(22px, 3.5vw, 32px);
+  border-color: rgba(10, 10, 10, 0.12);
+  background: linear-gradient(160deg, rgba(10, 10, 10, 0.04) 0%, rgba(255, 255, 255, 0.78) 52%);
+}
+
+.mkt-custody-callout-through {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--lg-faint);
+}
+
+.mkt-custody-callout-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .mkt-custody-callout-points {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+.mkt-custody-callout-points li {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--lg-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.mkt-custody-callout-points span {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lg-text);
+  line-height: 1.35;
+}
+
+.mkt-custody-callout-text {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lg-muted);
+}
+
 /* How it works — compact flow + Arbitrum callout */
 .mkt-arbitrum-callout {
   display: grid;

@@ -333,7 +333,7 @@
       "eyebrow": "Продукт",
       "title": "Как это работает",
       "lead": "Внесите нативный USDC на Arbitrum, один раз одобрите бота — стратегия работает 24/7 на Hyperliquid.",
-      "sub": "Non-custodial. Ваши ключи, ваш HL-аккаунт, ваши средства.",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "USDC на Arbitrum One — обязательно",
         "text": "Для бота нужен нативный USDC на Arbitrum One в кошельке. Hyperliquid не принимает BNB, ETH mainnet или USDC с других сетей.",
@@ -362,7 +362,7 @@
         }
       ],
       "fundsTitle": "Как хранятся ваши средства",
-      "fundsSub": "Не общий vault — ваш Hyperliquid-аккаунт на ваше имя.",
+      "fundsSub": "Не общий vault — ваш Hyperliquid-аккаунт на ваше имя. Never held by HyperGain.",
       "funds": [
         {
           "title": "Логин vs кошелёк",
@@ -388,7 +388,16 @@
         "Вносите только то, что можете потерять"
       ],
       "ctaSecondary": "Цены и комиссии",
-      "disclaimer": "Не финансовая рекомендация. Ваш капитал под риском."
+      "disclaimer": "Не финансовая рекомендация. Ваш капитал под риском.",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      }
     },
     "support": {
       "eyebrow": "Поддержка",

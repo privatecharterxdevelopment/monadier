@@ -1,5 +1,6 @@
 import {
   signUp,
+  signIn,
   signInWithGoogle,
   sendWelcomeEmail,
   isUsernameAvailable,
@@ -11,6 +12,11 @@ import {
   applyStoredReferralForUser,
   getStoredReferralCode,
 } from '../referralCapture';
+import {
+  humanizeSignUpError,
+  isDuplicateSignUpUser,
+  isEmailConfirmationRequired,
+} from './authErrors';
 
 export type RegisterFormValues = {
   fullName: string;
@@ -77,14 +83,40 @@ export async function submitRegister(
     );
     if (error) throw error;
 
-    if (data?.session) {
+    if (isDuplicateSignUpUser(data?.user)) {
+      return {
+        ok: false,
+        error: humanizeSignUpError(
+          { message: 'User already registered' },
+          messages.createFailed
+        ),
+      };
+    }
+
+    let session = data?.session ?? null;
+    let userId = data?.user?.id;
+
+    // Standard UX: register → logged in. Retry sign-in when confirmations delay session.
+    if (!session) {
+      const signedIn = await signIn(values.email, values.password);
+      if (signedIn.error) {
+        if (isEmailConfirmationRequired(signedIn.error)) {
+          sendWelcomeEmail(values.email, values.fullName).catch(console.error);
+          return { ok: true, kind: 'confirm_email', userId };
+        }
+        throw signedIn.error;
+      }
+      session = signedIn.data?.session ?? null;
+      userId = signedIn.data?.user?.id ?? userId;
+    }
+
+    if (session) {
       void ensureFreeSubscription().catch(console.error);
       void acceptUserLegalTerms().catch(console.error);
     }
 
     sendWelcomeEmail(values.email, values.fullName).catch(console.error);
 
-    const userId = data?.user?.id;
     if (userId && getStoredReferralCode()) {
       try {
         await applyStoredReferralForUser(userId);
@@ -93,14 +125,14 @@ export async function submitRegister(
       }
     }
 
-    if (data?.session) {
+    if (session) {
       return { ok: true, kind: 'session', userId: userId ?? '' };
     }
     return { ok: true, kind: 'confirm_email', userId };
   } catch (err: unknown) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : messages.createFailed,
+      error: humanizeSignUpError(err, messages.createFailed),
     };
   }
 }

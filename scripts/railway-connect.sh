@@ -25,5 +25,5 @@ cd "$ROOT"
 ./scripts/verify-bot-api.sh "$URL"
 
 echo ""
-echo "Add to Vercel (monadier.vercel.app project):"
+echo "Add to Vercel (www.hypergain.io / app.hypergain.io project):"
 echo "  VITE_BOT_API_URL=$URL"

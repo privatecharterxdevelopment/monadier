@@ -1,5 +1,6 @@
 import { signIn, signInWithGoogle } from '../supabase';
 import { checkAuthIpBlocked, recordAuthIpFailure } from '../authLockout';
+import { humanizeSignInError } from './authErrors';
 
 export type SignInFlowMessages = {
   signInFailed: string;
@@ -31,7 +32,7 @@ export async function submitSignIn(
   } catch (err: unknown) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : messages.signInFailed,
+      error: humanizeSignInError(err, messages.signInFailed),
     };
   }
 }

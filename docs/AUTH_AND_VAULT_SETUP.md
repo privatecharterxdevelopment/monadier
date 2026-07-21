@@ -21,18 +21,16 @@ Project: `gbgafseabgqinnvlfslc` (HyperGain)
 1. **Authentication → Providers → Google** → Enable ON
 2. Copy **Client ID** and **Client Secret** from Google (step 2)
 3. **Authentication → URL Configuration**
-   - **Site URL**: `https://hypergain.io`
+   - **Site URL**: `https://www.hypergain.io`
    - **Redirect URLs** (add all lines):
 
 ```
-https://hypergain.io/auth/callback
-https://hypergain.io/reset-password
 https://www.hypergain.io/auth/callback
 https://www.hypergain.io/reset-password
+https://hypergain.io/auth/callback
+https://hypergain.io/reset-password
 https://app.hypergain.io/auth/callback
 https://app.hypergain.io/reset-password
-https://monadier.vercel.app/auth/callback
-https://monadier.vercel.app/reset-password
 http://localhost:5173/auth/callback
 http://localhost:5173/reset-password
 ```
@@ -49,7 +47,6 @@ See also [SUPABASE_AUTH_URLS.md](./SUPABASE_AUTH_URLS.md).
 https://hypergain.io
 https://www.hypergain.io
 https://app.hypergain.io
-https://monadier.vercel.app
 http://localhost:5173
 ```
 
@@ -111,7 +108,8 @@ http://localhost:5173/auth/callback
 **Authentication → Providers → Email** → check **Confirm email**
 
 - If ON: users must click confirm link before `signInWithPassword` works
-- Either turn OFF for beta, or show clear UI: "Check your email to activate account"
+- **Production:** Confirm email is **OFF** (`enable_confirmations = false` in `supabase/config.toml`) so register → immediate session
+- After changing: run `supabase config push` or toggle in Dashboard → Authentication → Providers → Email
 
 ---
 

@@ -104,9 +104,9 @@ export function getAuthRedirectBase(): string {
 
 /** Hosts to allowlist in Supabase Redirect URLs + Google JS origins (additive). */
 export const AUTH_PRODUCTION_ORIGINS = [
-  'https://monadier.vercel.app',
   BRAND_SITE_URL,
   'https://www.hypergain.io',
+  'https://hypergain.io',
   'https://app.hypergain.io',
 ] as const;
 

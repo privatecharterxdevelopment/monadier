@@ -333,7 +333,7 @@
       "eyebrow": "产品",
       "title": "工作原理",
       "lead": "在 Arbitrum 上存入原生 USDC，批准机器人一次 — 然后我们的策略在 Hyperliquid 上 24/7 运行。",
-      "sub": "非托管。您的密钥、您的 HL 账户、您的资金。",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "Arbitrum One 上的 USDC — 必需",
         "text": "运行机器人需要在钱包中有 Arbitrum One 上的原生 USDC。Hyperliquid 不接受 BNB、ETH 主网或其他链上的 USDC。",
@@ -362,7 +362,7 @@
         }
       ],
       "fundsTitle": "您的资金如何存储",
-      "fundsSub": "不是共享金库 — 以您名义的 Hyperliquid 账户。",
+      "fundsSub": "不是共享金库 — 以您名义的 Hyperliquid 账户。. Never held by HyperGain.",
       "funds": [
         {
           "title": "登录 vs 钱包",
@@ -388,7 +388,16 @@
         "只存入您能承受损失的资金"
       ],
       "ctaSecondary": "定价和费用",
-      "disclaimer": "非财务建议。您的资本面临风险。"
+      "disclaimer": "非财务建议。您的资本面临风险。",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      }
     },
     "support": {
       "eyebrow": "支持",

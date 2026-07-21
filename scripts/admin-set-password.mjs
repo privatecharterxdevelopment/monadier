@@ -74,4 +74,4 @@ if (error) {
 }
 
 console.log(`OK — password updated for ${data.user.email} (${data.user.id})`);
-console.log('User can sign in at https://monadier.vercel.app/login');
+console.log('User can sign in at https://www.hypergain.io/login');

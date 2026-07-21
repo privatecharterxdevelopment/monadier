@@ -17,8 +17,8 @@ Monadier ist eine **Hyperliquid-first** Trading-Plattform: Nutzer verbinden eine
                 ▼                                ▼
 ┌───────────────────────────┐      ┌────────────────────────────────────┐
 │  Vercel (Frontend)        │      │  Supabase                          │
-│  monadier.vercel.app      │      │  Auth · Postgres · RLS · Edge Fns  │
-│  /app = Pro Trade UI      │      │  profiles · vault_settings · fees  │
+│  www.hypergain.io         │      │  Auth · Postgres · RLS · Edge Fns  │
+│  app.hypergain.io         │      │  profiles · vault_settings · fees  │
 └─────────────┬─────────────┘      └──────────────────▲─────────────────┘
               │ /bot-service/* proxy                   │ service role
               ▼                                        │
@@ -382,7 +382,7 @@ Der Bot öffnet nur, wenn **alle** relevanten Gates passieren. Wichtig für Debu
 
 | Service | Host | URL (Beispiel) |
 |---------|------|----------------|
-| Frontend | Vercel | `monadier.vercel.app`, `app.hypergain.io` |
+| Frontend | Vercel | `www.hypergain.io`, `app.hypergain.io` |
 | Bot | Railway | `monadier-production.up.railway.app` |
 | DB/Auth | Supabase | `*.supabase.co` |
 

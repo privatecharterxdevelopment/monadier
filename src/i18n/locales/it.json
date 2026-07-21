@@ -333,7 +333,7 @@
       "eyebrow": "Prodotto",
       "title": "Come funziona",
       "lead": "Deposita USDC nativo su Arbitrum, approva il bot una volta — la strategia gira 24/7 su Hyperliquid.",
-      "sub": "Non-custodial. Le tue chiavi, il tuo account HL, i tuoi fondi.",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "USDC su Arbitrum One — obbligatorio",
         "text": "Per il bot serve USDC nativo su Arbitrum One nel wallet. Hyperliquid non accetta BNB, ETH mainnet o USDC da altre chain.",
@@ -362,7 +362,7 @@
         }
       ],
       "fundsTitle": "Come sono custoditi i fondi",
-      "fundsSub": "Non un vault condiviso — il tuo account Hyperliquid a tuo nome.",
+      "fundsSub": "Non un vault condiviso — il tuo account Hyperliquid a tuo nome. Never held by HyperGain.",
       "funds": [
         {
           "title": "Login vs wallet",
@@ -388,7 +388,16 @@
         "Deposita solo ciò che puoi perdere"
       ],
       "ctaSecondary": "Prezzi e commissioni",
-      "disclaimer": "Non è consulenza finanziaria. Il capitale è a rischio."
+      "disclaimer": "Non è consulenza finanziaria. Il capitale è a rischio.",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      }
     },
     "support": {
       "eyebrow": "Supporto",

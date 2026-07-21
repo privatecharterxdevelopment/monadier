@@ -168,6 +168,30 @@ export const MarketingArbitrumCallout: React.FC<ArbitrumCalloutProps> = ({
   </article>
 );
 
+type CustodyCalloutProps = {
+  throughLabel: string;
+  points: readonly string[];
+  text: string;
+};
+
+export const MarketingCustodyCallout: React.FC<CustodyCalloutProps> = ({
+  throughLabel,
+  points,
+  text,
+}) => (
+  <aside className="mkt-custody-callout landing-glass-card" aria-label={throughLabel}>
+    <p className="mkt-custody-callout-through">{throughLabel}</p>
+    <ul className="mkt-custody-callout-points">
+      {points.map((point) => (
+        <li key={point}>
+          <span>{point}</span>
+        </li>
+      ))}
+    </ul>
+    <p className="mkt-custody-callout-text">{text}</p>
+  </aside>
+);
+
 type CompactStep = { title: string; text: string };
 
 export const MarketingCompactSteps: React.FC<{ steps: CompactStep[] }> = ({ steps }) => (

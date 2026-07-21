@@ -29,6 +29,43 @@
   box-shadow: 0 0 0 3px rgba(16, 118, 99, 0.15);
 }
 
+.auth-password-field {
+  position: relative;
+  width: 100%;
+}
+
+.auth-password-field .term-profile-input {
+  padding-right: 42px;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+}
+
+.auth-password-toggle:hover {
+  color: #18181b;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid #107663;
+  outline-offset: 2px;
+}
+
 .auth-shared-form .term-modal-primary,
 .auth-shared-form a.term-modal-primary {
   display: inline-flex;

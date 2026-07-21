@@ -333,7 +333,7 @@
       "eyebrow": "プロダクト",
       "title": "仕組み",
       "lead": "Arbitrum でネイティブ USDC を入金し、ボットを一度承認 — 戦略が Hyperliquid で 24/7 稼働します。",
-      "sub": "ノンカストディアル。あなたの鍵、HL アカウント、資金。",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "Arbitrum One の USDC — 必須",
         "text": "ボットを動かすにはウォレットに Arbitrum One のネイティブ USDC が必要です。Hyperliquid は BNB、ETH メインネット、その他チェーンの USDC を受け付けません。",
@@ -362,7 +362,7 @@
         }
       ],
       "fundsTitle": "資金の保管方法",
-      "fundsSub": "共有ボールトではなく — あなた名義の Hyperliquid アカウント。",
+      "fundsSub": "共有ボールトではなく — あなた名義の Hyperliquid アカウント。. Never held by HyperGain.",
       "funds": [
         {
           "title": "ログイン vs ウォレット",
@@ -388,7 +388,16 @@
         "失ってもよい金額のみ入金"
       ],
       "ctaSecondary": "料金",
-      "disclaimer": "金融アドバイスではありません。資本はリスクにさらされます。"
+      "disclaimer": "金融アドバイスではありません。資本はリスクにさらされます。",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      }
     },
     "support": {
       "eyebrow": "サポート",

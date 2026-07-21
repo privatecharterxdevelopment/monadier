@@ -6,6 +6,7 @@ import MarketingInnerPage, {
   MarketingPageHero,
   MarketingSectionHeading,
   MarketingArbitrumCallout,
+  MarketingCustodyCallout,
   MarketingCompactSteps,
   MarketingFundsList,
 } from '../components/marketing/MarketingInnerPage';
@@ -44,6 +45,11 @@ const HowItWorksPage: React.FC = () => {
     return Array.isArray(items) ? (items as string[]) : [];
   }, [t]);
 
+  const custodyPoints = useMemo(() => {
+    const items = t('marketing.howItWorks.custody.points', { returnObjects: true });
+    return Array.isArray(items) ? (items as string[]) : [];
+  }, [t]);
+
   return (
     <MarketingInnerPage>
       <MarketingPageHero
@@ -51,6 +57,12 @@ const HowItWorksPage: React.FC = () => {
         title={t('marketing.howItWorks.title')}
         lead={t('marketing.howItWorks.lead')}
         sub={t('marketing.howItWorks.sub')}
+      />
+
+      <MarketingCustodyCallout
+        throughLabel={t('marketing.howItWorks.custody.through')}
+        points={custodyPoints}
+        text={t('marketing.howItWorks.custody.text')}
       />
 
       <MarketingArbitrumCallout

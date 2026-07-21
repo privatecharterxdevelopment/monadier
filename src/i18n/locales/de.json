@@ -426,7 +426,12 @@
       "eyebrow": "Produkt",
       "title": "So funktioniert es",
       "lead": "Native USDC auf Arbitrum einzahlen, Bot einmal freigeben — unsere Strategie läuft dann 24/7 auf Hyperliquid.",
-      "sub": "Non-custodial. Deine Keys, dein HL-Konto, deine Gelder.",
+      "sub": "Kein API. Kein Smart Contract. Non-custodial — über Hyperliquid.",
+      "custody": {
+        "through": "Über Hyperliquid",
+        "points": ["No API", "No smart contract", "Non custodial"],
+        "text": "Guthaben liegt auf Hyperliquid — nicht in unserer Wallet und nicht auf unserer Infrastruktur. Der Bot handelt nur per Agent-Freigabe und kann nicht abheben."
+      },
       "arbitrum": {
         "title": "USDC auf Arbitrum One — erforderlich",
         "text": "Für den Bot brauchst du natives USDC auf Arbitrum One in deiner Wallet. Hyperliquid akzeptiert kein BNB, kein ETH-Mainnet und kein USDC von anderen Chains.",
@@ -455,15 +460,15 @@
         }
       ],
       "fundsTitle": "Wie deine Gelder gespeichert werden",
-      "fundsSub": "Kein gemeinsamer Vault — dein Hyperliquid-Konto auf deinen Namen.",
+      "fundsSub": "Kein gemeinsamer Vault — dein Hyperliquid-Konto auf deinen Namen. Nie bei HyperGain.",
       "funds": [
         {
           "title": "Login vs. Wallet",
-          "text": "E-Mail/Google = Monadier-Dashboard. MetaMask = signiert Ein- und Auszahlungen."
+          "text": "E-Mail/Google = HyperGain-Dashboard. MetaMask = signiert Ein- und Auszahlungen."
         },
         {
-          "title": "Dein HL-Konto",
-          "text": "USDC liegt auf deinem Hyperliquid-Konto. Der Bot handelt nur per Agent-Freigabe — kann nicht abheben."
+          "title": "Auf Hyperliquid — nicht bei uns",
+          "text": "USDC bleibt auf deinem Hyperliquid-Konto. Keine API-Keys an uns, kein Custody-Smart-Contract, kein Guthaben auf unserer Infrastruktur. Agent-Freigabe erlaubt nur Trading — nie Withdraw."
         },
         {
           "title": "Wenn Trades schließen",
@@ -517,6 +522,8 @@
     "demoDashboard": "Demo-Dashboard öffnen (lokale Entwicklung)",
     "signInFailed": "Anmeldung fehlgeschlagen",
     "googleSignInFailed": "Anmeldung mit Google fehlgeschlagen",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "signInToAccount": "Melde dich bei deinem HyperGain-Konto an.",
     "signInToProfile": "Melde dich an, um Profil und Bot-Einstellungen zu öffnen.",
     "signInToAffiliate": "Melde dich an, um dein Partner-Dashboard zu sehen.",

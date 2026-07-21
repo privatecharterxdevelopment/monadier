@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { submitSignIn, startGoogleSignIn } from '../../lib/auth/signInFlow';
 import GoogleMark from '../ui/GoogleMark';
+import AuthPasswordField from './AuthPasswordField';
 import { enableDemoMode, isDemoModeAllowed } from '../../lib/demoMode';
 import '../../styles/auth-form.css';
 
@@ -107,14 +108,12 @@ const SignInForm: React.FC<SignInFormProps> = ({
         <label className="term-profile-label" htmlFor={`${idPrefix}-password`}>
           {t('auth.password')}
         </label>
-        <input
+        <AuthPasswordField
           id={`${idPrefix}-password`}
-          className="term-profile-input hl-signin-input"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
+          className="hl-signin-input"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
+          autoComplete="current-password"
           required
         />
 

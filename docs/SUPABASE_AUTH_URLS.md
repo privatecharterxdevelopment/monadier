@@ -1,24 +1,20 @@
 # Supabase auth URLs — HyperGain
 
-**Site URL (canonical):** `https://hypergain.io`
-
-Redirect URLs are **additive** — old hosts keep working for testing.
+**Site URL (canonical):** `https://www.hypergain.io`
 
 ## Production (project `gbgafseabgqinnvlfslc`)
 
-**Site URL:** `https://hypergain.io`
+**Site URL:** `https://www.hypergain.io`
 
 **Redirect URLs (all allowed):**
 
 ```
-https://hypergain.io/auth/callback
-https://hypergain.io/reset-password
 https://www.hypergain.io/auth/callback
 https://www.hypergain.io/reset-password
+https://hypergain.io/auth/callback
+https://hypergain.io/reset-password
 https://app.hypergain.io/auth/callback
 https://app.hypergain.io/reset-password
-https://monadier.vercel.app/auth/callback
-https://monadier.vercel.app/reset-password
 http://localhost:5173/auth/callback
 http://localhost:5173/reset-password
 ```
@@ -28,7 +24,7 @@ Google provider Client ID/Secret live only in the Supabase Dashboard (do not pus
 ## App behavior
 
 OAuth `redirectTo` = **current browser origin** + `/auth/callback`  
-→ Works on `www.hypergain.io`, `hypergain.io`, `app.hypergain.io`, `monadier.vercel.app`, and `localhost`.
+→ Works on `www.hypergain.io`, `hypergain.io`, `app.hypergain.io`, and `localhost`.
 
 ## Google login (OAuth)
 
@@ -39,7 +35,6 @@ OAuth `redirectTo` = **current browser origin** + `/auth/callback`
 https://hypergain.io
 https://www.hypergain.io
 https://app.hypergain.io
-https://monadier.vercel.app
 http://localhost:5173
 ```
 
@@ -58,20 +53,4 @@ https://gbgafseabgqinnvlfslc.supabase.co/auth/v1/callback
 - IP lockout: 2 failed admin-email password attempts **or** secret-path probes → 24h block (`auth-lockout` edge function)
 - `robots.txt` disallows `/admin` and `/28858885`
 
-## Vercel env (production)
-
-| Name | Value |
-|------|--------|
-| `VITE_SITE_URL` | `https://hypergain.io` |
-| `VITE_APP_URL` | `https://app.hypergain.io` |
-| `VITE_SPLIT_DOMAINS` | `false` until `app.hypergain.io` DNS is live, then `true` |
-
-## Cloudflare DNS for `app.hypergain.io`
-
-One CNAME (DNS only / grey cloud — proxy off):
-
-| Type | Name | Target |
-|------|------|--------|
-| CNAME | `app` | `df5efc46150c433d.vercel-dns-016.com` |
-
-Then: `vercel domains verify app.hypergain.io` → set `VITE_SPLIT_DOMAINS=true` → redeploy.
+Remove any leftover `monadier.vercel.app` entries from Supabase Redirect URLs and Google JS origins.

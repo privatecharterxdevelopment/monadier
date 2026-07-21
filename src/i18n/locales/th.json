@@ -333,7 +333,7 @@
       "eyebrow": "ผลิตภัณฑ์",
       "title": "วิธีการทำงาน",
       "lead": "ฝาก USDC แบบ native บน Arbitrum อนุมัติบอทครั้งเดียว — กลยุทธ์ของเราทำงาน 24/7 บน Hyperliquid",
-      "sub": "Non-custodial กุญแจของคุณ บัญชี HL ของคุณ เงินของคุณ",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "USDC บน Arbitrum One — จำเป็น",
         "text": "เพื่อรันบอทคุณต้องมี USDC แบบ native บน Arbitrum One ใน wallet Hyperliquid ไม่รับ BNB ETH mainnet หรือ USDC จาก chain อื่น",
@@ -362,7 +362,7 @@
         }
       ],
       "fundsTitle": "เงินของคุณเก็บอย่างไร",
-      "fundsSub": "ไม่ใช่ vault รวม — บัญชี Hyperliquid ในชื่อคุณ",
+      "fundsSub": "ไม่ใช่ vault รวม — บัญชี Hyperliquid ในชื่อคุณ. Never held by HyperGain.",
       "funds": [
         {
           "title": "Login vs wallet",
@@ -388,7 +388,16 @@
         "ฝากเฉพาะที่เสียได้"
       ],
       "ctaSecondary": "ราคาและค่าธรรมเนียม",
-      "disclaimer": "ไม่ใช่คำแนะนำทางการเงิน เงินทุนของคุณมีความเสี่ยง"
+      "disclaimer": "ไม่ใช่คำแนะนำทางการเงิน เงินทุนของคุณมีความเสี่ยง",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      }
     },
     "support": {
       "eyebrow": "สนับสนุน",

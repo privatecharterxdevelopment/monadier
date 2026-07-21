@@ -1,6 +1,7 @@
 import { getSupabaseClient, getAuthRedirectBase, supabase } from './supabaseClient';
 import { normalizeUsernameInput } from './username';
 import { ensureUserProfile, patchUserProfile } from './profile';
+import { humanizeSignInError } from './auth/authErrors';
 
 export { supabase };
 
@@ -53,13 +54,12 @@ export const signIn = async (email: string, password: string) => {
     password,
   });
 
-  if (error?.message?.toLowerCase().includes('email not confirmed')) {
+  if (error) {
     return {
       data,
       error: {
         ...error,
-        message:
-          'Please confirm your email first (check inbox/spam), then sign in again.',
+        message: humanizeSignInError(error, error.message),
       },
     };
   }

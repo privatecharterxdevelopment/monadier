@@ -426,7 +426,12 @@
       "eyebrow": "Product",
       "title": "How it works",
       "lead": "Deposit native USDC on Arbitrum, approve the bot once — then our strategy runs 24/7 on Hyperliquid.",
-      "sub": "Non-custodial. Your keys, your HL account, your funds.",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": ["No API", "No smart contract", "Non custodial"],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+      },
       "arbitrum": {
         "title": "USDC on Arbitrum One — required",
         "text": "To fund the bot you need native USDC on Arbitrum One in your wallet. Hyperliquid does not accept BNB, ETH mainnet, or USDC from other chains.",
@@ -455,15 +460,15 @@
         }
       ],
       "fundsTitle": "How your funds are stored",
-      "fundsSub": "Not a pooled vault — your Hyperliquid account in your name.",
+      "fundsSub": "Not a pooled vault — your Hyperliquid account in your name. Never held by HyperGain.",
       "funds": [
         {
           "title": "Login vs wallet",
           "text": "Email/Google = HyperGain dashboard. MetaMask = signs deposits and withdrawals."
         },
         {
-          "title": "Your HL account",
-          "text": "USDC sits on your Hyperliquid account. The bot trades via agent approval only — it cannot withdraw."
+          "title": "On Hyperliquid — not with us",
+          "text": "USDC stays on your Hyperliquid account. No API keys to us, no custody smart contract, no funds on our infrastructure. Agent approval lets the bot trade only — never withdraw."
         },
         {
           "title": "When trades close",
@@ -517,6 +522,8 @@
     "demoDashboard": "Open demo dashboard (local dev)",
     "signInFailed": "Failed to sign in",
     "googleSignInFailed": "Failed to sign in with Google",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "signInToAccount": "Sign in to your HyperGain account.",
     "signInToProfile": "Sign in to open profile and bot settings.",
     "signInToAffiliate": "Sign in to view your affiliate dashboard.",

@@ -26,17 +26,15 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-# Canonical production host (apex). www + app + legacy vercel stay as redirects.
-site_url = "https://hypergain.io"
+# Canonical production host (www). Apex redirects to www on Vercel.
+site_url = "https://www.hypergain.io"
 additional_redirect_urls = [
-  "https://hypergain.io/auth/callback",
-  "https://hypergain.io/reset-password",
   "https://www.hypergain.io/auth/callback",
   "https://www.hypergain.io/reset-password",
+  "https://hypergain.io/auth/callback",
+  "https://hypergain.io/reset-password",
   "https://app.hypergain.io/auth/callback",
   "https://app.hypergain.io/reset-password",
-  "https://monadier.vercel.app/auth/callback",
-  "https://monadier.vercel.app/reset-password",
   "http://localhost:5173/auth/callback",
   "http://localhost:5173/reset-password",
 ]
@@ -44,7 +42,8 @@ jwt_expiry = 3600
 enable_signup = true
 
 [auth.email]
-enable_confirmations = true
+# Register → immediate session (standard SaaS UX). Password reset still uses email links.
+enable_confirmations = false
 
 [auth.mfa]
 max_enrolled_factors = 10
