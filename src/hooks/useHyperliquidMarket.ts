@@ -340,15 +340,17 @@ export function useHyperliquidMarket(
       if (marketKeyRef.current !== requestedMarketKey) return;
 
       if (candles.length >= MIN_HISTORY_BARS) {
-        historyReadyRef.current = true;
         const cache = candleCacheRef.current;
         if (cache.size >= CANDLE_CACHE_MAX) {
           const oldest = cache.keys().next().value;
           if (oldest) cache.delete(oldest);
         }
         cache.set(requestedMarketKey, candles);
+        // Mark ready only inside the updater so a WS flush cannot race against
+        // still-empty React state and poison the cache with a 1-bar stub.
         setState((prev) => {
           if (marketKeyRef.current !== requestedMarketKey) return prev;
+          historyReadyRef.current = true;
           return {
             ...prev,
             candles,
@@ -463,7 +465,10 @@ export function useHyperliquidMarket(
     marketKeyRef.current = marketKey;
     const coinChanged = coinKeyRef.current !== coinKey;
     coinKeyRef.current = coinKey;
-    const cached = candleCacheRef.current.get(marketKey);
+    const cachedRaw = candleCacheRef.current.get(marketKey);
+    const cached =
+      cachedRaw && cachedRaw.length >= MIN_HISTORY_BARS ? cachedRaw : undefined;
+    if (cachedRaw && !cached) candleCacheRef.current.delete(marketKey);
     setState((prev) => ({
       candles: cached ?? [],
       book: coinChanged ? null : prev.book,
@@ -518,8 +523,13 @@ export function useHyperliquidMarket(
     if (!historyReadyRef.current) return;
     if (marketKeyRef.current !== marketKey) return;
     setState((prev) => {
+      // Never seed or overwrite history from WS alone — that paints a blank
+      // chart with a single candle on the right edge.
+      if (prev.candles.length < MIN_HISTORY_BARS) return prev;
       const next = mergeCandle(prev.candles, bar);
-      candleCacheRef.current.set(marketKey, next);
+      if (next.length >= MIN_HISTORY_BARS) {
+        candleCacheRef.current.set(marketKey, next);
+      }
       return {
         ...prev,
         candles: next,

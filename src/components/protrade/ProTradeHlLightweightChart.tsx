@@ -794,7 +794,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         scrollLive(chart);
       }
     });
-  }, [candles, coin, interval, theme]);
+  }, [candles, coin, interval, theme, layoutKey]);
 
   // Live mark → forming bar wick only (avoid full setData on every mid tick).
   useEffect(() => {
