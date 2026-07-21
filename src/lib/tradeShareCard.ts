@@ -131,11 +131,11 @@ export async function renderTradeShareCardPng(
   ctx.fillStyle = '#0a0a0a';
   ctx.fillRect(0, 0, W, H);
 
-  // Soft geometric diamonds (Binance-like atmosphere, HyperGain palette)
+  // Soft silver geometric diamonds — matches HyperGain light/silver layout
   ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.strokeStyle = '#3dd68c';
-  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.14;
+  ctx.strokeStyle = '#c0c0c8';
+  ctx.lineWidth = 1.5;
   for (let i = 0; i < 8; i++) {
     const cx = (i % 4) * 220 - 40;
     const cy = Math.floor(i / 4) * 520 + 180;
@@ -149,11 +149,11 @@ export async function renderTradeShareCardPng(
   }
   ctx.restore();
 
-  // Top accent bar
+  // Top accent bar — silver
   const grad = ctx.createLinearGradient(0, 0, W, 0);
-  grad.addColorStop(0, '#1a6b45');
-  grad.addColorStop(0.5, '#3dd68c');
-  grad.addColorStop(1, '#1a6b45');
+  grad.addColorStop(0, '#9a9aa3');
+  grad.addColorStop(0.5, '#e8e8ec');
+  grad.addColorStop(1, '#9a9aa3');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, 6);
 
