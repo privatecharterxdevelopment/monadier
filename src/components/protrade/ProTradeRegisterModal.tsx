@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import RegisterForm from '../auth/RegisterForm';
-import { dashboardPreview } from '../../assets/landing/dashboardPreview';
+import registerVisual from '../../assets/landing/hypergain-trading-candles.jpeg';
 
 type Props = {
   open: boolean;
@@ -72,7 +72,11 @@ const ProTradeRegisterModal: React.FC<Props> = ({
         </div>
 
         <aside className="hl-auth-modal-visual" aria-hidden>
-          <img src={dashboardPreview} alt="" className="hl-auth-modal-visual-img" />
+          <img
+            src={registerVisual}
+            alt=""
+            className="hl-auth-modal-visual-img"
+          />
           <div className="hl-auth-modal-visual-overlay">
             <p className="hl-auth-visual-kicker">{t('auth.register.visualKicker')}</p>
             <h3 className="hl-auth-visual-title">{t('auth.register.visualTitle')}</h3>
