@@ -11,6 +11,7 @@ import { HL_MAX_CONCURRENT_POSITIONS, HL_SCAN_ROTATION_COINS, HL_SCAN_UNIVERSE_S
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 import {
   filterStaleHlBalanceBlockers,
+  isStaleInsufficientMarginBlocker,
   shouldHideLastOpenError,
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
@@ -155,10 +156,22 @@ export function useTerminalBotAnalysis({
     [botRunning, serverBlockers, lastOpenErrorText, slotsFull]
   );
 
-  const marginBlocked = useMemo(
+  const marginBlockedRaw = useMemo(
     () => !slotsFull && isMarginEntryBlocked(serverBlockers, lastOpenErrorText),
     [slotsFull, serverBlockers, lastOpenErrorText]
   );
+
+  // Debounce entering the margin-blocked pause so brief HL $0 snapshots don't
+  // flash "Insufficient margin" and stop the analyzer.
+  const [marginBlocked, setMarginBlocked] = useState(false);
+  useEffect(() => {
+    if (!marginBlockedRaw) {
+      setMarginBlocked(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setMarginBlocked(true), 2_500);
+    return () => window.clearTimeout(timer);
+  }, [marginBlockedRaw]);
 
   /** 0/N or 1/N open → full scan; N/N or no free margin → pause scan (monitor exits only). */
   const analyzerActive =
@@ -445,12 +458,12 @@ export function useTerminalBotAnalysis({
             MIN_HL_BOT_USD
           );
           if (!hideLastOpen) {
-            const marginStale =
-              /free margin too low|margin too small|insufficient margin/i.test(
-                data.lastOpenError.error
-              ) &&
-              vaultUsd >= MIN_HL_BOT_USD &&
-              openCoins.length === 0;
+            const marginStale = isStaleInsufficientMarginBlocker(
+              data.lastOpenError.error,
+              vaultUsd,
+              openPositionCoins.length,
+              MIN_HL_BOT_USD
+            );
             if (!marginStale) {
               const openMsg = data.lastOpenError.coin
                 ? `Last open attempt (${data.lastOpenError.coin}): ${data.lastOpenError.error}`
@@ -470,7 +483,8 @@ export function useTerminalBotAnalysis({
           filterStaleHlBalanceBlockers(
             filterUserBlockers(blockers, { exemptFromFees: feeExempt }),
             vaultUsd,
-            MIN_HL_BOT_USD
+            MIN_HL_BOT_USD,
+            openPositionCoins.length
           )
         );
         setPumpSweepLines(
@@ -509,7 +523,7 @@ export function useTerminalBotAnalysis({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [vaultWallet, botRunning, vaultUsd, feeExempt]);
+  }, [vaultWallet, botRunning, vaultUsd, feeExempt, openPositionCoins.length]);
 
   const readiness = useMemo(() => {
     if (!botRunning) {

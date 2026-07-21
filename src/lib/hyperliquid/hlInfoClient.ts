@@ -147,6 +147,9 @@ export async function hlInfoPost<T>(body: Record<string, unknown>): Promise<T> {
         await new Promise((r) => setTimeout(r, retryDelayMs(attempt, err)));
       }
     }
+    // Prefer last good snapshot over flashing 500 / empty UI when HL blips.
+    const stale = readCache<T>(key, ttl, true);
+    if (stale != null) return stale;
     throw lastErr instanceof Error ? lastErr : new Error('Hyperliquid API failed');
   });
 

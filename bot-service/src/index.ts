@@ -707,9 +707,14 @@ const healthServer = http.createServer(async (req, res) => {
       }
       if (!winRateGate.allowed) blockers.push(winRateGate.reason || 'win rate gate');
       // Margin gate runs whenever a slot is free — independent of scan hits.
-      // Otherwise users with open positions + no free margin still see "scanning…".
+      // Skip when HL account read failed: free margin is 0 then and would false-trip
+      // "insufficient margin" (UI flicker). describeHlPerpBalanceBlocker already reports that.
       let marginBlocksNewOpen = false;
-      if (hlOpenCoins.length < maxPositions && dbSettings.autoTradeEnabled) {
+      if (
+        hlFunding.stateLoaded &&
+        hlOpenCoins.length < maxPositions &&
+        dbSettings.autoTradeEnabled
+      ) {
         const reservedBudget = Math.max(0, Number(dbSettings.autoBettingBudgetUsd) || 0);
         const balance = balanceForTradingRisk(
           hlBalanceUsd,
