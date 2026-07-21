@@ -28,59 +28,67 @@ export function candleToBar(c: HlCandle): HlCandleBar {
 
 import { chartHistoryStartMs, chartIntervalMs } from './chartZoom';
 
+/**
+ * HL candleSnapshot is rate-limited hard. Loading Jan→now on 1m used to require
+ * ~60 sequential pages and blanked charts with 500s. One page (~4.5k bars) is
+ * enough for a solid trading view; older history is optional / scrollable later.
+ */
 const HL_CANDLE_PAGE_BARS = 4500;
-/** Safety — 1m from Jan 1 ≈ ~60 pages; never infinite-loop the info API. */
-const HL_CANDLE_MAX_PAGES = 80;
+/** Default chart paint: a single request. Never stampede /info. */
+const HL_CANDLE_PRIMARY_PAGES = 1;
+/** Optional deeper backfill — keep low so coin switches stay snappy. */
+const HL_CANDLE_MAX_PAGES = 3;
+
+export type FetchHlCandlesOptions = {
+  /** Max snapshot pages (1 page ≈ instant paint). Default 1. */
+  maxPages?: number;
+};
 
 export async function fetchHlCandles(
   coin: string,
   interval: HlInterval,
-  lookbackMs?: number
+  lookbackMs?: number,
+  opts?: FetchHlCandlesOptions
 ): Promise<HlCandleBar[]> {
   const stepMs = chartIntervalMs(interval);
   const endTime = Date.now();
-  // Always cover Jan 1 2026 → now; optional lookback only extends further back.
+  const historyFloor = chartHistoryStartMs();
   const startFromLookback =
-    lookbackMs != null && lookbackMs > 0 ? endTime - lookbackMs : chartHistoryStartMs();
-  const startTime = Math.min(chartHistoryStartMs(), startFromLookback);
-  const estimatedBars = Math.ceil(Math.max(0, endTime - startTime) / stepMs);
+    lookbackMs != null && lookbackMs > 0 ? endTime - lookbackMs : historyFloor;
+  const desiredStart = Math.min(historyFloor, startFromLookback);
 
-  if (estimatedBars <= HL_CANDLE_PAGE_BARS) {
-    const rows = await hlInfo<HlCandle[]>({
-      type: 'candleSnapshot',
-      req: { coin, interval, startTime, endTime },
-    });
-    const byTime = new Map<number, HlCandleBar>();
-    for (const row of rows) {
-      const bar = candleToBar(row);
-      byTime.set(bar.time, bar);
-    }
-    return [...byTime.values()].sort((a, b) => a.time - b.time);
-  }
+  const maxPages = Math.max(1, Math.min(HL_CANDLE_MAX_PAGES, opts?.maxPages ?? HL_CANDLE_PRIMARY_PAGES));
+  // Cap how far back we ask so we never schedule dozens of pages.
+  const maxSpanMs = maxPages * HL_CANDLE_PAGE_BARS * stepMs;
+  const startTime = Math.max(desiredStart, endTime - maxSpanMs);
 
   const byTime = new Map<number, HlCandleBar>();
   let chunkEnd = endTime;
   let pages = 0;
 
-  while (chunkEnd > startTime && pages < HL_CANDLE_MAX_PAGES) {
+  while (chunkEnd > startTime && pages < maxPages) {
     pages += 1;
     const chunkStart = Math.max(startTime, chunkEnd - HL_CANDLE_PAGE_BARS * stepMs);
-    const rows = await hlInfo<HlCandle[]>({
-      type: 'candleSnapshot',
-      req: { coin, interval, startTime: chunkStart, endTime: chunkEnd },
-    });
+    let rows: HlCandle[] = [];
+    try {
+      const raw = await hlInfo<HlCandle[] | null>({
+        type: 'candleSnapshot',
+        req: { coin, interval, startTime: chunkStart, endTime: chunkEnd },
+      });
+      rows = Array.isArray(raw) ? raw : [];
+    } catch (err) {
+      // First page must surface the error; later pages keep what we already have.
+      if (byTime.size === 0) throw err;
+      break;
+    }
     if (!rows.length) break;
     for (const row of rows) {
       const bar = candleToBar(row);
       byTime.set(bar.time, bar);
     }
+    if (pages >= maxPages) break;
     const earliest = Math.min(...rows.map((r) => r.t));
-    if (earliest <= chunkStart + stepMs) {
-      // HL returned the oldest available for this coin — stop.
-      if (earliest <= startTime + stepMs) break;
-      chunkEnd = earliest - 1;
-      continue;
-    }
+    if (!(earliest > 0) || earliest <= chunkStart + stepMs) break;
     chunkEnd = earliest - 1;
     if (chunkEnd <= startTime) break;
   }

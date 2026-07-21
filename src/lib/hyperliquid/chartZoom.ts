@@ -28,8 +28,8 @@ export function chartHistoryStartMs(): number {
 }
 
 /**
- * Lookback so candleSnapshot covers CHART_HISTORY_START_MS → now for every interval.
- * (Interval arg kept so callers stay unchanged.)
+ * Lookback hint for candle fetches. Actual span is capped to 1–3 HL pages in
+ * fetchHlCandles so we never stampede /info (was causing chart 500 / blanks).
  */
 export function chartLookbackMs(_interval?: HlInterval): number {
   return Math.max(DAY, Date.now() - CHART_HISTORY_START_MS);

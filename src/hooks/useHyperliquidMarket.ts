@@ -44,11 +44,11 @@ type State = {
 
 const SNAPSHOT_POLL_MS = 10_000;
 const BOOK_FALLBACK_POLL_MS = 2_000;
-const EMPTY_CANDLE_RETRY_MS = 900;
+const EMPTY_CANDLE_RETRY_MS = 700;
 /** Keep retrying — never “give up” into WS-only (1 bar = blank chart with a single spike). */
-const MAX_EMPTY_CANDLE_RETRIES = 24;
+const MAX_EMPTY_CANDLE_RETRIES = 40;
 /** Below this, REST history is not trusted as “ready” (WS alone must not paint the chart). */
-const MIN_HISTORY_BARS = 24;
+const MIN_HISTORY_BARS = 12;
 const BOOK_THROTTLE_MS = 16;
 const TRADES_THROTTLE_MS = 48;
 const CANDLE_THROTTLE_MS = 50;
@@ -73,6 +73,14 @@ function bookLevelsKey(book: HlL2Book): string {
   return `${book.coin ?? ''}|${book.time}|${asks}|${bids}`;
 }
 
+function friendlyChartError(message: string): string {
+  if (/429/.test(message)) return 'Hyperliquid is rate-limiting — retrying…';
+  if (/50\d|network|failed|invalid JSON/i.test(message)) {
+    return 'Hyperliquid briefly unavailable — retrying…';
+  }
+  return message;
+}
+
 function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
   return [...trades]
     .filter((t) => t.time > 0)
@@ -80,8 +88,8 @@ function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
     .slice(0, MAX_TAPE_TRADES);
 }
 
-/** Soft memory cap — must hold Jan 1 2026 → now even on 1m (~300k bars). */
-const MAX_LIVE_CANDLES = 400_000;
+/** Soft memory cap — primary fetch is ~1 page; WS can grow a bit beyond. */
+const MAX_LIVE_CANDLES = 20_000;
 
 function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
   if (candles.length === 0) return [bar];
@@ -168,14 +176,14 @@ export function useHyperliquidMarket(
   const scheduleEmptyRetry = useCallback(
     (reason: string, run: () => Promise<void>) => {
       if (emptyRetryRef.current >= MAX_EMPTY_CANDLE_RETRIES) {
-        // Stay WS-blocked — a single live bar is the “empty chart / one red spike” bug.
-        chartDebugWarn('market', 'empty-candles-gave-up-still-blocked', {
+        // Soft reset — keep trying instead of locking a blank chart forever.
+        chartDebugWarn('market', 'empty-candles-retry-reset', {
           coin,
           interval,
           reason,
         });
+        emptyRetryRef.current = 0;
         historyReadyRef.current = false;
-        return;
       }
       emptyRetryRef.current += 1;
       const attempt = emptyRetryRef.current;
@@ -183,7 +191,7 @@ export function useHyperliquidMarket(
       emptyRetryTimerRef.current = setTimeout(() => {
         emptyRetryTimerRef.current = null;
         void run();
-      }, Math.min(12_000, EMPTY_CANDLE_RETRY_MS * attempt));
+      }, Math.min(15_000, EMPTY_CANDLE_RETRY_MS * attempt));
     },
     [coin, interval]
   );
@@ -292,7 +300,7 @@ export function useHyperliquidMarket(
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Chart data unavailable';
-      const isRateLimit = message.includes('429');
+      const isTransient = /429|Hyperliquid API 50|network|failed/i.test(message);
       let shouldRetry = false;
       chartDebugWarn('market', 'fetch-candles-fail', {
         coin: requestedCoin,
@@ -302,16 +310,16 @@ export function useHyperliquidMarket(
       });
       setState((prev) => {
         if (marketKeyRef.current !== requestedMarketKey) return prev;
-        shouldRetry = !isRateLimit || prev.candles.length < MIN_HISTORY_BARS;
+        const hasBars = prev.candles.length >= MIN_HISTORY_BARS;
+        shouldRetry = !hasBars;
         return {
           ...prev,
           loading: false,
-          error:
-            isRateLimit && prev.candles.length >= MIN_HISTORY_BARS ? null : message,
+          error: hasBars ? null : friendlyChartError(message),
           fetchAttempts: attempt,
         };
       });
-      if (shouldRetry && marketKeyRef.current === requestedMarketKey) {
+      if ((shouldRetry || isTransient) && marketKeyRef.current === requestedMarketKey) {
         scheduleEmptyRetry('fetch-error', refreshCandles);
       }
     }
@@ -324,10 +332,35 @@ export function useHyperliquidMarket(
     const attempt = emptyRetryRef.current + 1;
     chartDebugLog('market', 'refresh-start', { coin: requestedCoin, interval, kind, attempt });
     try {
-      const [candles, book, snapshot, recentTrades] = await Promise.all([
+      // Candles first (1 page) so the chart paints before book/tape contend for /info.
+      const candles =
         kind === 'spot'
-          ? fetchHlSpotCandles(coin, interval, chartLookbackMs(interval))
-          : fetchHlCandles(coin, interval, chartLookbackMs(interval)),
+          ? await fetchHlSpotCandles(coin, interval, chartLookbackMs(interval))
+          : await fetchHlCandles(coin, interval, chartLookbackMs(interval));
+      if (marketKeyRef.current !== requestedMarketKey) return;
+
+      if (candles.length >= MIN_HISTORY_BARS) {
+        historyReadyRef.current = true;
+        const cache = candleCacheRef.current;
+        if (cache.size >= CANDLE_CACHE_MAX) {
+          const oldest = cache.keys().next().value;
+          if (oldest) cache.delete(oldest);
+        }
+        cache.set(requestedMarketKey, candles);
+        setState((prev) => {
+          if (marketKeyRef.current !== requestedMarketKey) return prev;
+          return {
+            ...prev,
+            candles,
+            loading: false,
+            error: null,
+            fetchAttempts: attempt,
+          };
+        });
+        clearEmptyRetry();
+      }
+
+      const [book, snapshot, recentTrades] = await Promise.all([
         kind === 'spot' ? fetchHlSpotOrderBook(coin) : fetchHlOrderBook(coin),
         kind === 'spot' ? fetchHlSpotMarketSnapshot(coin) : fetchHlMarketSnapshot(coin),
         kind === 'spot' ? fetchHlSpotRecentTrades(coin) : fetchHlRecentTrades(coin),
@@ -356,14 +389,6 @@ export function useHyperliquidMarket(
             fetchAttempts: attempt,
           };
         }
-        clearEmptyRetry();
-        historyReadyRef.current = true;
-        const cache = candleCacheRef.current;
-        if (cache.size >= CANDLE_CACHE_MAX) {
-          const oldest = cache.keys().next().value;
-          if (oldest) cache.delete(oldest);
-        }
-        cache.set(requestedMarketKey, candles);
         chartDebugLog('market', 'refresh-ok', {
           coin: requestedCoin,
           interval,
@@ -392,11 +417,12 @@ export function useHyperliquidMarket(
       let shouldRetry = false;
       setState((prev) => {
         if (marketKeyRef.current !== requestedMarketKey) return prev;
-        shouldRetry = prev.candles.length < MIN_HISTORY_BARS;
+        const hasBars = prev.candles.length >= MIN_HISTORY_BARS;
+        shouldRetry = !hasBars;
         return {
           ...prev,
           loading: false,
-          error: message,
+          error: hasBars ? null : friendlyChartError(message),
           fetchAttempts: attempt,
         };
       });
