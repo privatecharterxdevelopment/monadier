@@ -2373,6 +2373,8 @@ export class HyperliquidTradingService {
     leverage?: number;
     marginMode?: 'cross' | 'isolated';
     reduceOnly?: boolean;
+    /** When true, tag position for Bot UI (hl_bot_chart_markers). */
+    botManaged?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const coin = opts.coin.toUpperCase();
@@ -2449,12 +2451,23 @@ export class HyperliquidTradingService {
       // Manual opens must stay on the trail loop even if auto-trade is off.
       rememberOpenPositionMonitor(opts.userAddress);
 
+      if (opts.botManaged) {
+        await recordHlBotOpenMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.side,
+          entryPx: markPx,
+          reason: 'api_bot_open',
+        });
+      }
+
       logger.info('HL manual order placed', {
         user: opts.userAddress.slice(0, 10),
         coin,
         side: opts.side,
         kind: opts.kind,
         size: opts.size,
+        botManaged: Boolean(opts.botManaged),
       });
       return { success: true };
     } catch (err: unknown) {

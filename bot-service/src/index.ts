@@ -377,6 +377,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
       const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
+      const botManaged = Boolean(body.botManaged ?? body.scope === 'bot');
 
       const result = await hyperliquidTradingService.placeManualPerpOrder({
         userAddress: wallet as `0x${string}`,
@@ -389,6 +390,7 @@ const healthServer = http.createServer(async (req, res) => {
         leverage: Number.isFinite(leverage) ? leverage : undefined,
         marginMode,
         reduceOnly,
+        botManaged,
       });
       if (!result.success) {
         res.writeHead(400, corsHeaders);
@@ -397,7 +399,7 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, coin, side, kind }));
+      res.end(JSON.stringify({ success: true, wallet, coin, side, kind, botManaged }));
     } catch (err: any) {
       logger.error('API: hl-order failed', { error: err.message });
       res.writeHead(500, corsHeaders);

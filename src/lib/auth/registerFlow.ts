@@ -16,6 +16,7 @@ import {
   humanizeSignUpError,
   isDuplicateSignUpUser,
   isEmailConfirmationRequired,
+  authErrorCode,
 } from './authErrors';
 
 export type RegisterFormValues = {
@@ -94,20 +95,23 @@ export async function submitRegister(
     }
 
     let session = data?.session ?? null;
-    let userId = data?.user?.id;
+    const userId = data?.user?.id;
 
-    // Standard UX: register → logged in. Retry sign-in when confirmations delay session.
+    // No session yet — sign in once (confirmations off) or detect real confirm gate.
     if (!session) {
       const signedIn = await signIn(values.email, values.password);
-      if (signedIn.error) {
-        if (isEmailConfirmationRequired(signedIn.error)) {
+      if (signedIn.data?.session) {
+        session = signedIn.data.session;
+      } else if (signedIn.error) {
+        const needsConfirm =
+          isEmailConfirmationRequired(signedIn.error) ||
+          authErrorCode(signedIn.error) === 'email_not_confirmed';
+        if (needsConfirm) {
           sendWelcomeEmail(values.email, values.fullName).catch(console.error);
           return { ok: true, kind: 'confirm_email', userId };
         }
         throw signedIn.error;
       }
-      session = signedIn.data?.session ?? null;
-      userId = signedIn.data?.user?.id ?? userId;
     }
 
     if (session) {
@@ -128,7 +132,11 @@ export async function submitRegister(
     if (session) {
       return { ok: true, kind: 'session', userId: userId ?? '' };
     }
-    return { ok: true, kind: 'confirm_email', userId };
+
+    return {
+      ok: false,
+      error: messages.createFailed,
+    };
   } catch (err: unknown) {
     return {
       ok: false,

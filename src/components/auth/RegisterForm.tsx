@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Gift, Loader2 } from 'lucide-react';
+import { Gift, Loader2, MailCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getStoredReferralCode } from '../../lib/referralCapture';
+import { resendSignupConfirmation } from '../../lib/supabase';
 import { submitRegister, startGoogleAuth } from '../../lib/auth/registerFlow';
 import GoogleMark from '../ui/GoogleMark';
 import AuthPasswordField from './AuthPasswordField';
@@ -39,6 +40,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendNotice, setResendNotice] = useState('');
   const [localToast, setLocalToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,13 +122,55 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     }
   };
 
+  const handleResendConfirmation = async () => {
+    setResendNotice('');
+    setResendLoading(true);
+    try {
+      const { error } = await resendSignupConfirmation(email);
+      if (error) throw error;
+      setResendNotice(t('auth.register.confirmResent'));
+    } catch (err: unknown) {
+      setResendNotice(
+        err instanceof Error ? err.message : t('auth.register.confirmResendFailed')
+      );
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   if (awaitingEmailConfirm) {
     return (
       <div className={`auth-shared-form hl-auth-confirm ${className}`.trim()}>
+        <div className="hl-auth-confirm-icon" aria-hidden>
+          <MailCheck size={28} />
+        </div>
         <p className="hl-auth-confirm-title">{t('auth.register.checkEmail')}</p>
         <p className="hl-auth-confirm-text">
           {t('auth.register.checkEmailDesc', { email })}
         </p>
+        <ol className="hl-auth-confirm-steps">
+          <li>{t('auth.register.confirmStep1')}</li>
+          <li>{t('auth.register.confirmStep2')}</li>
+          <li>{t('auth.register.confirmStep3')}</li>
+        </ol>
+        <p className="hl-auth-confirm-hint">{t('auth.register.confirmSpamHint')}</p>
+        {resendNotice ? (
+          <p className="hl-auth-confirm-notice" role="status">
+            {resendNotice}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          className="hl-auth-confirm-resend"
+          onClick={() => void handleResendConfirmation()}
+          disabled={resendLoading}
+        >
+          {resendLoading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            t('auth.register.resendConfirmation')
+          )}
+        </button>
         {signInHref ? (
           <Link to={signInHref} className="term-modal-primary hl-signin-submit">
             {t('auth.register.goToSignIn')}

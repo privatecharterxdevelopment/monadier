@@ -48,6 +48,21 @@ export const signUp = async (
   return { data, error };
 };
 
+export const resendSignupConfirmation = async (email: string) => {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed) {
+    return { data: null, error: new Error('Email required') };
+  }
+  const { data, error } = await supabase.auth.resend({
+    type: 'signup',
+    email: trimmed,
+    options: {
+      emailRedirectTo: `${getAuthRedirectBase()}/auth/callback`,
+    },
+  });
+  return { data, error };
+};
+
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
