@@ -89,7 +89,7 @@
       "destination": "https://monadier-production.up.railway.app/:path*"
     },
     {
-      "source": "/((?!api/|bot-service/|assets/).*)",
+      "source": "/((?!api/|bot-service/|assets/|images/|favicon\\.ico|favicon\\.svg|favicon-.*\\.png|apple-touch-icon\\.png|og-image\\.png|email-logo\\.png|robots\\.txt|sitemap\\.xml).*)",
       "destination": "/index.html"
     }
   ],
@@ -109,6 +109,28 @@
         {
           "key": "Cache-Control",
           "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/favicon.ico",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Content-Type",
+          "value": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "source": "/apple-touch-icon.png",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
         }
       ]
     },

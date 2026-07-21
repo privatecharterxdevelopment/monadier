@@ -11,4 +11,4 @@ Disallow: /kyc
 Disallow: /admin
 Disallow: /28858885
 
-Sitemap: https://hypergain.io/sitemap.xml
+Sitemap: https://www.hypergain.io/sitemap.xml

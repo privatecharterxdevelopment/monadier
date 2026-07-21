@@ -86,6 +86,9 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
         name="robots"
         content={seo.noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large'}
       />
+      <link rel="icon" href="/favicon.ico" sizes="any" />
+      <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
       <link rel="canonical" href={canonical} />
 
       <meta property="og:type" content="website" />
@@ -94,6 +97,7 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
       <meta property="og:title" content={seo.title} />
       <meta property="og:description" content={seo.description} />
       <meta property="og:image" content={OG_IMAGE} />
+      <meta property="og:image:secure_url" content={OG_IMAGE} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
       <meta property="og:locale" content="en_US" />
