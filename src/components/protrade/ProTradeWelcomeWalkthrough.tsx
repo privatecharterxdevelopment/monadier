@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ArrowLeft,
+  ArrowRight,
   CheckCircle2,
-  Circle,
+  Coins,
+  ExternalLink,
   Rocket,
   Wallet,
   X,
-  Coins,
-  ExternalLink,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,13 +25,15 @@ type Props = {
   onGoToBot: () => void;
 };
 
+const TOTAL_STEPS = 4;
+
 const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
   const { t } = useTranslation();
   const { user, sessionReady } = useAuth();
   const { open } = useMonadierAppKit();
   const { address, isConnected } = useMonadierWallet();
   const [openModal, setOpenModal] = useState(false);
-  const [fundReady, setFundReady] = useState(false);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (!sessionReady || !user?.id) {
@@ -42,6 +45,7 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
       return;
     }
     setOpenModal(true);
+    setStep(0);
   }, [sessionReady, user?.id]);
 
   const dismiss = useCallback(() => {
@@ -66,6 +70,14 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
     onGoToBot();
   }, [dismiss, onGoToBot]);
 
+  const goNext = useCallback(() => {
+    setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1));
+  }, []);
+
+  const goBack = useCallback(() => {
+    setStep((s) => Math.max(0, s - 1));
+  }, []);
+
   useEffect(() => {
     if (!openModal) return undefined;
     const onKey = (e: KeyboardEvent) => {
@@ -80,13 +92,14 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
   const shortAddr = address
     ? `${address.slice(0, 6)}…${address.slice(-4)}`
     : '';
+  const progress = t('welcomeWalkthrough.progress', {
+    current: step + 1,
+    total: TOTAL_STEPS,
+  });
+  const isLast = step === TOTAL_STEPS - 1;
 
   return createPortal(
-    <div
-      className="hl-welcome-backdrop"
-      role="presentation"
-      onClick={dismiss}
-    >
+    <div className="hl-welcome-backdrop" role="presentation" onClick={dismiss}>
       <div
         className="hl-welcome-modal"
         role="dialog"
@@ -94,34 +107,44 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
         aria-labelledby="hl-welcome-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          className="hl-welcome-close"
-          onClick={dismiss}
-          aria-label={t('welcomeWalkthrough.close')}
-        >
-          <X size={16} />
-        </button>
+        <div className="hl-welcome-topbar">
+          <p className="hl-welcome-progress" aria-live="polite">
+            {progress}
+          </p>
+          <button
+            type="button"
+            className="hl-welcome-close"
+            onClick={dismiss}
+            aria-label={t('welcomeWalkthrough.close')}
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-        <header className="hl-welcome-head">
-          <div className="hl-welcome-head-top">
-            <p className="hl-welcome-kicker">{BRAND_NAME}</p>
-            <LanguageSwitcher variant="welcome" />
-          </div>
-          <h2 id="hl-welcome-title" className="hl-welcome-title">
-            {t('welcomeWalkthrough.title')}
-          </h2>
-          <p className="hl-welcome-lead">{t('welcomeWalkthrough.lead')}</p>
-        </header>
+        <div className="hl-welcome-foil" key={step}>
+          {step === 0 ? (
+            <>
+              <p className="hl-welcome-kicker">{BRAND_NAME}</p>
+              <h2 id="hl-welcome-title" className="hl-welcome-title">
+                {t('welcomeWalkthrough.title')}
+              </h2>
+              <p className="hl-welcome-lead">{t('welcomeWalkthrough.lead')}</p>
+              <div className="hl-welcome-lang-block">
+                <p className="hl-welcome-lang-ask">{t('welcomeWalkthrough.languageAsk')}</p>
+                <LanguageSwitcher variant="welcome" />
+              </div>
+            </>
+          ) : null}
 
-        <ol className="hl-welcome-steps">
-          <li className={`hl-welcome-step${isConnected ? ' hl-welcome-step--done' : ''}`}>
-            <div className="hl-welcome-step-badge" aria-hidden>
-              {isConnected ? <CheckCircle2 size={18} /> : <Wallet size={18} />}
-            </div>
-            <div className="hl-welcome-step-body">
-              <h3>{t('welcomeWalkthrough.step1Title')}</h3>
-              <p>{t('welcomeWalkthrough.step1Body')}</p>
+          {step === 1 ? (
+            <>
+              <div className="hl-welcome-icon" aria-hidden>
+                <Wallet size={22} />
+              </div>
+              <h2 id="hl-welcome-title" className="hl-welcome-title">
+                {t('welcomeWalkthrough.step1Title')}
+              </h2>
+              <p className="hl-welcome-lead">{t('welcomeWalkthrough.step1Body')}</p>
               {isConnected ? (
                 <p className="hl-welcome-connected" role="status">
                   <CheckCircle2 size={14} aria-hidden />
@@ -137,73 +160,78 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
                   {t('welcomeWalkthrough.connectWallet')}
                 </button>
               )}
-            </div>
-          </li>
+            </>
+          ) : null}
 
-          <li className={`hl-welcome-step${fundReady ? ' hl-welcome-step--done' : ''}`}>
-            <div className="hl-welcome-step-badge" aria-hidden>
-              {fundReady ? <CheckCircle2 size={18} /> : <Coins size={18} />}
-            </div>
-            <div className="hl-welcome-step-body">
-              <h3>{t('welcomeWalkthrough.step2Title')}</h3>
-              <p>{t('welcomeWalkthrough.step2Body')}</p>
-              <ul className="hl-welcome-bullets">
-                <li>{t('welcomeWalkthrough.step2BulletTopup')}</li>
-                <li>{t('welcomeWalkthrough.step2BulletConvert')}</li>
-              </ul>
-              <div className="hl-welcome-step-actions">
-                <button
-                  type="button"
-                  className="hl-welcome-btn hl-welcome-btn--secondary"
-                  onClick={handleOpenWallet}
-                >
-                  <ExternalLink size={14} aria-hidden />
-                  {t('welcomeWalkthrough.openWallet')}
-                </button>
-                <button
-                  type="button"
-                  className={`hl-welcome-btn ${fundReady ? 'hl-welcome-btn--done' : 'hl-welcome-btn--ghost'}`}
-                  onClick={() => setFundReady(true)}
-                >
-                  {fundReady ? (
-                    <>
-                      <CheckCircle2 size={14} aria-hidden />
-                      {t('welcomeWalkthrough.fundsReady')}
-                    </>
-                  ) : (
-                    <>
-                      <Circle size={14} aria-hidden />
-                      {t('welcomeWalkthrough.markFundsReady')}
-                    </>
-                  )}
-                </button>
+          {step === 2 ? (
+            <>
+              <div className="hl-welcome-icon" aria-hidden>
+                <Coins size={22} />
               </div>
-            </div>
-          </li>
+              <h2 id="hl-welcome-title" className="hl-welcome-title">
+                {t('welcomeWalkthrough.step2Title')}
+              </h2>
+              <p className="hl-welcome-lead">{t('welcomeWalkthrough.step2Body')}</p>
+              <p className="hl-welcome-hint">{t('welcomeWalkthrough.step2Hint')}</p>
+              <button
+                type="button"
+                className="hl-welcome-btn hl-welcome-btn--secondary"
+                onClick={handleOpenWallet}
+              >
+                <ExternalLink size={14} aria-hidden />
+                {t('welcomeWalkthrough.openWallet')}
+              </button>
+            </>
+          ) : null}
 
-          <li className="hl-welcome-step">
-            <div className="hl-welcome-step-badge" aria-hidden>
-              <Rocket size={18} />
-            </div>
-            <div className="hl-welcome-step-body">
-              <h3>{t('welcomeWalkthrough.step3Title')}</h3>
-              <p>{t('welcomeWalkthrough.step3Body')}</p>
-            </div>
-          </li>
-        </ol>
+          {step === 3 ? (
+            <>
+              <div className="hl-welcome-icon" aria-hidden>
+                <Rocket size={22} />
+              </div>
+              <h2 id="hl-welcome-title" className="hl-welcome-title">
+                {t('welcomeWalkthrough.step3Title')}
+              </h2>
+              <p className="hl-welcome-lead">{t('welcomeWalkthrough.step3Body')}</p>
+            </>
+          ) : null}
+        </div>
 
         <footer className="hl-welcome-foot">
           <button type="button" className="hl-welcome-skip" onClick={dismiss}>
             {t('welcomeWalkthrough.skip')}
           </button>
-          <button
-            type="button"
-            className="hl-welcome-btn hl-welcome-btn--primary hl-welcome-btn--cta"
-            onClick={handleStartTrading}
-          >
-            <Rocket size={14} aria-hidden />
-            {t('welcomeWalkthrough.startTrading')}
-          </button>
+          <div className="hl-welcome-nav">
+            {step > 0 ? (
+              <button
+                type="button"
+                className="hl-welcome-btn hl-welcome-btn--ghost"
+                onClick={goBack}
+              >
+                <ArrowLeft size={14} aria-hidden />
+                {t('welcomeWalkthrough.back')}
+              </button>
+            ) : null}
+            {isLast ? (
+              <button
+                type="button"
+                className="hl-welcome-btn hl-welcome-btn--primary"
+                onClick={handleStartTrading}
+              >
+                <Rocket size={14} aria-hidden />
+                {t('welcomeWalkthrough.startTrading')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="hl-welcome-btn hl-welcome-btn--primary"
+                onClick={goNext}
+              >
+                {t('welcomeWalkthrough.next')}
+                <ArrowRight size={14} aria-hidden />
+              </button>
+            )}
+          </div>
         </footer>
       </div>
     </div>,
