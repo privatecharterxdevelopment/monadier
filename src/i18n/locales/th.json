@@ -1047,5 +1047,25 @@
     "hoursAgo": "{{n}}ชม. ที่แล้ว",
     "daysAgo": "{{n}}ว. ที่แล้ว",
     "live": "สด"
+  },
+  "welcomeWalkthrough": {
+    "close": "ปิด",
+    "title": "ยินดีต้อนรับสู่ HyperGain",
+    "lead": "บอทเทรดและเดิมพันอัตโนมัติที่ล้ำสมัยที่สุดในโลก ทำตาม 3 ขั้นตอนเพื่อเริ่มต้น",
+    "step1Title": "1. เชื่อมต่อวอลเล็ต",
+    "step1Body": "เชื่อมต่อวอลเล็ตที่คุณใช้บน Hyperliquid (MetaMask, WalletConnect และอื่นๆ)",
+    "connectWallet": "เชื่อมต่อวอลเล็ต",
+    "connected": "เชื่อมต่อแล้ว · {{address}}",
+    "step2Title": "2. เติม USDC บน Arbitrum",
+    "step2Body": "เตรียม USDC ในวอลเล็ตบน Arbitrum — ไม่ผ่านแอปนี้ จากนั้นจึงฝากเข้า Hyperliquid ได้",
+    "step2BulletTopup": "เติม USDC ผ่าน MetaMask, ถอนจาก Exchange ไป Arbitrum หรือใช้บริดจ์",
+    "step2BulletConvert": "หรือแปลงโทเคนอื่นเป็น USDC บน Arbitrum ในวอลเล็ต / DEX",
+    "openWallet": "เปิดวอลเล็ต",
+    "markFundsReady": "ฉันมี USDC พร้อมแล้ว",
+    "fundsReady": "USDC พร้อมแล้ว",
+    "step3Title": "3. เริ่มบอท",
+    "step3Body": "เปิด Bot trade ฝาก USDC เข้า Hyperliquid หากจำเป็น อนุมัติเอเจนต์ครั้งเดียว แล้วกด Start bot",
+    "skip": "ข้ามไปก่อน",
+    "startTrading": "เริ่มเทรดเลย"
   }
 }

@@ -429,7 +429,11 @@
       "sub": "Kein API. Kein Smart Contract. Non-custodial — über Hyperliquid.",
       "custody": {
         "through": "Über Hyperliquid",
-        "points": ["No API", "No smart contract", "Non custodial"],
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
         "text": "Guthaben liegt auf Hyperliquid — nicht in unserer Wallet und nicht auf unserer Infrastruktur. Der Bot handelt nur per Agent-Freigabe und kann nicht abheben."
       },
       "arbitrum": {
@@ -1153,5 +1157,25 @@
     "hoursAgo": "vor {{n}}h",
     "daysAgo": "vor {{n}}d",
     "live": "LIVE"
+  },
+  "welcomeWalkthrough": {
+    "close": "Schließen",
+    "title": "Willkommen bei HyperGain",
+    "lead": "Der weltweit fortschrittlichste vollautomatisierte Trading- und Betting-Bot. Starte in drei Schritten.",
+    "step1Title": "1. Wallet verbinden",
+    "step1Body": "Verbinde die Wallet, die du auf Hyperliquid nutzt (MetaMask, WalletConnect und mehr).",
+    "connectWallet": "Wallet verbinden",
+    "connected": "Verbunden · {{address}}",
+    "step2Title": "2. Mit USDC auf Arbitrum aufladen",
+    "step2Body": "Hole USDC in deine Wallet auf Arbitrum — nicht über diese App. Danach kannst du zu Hyperliquid einzahlen.",
+    "step2BulletTopup": "USDC aufladen über MetaMask, Exchange-Auszahlung auf Arbitrum oder eine Bridge.",
+    "step2BulletConvert": "Oder andere Tokens in deiner Wallet / auf einer DEX zu nativem USDC auf Arbitrum tauschen.",
+    "openWallet": "Wallet öffnen",
+    "markFundsReady": "Ich habe USDC bereit",
+    "fundsReady": "USDC bereit",
+    "step3Title": "3. Bot starten",
+    "step3Body": "Öffne Bot trade, zahle bei Bedarf USDC auf Hyperliquid ein, genehmige den Agent einmal und drücke Bot starten.",
+    "skip": "Später",
+    "startTrading": "Jetzt handeln"
   }
 }

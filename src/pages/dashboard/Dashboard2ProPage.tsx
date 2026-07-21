@@ -65,6 +65,7 @@ import { useBotPositionBadge } from '../../hooks/useBotPositionBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import ProTradeSignInModal from '../../components/protrade/ProTradeSignInModal';
 import ProTradeRegisterModal from '../../components/protrade/ProTradeRegisterModal';
+import ProTradeWelcomeWalkthrough from '../../components/protrade/ProTradeWelcomeWalkthrough';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
@@ -970,6 +971,12 @@ const Dashboard2ProPageContent: React.FC = () => {
           onSuccess={() => void handleRefreshAll()}
         />
       ) : null}
+
+      <ProTradeWelcomeWalkthrough
+        onGoToBot={() => {
+          handleSectionChange('bot');
+        }}
+      />
       </>
       </BettingFeeProvider>
     </PlatformFeeProvider>

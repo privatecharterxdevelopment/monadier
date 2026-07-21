@@ -1047,5 +1047,25 @@
     "hoursAgo": "hace {{n}}h",
     "daysAgo": "hace {{n}}d",
     "live": "EN VIVO"
+  },
+  "welcomeWalkthrough": {
+    "close": "Cerrar",
+    "title": "Bienvenido a HyperGain",
+    "lead": "El bot de trading y apuestas totalmente automatizado más avanzado del mundo. Sigue estos tres pasos para empezar.",
+    "step1Title": "1. Conecta tu wallet",
+    "step1Body": "Conecta la wallet que usas en Hyperliquid (MetaMask, WalletConnect y más).",
+    "connectWallet": "Conectar wallet",
+    "connected": "Conectada · {{address}}",
+    "step2Title": "2. Financia con USDC en Arbitrum",
+    "step2Body": "Consigue USDC en tu wallet en Arbitrum — no desde esta app. Luego podrás depositar en Hyperliquid.",
+    "step2BulletTopup": "Recarga USDC vía MetaMask, retiro de exchange a Arbitrum o un bridge.",
+    "step2BulletConvert": "O convierte otros tokens a USDC nativo en Arbitrum en tu wallet / un DEX.",
+    "openWallet": "Abrir wallet",
+    "markFundsReady": "Ya tengo USDC",
+    "fundsReady": "USDC listo",
+    "step3Title": "3. Inicia el bot",
+    "step3Body": "Abre Bot trade, deposita USDC en Hyperliquid si hace falta, aprueba el agente una vez y pulsa Start bot.",
+    "skip": "Omitir por ahora",
+    "startTrading": "Empezar a operar"
   }
 }

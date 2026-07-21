@@ -1047,5 +1047,25 @@
     "hoursAgo": "{{n}}時間前",
     "daysAgo": "{{n}}日前",
     "live": "LIVE"
+  },
+  "welcomeWalkthrough": {
+    "close": "閉じる",
+    "title": "HyperGainへようこそ",
+    "lead": "世界最先端のフル自動トレーディング＆ベッティングボット。3ステップで始めましょう。",
+    "step1Title": "1. ウォレットを接続",
+    "step1Body": "Hyperliquidで使うウォレットを接続します（MetaMask、WalletConnectなど）。",
+    "connectWallet": "ウォレットを接続",
+    "connected": "接続済み · {{address}}",
+    "step2Title": "2. Arbitrum上でUSDCを用意",
+    "step2Body": "このアプリではなく、ウォレット側でArbitrumのUSDCを用意します。その後Hyperliquidへ入金できます。",
+    "step2BulletTopup": "MetaMask、取引所からArbitrumへの出金、またはブリッジでUSDCを入金。",
+    "step2BulletConvert": "またはウォレット／DEXで他トークンをArbitrumのネイティブUSDCに変換。",
+    "openWallet": "ウォレットを開く",
+    "markFundsReady": "USDCの準備ができました",
+    "fundsReady": "USDC準備完了",
+    "step3Title": "3. ボットを開始",
+    "step3Body": "Bot tradeを開き、必要ならHyperliquidへUSDCを入金し、エージェントを一度承認してからStart botを押します。",
+    "skip": "今はスキップ",
+    "startTrading": "今すぐ取引を開始"
   }
 }
