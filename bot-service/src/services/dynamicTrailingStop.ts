@@ -1,6 +1,6 @@
 /**
  * Price-based dynamic trailing stop — 4 phases:
- * 1 idle, 2 armed (breakeven+fees from 1.5% ROE), 3 trailing (ATR/% ratchet from 5% ROE).
+ * 1 idle, 2 armed (breakeven+fees from 3.5% ROE), 3 trailing (ATR/% ratchet from 8% ROE).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -750,15 +750,16 @@ export function trailRecordToLegacyPeak(rec: DynamicTrailRecord): number {
 
 /** Compatibility for bot-status trail readout (Jun-26 engine has a single trail profile). */
 export function resolveEffectiveTrailProfile(leverage = 1) {
+  const trail = config.hyperliquid.dynamicTrail;
   return {
-    breakevenArmRoePct: 1.5,
-    armMinRoePct: 5,
-    armFeesMultiplier: 2,
-    armMinProfitHoldMs: 30_000,
-    trailMinActiveBeforeCloseMs: 60_000,
-    majorTrailPct: 0.02,
-    midTrailPct: 0.025,
-    cautiousTrailPct: 0.03,
+    breakevenArmRoePct: trail.breakevenArmRoePct,
+    armMinRoePct: trail.armMinRoePct,
+    armFeesMultiplier: trail.armFeesMultiplier,
+    armMinProfitHoldMs: trail.armMinProfitHoldMs,
+    trailMinActiveBeforeCloseMs: trail.trailMinActiveBeforeCloseMs,
+    majorTrailPct: trail.majorTrailPct,
+    midTrailPct: trail.midTrailPct,
+    cautiousTrailPct: trail.cautiousTrailPct,
     highLev: leverage >= 40,
     leverage,
   };
