@@ -1049,6 +1049,7 @@
     "live": "实时"
   },
   "welcomeWalkthrough": {
+    "languageLabel": "语言",
     "close": "关闭",
     "title": "欢迎使用 HyperGain",
     "lead": "全球最先进的全自动交易与博彩机器人。按以下三步开始。",

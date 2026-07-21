@@ -14425,6 +14425,19 @@
   margin-bottom: 16px;
 }
 
+.hl-welcome-head-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-right: 28px;
+}
+
+.hl-welcome-head-top .hl-welcome-kicker {
+  margin: 0;
+}
+
 .hl-welcome-kicker {
   margin: 0 0 4px;
   font-size: 11px;

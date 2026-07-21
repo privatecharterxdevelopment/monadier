@@ -1,7 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import { APP_LANGUAGES, DEFAULT_LANGUAGE, isAppLanguage, LANGUAGE_STORAGE_KEY } from './languages';
+import { APP_LANGUAGES, DEFAULT_LANGUAGE, isAppLanguage, LANGUAGE_COOKIE_KEY, LANGUAGE_STORAGE_KEY } from './languages';
 import en from './locales/en.json';
 import de from './locales/de.json';
 import zh from './locales/zh.json';
@@ -37,9 +37,11 @@ void i18n
     },
     interpolation: { escapeValue: false },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['localStorage', 'cookie', 'navigator'],
       lookupLocalStorage: LANGUAGE_STORAGE_KEY,
-      caches: ['localStorage'],
+      lookupCookie: LANGUAGE_COOKIE_KEY,
+      caches: ['localStorage', 'cookie'],
+      cookieMinutes: 60 * 24 * 365,
       convertDetectedLanguage: (lng) => {
         const base = lng.split('-')[0]?.toLowerCase();
         if (base === 'zh') return 'zh';

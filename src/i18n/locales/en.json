@@ -429,7 +429,11 @@
       "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "custody": {
         "through": "Through Hyperliquid",
-        "points": ["No API", "No smart contract", "Non custodial"],
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
         "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
       },
       "arbitrum": {
@@ -660,6 +664,7 @@
     }
   },
   "welcomeWalkthrough": {
+    "languageLabel": "Language",
     "close": "Close",
     "title": "Welcome to HyperGain",
     "lead": "The world’s most advanced fully automated trading and betting bot. Follow these three steps to start.",

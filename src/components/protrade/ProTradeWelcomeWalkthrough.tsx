@@ -18,6 +18,7 @@ import {
   writeWelcomeWalkthroughDone,
 } from '../../lib/welcomeWalkthrough';
 import { BRAND_NAME } from '../../lib/brand';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
 type Props = {
   onGoToBot: () => void;
@@ -103,7 +104,10 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
         </button>
 
         <header className="hl-welcome-head">
-          <p className="hl-welcome-kicker">{BRAND_NAME}</p>
+          <div className="hl-welcome-head-top">
+            <p className="hl-welcome-kicker">{BRAND_NAME}</p>
+            <LanguageSwitcher variant="welcome" />
+          </div>
           <h2 id="hl-welcome-title" className="hl-welcome-title">
             {t('welcomeWalkthrough.title')}
           </h2>

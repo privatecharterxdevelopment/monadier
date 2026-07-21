@@ -1049,6 +1049,7 @@
     "live": "EN VIVO"
   },
   "welcomeWalkthrough": {
+    "languageLabel": "Idioma",
     "close": "Cerrar",
     "title": "Bienvenido a HyperGain",
     "lead": "El bot de trading y apuestas totalmente automatizado más avanzado del mundo. Sigue estos tres pasos para empezar.",

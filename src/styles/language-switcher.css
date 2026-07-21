@@ -102,3 +102,54 @@
   flex-shrink: 0;
   opacity: 0.85;
 }
+
+/* Welcome walkthrough — labeled language dropdown */
+.lang-switch--welcome {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lang-switch-welcome-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.lang-switch-welcome-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: #fff;
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-switch-welcome-trigger:hover {
+  border-color: #107663;
+  color: #107663;
+}
+
+.lang-switch-welcome-chevron {
+  opacity: 0.65;
+}
+
+.lang-switch-menu--welcome {
+  right: 0;
+  left: auto;
+  z-index: 10300;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+}
