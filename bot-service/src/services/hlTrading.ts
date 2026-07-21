@@ -79,7 +79,9 @@ import {
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
+  estimateRoundTripFeesUsd,
   markFromPosition,
+  profitClearsFeeGate,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -2136,6 +2138,35 @@ export class HyperliquidTradingService {
         });
         return { success: false, error: 'Take profit requires positive uPnL' };
       }
+
+      // Scratch exits that don't clear open+close fees become net losers.
+      const profitExitReasons = new Set([
+        'profit_lock',
+        'trailing_stop',
+        'profit_grab_peak',
+        'profit_grab_timeout',
+        'take_profit',
+      ]);
+      if (!userInitiated && profitExitReasons.has(reason) && pnlUsd > 0) {
+        const notional = absSize * (Number(row.entryPx ?? 0) || entryPx || 0);
+        const feesUsd = estimateRoundTripFeesUsd(Math.max(notional, 1));
+        if (!profitClearsFeeGate(pnlUsd, feesUsd)) {
+          const mult = Math.max(1, config.hyperliquid.dynamicTrail.minProfitCloseFeesMult || 4);
+          logger.warn('HL close rejected — fees would wipe the win', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            reason,
+            pnlUsd: pnlUsd.toFixed(4),
+            feesUsd: feesUsd.toFixed(4),
+            needUsd: (feesUsd * mult).toFixed(4),
+          });
+          return {
+            success: false,
+            error: `Profit too small vs fees (need ≥ ${mult}× round-trip)`,
+          };
+        }
+      }
+
       if (
         (reason === 'profit_grab_peak' || reason === 'profit_grab_timeout') &&
         pnlUsd <= 0

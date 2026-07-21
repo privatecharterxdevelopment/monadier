@@ -1,6 +1,6 @@
 /**
  * Price-based dynamic trailing stop — 4 phases:
- * 1 idle, 2 armed (breakeven+fees from 3.5% ROE), 3 trailing (ATR/% ratchet from 8% ROE).
+ * 1 idle, 2 armed (breakeven+fees from 8% ROE), 3 trailing (ATR/% ratchet from 15% ROE). Fee gate blocks scratch closes.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -88,6 +88,43 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   const bps = config.hyperliquid.dynamicTrail.estimatedFeeBpsPerSide;
   return notionalUsd * (bps / 10_000) * 2;
 }
+
+/**
+ * Hard gate: scratch winners that don't clear open+close fees become net losers.
+ * Require uPnL ≥ round-trip fees × minProfitCloseFeesMult before any profit exit.
+ */
+export function profitClearsFeeGate(pnlUsd: number, feesUsd: number): boolean {
+  const mult = Math.max(1, config.hyperliquid.dynamicTrail.minProfitCloseFeesMult || 4);
+  const need = Math.max(0.5, feesUsd * mult);
+  return pnlUsd >= need;
+}
+
+function blockIfFeesNotCleared(
+  result: TrailTickResult,
+  pnlUsd: number,
+  feesUsd: number,
+  coin: string
+): TrailTickResult {
+  if (!result.shouldClose) return result;
+  if (result.exitReason === 'stop_loss') return result;
+  if (profitClearsFeeGate(pnlUsd, feesUsd)) return result;
+  const mult = Math.max(1, config.hyperliquid.dynamicTrail.minProfitCloseFeesMult || 4);
+  logger.info('HL profit close blocked — uPnL does not clear fees', {
+    coin,
+    reason: result.exitReason,
+    pnlUsd: pnlUsd.toFixed(4),
+    feesUsd: feesUsd.toFixed(4),
+    needUsd: (feesUsd * mult).toFixed(4),
+    mult,
+  });
+  return {
+    record: result.record,
+    shouldClose: false,
+    exitReason: '',
+    closeDetail: '',
+  };
+}
+
 
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
   if (!Number.isFinite(entryPx) || Math.abs(szi) < 1e-12) return entryPx;
@@ -366,6 +403,14 @@ function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: numbe
 }
 
 export async function evaluateDynamicTrail(
+  input: TrailTickInput
+): Promise<TrailTickResult> {
+  const result = await evaluateDynamicTrailInner(input);
+  const feesUsd = estimateRoundTripFeesUsd(input.notionalUsd);
+  return blockIfFeesNotCleared(result, input.pnlUsd, feesUsd, input.coin);
+}
+
+async function evaluateDynamicTrailInner(
   input: TrailTickInput
 ): Promise<TrailTickResult> {
   const cfg = config.hyperliquid.dynamicTrail;
