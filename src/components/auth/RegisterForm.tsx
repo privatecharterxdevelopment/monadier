@@ -4,6 +4,7 @@ import { Gift, Loader2, MailCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getStoredReferralCode } from '../../lib/referralCapture';
 import { resendSignupConfirmation } from '../../lib/supabase';
+import { markWelcomeWalkthroughPending, clearWelcomeWalkthroughPending } from '../../lib/welcomeWalkthrough';
 import { submitRegister, startGoogleAuth } from '../../lib/auth/registerFlow';
 import GoogleMark from '../ui/GoogleMark';
 import AuthPasswordField from './AuthPasswordField';
@@ -88,8 +89,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     setError('');
     if (!requireTerms()) return;
     setGoogleLoading(true);
+    markWelcomeWalkthroughPending();
     const result = await startGoogleAuth(messages);
     if (!result.ok) {
+      clearWelcomeWalkthroughPending();
       setError(result.error ?? messages.googleFailed);
       setGoogleLoading(false);
     }
@@ -113,6 +116,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         return;
       }
       if (result.kind === 'session') {
+        markWelcomeWalkthroughPending();
         onSessionCreated();
         return;
       }

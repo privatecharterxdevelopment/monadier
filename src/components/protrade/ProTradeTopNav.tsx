@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Headphones, Gift, Menu, X } from 'lucide-react';
+import {
+  Bot,
+  Briefcase,
+  CandlestickChart,
+  Gift,
+  Headphones,
+  Medal,
+  Menu,
+  Newspaper,
+  Ticket,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
@@ -40,15 +51,16 @@ type NavItem = {
   id: ProTradeSection;
   labelKey: string;
   enabled: boolean;
+  Icon: React.ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
 };
 
 const NAV: NavItem[] = [
-  { id: 'perps', labelKey: 'app.nav.perps', enabled: true },
-  { id: 'bot', labelKey: 'app.nav.bot', enabled: true },
-  { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true },
-  { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true },
-  { id: 'news', labelKey: 'app.nav.news', enabled: true },
-  { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: true },
+  { id: 'perps', labelKey: 'app.nav.perps', enabled: true, Icon: CandlestickChart },
+  { id: 'bot', labelKey: 'app.nav.bot', enabled: true, Icon: Bot },
+  { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true, Icon: Ticket },
+  { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true, Icon: Briefcase },
+  { id: 'news', labelKey: 'app.nav.news', enabled: true, Icon: Newspaper },
+  { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: true, Icon: Medal },
 ];
 
 type Props = {
@@ -245,11 +257,8 @@ const ProTradeTopNav: React.FC<Props> = ({
                 <X size={16} />
               </button>
             </div>
-            <div className="hl-mobile-nav-lang">
-              <LanguageSwitcher variant="app" />
-            </div>
             <nav className="hl-mobile-nav-links">
-              {NAV.map(({ id, labelKey, enabled }) => (
+              {NAV.map(({ id, labelKey, enabled, Icon }) => (
                 <button
                   key={id}
                   type="button"
@@ -257,31 +266,41 @@ const ProTradeTopNav: React.FC<Props> = ({
                   disabled={!enabled}
                   onClick={() => pickSection(id, enabled)}
                 >
-                  {t(labelKey)}
+                  <span className="hl-mobile-nav-link-main">
+                    <Icon size={16} aria-hidden />
+                    {t(labelKey)}
+                  </span>
                   {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
                 </button>
               ))}
               <button
                 type="button"
-                className={`hl-mobile-nav-link hl-mobile-nav-link--support ${section === 'support' ? 'hl-mobile-nav-link--on' : ''}`}
+                className={`hl-mobile-nav-link ${section === 'support' ? 'hl-mobile-nav-link--on' : ''}`}
                 onClick={() => {
                   openSupport();
                   setMobileNavOpen(false);
                 }}
               >
-                <Headphones size={16} aria-hidden />
-                {t('common.support')}
+                <span className="hl-mobile-nav-link-main">
+                  <Headphones size={16} aria-hidden />
+                  {t('common.support')}
+                </span>
               </button>
               <button
                 type="button"
                 className={`hl-mobile-nav-link ${section === 'affiliate' ? 'hl-mobile-nav-link--on' : ''}`}
                 onClick={() => pickSection('affiliate', true)}
               >
-                <Gift size={16} aria-hidden />
-                {t('common.affiliate')}
+                <span className="hl-mobile-nav-link-main">
+                  <Gift size={16} aria-hidden />
+                  {t('common.affiliate')}
+                </span>
               </button>
             </nav>
             <div className="hl-mobile-nav-foot">
+              <div className="hl-mobile-nav-lang">
+                <LanguageSwitcher variant="app" />
+              </div>
               <button
                 type="button"
                 className="hl-mobile-nav-wallet"

@@ -16,6 +16,7 @@ import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import {
   readWelcomeWalkthroughDone,
+  readWelcomeWalkthroughPending,
   writeWelcomeWalkthroughDone,
 } from '../../lib/welcomeWalkthrough';
 import { BRAND_NAME } from '../../lib/brand';
@@ -40,7 +41,8 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
       setOpenModal(false);
       return;
     }
-    if (readWelcomeWalkthroughDone(user.id)) {
+    // Only after a successful new registration (pending flag) — never on normal login.
+    if (!readWelcomeWalkthroughPending() || readWelcomeWalkthroughDone(user.id)) {
       setOpenModal(false);
       return;
     }
@@ -198,20 +200,22 @@ const ProTradeWelcomeWalkthrough: React.FC<Props> = ({ onGoToBot }) => {
         </div>
 
         <footer className="hl-welcome-foot">
-          <button type="button" className="hl-welcome-skip" onClick={dismiss}>
-            {t('welcomeWalkthrough.skip')}
-          </button>
+          {step > 0 ? (
+            <button
+              type="button"
+              className="hl-welcome-btn hl-welcome-btn--ghost"
+              onClick={goBack}
+            >
+              <ArrowLeft size={14} aria-hidden />
+              {t('welcomeWalkthrough.back')}
+            </button>
+          ) : (
+            <span className="hl-welcome-foot-spacer" aria-hidden />
+          )}
           <div className="hl-welcome-nav">
-            {step > 0 ? (
-              <button
-                type="button"
-                className="hl-welcome-btn hl-welcome-btn--ghost"
-                onClick={goBack}
-              >
-                <ArrowLeft size={14} aria-hidden />
-                {t('welcomeWalkthrough.back')}
-              </button>
-            ) : null}
+            <button type="button" className="hl-welcome-skip" onClick={dismiss}>
+              {t('welcomeWalkthrough.skip')}
+            </button>
             {isLast ? (
               <button
                 type="button"
