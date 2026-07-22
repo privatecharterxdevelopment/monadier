@@ -553,7 +553,21 @@ export const config = {
     from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
   },
 
-    /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
+  /** X / Twitter auto-posts (AI drafts + daily win flyer). Secrets on Railway only. */
+  twitter: {
+    apiKey: process.env.X_API_KEY || process.env.TWITTER_API_KEY || '',
+    apiSecret: process.env.X_API_SECRET || process.env.TWITTER_API_SECRET || '',
+    accessToken: process.env.X_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN || '',
+    accessSecret:
+      process.env.X_ACCESS_TOKEN_SECRET || process.env.TWITTER_ACCESS_TOKEN_SECRET || '',
+    openaiModel: process.env.OPENAI_TWITTER_MODEL || process.env.OPENAI_NEWS_MODEL || 'gpt-4o-mini',
+    tickMs: Number(process.env.X_SOCIAL_TICK_MS || 60_000),
+  },
+
+  /** Protects /api/admin/* from the dashboard (Twitter + ops). */
+  botAdminSecret: process.env.BOT_ADMIN_SECRET || '',
+
+  /** Multi-user scale — 1M+ signups, thousands of concurrent bots */
   scaling: {
     /** Parallel HL users processed per cycle */
     userProcessConcurrency: Number(process.env.BOT_USER_CONCURRENCY || 64),

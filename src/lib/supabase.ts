@@ -179,9 +179,20 @@ export const updatePassword = async (
   return { data, error };
 };
 
-export const sendWelcomeEmail = async (email: string, name: string) => {
+export const sendWelcomeEmail = async (
+  email: string,
+  name: string,
+  extras?: { username?: string; country?: string; userId?: string; adminOnly?: boolean }
+) => {
   const { data, error } = await supabase.functions.invoke('send-welcome-email', {
-    body: { email, name }
+    body: {
+      email,
+      name,
+      username: extras?.username,
+      country: extras?.country,
+      userId: extras?.userId,
+      adminOnly: extras?.adminOnly,
+    },
   });
   return { data, error };
 };

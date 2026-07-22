@@ -107,7 +107,11 @@ export async function submitRegister(
           isEmailConfirmationRequired(signedIn.error) ||
           authErrorCode(signedIn.error) === 'email_not_confirmed';
         if (needsConfirm) {
-          sendWelcomeEmail(values.email, values.fullName).catch(console.error);
+          sendWelcomeEmail(values.email, values.fullName, {
+            username: values.username,
+            country: values.country,
+            userId,
+          }).catch(console.error);
           return { ok: true, kind: 'confirm_email', userId };
         }
         throw signedIn.error;
@@ -119,7 +123,11 @@ export async function submitRegister(
       void acceptUserLegalTerms().catch(console.error);
     }
 
-    sendWelcomeEmail(values.email, values.fullName).catch(console.error);
+    sendWelcomeEmail(values.email, values.fullName, {
+      username: values.username,
+      country: values.country,
+      userId,
+    }).catch(console.error);
 
     if (userId && getStoredReferralCode()) {
       try {

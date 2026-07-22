@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, getUserProfile, ensureUserProfile } from '../lib/supabase';
+import { supabase, getUserProfile, ensureUserProfile, sendWelcomeEmail } from '../lib/supabase';
 import { ensureFreeSubscription } from '../lib/ensureSubscription';
 import { isDemoModeEnabled, disableDemoMode } from '../lib/demoMode';
 import { applyStoredReferralForUser } from '../lib/referralCapture';
@@ -180,6 +180,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.log('[referral] applied on sign-in');
             }
           });
+
+          // Google/OAuth: welcome + admin notify only for brand-new profiles.
+          const provider = String(nextUser.app_metadata?.provider ?? '');
+          if (provider && provider !== 'email') {
+            const key = `hg_admin_signup_mail_${nextUser.id}`;
+            try {
+              if (!localStorage.getItem(key)) {
+                void (async () => {
+                  const { data: p } = await supabase
+                    .from('profiles')
+                    .select('created_at, email, full_name, username, country')
+                    .eq('id', nextUser.id)
+                    .maybeSingle();
+                  const createdMs = p?.created_at ? new Date(p.created_at).getTime() : 0;
+                  if (!createdMs || Date.now() - createdMs > 15 * 60 * 1000) return;
+                  localStorage.setItem(key, '1');
+                  await sendWelcomeEmail(
+                    p?.email || nextUser.email || '',
+                    String(p?.full_name || nextUser.user_metadata?.full_name || ''),
+                    {
+                      username: p?.username ? String(p.username) : undefined,
+                      country: p?.country ? String(p.country) : undefined,
+                      userId: nextUser.id,
+                    }
+                  );
+                })().catch(console.error);
+              }
+            } catch {
+              /* ignore private mode */
+            }
+          }
         }
       } else {
         profileLoadSeq.current += 1;

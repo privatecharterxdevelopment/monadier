@@ -51,6 +51,11 @@ import {
   reopenSupportRequest,
   type SupportRequestRow,
 } from '../../lib/adminSupportRequests';
+import {
+  fetchAdminNotifications,
+  markAdminNotificationsRead,
+  type AdminNotification,
+} from '../../lib/adminNotifications';
 
 type Section =
   | 'overview'
@@ -182,6 +187,13 @@ const AdminMonitorPage: React.FC = () => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'user_trade_notifications' },
+        () => {
+          void refresh({ silent: true });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'admin_notifications' },
         () => {
           void refresh({ silent: true });
         }
@@ -367,6 +379,8 @@ function OverviewPanel({
         <SupportRequestsCard refreshAt={refreshAt} />
       </div>
 
+      <NewSignupsCard refreshAt={refreshAt} />
+
       <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Bell size={18} className="text-cyan-400" />
@@ -488,6 +502,130 @@ function BotServiceCard({
           {JSON.stringify(health.lastCycle, null, 0)}
         </pre>
       )}
+    </div>
+  );
+}
+
+function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
+  const [rows, setRows] = useState<AdminNotification[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const all = await fetchAdminNotifications(50);
+      setRows(all.filter((r) => r.kind === 'signup'));
+    } catch (err) {
+      console.error(err);
+      setLoadError(
+        'Could not load signups — apply migration 20270122150000_admin_notifications_signups'
+      );
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshAt]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-signup-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'admin_notifications' },
+        (payload) => {
+          const row = payload.new as AdminNotification;
+          if (row?.kind === 'signup') {
+            setRows((prev) => [row, ...prev.filter((r) => r.id !== row.id)].slice(0, 50));
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const unread = rows.filter((r) => !r.read_at).length;
+
+  const markAllRead = async () => {
+    setBusy(true);
+    try {
+      await markAdminNotificationsRead(rows.filter((r) => !r.read_at).map((r) => r.id));
+      await load();
+    } catch (err) {
+      console.error(err);
+      setLoadError('Could not mark as read');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
+        <Users size={18} className="text-emerald-400" />
+        <h3 className="font-semibold text-primary">New registrations</h3>
+        {unread > 0 && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+            {unread} new
+          </span>
+        )}
+        <span className="text-xs text-secondary ml-auto">realtime · email → administration@</span>
+        {unread > 0 && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void markAllRead()}
+            className="text-xs px-2 py-1 rounded-md border border-border text-secondary hover:text-primary"
+          >
+            Mark read
+          </button>
+        )}
+      </div>
+      {loadError && (
+        <p className="px-4 py-2 text-amber-500 text-xs border-b border-border">{loadError}</p>
+      )}
+      <div className="divide-y divide-border max-h-[320px] overflow-y-auto">
+        {loading && rows.length === 0 ? (
+          <p className="p-6 text-secondary text-sm text-center flex items-center justify-center gap-2">
+            <RefreshCw size={14} className="animate-spin" /> Loading…
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="p-6 text-secondary text-sm text-center">No registrations yet</p>
+        ) : (
+          rows.map((r) => {
+            const payload = (r.payload ?? {}) as Record<string, unknown>;
+            const email = String(payload.email || r.body || '—');
+            const username = String(payload.username || '');
+            const name = String(payload.full_name || '');
+            return (
+              <div
+                key={r.id}
+                className={`px-4 py-3 flex flex-wrap gap-x-4 gap-y-1 text-sm ${
+                  r.read_at ? 'opacity-70' : 'bg-emerald-500/[0.04]'
+                }`}
+              >
+                <span className="text-secondary whitespace-nowrap w-20">
+                  {formatTimeAgo(r.created_at)}
+                </span>
+                <span className="text-primary font-medium min-w-[160px]">{email}</span>
+                {username && <span className="text-xs text-cyan-400">@{username}</span>}
+                {name && <span className="text-xs text-secondary">{name}</span>}
+                {!r.read_at && (
+                  <span className="text-[10px] uppercase text-emerald-400 ml-auto">unread</span>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

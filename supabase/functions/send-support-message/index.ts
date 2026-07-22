@@ -5,7 +5,9 @@ import { createSupabaseAdmin, getUserFromToken } from '../_shared/supabase.ts';
 import { BRAND_NAME, EMAIL_FROM_SUPPORT } from '../_shared/brand.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const SUPPORT_INBOX = Deno.env.get('SUPPORT_INBOX') || 'ipsunlorem@gmail.com';
+/** Ops inbox for support tickets — override with SUPPORT_INBOX secret if needed. */
+const SUPPORT_INBOX =
+  Deno.env.get('SUPPORT_INBOX') || 'administration@hypergain.io';
 const FROM_ADDRESS = EMAIL_FROM_SUPPORT;
 
 const MAX_SUBJECT = 120;

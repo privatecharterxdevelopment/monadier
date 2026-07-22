@@ -68,6 +68,7 @@ const AdminTwitterSocial: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [credsOk, setCredsOk] = useState<boolean | null>(null);
   const [hoursDraft, setHoursDraft] = useState('10, 18');
+  const [flyerHourDraft, setFlyerHourDraft] = useState('16');
   const [templateDraft, setTemplateDraft] = useState('');
   const [adminSecretDraft, setAdminSecretDraft] = useState('');
   const [bodyDrafts, setBodyDrafts] = useState<Record<string, string>>({});
@@ -88,6 +89,7 @@ const AdminTwitterSocial: React.FC = () => {
       setSettings(s);
       setPosts(p);
       if (s?.post_hours_utc?.length) setHoursDraft(hoursToInput(s.post_hours_utc));
+      setFlyerHourDraft(String(s?.win_flyer_hour_utc ?? 16));
       setTemplateDraft(s?.tweet_template?.trim() ? s.tweet_template : DEFAULT_TWEET_TEMPLATE);
       setCredsOk(cred.ok ? Boolean(cred.configured) : null);
       if (!cred.ok && cred.error) {
@@ -99,7 +101,7 @@ const AdminTwitterSocial: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError(
-        'Could not load Twitter settings — apply migration 20270113200000 / 20270113210000'
+        'Could not load Twitter settings — apply migration 20270113200000 / 20270113210000 / 20270122140000'
       );
     } finally {
       setLoading(false);
@@ -129,7 +131,10 @@ const AdminTwitterSocial: React.FC = () => {
     }
   };
 
-  const onToggle = async (key: 'enabled' | 'require_approval', value: boolean) => {
+  const onToggle = async (
+    key: 'enabled' | 'require_approval' | 'win_flyer_enabled',
+    value: boolean
+  ) => {
     await saveSettings({ [key]: value });
   };
 
@@ -161,11 +166,11 @@ const AdminTwitterSocial: React.FC = () => {
     void load();
   };
 
-  const onGenerate = async () => {
+  const onGenerate = async (kind: 'stats' | 'win_flyer' = 'stats') => {
     setBusy(true);
     setError(null);
     try {
-      const result = await twitterGenerateDraft();
+      const result = await twitterGenerateDraft(kind);
       if (!result.ok) {
         setError(result.error ?? 'Generate failed');
         return;
@@ -248,8 +253,8 @@ const AdminTwitterSocial: React.FC = () => {
         <div>
           <h2 className="text-lg font-semibold text-primary">X / Twitter</h2>
           <p className="text-secondary text-sm mt-1 max-w-2xl">
-            AI drafts daily posts from live bot stats. Optional approval before publish. Cron runs
-            on bot-service (~1 min).
+            AI stats drafts on a schedule, plus an optional daily random win flyer (PNG + caption).
+            Cron runs on bot-service (~1 min). Requires Railway X API keys + BOT_ADMIN_SECRET.
           </p>
         </div>
         <button
@@ -336,6 +341,69 @@ const AdminTwitterSocial: React.FC = () => {
       </div>
 
       <div className="bg-card-dark rounded-xl border border-border p-4 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-primary">Daily win flyer</h3>
+            <p className="text-secondary text-xs mt-1 max-w-xl">
+              Once per UTC day at the hour below: pick a random profitable close, render the share
+              PNG, and post with a short caption. Needs Auto-post enabled.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(settings?.win_flyer_enabled)}
+            disabled={busy || !settings}
+            onClick={() => void onToggle('win_flyer_enabled', !settings?.win_flyer_enabled)}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+              settings?.win_flyer_enabled ? 'bg-emerald-500' : 'bg-black/20'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
+                settings?.win_flyer_enabled ? 'translate-x-5' : ''
+              }`}
+            />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-3 items-end">
+          <label className="flex flex-col gap-1 text-xs text-secondary">
+            UTC hour (0–23)
+            <input
+              value={flyerHourDraft}
+              onChange={(e) => setFlyerHourDraft(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-transparent text-primary text-sm w-24"
+              placeholder="16"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy || !settings}
+            onClick={() => {
+              const hour = Math.floor(Number(flyerHourDraft));
+              if (!Number.isFinite(hour) || hour < 0 || hour > 23) {
+                setError('Win flyer hour must be 0–23 UTC');
+                return;
+              }
+              void saveSettings({ win_flyer_hour_utc: hour });
+            }}
+            className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
+          >
+            Save flyer hour
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onGenerate('win_flyer')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-primary text-sm"
+          >
+            <Sparkles size={14} />
+            Generate win flyer now
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-card-dark rounded-xl border border-border p-4 space-y-4">
         <h3 className="text-sm font-semibold text-primary">Schedule (UTC)</h3>
         <div className="flex flex-wrap gap-3 items-end">
           <label className="flex flex-col gap-1 text-xs text-secondary">
@@ -390,11 +458,11 @@ const AdminTwitterSocial: React.FC = () => {
           <button
             type="button"
             disabled={busy}
-            onClick={() => void onGenerate()}
+            onClick={() => void onGenerate('stats')}
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-primary text-sm"
           >
             <Sparkles size={14} />
-            Generate draft now
+            Generate stats draft
           </button>
         </div>
         <p className="text-secondary text-xs">

@@ -12,6 +12,9 @@ export type TwitterSettings = {
   brand_handle: string | null;
   site_url: string | null;
   tweet_template: string | null;
+  win_flyer_enabled?: boolean;
+  win_flyer_hour_utc?: number;
+  win_flyer_lookback_hours?: number;
   last_generated_at: string | null;
   last_posted_at: string | null;
   updated_at: string;
@@ -88,6 +91,9 @@ export async function updateTwitterSettings(
       | 'brand_handle'
       | 'site_url'
       | 'tweet_template'
+      | 'win_flyer_enabled'
+      | 'win_flyer_hour_utc'
+      | 'win_flyer_lookback_hours'
     >
   >
 ): Promise<void> {
@@ -167,14 +173,14 @@ async function adminTwitterFetch<T>(
   return { ok: true, data };
 }
 
-export async function twitterGenerateDraft(): Promise<{
+export async function twitterGenerateDraft(kind: 'stats' | 'win_flyer' = 'stats'): Promise<{
   ok: boolean;
   post?: TwitterPost;
   error?: string;
 }> {
   const result = await adminTwitterFetch<{ success: boolean; post?: TwitterPost; error?: string }>(
     '/api/admin/twitter/generate',
-    { method: 'POST', body: '{}' }
+    { method: 'POST', body: JSON.stringify({ kind }) }
   );
   return { ok: result.ok, post: result.data.post, error: result.error };
 }

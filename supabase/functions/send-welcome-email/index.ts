@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
+  ADMIN_NOTIFY_EMAIL,
   BRAND_APP_URL,
   BRAND_NAME,
   EMAIL_FROM,
@@ -7,6 +8,10 @@ import {
 } from "../_shared/brand.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const ADMIN_INBOX =
+  Deno.env.get("ADMIN_NOTIFY_EMAIL") ||
+  Deno.env.get("SUPPORT_INBOX") ||
+  ADMIN_NOTIFY_EMAIL;
 
 const welcomeEmailHtml = (userName: string) => `
 <!DOCTYPE html>
@@ -95,9 +100,74 @@ const welcomeEmailHtml = (userName: string) => `
 </html>
 `;
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function adminSignupHtml(opts: {
+  email: string;
+  name: string;
+  username?: string;
+  country?: string;
+  userId?: string;
+}) {
+  const rows = [
+    ["Email", opts.email],
+    ["Name", opts.name || "—"],
+    ["Username", opts.username || "—"],
+    ["Country", opts.country || "—"],
+    ["User ID", opts.userId || "—"],
+  ]
+    .map(
+      ([label, value]) => `
+      <tr>
+        <td style="padding:8px 12px;font-size:12px;font-weight:600;color:#71717a;width:100px;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#0a0a0a;">${escapeHtml(value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;">
+  <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e4e4e7;">
+    <tr><td style="padding:24px;">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;">${BRAND_NAME} admin</p>
+      <h1 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#0a0a0a;">New registration</h1>
+      <table role="presentation" width="100%" style="border-collapse:collapse;background:#fafafa;border-radius:8px;">${rows}</table>
+      <p style="margin:20px 0 0;font-size:13px;color:#525252;">
+        Open Admin Monitor → Overview to see the signup feed.
+      </p>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+async function sendResend(payload: Record<string, unknown>) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
 serve(async (req) => {
   try {
-    const { email, name } = await req.json();
+    const body = await req.json();
+    const email = String(body?.email ?? "").trim();
+    const name = String(body?.name ?? "").trim();
+    const username = String(body?.username ?? "").trim();
+    const country = String(body?.country ?? "").trim();
+    const userId = String(body?.userId ?? "").trim();
+    const skipUserWelcome = Boolean(body?.adminOnly);
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Email is required" }), {
@@ -106,28 +176,49 @@ serve(async (req) => {
       });
     }
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
+    if (!RESEND_API_KEY) {
+      return new Response(JSON.stringify({ error: "Email service not configured" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    let welcome: { ok: boolean; data: unknown } | null = null;
+    if (!skipUserWelcome) {
+      welcome = await sendResend({
         from: EMAIL_FROM,
         to: email,
         subject: `Welcome to ${BRAND_NAME}`,
         html: welcomeEmailHtml(name || ""),
+      });
+    }
+
+    const admin = await sendResend({
+      from: EMAIL_FROM,
+      to: ADMIN_INBOX,
+      subject: `[${BRAND_NAME}] New registration — ${email}`,
+      html: adminSignupHtml({ email, name, username, country, userId }),
+    });
+
+    if (!admin.ok) {
+      console.error("[send-welcome-email] admin notify failed", admin.data);
+    }
+
+    const ok = skipUserWelcome ? admin.ok : Boolean(welcome?.ok);
+    return new Response(
+      JSON.stringify({
+        welcome: welcome?.data ?? null,
+        admin: admin.data,
+        adminOk: admin.ok,
       }),
-    });
-
-    const data = await res.json();
-
-    return new Response(JSON.stringify(data), {
-      status: res.ok ? 200 : 400,
-      headers: { "Content-Type": "application/json" },
-    });
+      {
+        status: ok ? 200 : 400,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

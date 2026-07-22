@@ -10,16 +10,19 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.2",
     "@nktkas/hyperliquid": "^0.32.2",
     "@supabase/supabase-js": "^2.39.0",
-    "viem": "^2.0.0",
     "dotenv": "^16.3.1",
     "node-cron": "^3.0.3",
+    "qrcode": "^1.5.4",
+    "viem": "^2.0.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/node-cron": "^3.0.11",
+    "@types/qrcode": "^1.5.6",
     "tsx": "^4.6.0",
     "typescript": "^5.3.0"
   }
