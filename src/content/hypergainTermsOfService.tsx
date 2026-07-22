@@ -1,6 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BRAND_APP_URL, BRAND_DOMAIN, BRAND_NAME, SUPPORT_EMAIL } from '../lib/brand';
+import {
+  BRAND_APP_URL,
+  BRAND_DOMAIN,
+  BRAND_NAME,
+  OFFICIAL_TELEGRAM_HANDLE,
+  OFFICIAL_TELEGRAM_URL,
+  OFFICIAL_X_HANDLE,
+  OFFICIAL_X_URL,
+  SUPPORT_EMAIL,
+} from '../lib/brand';
 import type { LegalSection } from '../components/legal/LegalDocumentLayout';
 
 const p = (...nodes: React.ReactNode[]) => <p>{nodes}</p>;
@@ -43,6 +52,29 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
         )}
         {p(
           'If you accept these Terms on behalf of a legal entity, you represent that you have authority to bind that entity, and "you" refers to that entity.'
+        )}
+        {p(
+          `${BRAND_NAME} was founded, created, and developed by Lorenzo Vanza (PrivateCharterX / privatecharterx). The Service is currently operated as a private project under his personal responsibility. Full operational and legal responsibility is presently carried privately by Lorenzo Vanza, who acknowledges that he is currently overwhelmed by the product and related operational demands. Until responsibility is transferred to a separate legal entity, he remains the founder, creator, and developer accountable for the Service. References in these Terms to the "Operator" mean Lorenzo Vanza in that capacity, unless and until a successor entity is designated.`
+        )}
+        {p(
+          <>
+            <strong>Official channels only.</strong> The sole official X / Twitter account is{' '}
+            <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
+              @{OFFICIAL_X_HANDLE}
+            </a>
+            . The sole official Telegram is{' '}
+            <a
+              href={OFFICIAL_TELEGRAM_URL}
+              className="legal-doc-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @{OFFICIAL_TELEGRAM_HANDLE}
+            </a>{' '}
+            ({OFFICIAL_TELEGRAM_URL}). Any other social account, group, bot, or DM claiming to
+            represent {BRAND_NAME} is not official. Do not send funds, seed phrases, private keys, or
+            credentials via unofficial channels.
+          </>
         )}
       </>
     ),
@@ -782,6 +814,28 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
           <a href={`mailto:${SUPPORT_EMAIL}`} className="legal-doc-link">
             {SUPPORT_EMAIL}
           </a>
+        )}
+        {p(
+          <>
+            Official X / Twitter (only):{' '}
+            <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
+              @{OFFICIAL_X_HANDLE}
+            </a>
+          </>
+        )}
+        {p(
+          <>
+            Official Telegram (only):{' '}
+            <a
+              href={OFFICIAL_TELEGRAM_URL}
+              className="legal-doc-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @{OFFICIAL_TELEGRAM_HANDLE}
+            </a>{' '}
+            — {OFFICIAL_TELEGRAM_URL}. No other Telegram account, group, or DM is authorised.
+          </>
         )}
         {p(
           <>

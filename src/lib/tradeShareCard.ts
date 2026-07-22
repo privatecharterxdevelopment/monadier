@@ -59,6 +59,22 @@ function fmtPct(n: number): string {
   return `${body}%`;
 }
 
+function fmtStamp(ms: number): string {
+  try {
+    return new Date(ms).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC',
+      timeZoneName: 'short',
+    });
+  } catch {
+    return '';
+  }
+}
+
 /** ROE on margin if leverage known; else price move % from entry→close. */
 export function tradeShareRoiPct(input: {
   side: 'LONG' | 'SHORT';

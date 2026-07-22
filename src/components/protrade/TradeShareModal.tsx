@@ -12,6 +12,7 @@ import {
   shareTradeSharePng,
   tradeShareInputFromCloseFill,
 } from '../../lib/tradeShareCard';
+import { uploadUserTradeFlyer } from '../../lib/tradeFlyerStorage';
 
 type Props = {
   fill: AggregatedHlCloseFill;
@@ -123,6 +124,18 @@ const TradeShareModal: React.FC<Props> = ({
         setReferralUrl(url);
         setBlob(png);
         setPreviewUrl(objectUrl);
+
+        if (userId) {
+          void uploadUserTradeFlyer(png, {
+            userId,
+            coin: fill.coin,
+            side: fillPositionDirection(fill),
+            closedPnlUsd: toNum(fill.closedPnl),
+            walletAddress: null,
+          }).catch((err) => {
+            console.warn('[tradeFlyer] upload failed', err);
+          });
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : t('dock.shareFailed'));

@@ -49,7 +49,7 @@
     "privacy": "Datenschutz",
     "support": "Support",
     "about": "Über uns",
-    "copyright": "© {{year}} HyperGain · Hyperliquid automatisierter Handel · support@hypergain.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automatisierter Handel · administration@hypergain.io"
   },
   "landing": {
     "hero": {
@@ -505,7 +505,7 @@
       "faqSub": "Kurze Antworten zu Setup, Sicherheit und Gebühren.",
       "faqExtra": {
         "q": "Wie schnell antwortet der Support?",
-        "a": "E-Mail an support@monadier.io — Ziel: Antwort innerhalb von 24 Stunden, Mo–So 09:00–20:00 MEZ."
+        "a": "E-Mail an administration@hypergain.io — Ziel: Antwort innerhalb von 24 Stunden, Mo–So 09:00–20:00 MEZ."
       },
       "ctaContact": "Support kontaktieren",
       "disclaimer": "Teile aus Sicherheitsgründen niemals deine Seed Phrase oder Private Keys — auch nicht mit dem Support."

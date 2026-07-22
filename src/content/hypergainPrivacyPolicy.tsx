@@ -1,5 +1,14 @@
 import React from 'react';
-import { BRAND_APP_URL, BRAND_DOMAIN, BRAND_NAME, SUPPORT_EMAIL } from '../lib/brand';
+import {
+  BRAND_APP_URL,
+  BRAND_DOMAIN,
+  BRAND_NAME,
+  OFFICIAL_TELEGRAM_HANDLE,
+  OFFICIAL_TELEGRAM_URL,
+  OFFICIAL_X_HANDLE,
+  OFFICIAL_X_URL,
+  SUPPORT_EMAIL,
+} from '../lib/brand';
 import type { LegalSection } from '../components/legal/LegalDocumentLayout';
 import type { AppLanguage } from '../i18n/languages';
 
@@ -29,13 +38,80 @@ const brandLine = () => (
   </>
 );
 
-function contactSection(intro: string, title: string): LegalSection {
+const officialChannelsEn = () => (
+  <>
+    <strong>Official channels only.</strong> The sole official X / Twitter account is{' '}
+    <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
+      @{OFFICIAL_X_HANDLE}
+    </a>
+    . The sole official Telegram channel is{' '}
+    <a
+      href={OFFICIAL_TELEGRAM_URL}
+      className="legal-doc-link"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      @{OFFICIAL_TELEGRAM_HANDLE}
+    </a>{' '}
+    ({OFFICIAL_TELEGRAM_URL}). Any other X, Telegram, Discord, WhatsApp, Instagram, Facebook, or
+    similar account, group, bot, or direct message claiming to represent {BRAND_NAME} is{' '}
+    <strong>not</strong> official. Do not send funds, seed phrases, private keys, or account
+    credentials to anyone contacting you on unofficial channels.
+  </>
+);
+
+const officialChannelsDe = () => (
+  <>
+    <strong>Nur offizielle Kanäle.</strong> Der einzige offizielle X-/Twitter-Account ist{' '}
+    <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
+      @{OFFICIAL_X_HANDLE}
+    </a>
+    . Der einzige offizielle Telegram-Kanal ist{' '}
+    <a
+      href={OFFICIAL_TELEGRAM_URL}
+      className="legal-doc-link"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      @{OFFICIAL_TELEGRAM_HANDLE}
+    </a>{' '}
+    ({OFFICIAL_TELEGRAM_URL}). Jeder andere X-, Telegram-, Discord-, WhatsApp-, Instagram-,
+    Facebook- oder ähnliche Account, Gruppe, Bot oder Direktnachricht, die vorgibt, {BRAND_NAME} zu
+    vertreten, ist <strong>nicht</strong> offiziell. Sende keine Gelder, Seed-Phrasen, Private Keys
+    oder Zugangsdaten an Personen auf inoffiziellen Kanälen.
+  </>
+);
+
+const operatorIdentityEn = () => (
+  <>
+    {BRAND_NAME} was founded, created, and developed by <strong>Lorenzo Vanza</strong> (PrivateCharterX
+    / privatecharterx). The Service is currently operated as a private project under his personal
+    responsibility. Full operational and legal responsibility is presently carried privately by
+    Lorenzo Vanza, who acknowledges that he is currently overwhelmed by the product and related
+    operational demands. Until responsibility is transferred to a separate legal entity, he remains
+    the founder, creator, and developer accountable for the Service.
+  </>
+);
+
+const operatorIdentityDe = () => (
+  <>
+    {BRAND_NAME} wurde gegründet, erstellt und entwickelt von <strong>Lorenzo Vanza</strong>{' '}
+    (PrivateCharterX / privatecharterx). Der Service wird derzeit als privates Projekt unter seiner
+    persönlichen Verantwortung betrieben. Die volle operative und rechtliche Verantwortung trägt
+    derzeit privat Lorenzo Vanza; er stellt klar, dass er vom Produkt und der damit verbundenen
+    Betriebsbelastung derzeit überfordert ist. Bis eine Übertragung auf eine separate juristische
+    Person erfolgt, bleibt er Gründer, Creator und Entwickler mit Verantwortung für den Service.
+  </>
+);
+
+function contactSection(intro: string, title: string, channels: React.ReactNode = officialChannelsEn()): LegalSection {
   return {
     title,
     body: (
       <>
         <p>{intro}</p>
         <p>{mail()}</p>
+        <p>{channels}</p>
         <p>{brandLine()}</p>
       </>
     ),
@@ -46,10 +122,14 @@ const EN_SECTIONS: LegalSection[] = [
   {
     title: '1. Who we are',
     body: (
-      <p>
-        {BRAND_NAME} operates the {BRAND_DOMAIN} website and {BRAND_APP_URL} trading application for
-        automated Hyperliquid perpetuals trading. For privacy enquiries contact {mail()}.
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} operates the {BRAND_DOMAIN} website and {BRAND_APP_URL} trading application for
+          automated Hyperliquid perpetuals trading. For privacy enquiries contact {mail()}.
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -149,10 +229,14 @@ const DE_SECTIONS: LegalSection[] = [
   {
     title: '1. Wer wir sind',
     body: (
-      <p>
-        {BRAND_NAME} betreibt die Website {BRAND_DOMAIN} und die Trading-Anwendung {BRAND_APP_URL}{' '}
-        für automatisierten Hyperliquid-Perpetual-Handel. Datenschutzanfragen: {mail()}.
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} betreibt die Website {BRAND_DOMAIN} und die Trading-Anwendung {BRAND_APP_URL}{' '}
+          für automatisierten Hyperliquid-Perpetual-Handel. Datenschutzanfragen: {mail()}.
+        </p>
+        <p>{operatorIdentityDe()}</p>
+        <p>{officialChannelsDe()}</p>
+      </>
     ),
   },
   {
@@ -243,7 +327,8 @@ const DE_SECTIONS: LegalSection[] = [
   },
   contactSection(
     'Bei Datenschutzfragen, Auskunftsanfragen oder Kontofragen zu deinen Hyperliquid-Handelsdaten:',
-    '10. Kontakt'
+    '10. Kontakt',
+    officialChannelsDe()
   ),
 ];
 
@@ -251,10 +336,14 @@ const ZH_SECTIONS: LegalSection[] = [
   {
     title: '1. 我们是谁',
     body: (
-      <p>
-        {BRAND_NAME} 运营 {BRAND_DOMAIN} 网站及 {BRAND_APP_URL} 交易应用，提供 Hyperliquid
-        永续合约自动交易服务。隐私咨询请联系 {mail()}。
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} 运营 {BRAND_DOMAIN} 网站及 {BRAND_APP_URL} 交易应用，提供 Hyperliquid
+          永续合约自动交易服务。隐私咨询请联系 {mail()}。
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -340,11 +429,15 @@ const JA_SECTIONS: LegalSection[] = [
   {
     title: '1. 運営者',
     body: (
-      <p>
-        {BRAND_NAME} は {BRAND_DOMAIN} および {BRAND_APP_URL} で Hyperliquid
-        パーペチュアル自動取引アプリを提供しています。プライバシーに関するお問い合わせは {mail()}{' '}
-        まで。
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} は {BRAND_DOMAIN} および {BRAND_APP_URL} で Hyperliquid
+          パーペチュアル自動取引アプリを提供しています。プライバシーに関するお問い合わせは {mail()}{' '}
+          まで。
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -434,10 +527,14 @@ const TH_SECTIONS: LegalSection[] = [
   {
     title: '1. เราเป็นใคร',
     body: (
-      <p>
-        {BRAND_NAME} ให้บริการเว็บไซต์ {BRAND_DOMAIN} และแอปเทรด {BRAND_APP_URL} สำหรับการเทรด
-        Hyperliquid แบบอัตโนมัติ ติดต่อเรื่องความเป็นส่วนตัว: {mail()}
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} ให้บริการเว็บไซต์ {BRAND_DOMAIN} และแอปเทรด {BRAND_APP_URL} สำหรับการเทรด
+          Hyperliquid แบบอัตโนมัติ ติดต่อเรื่องความเป็นส่วนตัว: {mail()}
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -531,10 +628,14 @@ const ES_SECTIONS: LegalSection[] = [
   {
     title: '1. Quiénes somos',
     body: (
-      <p>
-        {BRAND_NAME} opera el sitio {BRAND_DOMAIN} y la aplicación de trading {BRAND_APP_URL} para
-        trading automatizado de perpetuos en Hyperliquid. Consultas de privacidad: {mail()}.
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} opera el sitio {BRAND_DOMAIN} y la aplicación de trading {BRAND_APP_URL} para
+          trading automatizado de perpetuos en Hyperliquid. Consultas de privacidad: {mail()}.
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -632,10 +733,14 @@ const IT_SECTIONS: LegalSection[] = [
   {
     title: '1. Chi siamo',
     body: (
-      <p>
-        {BRAND_NAME} gestisce il sito {BRAND_DOMAIN} e l&apos;app di trading {BRAND_APP_URL} per il
-        trading automatizzato di perpetui su Hyperliquid. Per la privacy: {mail()}.
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} gestisce il sito {BRAND_DOMAIN} e l&apos;app di trading {BRAND_APP_URL} per il
+          trading automatizzato di perpetui su Hyperliquid. Per la privacy: {mail()}.
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -732,10 +837,14 @@ const RU_SECTIONS: LegalSection[] = [
   {
     title: '1. Кто мы',
     body: (
-      <p>
-        {BRAND_NAME} управляет сайтом {BRAND_DOMAIN} и торговым приложением {BRAND_APP_URL} для
-        автоматической торговли перпетуалами на Hyperliquid. По вопросам конфиденциальности: {mail()}.
-      </p>
+      <>
+        <p>
+          {BRAND_NAME} управляет сайтом {BRAND_DOMAIN} и торговым приложением {BRAND_APP_URL} для
+          автоматической торговли перпетуалами на Hyperliquid. По вопросам конфиденциальности: {mail()}.
+        </p>
+        <p>{operatorIdentityEn()}</p>
+        <p>{officialChannelsEn()}</p>
+      </>
     ),
   },
   {
@@ -833,14 +942,14 @@ const META: Record<
 > = {
   en: {
     title: 'Privacy Policy',
-    updated: 'June 30, 2026',
+    updated: 'July 22, 2026',
     intro: `This Privacy Policy explains how ${BRAND_NAME} collects, uses, and protects personal data when you use our Hyperliquid trading website and application.`,
     backLabel: 'Back to registration',
     sections: EN_SECTIONS,
   },
   de: {
     title: 'Datenschutzerklärung',
-    updated: '30. Juni 2026',
+    updated: '22. Juli 2026',
     intro: `Diese Datenschutzerklärung erläutert, wie ${BRAND_NAME} personenbezogene Daten erhebt, nutzt und schützt, wenn du unsere Hyperliquid-Trading-Website und -App nutzt.`,
     backLabel: 'Zurück zur Registrierung',
     sections: DE_SECTIONS,

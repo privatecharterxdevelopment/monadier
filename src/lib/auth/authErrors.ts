@@ -26,7 +26,7 @@ export function humanizeSignInError(error: unknown, fallback: string): string {
     return 'Too many attempts. Wait a minute and try again.';
   }
   if (lower.includes('user banned') || lower.includes('disabled')) {
-    return 'This account is disabled. Contact support@hypergain.io.';
+    return 'This account is disabled. Contact administration@hypergain.io.';
   }
 
   return raw || fallback;

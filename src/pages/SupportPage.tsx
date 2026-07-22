@@ -41,8 +41,8 @@ const SupportPage: React.FC = () => {
               <div className="mkt-support-contact-copy">
                 <h2 className="mkt-card-title">{t('marketing.support.contactEmailTitle')}</h2>
                 <p className="mkt-card-text">{t('marketing.support.contactEmailText')}</p>
-                <a href="mailto:support@monadier.io" className="mkt-cta-primary">
-                  support@monadier.io
+                <a href="mailto:administration@hypergain.io" className="mkt-cta-primary">
+                  administration@hypergain.io
                 </a>
               </div>
             </div>

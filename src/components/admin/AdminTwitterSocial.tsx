@@ -68,7 +68,6 @@ const AdminTwitterSocial: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [credsOk, setCredsOk] = useState<boolean | null>(null);
   const [hoursDraft, setHoursDraft] = useState('10, 18');
-  const [flyerHourDraft, setFlyerHourDraft] = useState('16');
   const [templateDraft, setTemplateDraft] = useState('');
   const [adminSecretDraft, setAdminSecretDraft] = useState('');
   const [bodyDrafts, setBodyDrafts] = useState<Record<string, string>>({});
@@ -89,7 +88,6 @@ const AdminTwitterSocial: React.FC = () => {
       setSettings(s);
       setPosts(p);
       if (s?.post_hours_utc?.length) setHoursDraft(hoursToInput(s.post_hours_utc));
-      setFlyerHourDraft(String(s?.win_flyer_hour_utc ?? 16));
       setTemplateDraft(s?.tweet_template?.trim() ? s.tweet_template : DEFAULT_TWEET_TEMPLATE);
       setCredsOk(cred.ok ? Boolean(cred.configured) : null);
       if (!cred.ok && cred.error) {
@@ -343,10 +341,11 @@ const AdminTwitterSocial: React.FC = () => {
       <div className="bg-card-dark rounded-xl border border-border p-4 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-primary">Daily win flyer</h3>
+            <h3 className="text-sm font-semibold text-primary">Win flyer posts</h3>
             <p className="text-secondary text-xs mt-1 max-w-xl">
-              Once per UTC day at the hour below: pick a random profitable close, render the share
-              PNG, and post with a short caption. Needs Auto-post enabled.
+              At each schedule hour (e.g. 10 &amp; 18 UTC): pick a flyer from the trade-flyers
+              bucket (top picks first), post with 🔥 caption + site link. If the bucket is empty,
+              fall back to a fresh render from recent wins. Needs Auto-post enabled.
             </p>
           </div>
           <button
@@ -367,30 +366,10 @@ const AdminTwitterSocial: React.FC = () => {
           </button>
         </div>
         <div className="flex flex-wrap gap-3 items-end">
-          <label className="flex flex-col gap-1 text-xs text-secondary">
-            UTC hour (0–23)
-            <input
-              value={flyerHourDraft}
-              onChange={(e) => setFlyerHourDraft(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-border bg-transparent text-primary text-sm w-24"
-              placeholder="16"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy || !settings}
-            onClick={() => {
-              const hour = Math.floor(Number(flyerHourDraft));
-              if (!Number.isFinite(hour) || hour < 0 || hour > 23) {
-                setError('Win flyer hour must be 0–23 UTC');
-                return;
-              }
-              void saveSettings({ win_flyer_hour_utc: hour });
-            }}
-            className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
-          >
-            Save flyer hour
-          </button>
+          <p className="text-xs text-secondary flex-1 min-w-[200px]">
+            Uses the same UTC hours as Schedule below. When flyer posts are on, they replace the
+            AI stats draft at those hours.
+          </p>
           <button
             type="button"
             disabled={busy}
@@ -400,6 +379,20 @@ const AdminTwitterSocial: React.FC = () => {
             <Sparkles size={14} />
             Generate win flyer now
           </button>
+        </div>
+        <div className="rounded-lg border border-border bg-black/[0.03] px-3 py-3 text-xs text-secondary space-y-2">
+          <p className="font-medium text-primary text-sm">Flyer caption template</p>
+          <pre className="whitespace-pre-wrap font-mono text-[11px] text-primary leading-relaxed">{`🔥 HyperGain win
+{trader · }{COIN} {LONG|SHORT} +$12.40
+app.hypergain.io
+@HyperGainAi
+#HyperGain #Hyperliquid #Perps`}</pre>
+          <p>
+            Tags: <span className="text-primary">#HyperGain</span> ·{' '}
+            <span className="text-primary">#Hyperliquid</span> ·{' '}
+            <span className="text-primary">#Perps</span> — kurz halten, kein Spam. Jeder Draft unten
+            zeigt den finalen Kommentar vor Approve/Publish.
+          </p>
         </div>
       </div>
 

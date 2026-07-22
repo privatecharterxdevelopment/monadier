@@ -49,7 +49,7 @@
     "privacy": "Privacy",
     "support": "Support",
     "about": "About",
-    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · support@hypergain.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · administration@hypergain.io"
   },
   "landing": {
     "hero": {
@@ -505,7 +505,7 @@
       "faqSub": "Quick answers about setup, safety, and fees.",
       "faqExtra": {
         "q": "How fast is support?",
-        "a": "Email support@hypergain.io — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
+        "a": "Email administration@hypergain.io — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
       },
       "ctaContact": "Contact support",
       "disclaimer": "For account security, never share your seed phrase or private keys with anyone — including support."

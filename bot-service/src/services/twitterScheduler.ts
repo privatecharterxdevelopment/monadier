@@ -4,6 +4,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { composeBotTweet } from './twitterComposer';
 import { renderWinFlyerPng, type WinFlyerInput } from './tradeShareFlyer';
+import { persistDailyTopFlyer } from './tradeFlyerStorage';
 import { postTweet, twitterCredentialsConfigured, uploadMediaPng } from './twitterClient';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
@@ -43,11 +44,29 @@ export type TwitterPostRow = {
   created_at: string;
 };
 
+type BucketFlyerRow = {
+  id: string;
+  public_url: string;
+  storage_path: string;
+  coin: string | null;
+  side: string | null;
+  closed_pnl_usd: number | null;
+  wallet_address: string | null;
+  is_top_pick: boolean;
+};
+
 type WinFlyerSnapshot = {
   kind: 'win_flyer';
-  flyer: WinFlyerInput;
-  tradeId: string;
-  wallet: string;
+  origin: 'bucket' | 'render';
+  flyerId?: string;
+  publicUrl?: string;
+  storagePath?: string;
+  flyer?: WinFlyerInput;
+  tradeId?: string;
+  wallet?: string;
+  coin?: string;
+  side?: 'LONG' | 'SHORT';
+  pnlUsd?: number;
 };
 
 function utcSlotKey(d = new Date(), hour?: number): string {
@@ -58,11 +77,8 @@ function utcSlotKey(d = new Date(), hour?: number): string {
   return `${y}-${m}-${day}T${String(h).padStart(2, '0')}`;
 }
 
-function utcWinFlyerSlotKey(d = new Date()): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `win-flyer-${y}-${m}-${day}`;
+function utcWinFlyerSlotKey(d = new Date(), hour?: number): string {
+  return `win-flyer-${utcSlotKey(d, hour)}`;
 }
 
 function normalizeHours(hours: number[] | null | undefined, postsPerDay: number): number[] {
@@ -86,32 +102,51 @@ function buildReferralUrl(code: string): string {
   return `${APP_URL}/?ref=${encodeURIComponent(normalized)}`;
 }
 
-function composeWinFlyerCaption(opts: {
-  displayName: string;
+function siteHost(siteUrl?: string | null): string {
+  const raw = (siteUrl || APP_URL).trim() || APP_URL;
+  return raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+/** Fixed hashtags for win-flyer posts — keep short, on-brand. */
+export const WIN_FLYER_HASHTAGS = '#HyperGain #Hyperliquid #Perps';
+
+/**
+ * Flyer caption template (filled at generate time):
+ * 🔥 HyperGain win
+ * {name · }{COIN} {SIDE} +$12.40
+ * app.hypergain.io
+ * @HyperGainAi
+ * #HyperGain #Hyperliquid #Perps
+ */
+export function composeWinFlyerCaption(opts: {
   coin: string;
   side: 'LONG' | 'SHORT';
   pnlUsd: number;
   siteUrl?: string | null;
   brandHandle?: string | null;
+  displayName?: string;
 }): string {
-  const pnl = opts.pnlUsd.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  const abs = Math.abs(opts.pnlUsd);
+  const body = abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const signed = opts.pnlUsd >= 0 ? `+${pnl.replace('$', '')}` : pnl.replace('$', '-');
-  const handle = (opts.brandHandle || '').trim();
-  const site = (opts.siteUrl || APP_URL).replace(/^https?:\/\//, '');
+  const signed = opts.pnlUsd >= 0 ? `+$${body}` : `-$${body}`;
+  const handle = (opts.brandHandle || '@HyperGainAi').trim() || '@HyperGainAi';
+  const site = siteHost(opts.siteUrl);
+  const who = opts.displayName?.trim() ? `${opts.displayName.trim()} · ` : '';
   const lines = [
-    `${BRAND_NAME} daily win 🟢`,
-    `${opts.displayName} closed ${signed} USD on ${opts.coin} ${opts.side}`,
-    handle ? handle : site,
+    `🔥 ${BRAND_NAME} win`,
+    `${who}${opts.coin} ${opts.side} ${signed}`,
+    site,
+    handle.startsWith('@') ? handle : `@${handle}`,
+    WIN_FLYER_HASHTAGS,
   ];
-  let body = lines.join('\n');
-  if (body.length > 280) {
-    body = `${BRAND_NAME}: ${opts.coin} ${opts.side} ${signed} USD\n${site}`.slice(0, 280);
+  let text = lines.join('\n');
+  if (text.length > 280) {
+    text = `🔥 ${opts.coin} ${opts.side} ${signed}\n${site}\n${WIN_FLYER_HASHTAGS}`.slice(0, 280);
   }
-  return body;
+  return text;
 }
 
 export async function loadTwitterSettings(): Promise<TwitterSettings | null> {
@@ -188,8 +223,8 @@ async function pickRandomWinningTrade(lookbackHours: number): Promise<{
     .gt('profit_loss', 0)
     .not('closed_at', 'is', null)
     .gte('closed_at', since)
-    .order('closed_at', { ascending: false })
-    .limit(250);
+    .order('profit_loss', { ascending: false })
+    .limit(40);
 
   if (error) {
     logger.warn('win flyer trade pick failed', { error: error.message });
@@ -197,8 +232,9 @@ async function pickRandomWinningTrade(lookbackHours: number): Promise<{
   }
   const rows = data ?? [];
   if (!rows.length) return null;
-  const pick = rows[Math.floor(Math.random() * rows.length)];
-  return pick as (typeof rows)[number];
+  // Prefer strong winners: random among top 10 by PnL
+  const pool = rows.slice(0, Math.min(10, rows.length));
+  return pool[Math.floor(Math.random() * pool.length)] as (typeof rows)[number];
 }
 
 function flyerFromTrade(
@@ -224,6 +260,42 @@ function flyerFromTrade(
     leverage: trade.leverage != null ? Number(trade.leverage) : null,
     referralUrl: buildReferralUrl(profile.referralCode),
   };
+}
+
+/** Prefer archived top picks / best PnL flyers not yet posted to X. */
+async function pickBucketFlyer(lookbackHours: number): Promise<BucketFlyerRow | null> {
+  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('trade_flyers')
+    .select(
+      'id, public_url, storage_path, coin, side, closed_pnl_usd, wallet_address, is_top_pick'
+    )
+    .is('posted_to_x_at', null)
+    .gte('created_at', since)
+    .order('is_top_pick', { ascending: false })
+    .order('closed_pnl_usd', { ascending: false })
+    .limit(25);
+
+  if (error) {
+    logger.warn('bucket flyer pick failed', { error: error.message });
+    return null;
+  }
+  const rows = (data ?? []) as BucketFlyerRow[];
+  if (!rows.length) return null;
+  // Random among top 5 so slots don't always pick the same best
+  const pool = rows.slice(0, Math.min(5, rows.length));
+  return pool[Math.floor(Math.random() * pool.length)] ?? null;
+}
+
+async function fetchPngFromUrl(url: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const ab = await res.arrayBuffer();
+    return Buffer.from(ab);
+  } catch {
+    return null;
+  }
 }
 
 export async function generateTwitterDraft(opts?: {
@@ -291,7 +363,10 @@ export async function generateTwitterDraft(opts?: {
   return { ok: true, post: post as TwitterPostRow };
 }
 
-/** Daily random winning-trade flyer (PNG attached at publish). */
+/**
+ * Flyer post for a schedule slot: bucket-first, fresh-render fallback.
+ * PNG is attached at publish time.
+ */
 export async function generateWinFlyerDraft(opts?: {
   force?: boolean;
   slotKey?: string | null;
@@ -312,11 +387,79 @@ export async function generateWinFlyerDraft(opts?: {
   }
 
   const lookback = Math.max(6, Math.min(168, settings.win_flyer_lookback_hours || 24));
+  const requireApproval = settings.require_approval;
+  const status = requireApproval ? 'draft' : 'approved';
+  const nowIso = new Date().toISOString();
+
+  // 1) Bucket-first
+  const bucket = await pickBucketFlyer(lookback);
+  if (bucket?.public_url) {
+    const side =
+      String(bucket.side || 'LONG').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG';
+    const coin = String(bucket.coin || 'TRADE').toUpperCase();
+    const pnl = Number(bucket.closed_pnl_usd) || 0;
+    const body = composeWinFlyerCaption({
+      coin,
+      side,
+      pnlUsd: pnl,
+      siteUrl: settings.site_url || APP_URL,
+      brandHandle: settings.brand_handle || '@HyperGainAi',
+    });
+    const snapshot: WinFlyerSnapshot = {
+      kind: 'win_flyer',
+      origin: 'bucket',
+      flyerId: bucket.id,
+      publicUrl: bucket.public_url,
+      storagePath: bucket.storage_path,
+      wallet: bucket.wallet_address ?? undefined,
+      coin,
+      side,
+      pnlUsd: pnl,
+    };
+
+    const { data: post, error } = await supabase
+      .from('twitter_posts')
+      .insert({
+        body,
+        status,
+        source: 'auto',
+        scheduled_for: requireApproval ? null : nowIso,
+        stats_snapshot: snapshot,
+        slot_key: slotKey,
+        approved_at: requireApproval ? null : nowIso,
+        approved_by: requireApproval ? null : 'auto',
+        updated_at: nowIso,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.message?.includes('twitter_posts_slot_key')) {
+        return { ok: true, skipped: true };
+      }
+      return { ok: false, error: error.message };
+    }
+
+    await supabase
+      .from('twitter_settings')
+      .update({ last_generated_at: nowIso, updated_at: nowIso })
+      .eq('id', 1);
+
+    logger.info('twitter win flyer draft from bucket', {
+      id: post.id,
+      flyerId: bucket.id,
+      slotKey,
+      coin,
+    });
+    return { ok: true, post: post as TwitterPostRow };
+  }
+
+  // 2) Fallback — fresh render from trade_history
   const trade = await pickRandomWinningTrade(lookback);
   if (!trade) {
     return {
       ok: false,
-      error: `No profitable closes in the last ${lookback}h`,
+      error: `No flyers in bucket and no profitable closes in the last ${lookback}h`,
     };
   }
 
@@ -327,18 +470,19 @@ export async function generateWinFlyerDraft(opts?: {
     coin: flyer.coin,
     side: flyer.side,
     pnlUsd: flyer.closedPnlUsd,
-    siteUrl: settings.site_url,
-    brandHandle: settings.brand_handle,
+    siteUrl: settings.site_url || APP_URL,
+    brandHandle: settings.brand_handle || '@HyperGainAi',
   });
 
-  const requireApproval = settings.require_approval;
-  const status = requireApproval ? 'draft' : 'approved';
-  const nowIso = new Date().toISOString();
   const snapshot: WinFlyerSnapshot = {
     kind: 'win_flyer',
+    origin: 'render',
     flyer,
     tradeId: String(trade.id),
     wallet: String(trade.wallet_address).toLowerCase(),
+    coin: flyer.coin,
+    side: flyer.side,
+    pnlUsd: flyer.closedPnlUsd,
   };
 
   const { data: post, error } = await supabase
@@ -364,12 +508,29 @@ export async function generateWinFlyerDraft(opts?: {
     return { ok: false, error: error.message };
   }
 
+  try {
+    const png = await renderWinFlyerPng(flyer);
+    await persistDailyTopFlyer({
+      png,
+      coin: flyer.coin,
+      side: flyer.side,
+      closedPnlUsd: flyer.closedPnlUsd,
+      walletAddress: String(trade.wallet_address).toLowerCase(),
+      tradeHistoryId: String(trade.id),
+      twitterPostId: post.id,
+    });
+  } catch (err: unknown) {
+    logger.warn('win flyer storage on generate failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   await supabase
     .from('twitter_settings')
     .update({ last_generated_at: nowIso, updated_at: nowIso })
     .eq('id', 1);
 
-  logger.info('twitter win flyer draft created', {
+  logger.info('twitter win flyer draft from render fallback', {
     id: post.id,
     status,
     slotKey,
@@ -383,7 +544,7 @@ export async function generateWinFlyerDraft(opts?: {
 function asWinFlyerSnapshot(raw: unknown): WinFlyerSnapshot | null {
   if (!raw || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
-  if (obj.kind !== 'win_flyer' || !obj.flyer || typeof obj.flyer !== 'object') return null;
+  if (obj.kind !== 'win_flyer') return null;
   return obj as WinFlyerSnapshot;
 }
 
@@ -415,9 +576,28 @@ export async function publishTwitterPost(
 
   let mediaIds: string[] | undefined;
   const winSnap = asWinFlyerSnapshot(post.stats_snapshot);
-  if (winSnap?.flyer) {
+  if (winSnap) {
     try {
-      const png = await renderWinFlyerPng(winSnap.flyer);
+      let png: Buffer | null = null;
+      if (winSnap.origin === 'bucket' && winSnap.publicUrl) {
+        png = await fetchPngFromUrl(winSnap.publicUrl);
+      }
+      if (!png && winSnap.flyer) {
+        png = await renderWinFlyerPng(winSnap.flyer);
+      }
+      if (!png) {
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from('twitter_posts')
+          .update({
+            status: 'failed',
+            error: 'Could not load or render flyer PNG',
+            updated_at: nowIso,
+          })
+          .eq('id', postId);
+        return { ok: false, error: 'Could not load or render flyer PNG' };
+      }
+
       const up = await uploadMediaPng(png);
       if (!up.ok || !up.mediaId) {
         const nowIso = new Date().toISOString();
@@ -438,7 +618,7 @@ export async function publishTwitterPost(
         .from('twitter_posts')
         .update({
           status: 'failed',
-          error: `flyer render failed: ${msg}`,
+          error: `flyer media failed: ${msg}`,
           updated_at: new Date().toISOString(),
         })
         .eq('id', postId);
@@ -475,6 +655,13 @@ export async function publishTwitterPost(
     })
     .eq('id', postId);
 
+  if (winSnap?.flyerId) {
+    await supabase
+      .from('trade_flyers')
+      .update({ posted_to_x_at: nowIso, is_top_pick: true })
+      .eq('id', winSnap.flyerId);
+  }
+
   await supabase
     .from('twitter_settings')
     .update({ last_posted_at: nowIso, updated_at: nowIso })
@@ -484,11 +671,17 @@ export async function publishTwitterPost(
     id: postId,
     twitterId: result.twitterId,
     media: Boolean(mediaIds?.length),
+    origin: winSnap?.origin,
   });
   return { ok: true, twitterId: result.twitterId };
 }
 
-/** Cron tick: AI slot drafts + daily win flyer + publish due posts. */
+/**
+ * Cron tick:
+ * - When win flyers enabled: at each schedule hour, post a bucket flyer (🔥 caption).
+ * - Else: AI stats text drafts at schedule hours.
+ * - Always drain approved/due posts.
+ */
 export async function runTwitterSocialTick(): Promise<void> {
   const settings = await loadTwitterSettings();
   if (!settings?.enabled) return;
@@ -498,17 +691,15 @@ export async function runTwitterSocialTick(): Promise<void> {
   const currentHour = now.getUTCHours();
 
   if (hours.includes(currentHour)) {
-    const slotKey = utcSlotKey(now, currentHour);
-    const gen = await generateTwitterDraft({ source: 'auto', slotKey });
-    if (gen.ok && gen.post && !settings.require_approval && twitterCredentialsConfigured()) {
-      await publishTwitterPost(gen.post.id);
-    }
-  }
-
-  if (settings.win_flyer_enabled) {
-    const flyerHour = Math.max(0, Math.min(23, Math.floor(Number(settings.win_flyer_hour_utc ?? 16))));
-    if (currentHour === flyerHour) {
-      const gen = await generateWinFlyerDraft({ slotKey: utcWinFlyerSlotKey(now) });
+    if (settings.win_flyer_enabled) {
+      const slotKey = utcWinFlyerSlotKey(now, currentHour);
+      const gen = await generateWinFlyerDraft({ slotKey });
+      if (gen.ok && gen.post && !settings.require_approval && twitterCredentialsConfigured()) {
+        await publishTwitterPost(gen.post.id);
+      }
+    } else {
+      const slotKey = utcSlotKey(now, currentHour);
+      const gen = await generateTwitterDraft({ source: 'auto', slotKey });
       if (gen.ok && gen.post && !settings.require_approval && twitterCredentialsConfigured()) {
         await publishTwitterPost(gen.post.id);
       }

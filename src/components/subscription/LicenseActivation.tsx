@@ -196,7 +196,7 @@ export const LicenseActivation: React.FC<LicenseActivationProps> = ({
                 <p className="text-sm text-secondary text-center">
                   Your license code was sent to your email after purchase.
                   <br />
-                  Contact <span className="text-accent">support@monadier.io</span> if you need help.
+                  Contact <span className="text-accent">administration@hypergain.io</span> if you need help.
                 </p>
               </div>
             </>

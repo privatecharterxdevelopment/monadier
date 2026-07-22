@@ -288,8 +288,8 @@ const DownloadsPage: React.FC = () => {
         <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
         <p className="text-secondary text-sm">
           Need help setting up? Contact our support team at{' '}
-          <a href="mailto:support@monadier.io" className="text-blue-400 hover:underline">
-            support@monadier.io
+          <a href="mailto:administration@hypergain.io" className="text-blue-400 hover:underline">
+            administration@hypergain.io
           </a>
         </p>
       </div>

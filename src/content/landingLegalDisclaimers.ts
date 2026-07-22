@@ -1,6 +1,6 @@
 /** Footer legal copy — HyperGain (real HL trading, non-custodial software). */
 
-import { BRAND_NAME, BRAND_DOMAIN, SUPPORT_EMAIL } from '../lib/brand';
+import { BRAND_NAME, BRAND_DOMAIN, SUPPORT_EMAIL, OFFICIAL_X_HANDLE, OFFICIAL_TELEGRAM_HANDLE, OFFICIAL_TELEGRAM_URL } from '../lib/brand';
 
 export type LegalDisclaimerBlock = {
   id: string;
@@ -10,7 +10,7 @@ export type LegalDisclaimerBlock = {
 
 export const LANDING_OPERATOR_DISCLOSURE = [
   `Trading on ${BRAND_NAME} connects your wallet to your own Hyperliquid account. Orders are placed on Hyperliquid perpetual and outcome markets using your USDC margin — this is live trading with real financial instruments, not a simulated or demo evaluation program.`,
-  `${BRAND_NAME} is a software platform operated by the ${BRAND_NAME} team. The website ${BRAND_DOMAIN} provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. For legal or compliance inquiries, contact ${SUPPORT_EMAIL}.`,
+  `${BRAND_NAME} was founded, created, and developed by Lorenzo Vanza (PrivateCharterX). The website ${BRAND_DOMAIN} provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. Full operational and legal responsibility is currently carried privately by Lorenzo Vanza, who acknowledges that he is presently overwhelmed by the product. Official X/Twitter: @${OFFICIAL_X_HANDLE}. Official Telegram (only): @${OFFICIAL_TELEGRAM_HANDLE} (${OFFICIAL_TELEGRAM_URL}). Any other social account is not official. For legal or compliance inquiries, contact ${SUPPORT_EMAIL}.`,
 ];
 
 export const LANDING_LEGAL_BLOCKS: LegalDisclaimerBlock[] = [
