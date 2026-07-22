@@ -18,6 +18,7 @@ type Props = {
   displayName: string;
   avatarUrl?: string | null;
   userId?: string | null;
+  leverage?: number | null;
   onClose: () => void;
 };
 
@@ -70,6 +71,7 @@ const TradeShareModal: React.FC<Props> = ({
   displayName,
   avatarUrl,
   userId,
+  leverage,
   onClose,
 }) => {
   const { t } = useTranslation();
@@ -113,6 +115,7 @@ const TradeShareModal: React.FC<Props> = ({
           displayName,
           avatarUrl,
           referralCode,
+          leverage: leverage ?? null,
         });
         const png = await renderTradeShareCardPng(shareInput);
         if (cancelled) return;
@@ -133,7 +136,7 @@ const TradeShareModal: React.FC<Props> = ({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [fill, displayName, avatarUrl, userId, t]);
+  }, [fill, displayName, avatarUrl, userId, leverage, t]);
 
   const openExternal = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');

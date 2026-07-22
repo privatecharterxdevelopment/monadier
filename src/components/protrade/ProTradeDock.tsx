@@ -1185,6 +1185,7 @@ const ProTradeDock: React.FC<Props> = ({
           displayName={shareDisplayName}
           avatarUrl={profile?.avatar_url ?? null}
           userId={user?.id ?? null}
+          leverage={configuredLeverage ?? null}
           onClose={() => setShareFill(null)}
         />
       ) : null}

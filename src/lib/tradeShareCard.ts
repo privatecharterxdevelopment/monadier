@@ -17,6 +17,8 @@ export type TradeShareCardInput = {
   closedAtMs: number;
   referralCode: string;
   venueLabel?: string;
+  /** Used for ROE% on the card (margin ≈ notional / leverage). */
+  leverage?: number | null;
 };
 
 const W = 720;
@@ -45,11 +47,44 @@ function fmtPx(n: number): string {
   });
 }
 
-function fmtStamp(ms: number): string {
-  const d = new Date(ms);
-  if (!Number.isFinite(d.getTime())) return '—';
-  const pad = (x: number) => String(x).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function fmtPct(n: number): string {
+  const abs = Math.abs(n);
+  const digits = abs >= 10 ? 1 : 2;
+  const body = abs.toLocaleString('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  if (n > 0) return `+${body}%`;
+  if (n < 0) return `-${body}%`;
+  return `${body}%`;
+}
+
+/** ROE on margin if leverage known; else price move % from entry→close. */
+export function tradeShareRoiPct(input: {
+  side: 'LONG' | 'SHORT';
+  closedPnlUsd: number;
+  closePrice: number;
+  entryPrice: number | null;
+  size: number;
+  leverage?: number | null;
+}): { pct: number; label: 'ROE' | 'MOVE' } | null {
+  const entry = input.entryPrice;
+  const sz = Math.abs(input.size);
+  if (!(sz > 0) || !(input.closePrice > 0)) return null;
+  const lev = input.leverage != null && input.leverage > 0 ? input.leverage : null;
+  if (lev && entry != null && entry > 0) {
+    const notional = sz * entry;
+    const margin = notional / lev;
+    if (margin > 0) return { pct: (input.closedPnlUsd / margin) * 100, label: 'ROE' };
+  }
+  if (entry != null && entry > 0) {
+    const move =
+      input.side === 'LONG'
+        ? ((input.closePrice - entry) / entry) * 100
+        : ((entry - input.closePrice) / entry) * 100;
+    return { pct: move, label: 'MOVE' };
+  }
+  return null;
 }
 
 /** Infer entry from close PnL when HL fill has no entry field. */
@@ -73,6 +108,7 @@ export function tradeShareInputFromCloseFill(
     avatarUrl?: string | null;
     referralCode: string;
     venueLabel?: string;
+    leverage?: number | null;
   }
 ): TradeShareCardInput {
   const side = fillPositionDirection(fill);
@@ -91,6 +127,7 @@ export function tradeShareInputFromCloseFill(
     closedAtMs: fill.time,
     referralCode: opts.referralCode,
     venueLabel: opts.venueLabel ?? 'Hyperliquid Perp',
+    leverage: opts.leverage ?? null,
   };
 }
 
@@ -192,11 +229,11 @@ export async function renderTradeShareCardPng(
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Soft silver diamonds
+  // Soft green diamonds
   ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.strokeStyle = '#d4d4dc';
-  ctx.lineWidth = 1.25;
+  ctx.globalAlpha = 0.08;
+  ctx.strokeStyle = '#3dd68c';
+  ctx.lineWidth = 1.5;
   for (let i = 0; i < 8; i++) {
     const cx = (i % 4) * 220 - 40;
     const cy = Math.floor(i / 4) * 520 + 200;
@@ -210,11 +247,11 @@ export async function renderTradeShareCardPng(
   }
   ctx.restore();
 
-  // Top silver accent
+  // Top accent bar — green
   const bar = ctx.createLinearGradient(0, 0, W, 0);
-  bar.addColorStop(0, '#8e8e98');
-  bar.addColorStop(0.5, '#f2f2f5');
-  bar.addColorStop(1, '#8e8e98');
+  bar.addColorStop(0, '#1a6b45');
+  bar.addColorStop(0.5, '#3dd68c');
+  bar.addColorStop(1, '#1a6b45');
   ctx.fillStyle = bar;
   ctx.fillRect(0, 0, W, 5);
 
@@ -287,32 +324,45 @@ export async function renderTradeShareCardPng(
   ctx.fillStyle = '#ffffff';
   ctx.fillText('USD', 56 + pnlW + 14, 470);
 
+  const roi = tradeShareRoiPct(input);
+  if (roi) {
+    setType(ctx, 700, 36, '-0.03em');
+    ctx.fillStyle = profit ? '#3dd68c' : '#f6465d';
+    ctx.fillText(fmtPct(roi.pct), 56, 520);
+    const pctW = ctx.measureText(fmtPct(roi.pct)).width;
+    setType(ctx, 600, 18, '0.02em');
+    ctx.fillStyle = '#8b8b93';
+    ctx.fillText(roi.label === 'ROE' ? 'ROE' : 'PRICE', 56 + pctW + 12, 520);
+  }
+
   // Stats — no heavy card chrome
   setType(ctx, 600, 15, '0.04em');
   ctx.fillStyle = '#6f6f78';
-  ctx.fillText('ENTRY', 56, 560);
-  ctx.fillText('AVG CLOSE', 360, 560);
+  ctx.fillText('ENTRY', 56, 580);
+  ctx.fillText('AVG CLOSE', 360, 580);
   setType(ctx, 700, 34, '-0.04em');
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(input.entryPrice != null ? fmtPx(input.entryPrice) : '—', 56, 608);
-  ctx.fillText(fmtPx(input.closePrice), 360, 608);
+  ctx.fillText(input.entryPrice != null ? fmtPx(input.entryPrice) : '—', 56, 628);
+  ctx.fillText(fmtPx(input.closePrice), 360, 628);
   setType(ctx, 500, 18, '-0.02em');
   ctx.fillStyle = '#8b8b93';
-  ctx.fillText(`Size ${fmtPx(input.size)} ${input.coin}`, 56, 650);
+  const levLabel =
+    input.leverage != null && input.leverage > 0 ? ` · ${Math.round(input.leverage)}x` : '';
+  ctx.fillText(`Size ${fmtPx(input.size)} ${input.coin}${levLabel}`, 56, 670);
 
   // Divider
   ctx.strokeStyle = 'rgba(255,255,255,0.08)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(56, 690);
-  ctx.lineTo(W - 56, 690);
+  ctx.moveTo(56, 700);
+  ctx.lineTo(W - 56, 700);
   ctx.stroke();
 
   // Brand + QR — high enough to show in the share popup first screen
   const referralUrl = buildReferralShareUrl(input.referralCode);
   const qrImg = await renderQrImage(referralUrl, 220);
 
-  const footY = 730;
+  const footY = 740;
   roundRect(ctx, 48, footY, W - 96, 260, 22);
   ctx.fillStyle = 'rgba(255,255,255,0.04)';
   ctx.fill();
