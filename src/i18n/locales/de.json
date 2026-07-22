@@ -985,6 +985,7 @@
       "condition": "Bedingung",
       "balanceAfter": "Zwischenbalance",
       "balanceAfterHint": "Geschätzter Kontostand direkt nach diesem Close (rekonstruiert vom aktuellen Stand; Ein-/Auszahlungen machen ältere Zeilen ungenau).",
+      "why": "Why",
       "share": "Teilen"
     },
     "usdcUnified": "USDC (unified)",

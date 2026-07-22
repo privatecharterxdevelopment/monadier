@@ -1016,6 +1016,7 @@
       "condition": "Condition",
       "balanceAfter": "Balance after",
       "balanceAfterHint": "Estimated wallet equity right after this close (reconstructs from current balance; deposits/withdrawals make older rows approximate).",
+      "why": "Why",
       "share": "Share"
     },
     "usdcUnified": "USDC (unified)",
