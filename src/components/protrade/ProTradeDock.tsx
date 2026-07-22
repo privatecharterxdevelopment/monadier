@@ -863,7 +863,11 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>{t('dock.cols.result')}</th>
                   <th>{t('dock.cols.closedPnl')}</th>
                   <th>{t('dock.cols.balanceAfter')}</th>
-                  {isBotMode ? <th className="term-hl-open-reason-col">Why</th> : null}
+                  {isBotMode ? (
+                    <th className="term-hl-open-reason-col" scope="col" title={t('dock.cols.why', { defaultValue: 'Why' })}>
+                      {t('dock.cols.why', { defaultValue: 'Why' })}
+                    </th>
+                  ) : null}
                   <th>{t('dock.cols.share')}</th>
                   {walletAddress ? <th>{t('dock.cols.verify')}</th> : null}
                 </tr>

@@ -2682,7 +2682,9 @@
 
 .hl-table {
   width: 100%;
-  border-collapse: collapse;
+  /* separate = sticky thead stays aligned (collapse makes th jump on scroll) */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
@@ -2690,19 +2692,35 @@
 .hl-table th {
   position: sticky;
   top: 0;
+  z-index: 3;
   padding: 6px 10px;
   text-align: left;
   font-weight: 600;
+  font-size: 11px;
+  line-height: 1.25;
+  height: 28px;
+  vertical-align: middle;
   color: var(--hl-text-faint);
   background: var(--hl-bg-panel);
-  border-bottom: 1px solid var(--hl-border);
+  border-bottom: none;
+  /* visible separator that survives sticky compositing */
+  box-shadow: inset 0 -1px 0 var(--hl-border-strong, #c5c5cb);
   white-space: nowrap;
+}
+
+.hl-table th.term-hl-open-reason-col {
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.25;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .hl-table td {
   padding: 6px 10px;
   border-bottom: 1px solid var(--hl-border);
   color: var(--hl-text-muted);
+  vertical-align: middle;
 }
 
 .hl-table tr:hover td {
@@ -8378,8 +8396,13 @@
 .hl-bot-dock .term-hl-open-table th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
+  height: 28px;
+  line-height: 1.25;
+  vertical-align: middle;
   background: var(--hl-bg-panel);
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 var(--hl-border-strong, #c5c5cb);
 }
 
 .hl-dock-market-cell {
@@ -8416,10 +8439,17 @@
   vertical-align: middle;
 }
 
-.hl-bot-dock .term-hl-open-reason-col th {
+.hl-bot-dock .term-hl-open-reason-col th,
+.hl-bot-dock th.term-hl-open-reason-col {
   color: var(--hl-text-faint);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.25;
+  height: 28px;
+  vertical-align: middle;
+  text-align: center;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .hl-bot-dock .term-trade-reason-hint__tip {
