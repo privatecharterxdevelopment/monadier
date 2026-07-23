@@ -87,7 +87,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   children,
 }) => {
   const { address } = useAccount();
-  const { user, profile, isDemoUser } = useAuth();
+  const { user, isDemoUser } = useAuth();
   const communityNotifsEnabled = false; // Community parked — no mention toasts/bell noise
   const { showToast } = useTermAuthToast();
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);

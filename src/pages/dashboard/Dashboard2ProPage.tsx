@@ -83,6 +83,7 @@ const PROFILE_TABS = new Set<ProTradeProfileTab>([
 ]);
 
 function parseProfileTab(raw: string | null): ProTradeProfileTab {
+  if (raw === 'myPosts') return 'identity'; // Community parked
   if (raw && PROFILE_TABS.has(raw as ProTradeProfileTab)) {
     return raw as ProTradeProfileTab;
   }
