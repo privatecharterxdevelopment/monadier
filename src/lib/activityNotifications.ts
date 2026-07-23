@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 import { devError } from './devLog';
 import { fmtClosedPnl } from './hyperliquid/format';
 
-export type ActivityNotificationKind = 'bot' | 'betting';
+export type ActivityNotificationKind = 'bot' | 'betting' | 'community';
 
 export type ActivityNotification = {
   id: string;
@@ -19,14 +19,14 @@ export type ActivityNotification = {
   /** ROI on margin (%), when available */
   profitLossPercent?: number | null;
   closedAt: string;
-  /** Bot history row highlight */
+  /** Bot history / betting close / community post id */
   highlightId?: string | null;
   verifyUrl?: string | null;
   /** Server-persisted notification row */
   dbId?: string | null;
   readAt?: string | null;
-  /** open = AI bet opened; close = settled */
-  eventType?: 'open' | 'close' | null;
+  /** open = AI bet opened; close = settled; mention = community @mention */
+  eventType?: 'open' | 'close' | 'mention' | null;
 };
 
 export function botTradeToNotification(row: ClosedTradeRow): ActivityNotification {
@@ -85,6 +85,10 @@ export function isActivityUnread(
 }
 
 export function toastMessageForNotification(n: ActivityNotification): string {
+  if (n.kind === 'community') {
+    return n.headline || 'You were mentioned in Community';
+  }
+
   const amount = fmtClosedPnl(n.profitLoss);
   const roi =
     n.profitLossPercent != null && Number.isFinite(n.profitLossPercent)

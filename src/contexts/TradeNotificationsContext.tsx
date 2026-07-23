@@ -71,9 +71,11 @@ function notifyFreshToasts(
   fresh: ActivityNotification[],
   showToast: (msg: string, ms?: number) => void
 ) {
-  const wins = fresh.filter((n) => n.profitLoss > 0);
-  if (wins.length === 0) return;
-  const sorted = [...wins].sort(
+  const notable = fresh.filter(
+    (n) => n.kind === 'community' || n.profitLoss > 0 || n.eventType === 'open'
+  );
+  if (notable.length === 0) return;
+  const sorted = [...notable].sort(
     (a, b) => new Date(a.closedAt).getTime() - new Date(b.closedAt).getTime()
   );
   for (const n of sorted) {
@@ -85,7 +87,8 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   children,
 }) => {
   const { address } = useAccount();
-  const { user, isDemoUser } = useAuth();
+  const { user, profile, isDemoUser } = useAuth();
+  const communityNotifsEnabled = profile?.community_mention_email_enabled !== false;
   const { showToast } = useTermAuthToast();
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,6 +158,9 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         if (user && !isDemoUser) {
           // Single source of truth — same rows that drive close emails.
           merged = await fetchUserTradeNotifications(100);
+          if (!communityNotifsEnabled) {
+            merged = merged.filter((n) => n.kind !== 'community');
+          }
         } else {
           const closed = await fetchClosedTrades({
             isDemoUser,
@@ -185,7 +191,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         setIsLoading(false);
       }
     },
-    [isDemoUser, user, wallets, address, showToast, syncBettingForWallets]
+    [isDemoUser, user, wallets, address, showToast, syncBettingForWallets, communityNotifsEnabled]
   );
 
   useEffect(() => {
@@ -217,9 +223,16 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
           const row = payload.new as UserTradeNotificationRow | undefined;
           if (row?.id && isBellEligibleNotification(row)) {
             const fresh = userTradeNotificationToActivity(row);
+            if (fresh.kind === 'community' && !communityNotifsEnabled) {
+              return;
+            }
             if (!knownIdsRef.current.has(fresh.id)) {
               knownIdsRef.current.add(fresh.id);
-              if (fresh.profitLoss > 0 || fresh.eventType === 'open') {
+              if (
+                fresh.kind === 'community' ||
+                fresh.profitLoss > 0 ||
+                fresh.eventType === 'open'
+              ) {
                 showToast(toastMessageForNotification(fresh), 4500);
               }
               setNotifications((prev) =>
@@ -259,7 +272,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [user?.id, isDemoUser, load]);
+  }, [user?.id, isDemoUser, load, communityNotifsEnabled, showToast]);
 
   const markAllRead = useCallback(() => {
     const latest = notifications[0]?.closedAt ?? new Date().toISOString();

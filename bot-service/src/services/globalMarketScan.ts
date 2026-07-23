@@ -1,4 +1,8 @@
 import { config } from '../config';
+import {
+  analysisTimeframesForDirection,
+  shortAnalysisTimeframes,
+} from '../config/directionProfiles';
 import { logger } from '../utils/logger';
 import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
@@ -40,8 +44,22 @@ export type GlobalSignalCandidate = {
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
 
-function profileAnalysisTimeframes(): Timeframe[] {
-  return [...config.hyperliquid.directionProfile.analysisTimeframes] as Timeframe[];
+/**
+ * When both sides print, prefer the active regime's primary direction unless
+ * the other side is clearly stronger (+8 conf).
+ */
+function pickPreferredCandidate(
+  longC: GlobalSignalCandidate | null,
+  shortC: GlobalSignalCandidate | null
+): GlobalSignalCandidate | null {
+  if (longC && shortC) {
+    const primary = config.hyperliquid.directionProfile.primaryDirection;
+    const edge = 8;
+    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) return longC;
+    if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
+    return longC.confidence >= shortC.confidence ? longC : shortC;
+  }
+  return longC ?? shortC;
 }
 
 /**
@@ -141,63 +159,25 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
-/** BTC/ETH only — chart direction from MTF (LONG or SHORT, whichever signal engine picks). */
+/** BTC/ETH only — chart direction from direction-specific MTF stacks. */
 async function scanMajorChartFallback(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
   _preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
-  try {
-    const symbol = hlCoinToBinanceSymbol(coin);
-    const analysis = await analyzeMarketMTFBySymbol(
-      symbol,
-      STANDARD_STRATEGY,
-      profileAnalysisTimeframes()
-    );
-    if (!analysis) return null;
-    if (analysis.isWeak) return null;
-    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
-    const peak = await resolvePeakAwareDirection(coin, analysis.direction);
-    const direction = peak.direction;
-    const peakLiquidityGrab = peak.peakLiquidityGrab;
-    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
-    if (analysis.confidence < 48) return null;
-    const tfs = analysis.metrics?.directionalTfCount ?? 0;
-    if (tfs < 1) return null;
-    if (
-      !passesProfileThresholds(direction, {
-        confidence: analysis.confidence,
-        directionalTfCount: tfs,
-        trendAlignment: analysis.metrics?.trendAlignment ?? 0,
-        h1Trend: analysis.metrics?.h1Trend,
-        peakLiquidityGrab,
-      })
-    ) {
-      return null;
-    }
-
-    return {
-      coin,
-      symbol,
-      direction,
-      confidence: analysis.confidence,
-      reason: peakLiquidityGrab
-        ? `${analysis.reason} · PEAK→SHORT liquidity grab @$${peak.analysis?.pumpApex.toFixed(2)} (${analysis.confidence}% / ${tfs} TFs)`
-        : `${analysis.reason} · major ${direction} fallback (${analysis.confidence}% / ${tfs} TFs)`,
-      dayVolumeUsd: liq.dayVolumeUsd,
-      openInterestUsd: liq.openInterestUsd,
-      botMode: 'standard',
-      mtfBreakdown: analysis.mtfBreakdown,
-      trendAlignment: analysis.metrics?.trendAlignment,
-      directionalTfCount: analysis.metrics?.directionalTfCount,
-      h1Trend: analysis.metrics?.h1Trend,
-      signalReasons: analysis.signalReasons,
-      indicators: analysis.indicators,
-      peakLiquidityGrab,
-    };
-  } catch {
-    return null;
-  }
+  const [longC, shortC] = await Promise.all([
+    scanStandardCoinDirection(coin, liq, _preloadedUniverse, false, 'LONG'),
+    scanStandardCoinDirection(coin, liq, _preloadedUniverse, false, 'SHORT'),
+  ]);
+  const pick = pickPreferredCandidate(longC, shortC);
+  if (!pick) return null;
+  if (pick.confidence < 48) return null;
+  return {
+    ...pick,
+    reason: pick.peakLiquidityGrab
+      ? pick.reason
+      : `${pick.reason.replace(/ · major .+$/, '')} · major ${pick.direction} fallback (${pick.confidence}% / ${pick.directionalTfCount ?? 0} TFs)`,
+  };
 }
 
 async function scanStandardCoin(
@@ -206,20 +186,43 @@ async function scanStandardCoin(
   preloadedUniverse?: HlLiquidUniverse,
   relaxed = false
 ): Promise<GlobalSignalCandidate | null> {
+  const [longC, shortC] = await Promise.all([
+    scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'LONG'),
+    scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'SHORT'),
+  ]);
+  return pickPreferredCandidate(longC, shortC);
+}
+
+/**
+ * Analyze one side with the hard TF rule:
+ *   LONG  → 15m / 1h / (4h)
+ *   SHORT → 1m / 5m / 15m / 1h
+ */
+async function scanStandardCoinDirection(
+  coin: string,
+  liq: { dayVolumeUsd: number; openInterestUsd: number },
+  preloadedUniverse: HlLiquidUniverse | undefined,
+  relaxed: boolean,
+  wantedDirection: 'LONG' | 'SHORT'
+): Promise<GlobalSignalCandidate | null> {
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
-    const analysis = await analyzeMarketMTFBySymbol(
-      symbol,
-      STANDARD_STRATEGY,
-      profileAnalysisTimeframes()
-    );
+    const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
+    const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
     if (!analysis) return null;
     if (analysis.isWeak) return null;
-    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (analysis.direction !== wantedDirection) return null;
+
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
+    // Peak may flip LONG→SHORT; only keep that on the LONG analysis path.
+    if (wantedDirection === 'SHORT' && direction !== 'SHORT') return null;
+    if (wantedDirection === 'LONG' && direction === 'SHORT' && !peakLiquidityGrab) {
+      return null;
+    }
     if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
+
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const minConf = cautious
@@ -299,6 +302,7 @@ async function scanStandardCoin(
         return null;
       }
     }
+    const tfLabel = tfs.join('/');
     return {
       coin,
       symbol,
@@ -307,8 +311,8 @@ async function scanStandardCoin(
       reason: peakLiquidityGrab
         ? `${analysis.reason} · PEAK→SHORT liquidity grab @$${peak.analysis?.pumpApex.toFixed(2)}`
         : relaxed
-          ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${analysis.metrics?.directionalTfCount} TFs)`
-          : analysis.reason,
+          ? `${analysis.reason} · relaxed scan (${analysis.confidence}% / ${directionalTfCount} TFs · ${tfLabel})`
+          : `${analysis.reason} · ${wantedDirection} stack ${tfLabel}`,
       dayVolumeUsd: liq.dayVolumeUsd,
       openInterestUsd: liq.openInterestUsd,
       botMode: 'standard',
@@ -355,7 +359,10 @@ async function scanAggressiveCoin(
     const h1Check = await analyzeMarketMTFBySymbol(
       symbol,
       STANDARD_STRATEGY,
-      profileAnalysisTimeframes()
+      // Aggressive is SHORT scalp path — confirm with SHORT stack (incl. 1h).
+      (direction === 'LONG'
+        ? analysisTimeframesForDirection('LONG')
+        : shortAnalysisTimeframes()) as Timeframe[]
     );
     if (h1Check) {
       const directionalTfCount = h1Check.metrics?.directionalTfCount ?? 0;
@@ -572,8 +579,8 @@ export function globalSignalsForBotMode(
   const standard = scan.standard;
   const aggressive = scan.aggressive;
 
-  // Regime profiles are 15m/1h/4h systems. Do not leak 1m/5m aggressive
-  // candidates back into Standard (or profit_grabber) while a regime is active.
+  // Aggressive 1m/5m scalps are SHORT-stack only. Do not leak into Standard
+  // while the active profile disables aggressive scalp signals.
   if (!config.hyperliquid.directionProfile.useAggressiveScalpSignals) {
     return standard;
   }

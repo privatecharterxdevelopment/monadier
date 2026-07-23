@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ProfileSecurityPanel from './ProfileSecurityPanel';
-import ProfileTradeEmailToggle from './ProfileTradeEmailToggle';
+import ProfileNotificationSettings from './ProfileNotificationSettings';
 import ProfileLoginHistoryPanel from './ProfileLoginHistoryPanel';
 import ProfileBettingPanel from './ProfileBettingPanel';
 import { useAuth } from '../../contexts/AuthContext';
@@ -375,7 +375,7 @@ const TerminalProfilePanel: React.FC<Props> = ({
           className="term-profile-card term-profile-card--section term-profile-card--security"
         >
           <h2 className="term-profile-card-title">{t('profile.securityTitle')}</h2>
-          <ProfileTradeEmailToggle />
+          <ProfileNotificationSettings />
           <ProfileSecurityPanel idPrefix="profile-sec" mode="credentials" />
         </section>
         ) : null}

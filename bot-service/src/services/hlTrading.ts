@@ -1,5 +1,6 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import { config } from '../config';
+import { entryTimeframeForDirection } from '../config/directionProfiles';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
@@ -643,7 +644,10 @@ export class HyperliquidTradingService {
       const liquidityTf =
         signal.botMode === 'aggressive'
           ? ('1m' as const)
-          : config.hyperliquid.directionProfile.entryTimeframe;
+          : entryTimeframeForDirection(
+              config.hyperliquid.directionProfile,
+              signal.direction
+            );
       const gate = bypassesLiquidityGate(signal)
         ? {
             ok: true as const,

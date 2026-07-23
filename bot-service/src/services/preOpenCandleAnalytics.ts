@@ -1,8 +1,9 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * Blocks trades that fight the active regime's entry structure (5m SHORT / 15m LONG).
+ * LONG → 15m structure · SHORT → 1m structure (hard direction rule).
  */
 import { config } from '../config';
+import { preOpenTimeframeForDirection } from '../config/directionProfiles';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle, type Timeframe } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -153,7 +154,10 @@ export async function validatePreOpenCandleAnalytics(opts: {
 
   const coin = opts.coin.toUpperCase();
   const symbol = hlCoinToBinanceSymbol(coin);
-  const tf = cfg.timeframe;
+  const tf = (
+    process.env.HL_PRE_OPEN_CANDLE_TF ||
+    preOpenTimeframeForDirection(config.hyperliquid.directionProfile, opts.direction)
+  ) as Timeframe;
   const n = cfg.candleCount;
 
   try {

@@ -27,6 +27,7 @@ type PendingRow = {
   user_id: string;
   trade_history_id: string | null;
   hl_betting_close_id: string | null;
+  community_post_id: string | null;
   headline: string;
   detail: string | null;
   profit_loss: number | string;
@@ -89,6 +90,65 @@ function fmtPct(n: number | null | undefined): string {
 function tradeHistoryDeepLink(): string {
   const base = APP_TRADE_HISTORY_URL.replace(/\/$/, '');
   return `${base}/?section=profile&tab=botTrades`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function communityMentionDeepLink(postId: string | null): string {
+  const base = APP_TRADE_HISTORY_URL.replace(/\/$/, '');
+  if (postId) return `${base}/?section=community&post=${encodeURIComponent(postId)}`;
+  return `${base}/?section=community`;
+}
+
+function communityMentionEmailHtml(params: {
+  headline: string;
+  detail: string | null;
+  closedAt: string;
+  postId: string | null;
+}): string {
+  const { headline, detail, closedAt, postId } = params;
+  const when = new Date(closedAt).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  const openUrl = communityMentionDeepLink(postId);
+  const unsubscribeUrl = notificationEmailUnsubscribeUrl(APP_TRADE_HISTORY_URL);
+  const safeHeadline = escapeHtml(headline);
+  const safeDetail = detail ? escapeHtml(detail) : null;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" style="max-width:480px;">
+${emailBrandHeaderHtml()}
+<tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
+<h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">Mentioned in Community</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#525252;text-align:center;">${safeHeadline}</p>
+${
+  safeDetail
+    ? `<table width="100%" style="background:#fff;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px;"><p style="margin:0;font-size:14px;color:#0a0a0a;line-height:1.5;white-space:pre-wrap;">${safeDetail}</p></td></tr></table>`
+    : ''
+}
+<p style="margin:0 0 24px;font-size:13px;color:#888;text-align:center;">${when}</p>
+<a href="${openUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">Open in ${BRAND_NAME}</a>
+</td></tr>
+<tr><td style="padding-top:24px;text-align:center;">
+<p style="margin:0;font-size:12px;color:#888;">
+<a href="${unsubscribeUrl}" style="color:#525252;text-decoration:underline;">Unsubscribe</a>
+ in your ${BRAND_NAME} dashboard (Profile → Security).
+</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
 }
 
 function tradeCloseEmailHtml(params: {
@@ -345,10 +405,11 @@ async function resolveUserEmail(userId: string): Promise<{
   email: string | null;
   recipients: string[];
   emailEnabled: boolean;
+  communityMentionEmailEnabled: boolean;
 }> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email, trade_close_email_enabled')
+    .select('email, trade_close_email_enabled, community_mention_email_enabled')
     .eq('id', userId)
     .maybeSingle();
 
@@ -370,6 +431,7 @@ async function resolveUserEmail(userId: string): Promise<{
     email,
     recipients: recipientsForUser(userId, email),
     emailEnabled: profile?.trade_close_email_enabled !== false,
+    communityMentionEmailEnabled: profile?.community_mention_email_enabled !== false,
   };
 }
 
@@ -407,6 +469,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       user_id,
       trade_history_id,
       hl_betting_close_id,
+      community_post_id,
       headline,
       detail,
       profit_loss,
@@ -437,6 +500,36 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
 
   for (const row of rows) {
     try {
+      // Community @mentions — in-app + email (separate from trade PnL emails).
+      if (row.kind === 'community' || row.event_type === 'mention') {
+        const { recipients, communityMentionEmailEnabled } = await resolveUserEmail(row.user_id);
+        if (!communityMentionEmailEnabled || recipients.length === 0) {
+          await markNotificationEmailHandled(row.id);
+          continue;
+        }
+        const ok = await sendResendEmail(
+          recipients,
+          `${BRAND_NAME} · ${row.headline}`,
+          communityMentionEmailHtml({
+            headline: row.headline,
+            detail: row.detail,
+            closedAt: row.closed_at,
+            postId: row.community_post_id,
+          })
+        );
+        if (ok) {
+          sent += 1;
+          await markNotificationEmailHandled(row.id);
+          logger.info('Community mention email sent', {
+            userId: row.user_id.slice(0, 8),
+            notificationId: row.id,
+            postId: row.community_post_id,
+            to: recipients,
+          });
+        }
+        continue;
+      }
+
       // AI bet opens — already emailed in queueBettingOpenNotification; mark handled if pending.
       if (row.event_type === 'open' || /^OPEN\b/i.test(row.headline)) {
         await markNotificationEmailHandled(row.id);

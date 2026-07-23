@@ -8,11 +8,13 @@ export type UserTradeNotificationRow = {
   user_id: string;
   trade_history_id: string | null;
   hl_betting_close_id?: string | null;
+  community_post_id?: string | null;
+  community_comment_id?: string | null;
   wallet_address: string;
-  kind: 'bot' | 'manual' | 'betting';
+  kind: 'bot' | 'manual' | 'betting' | 'community';
   headline: string;
   detail: string | null;
-  event_type: 'open' | 'close' | null;
+  event_type: 'open' | 'close' | 'mention' | null;
   profit_loss: number;
   profit_loss_percent: number | null;
   closed_at: string;
@@ -48,6 +50,22 @@ function realizedPnlFromRow(row: UserTradeNotificationRow): {
 }
 
 export function userTradeNotificationToActivity(row: UserTradeNotificationRow): ActivityNotification {
+  if (row.kind === 'community') {
+    return {
+      id: `un-${row.id}`,
+      kind: 'community',
+      headline: row.headline,
+      detail: row.detail,
+      eventType: 'mention',
+      profitLoss: 0,
+      profitLossPercent: null,
+      closedAt: row.closed_at,
+      highlightId: row.community_post_id ?? null,
+      dbId: row.id,
+      readAt: row.read_at,
+    };
+  }
+
   const isBetting = row.kind === 'betting';
   const { profitLoss, profitLossPercent } = realizedPnlFromRow(row);
   return {
@@ -65,8 +83,9 @@ export function userTradeNotificationToActivity(row: UserTradeNotificationRow): 
   };
 }
 
-/** Only rows tied to a real close (or AI bet open) — matches email queue source. */
+/** Only rows tied to a real close (or AI bet open / community mention) — matches email queue. */
 export function isBellEligibleNotification(row: UserTradeNotificationRow): boolean {
+  if (row.kind === 'community' && row.community_post_id) return true;
   if (row.kind === 'betting' && row.event_type === 'open') return true;
   if (row.trade_history_id) return true;
   if (row.hl_betting_close_id) return true;
@@ -78,7 +97,7 @@ export async function fetchUserTradeNotifications(limit = 100): Promise<Activity
   if (!userId) return [];
 
   const cols =
-    'id, user_id, trade_history_id, hl_betting_close_id, wallet_address, kind, headline, detail, event_type, profit_loss, profit_loss_percent, closed_at, read_at, trade_history ( profit_loss, profit_loss_percent )';
+    'id, user_id, trade_history_id, hl_betting_close_id, community_post_id, community_comment_id, wallet_address, kind, headline, detail, event_type, profit_loss, profit_loss_percent, closed_at, read_at, trade_history ( profit_loss, profit_loss_percent )';
 
   const { data, error } = await supabase
     .from('user_trade_notifications')
@@ -107,6 +126,8 @@ export async function fetchUserTradeNotifications(limit = 100): Promise<Activity
           detail: null,
           event_type: 'close',
           hl_betting_close_id: null,
+          community_post_id: null,
+          community_comment_id: null,
         })
       )
       .filter((n) => Boolean(n.highlightId) || n.eventType === 'open');

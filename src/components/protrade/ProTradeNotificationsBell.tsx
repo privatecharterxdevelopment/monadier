@@ -76,6 +76,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                 const { date, time } = fmtWhen(n.closedAt);
                 const unread = isUnread(n);
                 const isBetting = n.kind === 'betting';
+                const isCommunity = n.kind === 'community';
                 return (
                   <li key={n.id}>
                     <button
@@ -89,7 +90,12 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                     >
                       <span className="hl-notif-item-top">
                         <span>
-                          {isBetting ? (
+                          {isCommunity ? (
+                            <>
+                              <span className="hl-notif-kind">{t('notifications.kindCommunity')}</span>{' '}
+                              {n.headline}
+                            </>
+                          ) : isBetting ? (
                             <>
                               <span className="hl-notif-kind">{t('notifications.kindBet')}</span>{' '}
                               {n.headline}
@@ -99,20 +105,28 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             n.headline
                           )}
                         </span>
-                        <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
-                          {fmtClosedPnl(n.profitLoss)}
-                          {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
-                            <span className="hl-notif-roi">
-                              {' '}
-                              · {n.profitLossPercent >= 0 ? '+' : ''}
-                              {n.profitLossPercent.toFixed(2)}%
-                            </span>
-                          ) : null}
-                        </span>
+                        {!isCommunity ? (
+                          <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
+                            {fmtClosedPnl(n.profitLoss)}
+                            {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
+                              <span className="hl-notif-roi">
+                                {' '}
+                                · {n.profitLossPercent >= 0 ? '+' : ''}
+                                {n.profitLossPercent.toFixed(2)}%
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="hl-notif-item-meta">
                         {date} {time}
-                        {!isBetting && n.highlightId ? (
+                        {isCommunity && n.detail ? (
+                          <span className="hl-notif-kind" style={{ marginLeft: 6 }}>
+                            {n.detail.slice(0, 48)}
+                            {n.detail.length > 48 ? '…' : ''}
+                          </span>
+                        ) : null}
+                        {!isBetting && !isCommunity && n.highlightId ? (
                           <span className="hl-notif-kind">{t('notifications.kindBot')}</span>
                         ) : null}
                       </span>

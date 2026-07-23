@@ -3,7 +3,6 @@ import { ExternalLink, Loader2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BotPublicTradeRow } from '../../lib/api/botPublicLeaderboard';
 import { useBotPublicLeaderboardData } from '../../hooks/useBotPublicLeaderboard';
-import ProTradePageShell from './ProTradePageShell';
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '';
@@ -96,14 +95,16 @@ const ProTradeLeaderboard: React.FC = () => {
   });
 
   return (
-    <ProTradePageShell className="hl-leaderboard-page">
+    <div className="hl-leaderboard-page">
       <header className="hl-leaderboard-hero">
-        <div className="hl-leaderboard-hero__icon" aria-hidden>
-          <Trophy size={20} />
-        </div>
-        <div>
-          <h1 className="hl-leaderboard-hero__title">{t('leaderboard.title')}</h1>
-          <p className="hl-leaderboard-hero__lead">{t('leaderboard.lead')}</p>
+        <div className="hl-leaderboard-hero__copy">
+          <div className="hl-leaderboard-hero__icon" aria-hidden>
+            <Trophy size={20} />
+          </div>
+          <div>
+            <h1 className="hl-leaderboard-hero__title">{t('leaderboard.title')}</h1>
+            <p className="hl-leaderboard-hero__lead">{t('leaderboard.lead')}</p>
+          </div>
         </div>
       </header>
 
@@ -169,7 +170,7 @@ const ProTradeLeaderboard: React.FC = () => {
           )}
         </section>
       </div>
-    </ProTradePageShell>
+    </div>
   );
 };
 

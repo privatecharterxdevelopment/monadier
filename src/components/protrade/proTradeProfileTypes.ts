@@ -4,6 +4,7 @@ export type ProTradeProfileTab =
   | 'wallets'
   | 'betting'
   | 'botTrades'
+  | 'myPosts'
   | 'history';
 
 export const PRO_TRADE_PROFILE_TABS: {
@@ -15,5 +16,6 @@ export const PRO_TRADE_PROFILE_TABS: {
   { id: 'wallets', labelKey: 'profile.tabs.wallets' },
   { id: 'betting', labelKey: 'profile.tabs.betting' },
   { id: 'botTrades', labelKey: 'profile.tabs.botTrades' },
+  { id: 'myPosts', labelKey: 'profile.tabs.myPosts' },
   { id: 'history', labelKey: 'profile.tabs.history' },
 ];

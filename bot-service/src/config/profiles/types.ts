@@ -1,7 +1,24 @@
 export type HlDirectionProfileName = 'bear_market' | 'bull_market';
 export type HlProfileDirection = 'LONG' | 'SHORT';
-export type HlProfileTimeframe = '1m' | '5m' | '15m' | '1h';
+/** SHORT stack. */
+export type HlShortAnalysisTimeframe = '1m' | '5m' | '15m' | '1h';
+/** LONG stack (4h optional via HL_LONG_INCLUDE_4H). */
+export type HlLongAnalysisTimeframe = '15m' | '1h' | '4h';
+export type HlProfileTimeframe = HlShortAnalysisTimeframe | HlLongAnalysisTimeframe;
 export type HlPreOpenTimeframe = '1m' | '5m' | '15m';
+
+/**
+ * Hard rule (user):
+ *   bear / down / SHORT → 1m, 5m, 15m, 1h
+ *   bull / up / LONG    → 15m, 1h, (+4h optional)
+ */
+export const SHORT_ANALYSIS_TIMEFRAMES: HlShortAnalysisTimeframe[] = [
+  '1m',
+  '5m',
+  '15m',
+  '1h',
+];
+export const LONG_ANALYSIS_TIMEFRAMES_BASE: Array<'15m' | '1h'> = ['15m', '1h'];
 
 /**
  * Per-direction gate rules. `PRIMARY` = the direction this profile is built to
@@ -27,19 +44,26 @@ export type HlDirectionRules = {
  * env var. Only ONE profile is ever active per process, so global config values
  * (maxVolumeRank, preOpenCandles) can safely read from the active profile.
  *
- * SHORT regime = `bearMarketShort.ts` (June 26–Jul 13 engine).
- * LONG regime  = `bullMarketLong.ts` (current long stack).
+ * Analysis TFs are direction-hardcoded (not regime-soft):
+ *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
  */
 export type HlDirectionProfile = {
   name: HlDirectionProfileName;
   description: string;
   primaryDirection: HlProfileDirection;
-  /** Timeframes fed to the MTF signal analyzer during the scan. */
+  /**
+   * @deprecated Prefer direction-specific helpers. Kept as the union of
+   * long+short TFs for health / legacy callers.
+   */
   analysisTimeframes: HlProfileTimeframe[];
-  /** Timeframe used to group/label the scan entry structure. */
+  /** Timeframe used to group/label the scan entry structure (primary side). */
   entryTimeframe: '5m' | '15m';
+  entryTimeframeLong: '15m';
+  entryTimeframeShort: '5m';
   /** Structural pre-open micro-check (candle count + timeframe). */
   preOpenTimeframe: HlPreOpenTimeframe;
+  preOpenTimeframeLong: '15m';
+  preOpenTimeframeShort: '1m';
   preOpenCandleCount: number;
   /**
    * Pre-open volume ratio floor. June short used 0.85; long regime kept later 0.5.

@@ -10,6 +10,7 @@ import {
   type ProTradeProfileTab,
 } from './proTradeProfileTypes';
 import ProTradeBotHistory from './ProTradeBotHistory';
+import ProTradeMyCommunityPosts from './ProTradeMyCommunityPosts';
 import HlFundsOverviewPanel from './HlFundsOverviewPanel';
 import ProTradePageShell from './ProTradePageShell';
 
@@ -18,6 +19,7 @@ type Props = {
   onTabChange?: (tab: ProTradeProfileTab) => void;
   botHistoryRefreshKey?: number;
   onRequireSignIn?: (reason: string) => void;
+  onOpenCommunityPost?: (postId: string) => void;
 };
 
 const ProTradeProfile: React.FC<Props> = ({
@@ -25,6 +27,7 @@ const ProTradeProfile: React.FC<Props> = ({
   onTabChange,
   botHistoryRefreshKey = 0,
   onRequireSignIn,
+  onOpenCommunityPost,
 }) => {
   const { t } = useTranslation();
   const { user, profile } = useAuth();
@@ -41,7 +44,7 @@ const ProTradeProfile: React.FC<Props> = ({
   const username = profile?.username?.trim();
 
   return (
-    <ProTradePageShell className="hl-profile-page">
+    <ProTradePageShell bleed className="hl-profile-page">
       <header className="hl-profile-hero">
         <ProfileAvatar profile={profile} userId={user?.id} size="lg" />
         <div className="hl-profile-hero-meta">
@@ -87,6 +90,8 @@ const ProTradeProfile: React.FC<Props> = ({
             walletAddress={address ?? undefined}
             walletConnected={isConnected}
           />
+        ) : tab === 'myPosts' ? (
+          <ProTradeMyCommunityPosts onOpenPost={onOpenCommunityPost} />
         ) : (
           <TerminalProfilePanel activeSection={tab} variant="pro" />
         )}

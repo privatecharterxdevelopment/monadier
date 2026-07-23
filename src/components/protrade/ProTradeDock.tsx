@@ -215,15 +215,37 @@ const ProTradeDock: React.FC<Props> = ({
   const platformFeeLedger = usePlatformFees(dockWallet, Boolean(dockWallet));
   const { snapshot: hlSnap } = useHlAccountSnapshot(dockWallet);
   const unifiedAccount = hlSnap?.unifiedAccount ?? false;
-  const tradableHlUsd =
-    hlSnap?.tradablePerpUsd ??
-    toNum(account?.margin?.accountValue) +
-      (unifiedAccount ? 0 : toNum(spotBalances.find((b) => b.coin === 'USDC')?.total));
-  const spotUsdcUsd =
-    hlSnap?.spotUsdcUsd ?? toNum(spotBalances.find((b) => b.coin === 'USDC')?.total);
-  const rawPerpUsd = hlSnap?.accountUsd ?? toNum(account?.margin?.accountValue);
-  const hlWithdrawableUsd =
-    hlSnap?.withdrawableUsd ?? toNum(account?.withdrawable);
+  const spotUsdcUsd = Math.max(
+    toNum(hlSnap?.spotUsdcUsd),
+    toNum(spotBalances.find((b) => b.coin === 'USDC')?.total)
+  );
+  const accountEquityUsd = Math.max(
+    toNum(account?.margin?.accountValue),
+    toNum(account?.crossMargin?.accountValue)
+  );
+  /** Live equity — never let a stale snap $0 win over account / open margin. */
+  const hlEquityUsd = Math.max(
+    toNum(botHlBalanceUsd),
+    toNum(hlSnap?.totalUsd),
+    toNum(hlSnap?.tradablePerpUsd),
+    toNum(hlSnap?.accountUsd),
+    toNum(hlSnap?.withdrawableUsd),
+    accountEquityUsd,
+    spotUsdcUsd,
+    toNum(hlSnap?.totalMarginUsedUsd),
+    toNum(account?.margin?.totalMarginUsed),
+    toNum(account?.withdrawable)
+  );
+  const tradableHlUsd = Math.max(
+    toNum(hlSnap?.tradablePerpUsd),
+    accountEquityUsd + (unifiedAccount ? 0 : spotUsdcUsd),
+    hlEquityUsd
+  );
+  const rawPerpUsd = Math.max(toNum(hlSnap?.accountUsd), accountEquityUsd);
+  const hlWithdrawableUsd = Math.max(
+    toNum(hlSnap?.withdrawableUsd),
+    toNum(account?.withdrawable)
+  );
   const visibleTabs = historyOnly
     ? TABS.filter((t) => t.id === 'tradeHistory')
     : isBotMode
@@ -305,12 +327,34 @@ const ProTradeDock: React.FC<Props> = ({
   const positionTone: 'pos' | 'neg' | null =
     positionCount > 0 ? (positionUpnl >= 0 ? 'pos' : 'neg') : null;
 
-  const botNeedsDeposit =
+  const hasOpenHlCapital =
+    hlOpenPositionCount > 0 ||
+    (hlSnap?.openPositionsCount ?? 0) > 0 ||
+    toNum(hlSnap?.openNotionalUsd) > 1 ||
+    toNum(hlSnap?.totalMarginUsedUsd) >= 1;
+
+  const balanceKnown =
+    hlSnap != null || account != null || toNum(botHlBalanceUsd) > 0 || hasOpenHlCapital;
+
+  const botNeedsDepositRaw =
     isBotMode &&
     connected &&
     !loading &&
-    Math.max(botHlBalanceUsd, tradableHlUsd) < MIN_HL_BOT_USD;
-  const botUnderfunded = botNeedsDeposit;
+    balanceKnown &&
+    !hasOpenHlCapital &&
+    hlEquityUsd < MIN_HL_BOT_USD;
+
+  // Debounce so brief HL $0 blips never flash "paused / Deposit USDC".
+  const [botUnderfunded, setBotUnderfunded] = useState(false);
+  useEffect(() => {
+    if (!botNeedsDepositRaw) {
+      setBotUnderfunded(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setBotUnderfunded(true), 2_500);
+    return () => window.clearTimeout(timer);
+  }, [botNeedsDepositRaw]);
+  const botNeedsDeposit = botUnderfunded;
 
   const closeFills = useMemo(
     () => aggregateHlCloseFills(scopedFills),
@@ -783,7 +827,7 @@ const ProTradeDock: React.FC<Props> = ({
             {botUnderfunded ? (
               <p className="hl-dock-fund-nudge hl-dock-fund-nudge--desktop" role="status">
                 <span>
-                  HL {fmtUsdSymbol(botHlBalanceUsd)} · min ${MIN_HL_BOT_USD} to run bot (paused)
+                  HL {fmtUsdSymbol(hlEquityUsd)} · min ${MIN_HL_BOT_USD} to run bot (paused)
                 </span>
                 {onDeposit ? (
                   <button type="button" className="hl-dock-fund-nudge-link" onClick={onDeposit}>

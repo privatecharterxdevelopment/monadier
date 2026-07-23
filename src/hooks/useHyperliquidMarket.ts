@@ -165,6 +165,34 @@ export function useHyperliquidMarket(
   const marketKey = `${normCoin(coin)}:${interval}:${kind}`;
   const coinKey = `${normCoin(coin)}:${kind}`;
 
+  // Clear stale candles in the same render as the coin/interval switch.
+  // Waiting for useEffect lets the chart paint the previous coin once, then
+  // skip setData (shared bar timestamps) → blank pane until TF reload.
+  const [appliedMarketKey, setAppliedMarketKey] = useState(marketKey);
+  if (enabled && marketKey !== appliedMarketKey) {
+    setAppliedMarketKey(marketKey);
+    historyReadyRef.current = false;
+    marketKeyRef.current = marketKey;
+    const coinChanged = coinKeyRef.current !== coinKey;
+    coinKeyRef.current = coinKey;
+    const cachedRaw = candleCacheRef.current.get(marketKey);
+    const cached =
+      cachedRaw && cachedRaw.length >= MIN_HISTORY_BARS ? cachedRaw : undefined;
+    if (cachedRaw && !cached) candleCacheRef.current.delete(marketKey);
+    setState((prev) => ({
+      candles: cached ?? [],
+      book: coinChanged ? null : prev.book,
+      snapshot: coinChanged ? null : prev.snapshot,
+      recentTrades: coinChanged ? [] : prev.recentTrades,
+      loading: !cached,
+      error: null,
+      wsConnected: false,
+      fetchAttempts: 0,
+    }));
+  }
+  if (!enabled && appliedMarketKey !== '') {
+    setAppliedMarketKey('');
+  }
   const clearEmptyRetry = useCallback(() => {
     if (emptyRetryTimerRef.current) {
       clearTimeout(emptyRetryTimerRef.current);

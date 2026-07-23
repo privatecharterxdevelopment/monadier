@@ -4,13 +4,15 @@
 import zlib from 'zlib';
 import type { Candle } from './signalEngine';
 
-export type VisionChartTimeframe = '1m' | '5m' | '15m' | '1h';
+export type VisionChartTimeframe = '1m' | '5m' | '15m' | '1h' | '4h';
 
-/** LONG → 15m + 1h only. SHORT → 1m + 5m only. */
+/** SHORT → 1m+5m. LONG → 15m+1h (+4h when HL_LONG_INCLUDE_4H is not false). */
 export function visionTimeframesForDirection(
   direction: 'LONG' | 'SHORT'
 ): VisionChartTimeframe[] {
-  return direction === 'SHORT' ? ['1m', '5m'] : ['15m', '1h'];
+  if (direction === 'SHORT') return ['1m', '5m'];
+  const include4h = process.env.HL_LONG_INCLUDE_4H !== 'false';
+  return include4h ? ['15m', '1h', '4h'] : ['15m', '1h'];
 }
 
 function crc32(buf: Buffer): number {

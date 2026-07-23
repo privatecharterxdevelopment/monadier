@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import http from 'http';
 import { config } from './config';
+import { analysisTimeframesForDirection } from './config/directionProfiles';
 import { logger } from './utils/logger';
 import { subscriptionService } from './services/subscription';
 import { marketService, TradingStrategy, signalEngine } from './services/market';
@@ -911,7 +912,11 @@ const healthServer = http.createServer(async (req, res) => {
           description: config.hyperliquid.directionProfile.description,
           primaryDirection: config.hyperliquid.directionProfile.primaryDirection,
           analysisTimeframes: config.hyperliquid.directionProfile.analysisTimeframes,
+          longAnalysisTimeframes: analysisTimeframesForDirection('LONG'),
+          shortAnalysisTimeframes: analysisTimeframesForDirection('SHORT'),
           entryTimeframe: config.hyperliquid.directionProfile.entryTimeframe,
+          entryTimeframeLong: config.hyperliquid.directionProfile.entryTimeframeLong,
+          entryTimeframeShort: config.hyperliquid.directionProfile.entryTimeframeShort,
           aggressiveScalpSignals:
             config.hyperliquid.directionProfile.useAggressiveScalpSignals,
           enableHtfSr: config.hyperliquid.directionProfile.enableHtfSr,

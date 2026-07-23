@@ -10,10 +10,10 @@ export const SUPPORT_EMAIL = 'administration@hypergain.io';
 export const EMAIL_FROM =
   process.env.RESEND_FROM || `HyperGain <hello@${BRAND_DOMAIN}>`;
 
-/** Profile → Security, trade close email toggle (notification unsubscribe). */
+/** Profile → Security, notification email toggles. */
 export function notificationEmailUnsubscribeUrl(
   baseUrl: string = BRAND_SITE_URL
 ): string {
   const base = baseUrl.replace(/\/$/, '');
-  return `${base}/?section=profile#profile-trade-email`;
+  return `${base}/?section=profile&tab=security#profile-trade-email`;
 }

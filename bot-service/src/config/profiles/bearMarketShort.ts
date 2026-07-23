@@ -1,4 +1,6 @@
 import {
+  LONG_ANALYSIS_TIMEFRAMES_BASE,
+  SHORT_ANALYSIS_TIMEFRAMES,
   type HlDirectionProfile,
   type HlDirectionRules,
 } from './types';
@@ -11,6 +13,9 @@ import {
  * SHORT = primary (June gate posture: every secondary runs, no LLM, no HTF).
  * LONG  = still allowed when conviction is real (high conf + multi-TF). Not a
  *         hard ban under short logic — only weak / against-trend LONGs stay out.
+ *
+ * TF hard rule (always):
+ *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
  */
 
 /** Exact June short open-rule posture — never relax / never bypass secondaries. */
@@ -30,7 +35,7 @@ export const JUNE_SHORT_RULES: HlDirectionRules = {
 
 /**
  * Strong LONGs under a SHORT-primary regime.
- * Example that must pass: NEAR LONG 88% with 5m/15m/1h aligned.
+ * Example that must pass: NEAR LONG 88% with 15m/1h aligned (no 1m/5m votes).
  * No hard "LONG disabled" — confidence + TF alignment decide.
  */
 export const STRONG_LONG_UNDER_SHORT: HlDirectionRules = {
@@ -50,11 +55,15 @@ export const STRONG_LONG_UNDER_SHORT: HlDirectionRules = {
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'June-26→Jul-13 SHORT engine + strong LONGs allowed (high conf / multi-TF). Full SHORT gates, no HTF, no LLM.',
+    'SHORT-primary June engine: SHORT on 1m/5m/15m/1h, LONG on 15m/1h/(4h). Full SHORT gates, no HTF, no LLM.',
   primaryDirection: 'SHORT',
-  analysisTimeframes: ['1m', '5m', '15m', '1h'],
+  analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
+  entryTimeframeLong: '15m',
+  entryTimeframeShort: '5m',
   preOpenTimeframe: '1m',
+  preOpenTimeframeLong: '15m',
+  preOpenTimeframeShort: '1m',
   preOpenCandleCount: 10,
   preOpenMinVolumeRatio: 0.85,
   maxVolumeRank: 18,

@@ -8,6 +8,7 @@ import {
   CreditCard,
   DollarSign,
   ExternalLink,
+  Flag,
   MessageCircle,
   RefreshCw,
   Server,
@@ -51,6 +52,13 @@ import {
   reopenSupportRequest,
   type SupportRequestRow,
 } from '../../lib/adminSupportRequests';
+import {
+  fetchAdminCommunityReports,
+  hideCommunityComment,
+  hideCommunityPost,
+  updateCommunityReportStatus,
+  type CommunityReportRow,
+} from '../../lib/adminCommunityReports';
 import {
   fetchAdminNotifications,
   markAdminNotificationsRead,
@@ -378,6 +386,8 @@ function OverviewPanel({
         />
         <SupportRequestsCard refreshAt={refreshAt} />
       </div>
+
+      <CommunityReportsCard refreshAt={refreshAt} />
 
       <NewSignupsCard refreshAt={refreshAt} />
 
@@ -807,6 +817,196 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
                     </button>
                   )}
                 </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommunityReportsCard({ refreshAt }: { refreshAt: Date }) {
+  const [rows, setRows] = useState<CommunityReportRow[]>([]);
+  const [filter, setFilter] = useState<'open' | 'all'>('open');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const result = await fetchAdminCommunityReports({
+      status: filter === 'open' ? 'open' : 'all',
+      limit: 50,
+    });
+    if (result.error) {
+      setLoadError(result.error);
+      setRows([]);
+    } else {
+      setRows(result.rows);
+    }
+    setLoading(false);
+  }, [filter]);
+
+  useEffect(() => {
+    void load();
+  }, [load, refreshAt]);
+
+  const openCount = rows.filter((r) => r.status === 'open').length;
+
+  const setStatus = async (id: string, status: 'reviewed' | 'dismissed' | 'actioned') => {
+    setBusyId(id);
+    const result = await updateCommunityReportStatus(id, status);
+    if (!result.ok) setLoadError(result.error ?? 'Update failed');
+    else await load();
+    setBusyId(null);
+  };
+
+  const hideContent = async (row: CommunityReportRow) => {
+    setBusyId(row.id);
+    let result: { ok: boolean; error?: string };
+    if (row.post_id) result = await hideCommunityPost(row.post_id, true);
+    else if (row.comment_id) result = await hideCommunityComment(row.comment_id, true);
+    else result = { ok: false, error: 'No content linked' };
+    if (!result.ok) {
+      setLoadError(result.error ?? 'Hide failed');
+      setBusyId(null);
+      return;
+    }
+    await updateCommunityReportStatus(row.id, 'actioned', 'Content hidden');
+    await load();
+    setBusyId(null);
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card-dark p-5">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <Flag size={20} className="text-amber-400" />
+        <h3 className="font-semibold text-primary">Community reports</h3>
+        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
+          {filter === 'open' ? `${openCount} open` : `${rows.length} shown`}
+        </span>
+      </div>
+      <p className="text-xs text-secondary mb-3">
+        User reports from Community / Help Center — hide spam or dismiss after review.
+      </p>
+
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          className={`text-xs px-2.5 py-1 rounded-md border ${
+            filter === 'open'
+              ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+              : 'border-border text-secondary'
+          }`}
+          onClick={() => setFilter('open')}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          className={`text-xs px-2.5 py-1 rounded-md border ${
+            filter === 'all'
+              ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+              : 'border-border text-secondary'
+          }`}
+          onClick={() => setFilter('all')}
+        >
+          All
+        </button>
+      </div>
+
+      {loadError ? (
+        <p className="text-xs text-amber-400 mb-2" role="alert">
+          {loadError}
+          {loadError.includes('community_reports') ? (
+            <span> — run migration 20270122180000_community_help_center.</span>
+          ) : null}
+        </p>
+      ) : null}
+
+      <div className="max-h-[340px] overflow-y-auto divide-y divide-border -mx-1">
+        {loading ? (
+          <p className="text-sm text-secondary py-6 text-center">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-secondary py-6 text-center">
+            {filter === 'open' ? 'No open community reports.' : 'No community reports yet.'}
+          </p>
+        ) : (
+          rows.map((row) => {
+            const expanded = expandedId === row.id;
+            const reporter =
+              row.reporter_username || row.reporter_email || shortWallet(row.reporter_id, 8);
+            const preview = row.post_title
+              ? `Post: ${row.post_title}`
+              : row.comment_body
+                ? `Comment: ${row.comment_body.slice(0, 120)}`
+                : 'Content removed';
+            return (
+              <div key={row.id} className="py-3 px-1 text-sm">
+                <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                  <span className="text-secondary text-xs whitespace-nowrap w-16 shrink-0">
+                    {formatTimeAgo(row.created_at)}
+                  </span>
+                  <div className="flex-1 min-w-[180px]">
+                    <p className="font-medium text-primary">{preview}</p>
+                    <p className="text-xs text-secondary mt-0.5">Reporter: {reporter}</p>
+                    <p className="text-xs text-primary/80 mt-1">{row.reason}</p>
+                  </div>
+                  <span
+                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      row.status === 'open'
+                        ? 'bg-amber-500/15 text-amber-400'
+                        : 'bg-green-500/15 text-green-400'
+                    }`}
+                  >
+                    {row.status}
+                  </span>
+                </div>
+                {(row.post_body || row.comment_body) && (
+                  <button
+                    type="button"
+                    className="text-xs text-cyan-400 mt-1 hover:underline"
+                    onClick={() => setExpandedId(expanded ? null : row.id)}
+                  >
+                    {expanded ? 'Hide content' : 'Show content'}
+                  </button>
+                )}
+                {expanded ? (
+                  <p className="mt-2 text-xs text-primary/90 whitespace-pre-wrap rounded-lg bg-black/20 p-2 border border-border">
+                    {row.post_body || row.comment_body}
+                  </p>
+                ) : null}
+                {row.status === 'open' ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      className="text-xs px-2.5 py-1 rounded-md bg-red-500/15 text-red-400 border border-red-500/30 disabled:opacity-50"
+                      onClick={() => void hideContent(row)}
+                    >
+                      {busyId === row.id ? '…' : 'Hide content'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      className="text-xs px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 border border-green-500/30 disabled:opacity-50"
+                      onClick={() => void setStatus(row.id, 'reviewed')}
+                    >
+                      Mark reviewed
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      className="text-xs px-2.5 py-1 rounded-md border border-border text-secondary disabled:opacity-50"
+                      onClick={() => void setStatus(row.id, 'dismissed')}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : null}
               </div>
             );
           })

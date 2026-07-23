@@ -206,9 +206,10 @@ export const config = {
        */
       longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 180_000),
       /**
-       * LONGs skip stage-1 breakeven lock by default (set HL_TRAIL_LONG_SKIP_BE_CLOSE=false to disable).
+       * If true, LONGs skip stage-1 breakeven lock closes (legacy). Default OFF —
+       * displayed stop must close when crossed.
        */
-      longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE !== 'false',
+      longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE === 'true',
       /**
        * Stage-2 ATR trail arm ROE for LONGs (higher than SHORT so winners can run).
        */

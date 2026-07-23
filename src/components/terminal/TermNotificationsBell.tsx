@@ -77,6 +77,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                   const { date, time } = fmtWhen(n.closedAt);
                   const unread = isUnread(n);
                   const isBetting = n.kind === 'betting';
+                  const isCommunity = n.kind === 'community';
                   return (
                     <li key={n.id}>
                       <button
@@ -90,7 +91,11 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                       >
                         <div className="term-notif-item-top">
                           <span className="term-notif-item-pair">
-                            {isBetting ? (
+                            {isCommunity ? (
+                              <>
+                                {t('notifications.kindCommunity')} · {n.headline}
+                              </>
+                            ) : isBetting ? (
                               <>
                                 {t('notifications.kindBet')} · {n.headline}
                                 {n.detail ? ` · ${n.detail}` : ''}
@@ -99,22 +104,24 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                               n.headline
                             )}
                           </span>
-                          <span
-                            className={
-                              n.profitLoss >= 0
-                                ? 'term-notif-item-pnl term-pnl-pos'
-                                : 'term-notif-item-pnl term-pnl-neg'
-                            }
-                          >
-                            {fmtClosedPnl(n.profitLoss)}
-                          </span>
+                          {!isCommunity ? (
+                            <span
+                              className={
+                                n.profitLoss >= 0
+                                  ? 'term-notif-item-pnl term-pnl-pos'
+                                  : 'term-notif-item-pnl term-pnl-neg'
+                              }
+                            >
+                              {fmtClosedPnl(n.profitLoss)}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="term-notif-item-meta">
                           <span>
                             {date} · {time}
                           </span>
                         </div>
-                        {!isBetting && n.verifyUrl ? (
+                        {!isBetting && !isCommunity && n.verifyUrl ? (
                           <a
                             href={n.verifyUrl}
                             target="_blank"

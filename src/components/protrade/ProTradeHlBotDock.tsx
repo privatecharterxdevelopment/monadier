@@ -276,11 +276,12 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         botScanMetrics={botAnalysisMetrics}
         botScanWallet={botAnalysisWallet ?? hlWallet ?? null}
         botOpenPositionCoins={botOpenPositionCoins ?? positionCoins}
-        botHlBalanceUsd={
-          botAnalysisMetrics?.hlBalanceUsd ??
-          botHlBalanceUsd ??
-          toNum(account?.margin?.accountValue)
-        }
+        botHlBalanceUsd={Math.max(
+          toNum(botAnalysisMetrics?.hlBalanceUsd),
+          toNum(botHlBalanceUsd),
+          toNum(account?.margin?.accountValue),
+          toNum(account?.crossMargin?.accountValue)
+        )}
         onDeposit={onDeposit}
         positionScope="bot"
         botManagedCoins={botManagedCoins}

@@ -679,6 +679,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     if (candles.length === 0) {
       candlesRef.current = [];
+      // Must reset — otherwise the next real bars look like “same coin” and
+      // take the incremental update() path (blank chart until TF change).
+      prevCoinForDataRef.current = '';
+      prevIntervalForDataRef.current = '';
       safeChartOp(() => {
         series.setData([]);
         volumeSeries.setData([]);
@@ -693,6 +697,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     if (clean.length === 0) {
       candlesRef.current = [];
+      prevCoinForDataRef.current = '';
+      prevIntervalForDataRef.current = '';
       safeChartOp(() => {
         series.setData([]);
         volumeSeries.setData([]);
@@ -703,16 +709,22 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const prev = candlesRef.current;
     const prevFirst = prev[0]?.time;
     const nextFirst = clean[0]?.time;
+    const prevClose = prev[prev.length - 1]?.close ?? 0;
+    const nextClose = clean[clean.length - 1]?.close ?? 0;
+    const priceScaleJump =
+      prevClose > 0 &&
+      nextClose > 0 &&
+      (nextClose / prevClose > 1.8 || nextClose / prevClose < 1 / 1.8);
     const themeChanged = prevThemeForDataRef.current !== theme;
     const coinChanged = prevCoinForDataRef.current !== coin;
     const intervalChanged = prevIntervalForDataRef.current !== interval;
     if (themeChanged) prevThemeForDataRef.current = theme;
-    if (coinChanged) prevCoinForDataRef.current = coin;
-    if (intervalChanged) prevIntervalForDataRef.current = interval;
+    // Only commit coin/interval after a full setData paint (below).
     const fullReset =
       themeChanged ||
       coinChanged ||
       intervalChanged ||
+      priceScaleJump ||
       prev.length === 0 ||
       prevFirst !== nextFirst ||
       clean.length < prev.length;
@@ -742,6 +754,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       candlesRef.current = bars;
       series.setData(data);
       volumeSeries.setData(volData);
+      prevCoinForDataRef.current = coin;
+      prevIntervalForDataRef.current = interval;
       if (forceFull || followLiveRef.current) {
         showLatestBars(chart, data.length);
       }
