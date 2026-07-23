@@ -123,14 +123,20 @@ export const config = {
     minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
-     * Hard-delist — bot never scans/opens these (ugly/untradeable pairs). With the
-     * volume floor at 0 this replaces the blanket filter: remove specific junk by name.
-     * Add more via HL_EXCLUDED_COINS="CASHCAT,CRV,FOO" (comma-separated, case-insensitive).
+     * Hard-delist — bot never scans/opens these. ZEC is always banned (never traded).
+     * Add more via HL_EXCLUDED_COINS="FOO,BAR" (merged with hard bans).
      */
-    excludedCoins: (process.env.HL_EXCLUDED_COINS || 'CASHCAT,CRV')
-      .split(',')
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean),
+    excludedCoins: [
+      ...new Set([
+        'ZEC',
+        'CASHCAT',
+        'CRV',
+        ...(process.env.HL_EXCLUDED_COINS || '')
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean),
+      ]),
+    ],
     /**
      * Anti-starvation floor for the day-volume gate: the enforced floor is clamped so
      * it never leaves FEWER than this many perps tradable. Set to 40 so the top ~40

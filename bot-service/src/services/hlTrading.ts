@@ -976,6 +976,14 @@ export class HyperliquidTradingService {
         return { success: false, error: reason };
       };
 
+      if (config.hyperliquid.excludedCoins.includes(coin)) {
+        return rejectOpen(
+          'excluded_coin',
+          `${coin} is hard-delisted — never traded`,
+          'excluded coin'
+        );
+      }
+
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         return rejectOpen(
