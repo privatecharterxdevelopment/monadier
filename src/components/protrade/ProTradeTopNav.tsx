@@ -62,7 +62,7 @@ const NAV: NavItem[] = [
   { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true, Icon: Ticket },
   { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true, Icon: Briefcase },
   { id: 'news', labelKey: 'app.nav.news', enabled: true, Icon: Newspaper },
-  { id: 'community', labelKey: 'app.nav.community', enabled: true, Icon: MessagesSquare },
+  { id: 'community', labelKey: 'app.nav.community', enabled: false, Icon: MessagesSquare },
   { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: true, Icon: Medal },
 ];
 

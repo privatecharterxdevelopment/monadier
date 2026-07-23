@@ -28,7 +28,6 @@ import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal
 import ProTradeTransferModal from '../../components/protrade/ProTradeTransferModal';
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
-import ProTradeCommunity from '../../components/protrade/ProTradeCommunity';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeNews from '../../components/protrade/ProTradeNews';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
@@ -100,7 +99,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot') return 'bot';
     if (initialSection === 'news') return 'news';
-    if (initialSection === 'community') return 'community';
+    if (initialSection === 'community') return 'bot';
     if (initialSection === 'leaderboard') return 'leaderboard';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     if (initialSection === 'support') return 'support';
@@ -123,7 +122,6 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [profileTab, setProfileTab] = useState<ProTradeProfileTab>(() =>
     parseProfileTab(searchParams.get('tab'))
   );
-  const [communityPostId, setCommunityPostId] = useState<string | null>(null);
   const { badge: botBadge } = useBotPositionBadge(botSyncTick);
   const { theme } = useProTradeTheme();
   const chartMarkerColors = useMemo(() => getProTradeChartColors(theme), [theme]);
@@ -444,22 +442,23 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (next === 'affiliate') {
       if (!requireAuth('Sign in to view your affiliate dashboard.')) return;
     }
-    setSection(next);
+    // Community parked for now — keep code, hide from live users.
+    const target: ProTradeSection = next === 'community' ? 'bot' : next;
+    setSection(target);
     setFundsModal(null);
-    if (next === 'bot') {
+    if (target === 'bot') {
       setBotDockTab('positions');
     }
     if (
-      next === 'bot' ||
-      next === 'sportsbets' ||
-      next === 'support' ||
-      next === 'community' ||
-      next === 'news' ||
-      next === 'leaderboard' ||
-      next === 'affiliate'
+      target === 'bot' ||
+      target === 'sportsbets' ||
+      target === 'support' ||
+      target === 'news' ||
+      target === 'leaderboard' ||
+      target === 'affiliate'
     ) {
       const params = new URLSearchParams(searchParams);
-      params.set('section', next);
+      params.set('section', target);
       params.delete('tab');
       setSearchParams(params, { replace: true });
     } else {
@@ -484,9 +483,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       } else if (urlSection === 'support') {
         setSection('support');
       } else if (urlSection === 'community') {
-        setSection('community');
-        const postId = searchParams.get('post');
-        if (postId) setCommunityPostId(postId);
+        setSection('bot');
       } else if (urlSection === 'news') {
         setSection('news');
       } else if (urlSection === 'leaderboard') {
@@ -511,9 +508,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     } else if (urlSection === 'support') {
       setSection('support');
     } else if (urlSection === 'community') {
-      setSection('community');
-      const postId = searchParams.get('post');
-      if (postId) setCommunityPostId(postId);
+      setSection('bot');
     } else if (urlSection === 'news') {
       setSection('news');
     } else if (urlSection === 'leaderboard') {
@@ -608,17 +603,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       return;
     }
     if (notification.kind === 'community') {
-      if (!requireAuth('Sign in to open Community.')) return;
-      const postId = notification.highlightId;
-      if (postId) setCommunityPostId(postId);
-      setSection('community');
-      setFundsModal(null);
-      const params = new URLSearchParams(searchParams);
-      params.set('section', 'community');
-      if (postId) params.set('post', postId);
-      else params.delete('post');
-      params.delete('tab');
-      setSearchParams(params, { replace: true });
+      openBotHistory();
       return;
     }
     if (notification.kind === 'betting') {
@@ -860,10 +845,6 @@ const Dashboard2ProPageContent: React.FC = () => {
             onTabChange={handleProfileTabChange}
             botHistoryRefreshKey={botSyncTick}
             onRequireSignIn={promptSignIn}
-            onOpenCommunityPost={(postId) => {
-              setCommunityPostId(postId);
-              handleSectionChange('community');
-            }}
           />
         </div>
       ) : null}
@@ -886,15 +867,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       {section === 'support' ? (
         <div className="hl-terminal hl-terminal--support">
           <ProTradeSupport onRequireSignIn={promptSignIn} />
-        </div>
-      ) : null}
-      {section === 'community' ? (
-        <div className="hl-terminal hl-terminal--community">
-          <ProTradeCommunity
-            onRequireSignIn={promptSignIn}
-            initialPostId={communityPostId}
-            onInitialPostConsumed={() => setCommunityPostId(null)}
-          />
         </div>
       ) : null}
       {section === 'portfolio' ? (

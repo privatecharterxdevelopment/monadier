@@ -72,7 +72,7 @@ function notifyFreshToasts(
   showToast: (msg: string, ms?: number) => void
 ) {
   const notable = fresh.filter(
-    (n) => n.kind === 'community' || n.profitLoss > 0 || n.eventType === 'open'
+    (n) => n.kind !== 'community' && (n.profitLoss > 0 || n.eventType === 'open')
   );
   if (notable.length === 0) return;
   const sorted = [...notable].sort(
@@ -88,7 +88,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 }) => {
   const { address } = useAccount();
   const { user, profile, isDemoUser } = useAuth();
-  const communityNotifsEnabled = profile?.community_mention_email_enabled !== false;
+  const communityNotifsEnabled = false; // Community parked — no mention toasts/bell noise
   const { showToast } = useTermAuthToast();
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
