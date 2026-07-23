@@ -11619,6 +11619,8 @@
 .hl-support-input,
 .hl-support-textarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--hl-border);
@@ -13991,11 +13993,18 @@
 .hl-support-form {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 18px 16px;
 }
 
-.hl-support-form .hl-studio-card__head + .hl-support-user,
-.hl-support-form .hl-studio-card__head ~ .hl-support-label {
-  margin-top: 0;
+.hl-support-form .hl-studio-card__head {
+  /* Full-bleed header inside padded form */
+  margin: 0 -18px 0;
+  width: calc(100% + 36px);
+  box-sizing: border-box;
 }
 
 .hl-support-form .hl-support-user,
@@ -14005,8 +14014,10 @@
 .hl-support-form .hl-support-primary,
 .hl-support-form .hl-support-error,
 .hl-support-form .hl-support-success {
-  margin-left: 18px;
-  margin-right: 18px;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .hl-support-form .hl-support-user {
@@ -14014,11 +14025,15 @@
 }
 
 .hl-support-form .hl-support-primary {
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hl-support-studio-card {
-  overflow: visible;
+  overflow: hidden;
+  min-width: 0;
+  max-width: min(640px, 100%);
 }
 
 .hl-support-hours {

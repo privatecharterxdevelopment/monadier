@@ -5,6 +5,27 @@ export type SubmitSupportMessageInput = {
   message: string;
 };
 
+async function readInvokeErrorMessage(error: unknown): Promise<string> {
+  const fallback =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message: unknown }).message || 'Could not send message.')
+      : 'Could not send message.';
+
+  const ctx =
+    error && typeof error === 'object' && 'context' in error
+      ? (error as { context?: Response }).context
+      : undefined;
+  if (!ctx || typeof ctx.json !== 'function') return fallback;
+
+  try {
+    const body = (await ctx.json()) as { error?: string } | null;
+    if (body?.error) return String(body.error);
+  } catch {
+    /* ignore parse failures */
+  }
+  return fallback;
+}
+
 export async function submitSupportMessage(
   input: SubmitSupportMessageInput
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -23,7 +44,7 @@ export async function submitSupportMessage(
   });
 
   if (error) {
-    return { ok: false, error: error.message || 'Could not send message.' };
+    return { ok: false, error: await readInvokeErrorMessage(error) };
   }
 
   if (data?.error) {

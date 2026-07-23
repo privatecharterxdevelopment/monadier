@@ -75,13 +75,6 @@ serve(async (req: Request) => {
   }
 
   try {
-    if (!RESEND_API_KEY) {
-      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing authorization' }), {
@@ -138,52 +131,68 @@ serve(async (req: Request) => {
 
     if (insertErr) {
       console.error('[send-support-message] DB insert error:', insertErr);
-      return new Response(JSON.stringify({ error: 'Failed to save support request' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          error: insertErr.message?.includes('relation')
+            ? 'Support inbox not ready — contact administration@hypergain.io'
+            : 'Failed to save support request',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const mailSubject = `[${BRAND_NAME}] ${subject}`;
-    const html = supportEmailHtml({
-      subject,
-      message,
-      userId: user.id,
-      email: userEmail,
-      fullName,
-      username,
-      walletAddress,
-    });
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: FROM_ADDRESS,
-        to: SUPPORT_INBOX,
-        reply_to: userEmail,
-        subject: mailSubject,
-        html,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('[send-support-message] Resend error:', data);
-      return new Response(JSON.stringify({ error: 'Failed to send message' }), {
-        status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    let emailSent = false;
+    if (!RESEND_API_KEY) {
+      console.error('[send-support-message] RESEND_API_KEY missing — ticket saved only');
+    } else {
+      const mailSubject = `[${BRAND_NAME}] ${subject}`;
+      const html = supportEmailHtml({
+        subject,
+        message,
+        userId: user.id,
+        email: userEmail,
+        fullName,
+        username,
+        walletAddress,
       });
+
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from: FROM_ADDRESS,
+            to: SUPPORT_INBOX,
+            reply_to: userEmail,
+            subject: mailSubject,
+            html,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error('[send-support-message] Resend error:', data);
+        } else {
+          emailSent = true;
+        }
+      } catch (mailErr) {
+        console.error('[send-support-message] Resend fetch failed:', mailErr);
+      }
     }
 
-    return new Response(JSON.stringify({ ok: true, id: data.id, ticketId: ticket?.id }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Ticket is source of truth for Admin Monitor — never fail the user after save.
+    return new Response(
+      JSON.stringify({ ok: true, ticketId: ticket?.id, emailSent }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     const status = msg.includes('token') ? 401 : 500;
