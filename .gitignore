@@ -41,3 +41,4 @@ bot-service-source-review.zip
 .env*
 .cursor/
 tmp-lorenzo-bot-logs/
+.tools/
