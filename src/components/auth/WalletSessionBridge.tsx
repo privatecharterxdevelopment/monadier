@@ -31,7 +31,11 @@ type EthereumProvider = {
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
 };
 
-/** Keeps wagmi in sync and maintains wallet session across reloads — silent reconnect only. */
+/**
+ * Keeps wagmi in sync and maintains wallet session across reloads.
+ * Critical: never wipe the wallet session during auth cookie restore
+ * (sessionReady + user=null briefly) — only clear on real sign-out.
+ */
 const WalletSessionBridge: React.FC = () => {
   const { isAuthenticated, sessionReady } = useAuth();
   const { disconnect } = useDisconnect();
@@ -44,6 +48,7 @@ const WalletSessionBridge: React.FC = () => {
   const appKitConnectedRef = useRef(appKitConnected);
   const wagmiStatusRef = useRef(wagmiStatus);
   const authOkRef = useRef(false);
+  const hadAuthRef = useRef(false);
   const mountReconnectDone = useRef(false);
 
   wagmiConnectedRef.current = wagmiConnected;
@@ -51,10 +56,15 @@ const WalletSessionBridge: React.FC = () => {
   wagmiStatusRef.current = wagmiStatus;
   authOkRef.current = sessionReady && isAuthenticated;
 
-  // No HyperGain login → no wallet. Clear any leftover session from before this rule.
+  useEffect(() => {
+    if (isAuthenticated) hadAuthRef.current = true;
+  }, [isAuthenticated]);
+
+  // Real sign-out only — never clear during cold-start auth restore.
   useEffect(() => {
     if (!sessionReady) return;
     if (isAuthenticated) return;
+    if (!hadAuthRef.current) return;
     clearWalletSession();
     if (wagmiConnected || appKitConnected) {
       disconnect();
@@ -68,7 +78,6 @@ const WalletSessionBridge: React.FC = () => {
     void runWalletReconnect({ force: true });
   }, [sessionReady, isAuthenticated]);
 
-  // After login, allow a fresh reconnect pass.
   useEffect(() => {
     if (!sessionReady || !isAuthenticated) {
       mountReconnectDone.current = false;
@@ -78,8 +87,11 @@ const WalletSessionBridge: React.FC = () => {
   useConnectionEffect({
     onConnect({ address, connector }) {
       if (!authOkRef.current) {
-        clearWalletSession();
-        disconnect();
+        // Don't persist; disconnect only after auth has proven logged-out (hadAuth).
+        if (hadAuthRef.current) {
+          clearWalletSession();
+          disconnect();
+        }
         return;
       }
       if (address) persistSession(address, connector?.id);
@@ -131,7 +143,6 @@ const WalletSessionBridge: React.FC = () => {
     document.addEventListener('visibilitychange', onActivity);
     window.addEventListener('focus', onActivity);
 
-    // Retry for ~2 min after mount (covers MetaMask unlock after computer restart).
     const retryTimers = [2_000, 5_000, 12_000, 25_000, 45_000, 90_000].map((ms) =>
       window.setTimeout(tryRestore, ms)
     );

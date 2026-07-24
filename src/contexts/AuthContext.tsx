@@ -148,17 +148,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentUser) {
           void hydrateProfile(currentUser);
         }
-      } catch (error) {
-        console.warn('[Auth] Session restore slow — waiting for auth listener:', error);
-      } finally {
         if (isMounted) {
           setSessionReady(true);
           setIsLoading(false);
         }
+      } catch (error) {
+        // Slow network — do NOT mark sessionReady yet. A premature ready+null user
+        // used to wipe the wallet session before the auth cookie finished restoring.
+        console.warn('[Auth] Session restore slow — waiting for auth listener:', error);
       }
     };
 
     void checkUser();
+
+    // Failsafe: if getSession timed out and listener is silent, unblock UI.
+    const failsafe = window.setTimeout(() => {
+      if (!isMounted) return;
+      setSessionReady((ready) => {
+        if (ready) return ready;
+        console.warn('[Auth] Session failsafe — marking ready without confirmed session');
+        return true;
+      });
+      setIsLoading(false);
+    }, AUTH_SESSION_TIMEOUT_MS + 10_000);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
@@ -225,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      window.clearTimeout(failsafe);
       profileLoadSeq.current += 1;
       clearProfileRetries();
       authListener.subscription.unsubscribe();
