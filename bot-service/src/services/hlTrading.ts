@@ -944,10 +944,13 @@ export class HyperliquidTradingService {
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
     newsTradeMode?: NewsTradeMode;
+    /** Admin force — skip soft gates; keep hard safety (excluded/flip/mark/apex). */
+    force?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+      const force = opts.force === true;
 
       const rejectOpen = (
         gate: HlOpenBlockGate,
@@ -960,6 +963,7 @@ export class HyperliquidTradingService {
           coin,
           direction: opts.direction,
           reason,
+          force,
           ...extra,
         });
         void recordHlOpenBlock({
@@ -1015,6 +1019,66 @@ export class HyperliquidTradingService {
           `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
           'peak blocks LONG'
         );
+      }
+
+      // Admin force: hard safety already passed — place without soft gates.
+      if (force) {
+        const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+        const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
+        const size = opts.notionalUsd / markPx;
+        if (size <= 0) {
+          return rejectOpen('invalid_size', 'Invalid size', 'invalid size');
+        }
+        const tradeDirection = opts.direction;
+        const openReasonFull = `ADMIN FORCE OPEN ${tradeDirection} ${coin} — ${opts.pick.reason}`;
+        const client = createAgentClient(opts.userAddress);
+        await client.updateLeverage({
+          asset: assetIndex,
+          isCross: false,
+          leverage: effectiveLeverage,
+        });
+        const isLong = tradeDirection === 'LONG';
+        const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
+        const builder = resolveHlOrderBuilder({
+          notionalUsd: opts.notionalUsd,
+          isClose: false,
+        });
+        const result = await client.order({
+          orders: [
+            {
+              a: assetIndex,
+              b: isLong,
+              p: formatHlPrice(limitPx, szDecimals),
+              s: formatHlSize(size, szDecimals),
+              r: false,
+              t: { limit: { tif: 'FrontendMarket' } },
+            },
+          ],
+          grouping: 'na',
+          ...(builder ? { builder } : {}),
+        });
+        const status = result.response?.data?.statuses?.[0] as
+          | { filled?: unknown; error?: string }
+          | undefined;
+        if (status && 'error' in status && status.error) {
+          return rejectOpen('order_error', String(status.error), 'order error');
+        }
+        logger.info('HL FORCE position opened', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: tradeDirection,
+          leverage: effectiveLeverage,
+          notionalUsd: opts.notionalUsd.toFixed(2),
+        });
+        await recordHlBotOpenMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: tradeDirection,
+          entryPx: markPx,
+          reason: openReasonFull,
+        });
+        hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());
+        return { success: true };
       }
 
       // Profile side rules only — June short pack keeps relaxSecondaryGates=false
@@ -1644,6 +1708,168 @@ export class HyperliquidTradingService {
       });
       return { success: false, error: msg };
     }
+  }
+
+  /**
+   * Admin force-open for every wallet with auto-trade ON.
+   * Keeps hard safety (agent, margin, slots, min notional, excluded, apex).
+   * Skips soft direction-profile / momentum gates via openMarketPosition({ force: true }).
+   */
+  async forceOpenForAutoTradeUsers(opts: {
+    coin: string;
+    direction: 'LONG' | 'SHORT';
+    ctx: TradingCycleContext;
+    wallets?: string[];
+  }): Promise<{
+    coin: string;
+    direction: 'LONG' | 'SHORT';
+    opened: number;
+    skipped: number;
+    failed: number;
+    results: Array<{ wallet: string; success: boolean; error?: string }>;
+  }> {
+    const coin = opts.coin.toUpperCase();
+    const direction = opts.direction;
+    const wallets =
+      opts.wallets ??
+      (await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId));
+    const liq = getHlLiquidityForCoin(opts.ctx.liquidUniverse, coin);
+    const pick: GlobalSignalCandidate = {
+      coin,
+      symbol: hlCoinToBinanceSymbol(coin),
+      direction,
+      confidence: 99,
+      reason: `Admin force ${direction} ${coin}`,
+      dayVolumeUsd: liq?.dayVolumeUsd ?? 0,
+      openInterestUsd: liq?.openInterestUsd ?? 0,
+      botMode: 'standard',
+      trendAlignment: 100,
+      directionalTfCount: 4,
+      h1Trend: direction === 'LONG' ? 'UP' : 'DOWN',
+    };
+
+    const results: Array<{ wallet: string; success: boolean; error?: string }> = [];
+    let opened = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const { mapPool } = await import('../utils/asyncPool');
+    await mapPool(wallets, config.scaling.userProcessConcurrency, async (walletRaw) => {
+      const userAddress = walletRaw.toLowerCase() as `0x${string}`;
+      try {
+        const gate = await this.canTrade(userAddress);
+        if (!gate.ok) {
+          skipped += 1;
+          results.push({ wallet: userAddress, success: false, error: gate.reason });
+          return;
+        }
+
+        const settings = await subscriptionService.getUserTradingSettings(
+          userAddress,
+          config.arbitrum.chainId
+        );
+        const state = await fetchHlClearinghouseState(userAddress);
+        if (!state) {
+          skipped += 1;
+          results.push({ wallet: userAddress, success: false, error: 'No HL account state' });
+          return;
+        }
+
+        const openCoins = hlOpenPerpCoins(state);
+        if (openCoins.some((c) => c.toUpperCase() === coin)) {
+          skipped += 1;
+          results.push({ wallet: userAddress, success: false, error: `${coin} already open` });
+          return;
+        }
+
+        const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
+        if (openCoins.length >= maxPositions) {
+          skipped += 1;
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: `slots full (${openCoins.length}/${maxPositions})`,
+          });
+          return;
+        }
+
+        const funding = await fetchHlPerpFundingSnapshot(userAddress);
+        const balance = funding.tradablePerpUsd;
+        const freeMargin = hlTradableFreeMarginUsd(funding, state);
+        const collateral = resolveMarginPerSlot(
+          balance,
+          freeMargin,
+          settings.riskLevelBps,
+          openCoins.length,
+          maxPositions
+        );
+        if (collateral < 1) {
+          skipped += 1;
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: `margin too small ($${collateral.toFixed(2)})`,
+          });
+          return;
+        }
+
+        const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
+        const maxLev = maxLeverageForCoin(opts.ctx.meta, coin);
+        let leverage = Math.min(leverageCap, maxLev);
+        let notionalUsd = collateral * leverage;
+        const minNotional = config.hyperliquid.minNotionalUsd;
+        if (notionalUsd < minNotional && collateral >= 1) {
+          const minLev = Math.ceil(minNotional / collateral);
+          leverage = Math.min(leverageCap, maxLev, Math.max(leverage, minLev));
+          notionalUsd = collateral * leverage;
+        }
+        if (notionalUsd < minNotional) {
+          skipped += 1;
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: `notional below floor ($${notionalUsd.toFixed(2)})`,
+          });
+          return;
+        }
+
+        const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
+        const openedRes = await this.openMarketPosition({
+          userAddress,
+          coin,
+          direction,
+          notionalUsd,
+          leverage,
+          pick,
+          botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
+          ctx: opts.ctx,
+          newsTradeMode: settings.newsTradeMode,
+          force: true,
+        });
+
+        if (openedRes.success) {
+          opened += 1;
+          await subscriptionService.recordTrade(userAddress);
+          results.push({ wallet: userAddress, success: true });
+        } else {
+          failed += 1;
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: openedRes.error ?? 'open failed',
+          });
+        }
+      } catch (err: unknown) {
+        failed += 1;
+        results.push({
+          wallet: userAddress,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    return { coin, direction, opened, skipped, failed, results };
   }
 
   private async syncOpenPositionLeverage(

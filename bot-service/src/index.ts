@@ -1186,6 +1186,40 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin: force-open a coin/direction for every auto-trade wallet (ops desk).
+  if (url.pathname === '/api/admin/force-open' && req.method === 'POST') {
+    if (!requireBotAdmin()) return;
+    try {
+      const body = await readJsonBody();
+      const coin = String(body.coin ?? 'ETH').trim().toUpperCase();
+      const directionRaw = String(body.direction ?? 'LONG').trim().toUpperCase();
+      const direction = directionRaw === 'SHORT' ? 'SHORT' : 'LONG';
+      if (!coin || coin.length > 20) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      const walletFilter = Array.isArray(body.wallets)
+        ? body.wallets.map((w) => String(w).toLowerCase()).filter((w) => /^0x[a-f0-9]{40}$/.test(w))
+        : undefined;
+      const ctx = await buildTradingCycleContext();
+      const result = await hyperliquidTradingService.forceOpenForAutoTradeUsers({
+        coin,
+        direction,
+        ctx,
+        wallets: walletFilter,
+      });
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, ...result }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'force-open failed';
+      logger.error('Admin force-open failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/admin/twitter/generate' && req.method === 'POST') {
     if (!requireBotAdmin()) return;
     try {
