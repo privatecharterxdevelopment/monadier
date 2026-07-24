@@ -127,23 +127,24 @@ export function getHlBotSidebarStatus(opts: {
     runtimeLabel,
   } = opts;
 
+  // Login first, then wallet — never prompt Connect before HyperGain sign-in.
+  if (!accountSignedIn) {
+    return {
+      statusKey: 'signInRequired',
+      headline: 'Sign in required',
+      detail: 'Sign in to your HyperGain account, then connect your wallet and press Start bot.',
+      tone: 'warn',
+      setupStep: 1,
+      setupComplete: false,
+    };
+  }
+
   if (!walletReady) {
     return {
       statusKey: 'connectWallet',
       headline: 'Connect wallet',
       detail: 'Use the same wallet you use on Hyperliquid.',
       tone: 'neutral',
-      setupStep: 1,
-      setupComplete: false,
-    };
-  }
-
-  if (!accountSignedIn) {
-    return {
-      statusKey: 'signInRequired',
-      headline: 'Sign in required',
-      detail: 'Sign in to your HyperGain account, then press Start bot. Your wallet is already connected.',
-      tone: 'warn',
       setupStep: 1,
       setupComplete: false,
     };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount } from 'wagmi';
 import { useAuth } from '../contexts/AuthContext';
+import { useMonadierWallet } from './useMonadierWallet';
 import { fetchUserPositions } from '../lib/userPositions';
 import { calcPositionPnl, fetchLiveTokenPrices } from '../lib/positionLivePnl';
 import { devWarn } from '../lib/devLog';
@@ -15,11 +15,20 @@ export type BotPositionBadge = {
 const EMPTY: BotPositionBadge = { count: 0, netPnl: 0, tone: null, loading: true };
 
 export function useBotPositionBadge(refreshKey = 0) {
-  const { address } = useAccount();
-  const { isDemoUser } = useAuth();
+  const { address, isConnected } = useMonadierWallet();
+  const { isDemoUser, user, isAuthenticated } = useAuth();
   const [badge, setBadge] = useState<BotPositionBadge>(EMPTY);
 
   const refresh = useCallback(async () => {
+    if (!isAuthenticated || (!isDemoUser && !user)) {
+      setBadge({ count: 0, netPnl: 0, tone: null, loading: false });
+      return;
+    }
+    if (!isDemoUser && !isConnected) {
+      setBadge({ count: 0, netPnl: 0, tone: null, loading: false });
+      return;
+    }
+
     try {
       const all = await fetchUserPositions({
         isDemoUser,
@@ -45,7 +54,7 @@ export function useBotPositionBadge(refreshKey = 0) {
       devWarn('[useBotPositionBadge]', e);
       setBadge((prev) => ({ ...prev, loading: false }));
     }
-  }, [address, isDemoUser]);
+  }, [address, isConnected, isDemoUser, user, isAuthenticated]);
 
   useEffect(() => {
     void refresh();

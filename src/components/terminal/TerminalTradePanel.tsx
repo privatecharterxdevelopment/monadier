@@ -129,7 +129,11 @@ const TerminalTradePanel: React.FC<Props> = ({
     isLoading: botSettingsLoading,
     wallet: botWallet,
   };
-  const hlBalanceWallet = monadierAddress ?? address ?? botWallet ?? undefined;
+  const accountSignedIn = isDemoUser || isAuthenticated;
+  // Login first — never load HL balances / history without HyperGain account.
+  const hlBalanceWallet = accountSignedIn
+    ? monadierAddress ?? botWallet ?? undefined
+    : undefined;
   const hlSetup = useHlBotSetup(hlBalanceWallet);
   const builderConfig = getHlBuilderConfig();
   const botSuccessFeeLabel = hlBotSuccessFeeStepButtonLabel(2);
@@ -147,10 +151,11 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const { ensureAccepted } = useLegalAcceptance();
   const { openFunds: openGlobalFunds } = useBettingUi();
-  const walletReady = isDemoUser || isConnected || Boolean(monadierAddress);
-  const wallet = botSettings.wallet;
-  const accountSignedIn = isDemoUser || isAuthenticated;
-  const needsAccountSignIn = walletReady && !accountSignedIn;
+  // Login first — wallet is never "ready" without HyperGain account.
+  const walletReady =
+    accountSignedIn && (isDemoUser || Boolean(monadierAddress) || isConnected);
+  const wallet = accountSignedIn ? botSettings.wallet : undefined;
+  const needsAccountSignIn = !accountSignedIn;
 
   const onboardingKey = useMemo(
     () => hlBotOnboardingStorageKey(user?.id, wallet ?? address ?? null),

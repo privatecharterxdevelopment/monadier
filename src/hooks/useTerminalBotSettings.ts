@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useWeb3 } from '../contexts/Web3Context';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useMonadierWallet } from './useMonadierWallet';
 import { supabase } from '../lib/supabase';
@@ -41,31 +40,33 @@ export type TerminalBotSettings = {
 };
 
 export function useTerminalBotSettings(refreshKey = 0) {
-  const { isConnected, address } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser, user, profile } = useAuth();
   const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
 
   useEffect(() => {
-    if (isDemoUser) return;
+    if (isDemoUser || !user) {
+      setLinkedWallets([]);
+      return;
+    }
     let cancelled = false;
-    void fetchUserWalletAddresses(address, false).then((list) => {
+    void fetchUserWalletAddresses(monadierAddress, false).then((list) => {
       if (!cancelled) setLinkedWallets(list);
     });
     return () => {
       cancelled = true;
     };
-  }, [address, isDemoUser, user?.id, profile?.wallet_address]);
+  }, [monadierAddress, isDemoUser, user?.id, profile?.wallet_address]);
 
   const wallet = useMemo(() => {
     if (isDemoUser) return DEMO_WALLET_ADDRESS as `0x${string}`;
-    const connected = monadierAddress ?? (isConnected && address ? address : undefined);
+    if (!user) return undefined;
     const resolved = resolveHlTradingWallet({
-      connectedAddress: connected,
+      connectedAddress: monadierAddress,
       linkedWallets: linkedWallets,
     });
     return resolved ? (resolved as `0x${string}`) : undefined;
-  }, [isDemoUser, monadierAddress, isConnected, address, linkedWallets]);
+  }, [isDemoUser, user, monadierAddress, linkedWallets]);
 
   const [data, setData] = useState<TerminalBotSettings>({
     settings: defaultSettings,

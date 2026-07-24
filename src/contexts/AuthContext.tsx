@@ -4,6 +4,7 @@ import { ensureFreeSubscription } from '../lib/ensureSubscription';
 import { isDemoModeEnabled, disableDemoMode } from '../lib/demoMode';
 import { applyStoredReferralForUser } from '../lib/referralCapture';
 import { emitAuthSignedIn } from '../components/auth/AuthWalletReset';
+import { setWalletAuthGate } from '../lib/walletAuthGate';
 import { User } from '@supabase/supabase-js';
 
 // Demo account constants
@@ -231,11 +232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [clearProfileRetries, hydrateProfile]);
 
   const isDemoUser = !!user && user.email === DEMO_EMAIL;
+  const isAuthenticated = !!user || isDemoMode;
+
+  useEffect(() => {
+    setWalletAuthGate({ ready: sessionReady, allowed: isAuthenticated });
+  }, [sessionReady, isAuthenticated]);
 
   const value = {
     user,
     profile,
-    isAuthenticated: !!user || isDemoMode,
+    isAuthenticated,
     isLoading,
     sessionReady,
     isDemoUser,

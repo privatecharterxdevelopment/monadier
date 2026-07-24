@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { useAccount } from 'wagmi';
-import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -41,9 +41,14 @@ const ProTradeStatusBar: React.FC<Props> = ({
   botMetrics,
   botWallet,
 }) => {
-  const { address: web3Address } = useWeb3();
-  const { address: wagmiAddress } = useAccount();
-  const walletAddress = botWallet ?? wagmiAddress ?? web3Address ?? undefined;
+  const { isAuthenticated } = useAuth();
+  const { address: monadierAddress, isConnected } = useMonadierWallet();
+  // Never fall back to raw wagmi — that leaked balances while logged out.
+  const walletAddress =
+    isAuthenticated && (botWallet ?? monadierAddress)
+      ? (botWallet ?? monadierAddress)
+      : undefined;
+  const liveConnected = isAuthenticated && walletConnected && isConnected;
   const hlSetup = useHlBotSetup(mode === 'bot' ? walletAddress : undefined);
   const botSettings = useTerminalBotSettings();
   const timerWallet = walletAddress;
@@ -93,13 +98,22 @@ const ProTradeStatusBar: React.FC<Props> = ({
   const up = upnl >= 0;
 
   if (mode === 'bot' && botMetrics) {
-    const running = botRunning;
-    const totalPnl = botMetrics.totalPnlUsd;
+    const running = liveConnected && botRunning;
+    const showMoney = liveConnected;
+    const totalPnl = showMoney ? botMetrics.totalPnlUsd : 0;
     const pnlUp = totalPnl >= 0;
-    // Prefer the live mark-based uPnL (same source as the positions table) so the
-    // header matches the rows tick-for-tick; fall back to the snapshot aggregate.
-    const openCount = positions.length > 0 ? positions.length : botMetrics.openPositionsCount;
-    const botUpnl = positions.length > 0 ? upnl : botMetrics.unrealizedPnlUsd;
+    const openCount = showMoney
+      ? positions.length > 0
+        ? positions.length
+        : botMetrics.openPositionsCount
+      : 0;
+    const botUpnl = showMoney
+      ? positions.length > 0
+        ? upnl
+        : botMetrics.unrealizedPnlUsd
+      : 0;
+    const hlBal = showMoney ? botMetrics.hlBalanceUsd : 0;
+    const hlWd = showMoney ? botMetrics.hlWithdrawableUsd : 0;
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
@@ -116,8 +130,8 @@ const ProTradeStatusBar: React.FC<Props> = ({
               'Auto-trading off'
             )}
           </span>
-          <span>HL {fmtUsd(botMetrics.hlBalanceUsd)}</span>
-          <span>Withdraw {fmtUsd(botMetrics.hlWithdrawableUsd)}</span>
+          <span>HL {fmtUsd(hlBal)}</span>
+          <span>Withdraw {fmtUsd(hlWd)}</span>
           <span>Open {openCount}</span>
           <span className={botUpnl >= 0 ? 'hl-up' : 'hl-down'}>
             uPnL {fmtUpnl(botUpnl)}
@@ -127,7 +141,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
           </span>
         </div>
         <div className="hl-status-right">
-          {walletConnected ? (
+          {liveConnected ? (
             <span className="hl-status-connected">
               <span className="hl-status-dot" aria-hidden />
               Wallet connected
@@ -144,28 +158,30 @@ const ProTradeStatusBar: React.FC<Props> = ({
     <footer className="hl-status">
       <div className="hl-status-left">
         <span className="hl-status-mode">Hyperliquid · Manual trade</span>
-        <span>Open {fmtUsdSymbol(positionStats.openNotional)}</span>
-        <span>Longs {fmtUsdSymbol(positionStats.longs)}</span>
-        <span>Shorts {fmtUsdSymbol(positionStats.shorts)}</span>
+        <span>Open {fmtUsdSymbol(liveConnected ? positionStats.openNotional : 0)}</span>
+        <span>Longs {fmtUsdSymbol(liveConnected ? positionStats.longs : 0)}</span>
+        <span>Shorts {fmtUsdSymbol(liveConnected ? positionStats.shorts : 0)}</span>
         <span className={positionStats.delta >= 0 ? 'hl-up' : 'hl-down'}>
-          Delta {positionStats.delta >= 0 ? '+' : ''}{fmtUsdSymbol(positionStats.delta)}
+          Delta {liveConnected ? `${positionStats.delta >= 0 ? '+' : ''}${fmtUsdSymbol(positionStats.delta)}` : fmtUsdSymbol(0)}
         </span>
         <span className={up ? 'hl-up' : 'hl-down'}>
-          uPnL {up ? '+' : ''}{fmtTradeUsdSymbol(upnl)}
+          uPnL {liveConnected ? `${up ? '+' : ''}${fmtTradeUsdSymbol(upnl)}` : fmtTradeUsdSymbol(0)}
         </span>
       </div>
       <div className="hl-status-mid">
         <span>
-          Orders: {orderSummary.count}
-          {orderSummary.total > 0 ? ` (${fmtUsdSymbol(orderSummary.total)})` : ''}
+          Orders: {liveConnected ? orderSummary.count : 0}
+          {liveConnected && orderSummary.total > 0 ? ` (${fmtUsdSymbol(orderSummary.total)})` : ''}
         </span>
         <span>
-          Buys/Sells: {orderSummary.buyCount} ({fmtUsdSymbol(orderSummary.buyUsd)}) /{' '}
-          {orderSummary.sellCount} ({fmtUsdSymbol(orderSummary.sellUsd)})
+          Buys/Sells:{' '}
+          {liveConnected
+            ? `${orderSummary.buyCount} (${fmtUsdSymbol(orderSummary.buyUsd)}) / ${orderSummary.sellCount} (${fmtUsdSymbol(orderSummary.sellUsd)})`
+            : '0 / 0'}
         </span>
       </div>
       <div className="hl-status-right">
-        {walletConnected && wsLive ? (
+        {liveConnected && wsLive ? (
           <span className="hl-status-connected">
             <span className="hl-status-dot" aria-hidden />
             Live
@@ -175,7 +191,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
             <span className="hl-status-dot" aria-hidden />
             Market live
           </span>
-        ) : walletConnected ? (
+        ) : liveConnected ? (
           <span>Connected</span>
         ) : (
           <span>Disconnected</span>

@@ -27,9 +27,9 @@ function cookieDomain(): string | undefined {
 function writeSessionCookie(raw: string, maxAgeSec: number): void {
   if (typeof document === 'undefined') return;
   const domain = cookieDomain();
-  if (!domain) return;
+  const domainAttr = domain ? `; Domain=${domain}` : '';
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${COOKIE_KEY}=${encodeURIComponent(raw)}; Path=/; Max-Age=${maxAgeSec}; SameSite=Lax; Domain=${domain}${secure}`;
+  document.cookie = `${COOKIE_KEY}=${encodeURIComponent(raw)}; Path=/; Max-Age=${maxAgeSec}; SameSite=Lax${domainAttr}${secure}`;
 }
 
 function readSessionCookie(): string | null {

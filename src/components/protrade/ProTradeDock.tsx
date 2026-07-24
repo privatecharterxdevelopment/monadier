@@ -178,7 +178,7 @@ const ProTradeDock: React.FC<Props> = ({
   botManagedCoinsLoading = false,
 }) => {
   const { t } = useTranslation();
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const shareDisplayName = profile?.username?.trim()
     ? `@${profile.username.trim()}`
     : displayHandle(profile, user?.email);
@@ -482,7 +482,9 @@ const ProTradeDock: React.FC<Props> = ({
       </div>
 
       <div className="hl-dock-body">
-        {!connected ? (
+        {!isAuthenticated ? (
+          <p className="hl-dock-empty">{t('dock.signInRequired')}</p>
+        ) : !connected ? (
           <p className="hl-dock-empty">{t('dock.connectWallet')}</p>
         ) : loading && !account ? (
           <p className="hl-dock-empty">

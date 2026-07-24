@@ -392,6 +392,15 @@ const Dashboard2ProPageContent: React.FC = () => {
     setAuthModal('signin');
   }, []);
 
+  useEffect(() => {
+    const onRequireSignIn = (e: Event) => {
+      const detail = (e as CustomEvent<{ reason?: string }>).detail;
+      promptSignIn(detail?.reason || 'Sign in to continue.');
+    };
+    window.addEventListener('monadier:require-sign-in', onRequireSignIn);
+    return () => window.removeEventListener('monadier:require-sign-in', onRequireSignIn);
+  }, [promptSignIn]);
+
   const switchToRegister = useCallback(() => {
     setSignInReason(undefined);
     setAuthModal('register');

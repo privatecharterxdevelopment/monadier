@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAccount } from 'wagmi';
 import { supabase } from '../lib/supabase';
 import { useAuth, DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
 import { useWeb3 } from '../contexts/Web3Context';
@@ -76,7 +75,6 @@ function pnlInWindow(
 }
 
 export function useTradingDashboardMetrics() {
-  const { address: wagmiAddress } = useAccount();
   const { address: monadierAddress } = useMonadierWallet();
   const { isDemoUser, user } = useAuth();
   const { publicClient, walletClient } = useWeb3();
@@ -86,32 +84,43 @@ export function useTradingDashboardMetrics() {
   const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
 
   useEffect(() => {
-    if (isDemoUser) return;
+    if (isDemoUser || !user) {
+      setLinkedWallets([]);
+      return;
+    }
     let cancelled = false;
-    void fetchUserWalletAddresses(wagmiAddress, false).then((list) => {
+    void fetchUserWalletAddresses(monadierAddress, false).then((list) => {
       if (!cancelled) setLinkedWallets(list);
     });
     return () => {
       cancelled = true;
     };
-  }, [wagmiAddress, isDemoUser, user?.id]);
+  }, [monadierAddress, isDemoUser, user?.id]);
 
   const queryWallet = useMemo(() => {
     if (isDemoUser) return DEMO_WALLET_ADDRESS.toLowerCase() as `0x${string}`;
-    const connected = (monadierAddress ?? wagmiAddress)?.toLowerCase();
+    // Fatal: never resolve HL wallet / history without HyperGain login.
+    if (!user) return undefined;
+    const connected = monadierAddress?.toLowerCase();
     const resolved = resolveHlTradingWallet({
       connectedAddress: connected,
       linkedWallets,
     });
     return resolved ? (resolved as `0x${string}`) : undefined;
-  }, [isDemoUser, monadierAddress, wagmiAddress, linkedWallets]);
+  }, [isDemoUser, user, monadierAddress, linkedWallets]);
 
-  const connectedAddress = monadierAddress ?? wagmiAddress ?? undefined;
+  const connectedAddress = user || isDemoUser ? monadierAddress ?? undefined : undefined;
 
   const hlWallet = queryWallet;
   const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
   const hlSnapRef = useRef(hlSnap);
   hlSnapRef.current = hlSnap;
+
+  useEffect(() => {
+    if (hlWallet) return;
+    hasSnapshotRef.current = false;
+    setMetrics(defaultMetrics);
+  }, [hlWallet]);
 
   useEffect(() => {
     if (!hlSnap) return;

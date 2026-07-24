@@ -78,7 +78,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   botHlBalanceUsd = 0,
 }) => {
   const { publicClient, walletClient } = useWeb3();
-  const { isDemoUser } = useAuth();
+  const { isDemoUser, isAuthenticated } = useAuth();
   const { planTier } = useSubscription();
   const {
     wallet: hlWallet,
@@ -226,7 +226,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     [onTabChange, refreshAccount]
   );
 
-  const connected = walletConnected || Boolean(hlWallet);
+  // Login + wallet — never show positions/history from settings wallet alone.
+  const connected = isAuthenticated && Boolean(hlWallet) && (walletConnected || isDemoUser);
 
   return (
     <div

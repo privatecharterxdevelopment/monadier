@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { useAccount } from 'wagmi';
+import { useMonadierWallet } from '../hooks/useMonadierWallet';
 import { useAuth, DEMO_WALLET_ADDRESS } from './AuthContext';
 import { ensureArray } from '../lib/ensureArray';
 import { supabase } from '../lib/supabase';
@@ -20,9 +20,7 @@ import {
 } from '../lib/closedTrades';
 import {
   type ActivityNotification,
-  bettingCloseToNotification,
   botTradeToNotification,
-  fetchBettingCloseNotifications,
   isActivityUnread,
   mergeActivityNotifications,
   toastMessageForNotification,
@@ -86,7 +84,7 @@ function notifyFreshToasts(
 export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { address } = useAccount();
+  const { address } = useMonadierWallet();
   const { user, isDemoUser } = useAuth();
   const communityNotifsEnabled = false; // Community parked — no mention toasts/bell noise
   const { showToast } = useTermAuthToast();
@@ -108,6 +106,10 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!user && !isDemoUser) {
+        if (!cancelled) setWallets([]);
+        return;
+      }
       const list = await fetchUserWalletAddresses(address, isDemoUser);
       const merged = [...list];
       const connected = address?.toLowerCase();
@@ -141,9 +143,13 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
 
   const load = useCallback(
     async (silent = false) => {
-      if (!isDemoUser && !user && wallets.length === 0 && !address) {
+      // Fatal: never load/show trade notifications without HyperGain login.
+      // Wallet-only visitors must not see unread badges or toast noise.
+      if (!user && !isDemoUser) {
         setNotifications([]);
         setIsLoading(false);
+        bootstrappedRef.current = false;
+        knownIdsRef.current = new Set();
         return;
       }
 
@@ -162,17 +168,14 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
             merged = merged.filter((n) => n.kind !== 'community');
           }
         } else {
+          // Demo only — never anonymous wallet.
           const closed = await fetchClosedTrades({
-            isDemoUser,
-            wallets: isDemoUser ? [DEMO_WALLET_ADDRESS] : wallets,
+            isDemoUser: true,
+            wallets: [DEMO_WALLET_ADDRESS],
             limit: 100,
           });
           const botRows = ensureArray(closed).map(botTradeToNotification);
-          const bettingRowsRaw = isDemoUser
-            ? []
-            : await fetchBettingCloseNotifications(50);
-          const bettingRows = ensureArray(bettingRowsRaw).map(bettingCloseToNotification);
-          merged = mergeActivityNotifications(botRows, bettingRows, 100);
+          merged = mergeActivityNotifications(botRows, [], 100);
         }
 
         const prevIds = knownIdsRef.current;
@@ -191,7 +194,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
         setIsLoading(false);
       }
     },
-    [isDemoUser, user, wallets, address, showToast, syncBettingForWallets, communityNotifsEnabled]
+    [isDemoUser, user, showToast, syncBettingForWallets, communityNotifsEnabled]
   );
 
   useEffect(() => {

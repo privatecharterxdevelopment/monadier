@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
-import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { livePositionUpnl } from '../../lib/hyperliquid/user';
@@ -127,10 +126,11 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
   wsLive = false,
 }) => {
   const { metrics } = useProTradeBot();
-  const { wallet } = useTerminalBotSettings();
-  // Compute the header uPnL from the same live positions + mark prices the
-  // positions table uses, so both numbers always match (no more 15s-snapshot lag).
-  const { snapshot } = useHlAccountSnapshot(wallet);
+  const { address, isConnected } = useMonadierWallet();
+  // Only poll HL when logged-in wallet is live — never from stale bot settings.
+  const { snapshot } = useHlAccountSnapshot(
+    walletConnected && isConnected ? address : undefined
+  );
   const positions = snapshot?.positions ?? [];
   const coins = useMemo(() => positions.map((p) => p.coin), [positions]);
   const { prices: markPrices } = useHyperliquidMarkPrices(coins, 5000);
@@ -145,13 +145,13 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
   return (
     <ProTradeStatusBar
       mode="bot"
-      walletConnected={walletConnected}
+      walletConnected={walletConnected && isConnected}
       wsLive={wsLive}
       openOrders={[]}
       positions={positions}
       totalUpnl={liveUpnl}
       botMetrics={metrics}
-      botWallet={wallet}
+      botWallet={address}
     />
   );
 };

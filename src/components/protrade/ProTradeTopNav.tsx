@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useAuth } from '../../contexts/AuthContext';
 import Logo from '../ui/Logo';
 import DockCountBadge from './DockCountBadge';
 import ProTradeAccountMenu from './ProTradeAccountMenu';
@@ -97,6 +98,7 @@ const ProTradeTopNav: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const { isLight } = useProTradeTheme();
+  const { isAuthenticated } = useAuth();
   const { open } = useMonadierAppKit();
   const { address, isConnected, isRestoring } = useMonadierWallet();
   const { usdcBalance, usdcLoading } = useArbitrumWalletUsdc(
@@ -188,7 +190,7 @@ const ProTradeTopNav: React.FC<Props> = ({
           compact={isMobile}
         />
         {isConnected ? <ProTradeHlNetworkSwitch compact={isMobile} /> : null}
-        {onViewNotificationHistory ? (
+        {isAuthenticated && onViewNotificationHistory ? (
           <ProTradeNotificationsBell onViewHistory={onViewNotificationHistory} />
         ) : null}
         <div className="hidden md:block">

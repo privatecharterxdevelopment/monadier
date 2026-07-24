@@ -3,6 +3,11 @@ import { isMetaMaskInAppBrowser, shouldUseMobileWalletSheet } from './mobileWall
 import { config } from './wallet';
 import { markWalletConnectAttempt } from './walletReconnect';
 import { detectWalletExtensionConflict, walletConnectRetryHint } from './walletTroubleshoot';
+import {
+  emitRequireSignIn,
+  isWalletAuthAllowed,
+  isWalletAuthGateReady,
+} from './walletAuthGate';
 
 export type AppKitOpenFn = (options?: { view?: 'Connect' | 'Account' }) => void;
 
@@ -15,6 +20,14 @@ export function openMonadierWalletModal(
     open({ view: 'Connect' });
     return;
   }
+
+  // Login required before any wallet connect / account sheet.
+  if (!isWalletAuthGateReady()) return;
+  if (!isWalletAuthAllowed()) {
+    emitRequireSignIn('Sign in to connect your wallet.');
+    return;
+  }
+
   window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
 
   const connected =
