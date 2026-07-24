@@ -1,4 +1,5 @@
 import { getBotApiBase } from './signalService';
+import { decodeHtmlEntities } from './decodeHtmlEntities';
 
 export type NewsAnalysisDto = {
   summary: string;
@@ -50,6 +51,29 @@ export type NewsFeedResponse = {
   meta?: NewsFeedMeta;
 };
 
+function sanitizeNewsItem(item: NewsItemDto): NewsItemDto {
+  const a = item.analysis;
+  return {
+    ...item,
+    headline: decodeHtmlEntities(item.headline),
+    snippet: item.snippet != null ? decodeHtmlEntities(item.snippet) : item.snippet,
+    analysis: {
+      ...a,
+      summary: decodeHtmlEntities(a.summary),
+      priceHint: decodeHtmlEntities(a.priceHint),
+      reasoning: decodeHtmlEntities(a.reasoning),
+    },
+    prognosis: item.prognosis
+      ? {
+          ...item.prognosis,
+          eventName: decodeHtmlEntities(item.prognosis.eventName),
+          favoredLeg: decodeHtmlEntities(item.prognosis.favoredLeg),
+          reasoning: decodeHtmlEntities(item.prognosis.reasoning),
+        }
+      : item.prognosis,
+  };
+}
+
 export async function fetchNewsFeed(
   tab: 'crypto' | 'sports',
   limit = 24
@@ -59,8 +83,9 @@ export async function fetchNewsFeed(
   );
   if (!res.ok) throw new Error('News feed unavailable');
   const data = (await res.json()) as NewsFeedResponse & { items?: NewsItemDto[] };
+  const items = Array.isArray(data.items) ? data.items.map(sanitizeNewsItem) : [];
   return {
-    items: Array.isArray(data.items) ? data.items : [],
+    items,
     meta: data.meta,
   };
 }
