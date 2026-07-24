@@ -55,7 +55,7 @@ function pickPreferredCandidate(
 ): GlobalSignalCandidate | null {
   if (longC && shortC) {
     const primary = config.hyperliquid.directionProfile.primaryDirection;
-    const edge = primary === 'SHORT' ? 20 : 8;
+    const edge = primary === 'SHORT' ? 30 : 8;
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) return longC;
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;

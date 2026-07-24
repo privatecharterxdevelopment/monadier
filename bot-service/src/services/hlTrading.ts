@@ -204,8 +204,8 @@ function shouldRelaxSecondaryGates(
   _coin: string,
   direction: 'LONG' | 'SHORT'
 ): boolean {
-  // Always use the active profile's side rules — peak shorts must NOT swap onto
-  // PRIMARY_RULES (that re-enabled relax and broke the June short replica).
+  // Profile side rules only — bear SHORT uses PRIMARY_RULES (relax+bypass)
+  // so Jun 26–Jul 13 open rate returns. Peak→SHORT must not swap sides.
   const rules =
     direction === 'LONG'
       ? config.hyperliquid.directionProfile.long
@@ -1081,8 +1081,8 @@ export class HyperliquidTradingService {
         return { success: true };
       }
 
-      // Profile side rules only — June short pack keeps relaxSecondaryGates=false
-      // so every secondary gate runs. Peak→SHORT must not swap onto PRIMARY_RULES.
+      // Profile side rules — bear SHORT uses PRIMARY_RULES (relax+bypass) for
+      // Jun 26–Jul 13 open rate. Peak→SHORT must not swap onto LONG rules.
       const directionRules =
         opts.direction === 'LONG' ? directionProfile.long : directionProfile.short;
       const directionalTfs = opts.pick.directionalTfCount ?? 0;
