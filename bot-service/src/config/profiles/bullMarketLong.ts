@@ -27,6 +27,7 @@ export const BULL_MARKET: HlDirectionProfile = {
   preOpenCandleCount: 8,
   preOpenMinVolumeRatio: 0.5,
   maxVolumeRank: 60,
+  minDayVolumeUsd: 0,
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,

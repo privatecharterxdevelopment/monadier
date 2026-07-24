@@ -70,8 +70,17 @@ export type HlDirectionProfile = {
    * Env HL_PRE_OPEN_MIN_VOL_RATIO still wins when set.
    */
   preOpenMinVolumeRatio: number;
-  /** Hard universe cap by volume rank for opens. June-26 short regime used 18. */
+  /**
+   * Hard universe cap by volume rank for opens.
+   * 0 = no rank cap (volume floor alone filters thin pairs).
+   */
   maxVolumeRank: number;
+  /**
+   * Optional 24h notional floor for opens (USD).
+   * When set (>0) and env HL_MIN_DAY_VOLUME_USD is unset, this profile floor applies.
+   * 0 = defer to global config / env only.
+   */
+  minDayVolumeUsd: number;
   /**
    * June-26 short regime: 1m/5m scalp alignment for SHORT opens.
    * LONGs never use this gate (MTF structure), even under bear_market.

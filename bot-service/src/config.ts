@@ -115,12 +115,14 @@ export const config = {
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
-     * Bot open floor. Default 0 = trade every listed HL perp (June behavior);
-     * ugly/untradeable pairs are removed explicitly via BOT_EXCLUDED_HL_COINS
-     * instead of a blanket volume floor that also killed legit mid-caps.
-     * NOTE: env HL_MIN_DAY_VOLUME_USD overrides this — set it to 0 on Railway too.
+     * Bot open floor (24h notional USD).
+     * Direction profile wins when it sets a floor (bear_market = $250M).
+     * Else env HL_MIN_DAY_VOLUME_USD, else 0 = no floor.
      */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    minDayVolumeUsd:
+      activeDirectionProfile.minDayVolumeUsd > 0
+        ? activeDirectionProfile.minDayVolumeUsd
+        : Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these. ZEC is always banned (never traded).
@@ -138,14 +140,14 @@ export const config = {
       ]),
     ],
     /**
-     * Anti-starvation floor for the day-volume gate: the enforced floor is clamped so
-     * it never leaves FEWER than this many perps tradable. Set to 40 so the top ~40
-     * most-liquid HL perps (DOT, APT, LINK, SUSHI, INJ, …) always stay tradable even
-     * when a too-high Railway floor (e.g. $0.65M) would otherwise exclude legit mid-caps.
-     * On HL many real coins trade well under $1M/24h, so a high raw floor must not decide
-     * the universe on its own.
+     * Anti-starvation floor for the day-volume gate. When the active profile sets
+     * its own minDayVolumeUsd (bear $250M), default clamp is OFF so the floor is real.
+     * Otherwise keep ~40 so a stale high Railway floor cannot nuke the universe.
      */
-    minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
+    minTradableUniverse: Number(
+      process.env.HL_MIN_TRADABLE_UNIVERSE ||
+        (activeDirectionProfile.minDayVolumeUsd > 0 ? 0 : 40)
+    ),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
     maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
@@ -368,15 +370,14 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      // Hard universe cap. 18 was too tight: HL's top-18 by volume is dominated by
-      // BTC/ETH/HYPE/SOL + memecoins (CASHCAT/PUMP/VVV), which DROPPED real large-caps
-      // like LINK(#20)/ADA(#22)/BNB(#23)/AVAX(#24)/ARB/DOT entirely. 60 lets in the full
-      // set of tradable mid-caps (INJ #42, VIRTUAL #52, JUP #53 were being blocked at 40);
-      // ranks 19-60 stay "cautious" tier (news + stricter conf via caution path), so the
-      // universe widens without loosening per-trade quality.
-      maxVolumeRank: Number(
-        process.env.HL_OPEN_MAX_VOLUME_RANK || activeDirectionProfile.maxVolumeRank
-      ),
+      // Profile maxVolumeRank === 0 → no rank cap (bear_market), ignore stale Railway env.
+      // Else env HL_OPEN_MAX_VOLUME_RANK, else profile.
+      maxVolumeRank:
+        activeDirectionProfile.maxVolumeRank === 0
+          ? 0
+          : Number(
+              process.env.HL_OPEN_MAX_VOLUME_RANK || activeDirectionProfile.maxVolumeRank
+            ),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),

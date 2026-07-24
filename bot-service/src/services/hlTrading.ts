@@ -619,7 +619,8 @@ export class HyperliquidTradingService {
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
-      if (rank > maxRank) {
+      // maxVolumeRank <= 0 → no rank cap (volume floor alone filters shitcoins).
+      if (maxRank > 0 && rank > maxRank) {
         addSkip(
           signal,
           'liquidity',
