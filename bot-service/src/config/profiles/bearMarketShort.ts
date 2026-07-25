@@ -11,7 +11,8 @@ import {
  * ================================================
  * Switch via `HL_DIRECTION_PROFILE=bear_market`.
  *
- * SHORT = PRIMARY_RULES — trusted MTF may relax/bypass secondaries.
+ * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
+ *         but NEVER skips entry_location / pump_sweep (no shorting lows).
  * LONG  = strict counter-trend only (h1 UP, high conf).
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
@@ -20,7 +21,7 @@ import {
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary June replica: PRIMARY_RULES, no rank cap, $5M/24h volume floor; LONG only strict counter-trend.',
+    'SHORT-primary June replica: PRIMARY_RULES (S/R always on), no rank cap, $5M/24h floor; LONG counter-trend only.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',

@@ -111,7 +111,8 @@ export const PRIMARY_RULES: HlDirectionRules = {
   bypassFreshPumpWhenTrusted: true,
   bypassMacroBetaWhenTrusted: true,
   bypassPumpShortWhenTrusted: true,
-  bypassEntryLocationWhenTrusted: true,
+  /** Never skip S/R — trusted SHORTs still must not sell support / range bottom. */
+  bypassEntryLocationWhenTrusted: false,
 };
 
 /** Strict rules for the counter-trend direction (only high-conviction setups). */

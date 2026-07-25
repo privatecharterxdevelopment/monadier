@@ -1309,37 +1309,13 @@ export class HyperliquidTradingService {
         });
       }
 
-      // The active regime may trust an already aligned MTF primary-direction setup
-      // instead of vetoing it again with opposite-side mean-reversion logic.
-      // Exception: LONGs never skip entry location — longing into resistance is how
-      // BTC/ETH/HYPE got opened at the peak.
-      const locationGate =
-        opts.direction === 'SHORT' &&
-        trustedDirection &&
-        directionRules.bypassEntryLocationWhenTrusted
-          ? {
-              ok: true as const,
-              reason: `${directionProfile.name}: trusted MTF SHORT skips duplicate S/R re-check`,
-              analysis: {
-                support: 0,
-                resistance: 0,
-                price: markPx,
-                pricePosition: 0.5,
-                resistanceTouches: 0,
-                resistanceRejections: 0,
-                supportTouches: 0,
-                supportRejections: 0,
-                confirmedBreakoutUp: false,
-                confirmedBreakdown: false,
-                nearResistance: false,
-                nearSupport: false,
-              },
-            }
-          : await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
+      // Entry location always runs — trusted MTF must NOT skip support/bottom checks.
+      // (Old bypassEntryLocationWhenTrusted for SHORT = "short the lows" disasters.)
+      const locationGate = await validateEntryLocation({
+        symbol,
+        coin,
+        direction: opts.direction,
+      });
       if (!locationGate.ok) {
         return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
           resistance: locationGate.analysis.resistance,

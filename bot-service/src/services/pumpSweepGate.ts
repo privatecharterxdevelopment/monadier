@@ -60,10 +60,20 @@ function gateForDirection(
     return {
       ok: false,
       reason:
-        `SHORT blocked — ${coin} at sweep low / turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — do not sell the dip`,
+        `SHORT blocked — ${coin} at sweep low / turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — do not sell the dip` +
+        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago) · avg low $${a.avgSwingLow.toFixed(2)}`,
     };
   }
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.3) {
+  // Hole that let ETH short the floor: post_dump_bounce with low position fell through to allow.
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.4) {
+    return {
+      ok: false,
+      reason:
+        `SHORT blocked — ${coin} still near sweep low after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
+        `sweep $${a.sweepLow.toFixed(2)}) — wait for rally toward ~$${a.turnaroundEstimate.toFixed(2)} before fade`,
+    };
+  }
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.4) {
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} post-dump rally fade zone (${(a.positionInSweep * 100).toFixed(0)}% of range)`,
