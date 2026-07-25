@@ -14,12 +14,13 @@ import {
  * SHORT = PRIMARY_RULES — trusted MTF may relax/bypass secondaries.
  * LONG  = strict counter-trend only (h1 UP, high conf).
  *
- * Universe: no top-N rank cap — only drop thin pairs under $250M 24h volume.
+ * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
+ * leaving mid-caps (PUMP, WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
  */
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary June replica: PRIMARY_RULES, no rank cap, $250M/24h volume floor; LONG only strict counter-trend.',
+    'SHORT-primary June replica: PRIMARY_RULES, no rank cap, $5M/24h volume floor; LONG only strict counter-trend.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
@@ -32,8 +33,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
   preOpenMinVolumeRatio: 0.85,
   /** 0 = no rank cap — let every liquid pair through. */
   maxVolumeRank: 0,
-  /** Shitcoin filter: under $250M 24h notional stays out. */
-  minDayVolumeUsd: 250_000_000,
+  /** Shitcoin filter — ~top liquid mid-caps; anti-starvation clamp keeps ≥40 tradable. */
+  minDayVolumeUsd: 5_000_000,
   useScalpAlignment: true,
   useAggressiveScalpSignals: true,
   enableHtfSr: false,

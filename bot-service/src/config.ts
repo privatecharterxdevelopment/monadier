@@ -116,7 +116,7 @@ export const config = {
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
      * Bot open floor (24h notional USD).
-     * Direction profile wins when it sets a floor (bear_market = $250M).
+     * Direction profile wins when it sets a floor (bear_market = $5M).
      * Else env HL_MIN_DAY_VOLUME_USD, else 0 = no floor.
      */
     minDayVolumeUsd:
@@ -140,14 +140,10 @@ export const config = {
       ]),
     ],
     /**
-     * Anti-starvation floor for the day-volume gate. When the active profile sets
-     * its own minDayVolumeUsd (bear $250M), default clamp is OFF so the floor is real.
-     * Otherwise keep ~40 so a stale high Railway floor cannot nuke the universe.
+     * Anti-starvation: never let the day-volume floor exclude the top ~40 liquid perps.
+     * (A stale $250M floor previously left only BTC/ETH tradable.)
      */
-    minTradableUniverse: Number(
-      process.env.HL_MIN_TRADABLE_UNIVERSE ||
-        (activeDirectionProfile.minDayVolumeUsd > 0 ? 0 : 40)
-    ),
+    minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
     maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),

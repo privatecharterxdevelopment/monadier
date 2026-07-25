@@ -26,37 +26,75 @@ export type HlUserAbstraction =
   | 'default'
   | 'dexAbstraction';
 
+export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
+  if (raw == null) return null;
+  let mode = typeof raw === 'string' ? raw.trim() : String(raw);
+  mode = mode.replace(/^"+|"+$/g, '');
+  if (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'disabled' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  ) {
+    return mode;
+  }
+  return null;
+}
+
+/**
+ * HL one-wallet margin. Matches frontend `src/lib/hyperliquid/funding.ts`:
+ * modern modes share spot+perp; only explicit `disabled` is classic split.
+ */
 export function isHlUnifiedMargin(mode: HlUserAbstraction | null | undefined): boolean {
-  return mode === 'unifiedAccount' || mode === 'portfolioMargin';
+  return (
+    mode === 'unifiedAccount' ||
+    mode === 'portfolioMargin' ||
+    mode === 'default' ||
+    mode === 'dexAbstraction'
+  );
+}
+
+/**
+ * When userAbstraction flakes / lags, spot USDC sitting above perp equity still
+ * means shared margin (HL unified). Never treat that as “$0 free / transfer to Perps”.
+ */
+export function inferHlUnifiedMargin(
+  perpUsd: number,
+  spotUsdcUsd: number,
+  abstraction: HlUserAbstraction | null
+): boolean {
+  if (isHlUnifiedMargin(abstraction)) return true;
+  if (spotUsdcUsd >= 1 && spotUsdcUsd > perpUsd + 1) return true;
+  if (perpUsd >= 0.01 && spotUsdcUsd < 1) return false;
+  // API miss → assume unified (HL default). Explicit `disabled` stays classic.
+  return abstraction == null;
 }
 
 export async function fetchHlUserAbstraction(
   userAddress: string
 ): Promise<HlUserAbstraction | null> {
-  try {
-    const res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'userAbstraction',
-        user: userAddress.toLowerCase(),
-      }),
-    });
-    if (!res.ok) return null;
-    const mode = (await res.json()) as string;
-    if (
-      mode === 'unifiedAccount' ||
-      mode === 'portfolioMargin' ||
-      mode === 'disabled' ||
-      mode === 'default' ||
-      mode === 'dexAbstraction'
-    ) {
-      return mode;
+  const user = userAddress.toLowerCase();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'userAbstraction',
+          user,
+        }),
+      });
+      if (!res.ok) {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        continue;
+      }
+      return normalizeHlUserAbstraction(await res.json());
+    } catch {
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
-    return null;
-  } catch {
-    return null;
   }
+  return null;
 }
 
 export async function fetchHlClearinghouseState(
@@ -142,7 +180,8 @@ export async function fetchHlPerpFundingSnapshot(
     fetchHlUserAbstraction(userAddress),
   ]);
   const perpUsd = hlAccountValueUsd(state);
-  const unifiedAccount = isHlUnifiedMargin(abstraction);
+  const unifiedAccount =
+    isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
   const perpWithdrawable = hlWithdrawableUsd(state);
   return {
@@ -151,7 +190,7 @@ export async function fetchHlPerpFundingSnapshot(
     tradablePerpUsd,
     unifiedAccount,
     withdrawableUsd: unifiedAccount
-      ? Math.max(perpWithdrawable, spotUsdcUsd)
+      ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
       : perpWithdrawable,
     stateLoaded: state != null,
   };
