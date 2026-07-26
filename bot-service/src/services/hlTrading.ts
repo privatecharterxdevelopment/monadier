@@ -1223,11 +1223,14 @@ export class HyperliquidTradingService {
         return rejectOpen('scalp_align', scalpGate.reason, 'scalp 1m/5m align');
       }
 
+      // SHORT never skips macro beta — shorting into BTC/ETH/coin pumps is the "up market, open shorts" bug.
       const macroGate =
-        trustedDirection && directionRules.bypassMacroBetaWhenTrusted
+        opts.direction === 'LONG' &&
+        trustedDirection &&
+        directionRules.bypassMacroBetaWhenTrusted
           ? {
               ok: true as const,
-              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate macro re-check`,
+              reason: `${directionProfile.name}: trusted MTF LONG skips duplicate macro re-check`,
               snapshot: {
                 coin,
                 anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
