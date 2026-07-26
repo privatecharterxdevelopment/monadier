@@ -41,6 +41,7 @@ import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
+import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
@@ -151,7 +152,14 @@ function isUserInitiatedClose(reason: string): boolean {
  */
 function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   const cfg = config.hyperliquid;
-  if (reason === 'hard_stop_usd' || reason === 'emergency_close') return true;
+  if (
+    reason === 'hard_stop_usd' ||
+    reason === 'emergency_close' ||
+    reason === 'invalidation_zone' ||
+    reason === 'invalidation_hard_sl'
+  ) {
+    return true;
+  }
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
@@ -1992,6 +2000,33 @@ export class HyperliquidTradingService {
           'hard_stop_usd',
           closeCtx,
           `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
+        );
+        continue;
+      }
+
+      // Structural / hard-SL invalidation — BEFORE trail and BEFORE profitOnlyExits hold.
+      // May close red when zone adverse-break or ATR/% stop hits.
+      const invalidation = await evaluateInvalidationExit({
+        coin: pos.coin,
+        direction: positionDirection,
+        entryPx: entry,
+        markPx: markPrice,
+      });
+      if (invalidation.close) {
+        const closeCtx = {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: lev,
+          holdMs,
+        };
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          invalidation.reason,
+          closeCtx,
+          invalidation.detail
         );
         continue;
       }

@@ -446,6 +446,26 @@ export const config = {
     },
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
+    /**
+     * Hard invalidation exits — evaluated BEFORE profitOnlyExits.
+     * May close red when zone adverse-break or hard ATR/% SL hits.
+     */
+    invalidationExit: {
+      enabled: process.env.HL_INVALIDATION_EXIT !== 'false',
+      candleLimit: Number(process.env.HL_INVALIDATION_CANDLES || 48),
+      atrPeriod: Number(process.env.HL_INVALIDATION_ATR_PERIOD || 14),
+      /** Closer of ATR×mult and entry×pct is the hard stop distance. */
+      hardStopAtrMult: Number(process.env.HL_INVALIDATION_ATR_MULT || 1.5),
+      hardStopEntryPct: Number(process.env.HL_INVALIDATION_ENTRY_PCT || 0.015),
+      zoneBreakConfirmBars: Number(process.env.HL_INVALIDATION_ZONE_BARS || 2),
+      /** Entry/mark within this fraction of zone mid counts as “in/near zone”. */
+      nearZonePct: Number(process.env.HL_INVALIDATION_NEAR_ZONE || 0.012),
+    },
+    /**
+     * Zone counter-flip on open (SHORT↔LONG). OFF until exit invalidation is proven.
+     * When false: inside-zone only blocks / waits — never flips.
+     */
+    zoneFlipEnabled: process.env.HL_ZONE_FLIP_ENABLED === 'true',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */
     megaPairVolume: {
       minVolRatio: Number(process.env.HL_MEGA_MIN_VOL_RATIO || 1.2),

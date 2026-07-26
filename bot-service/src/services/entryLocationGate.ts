@@ -387,12 +387,30 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  if (zoneGate.flipTo && zoneGate.flipTo !== opts.direction) {
+  // Zone flip OFF by default — counter-opens need own risk/SL + anti-ping-pong first.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
     return {
       ok: true,
       reason: zoneGate.reason,
       analysis: sr,
       flipTo: zoneGate.flipTo,
+    };
+  }
+
+  // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).
+  if (
+    !config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
+    return {
+      ok: false,
+      reason: `${zoneGate.reason} — zone flip disabled; waiting (no counter-open)`,
+      analysis: sr,
     };
   }
 
