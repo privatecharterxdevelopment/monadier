@@ -447,6 +447,12 @@ export const config = {
     /** Bot NEVER auto-closes in red — profit-only exits. */
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /**
+     * LONGs: never auto-exit (no trail / TP / SL / invalidation).
+     * User closes manually. Default ON — “let LONGs run”.
+     * Set HL_LONG_LET_RUN=false to restore trail exits on LONGs.
+     */
+    longLetRun: process.env.HL_LONG_LET_RUN !== 'false',
+    /**
      * Hard invalidation exits — evaluated BEFORE profitOnlyExits.
      * DEFAULT OFF — enabling with a tight hard SL nukes already-red open book on deploy.
      * Set HL_INVALIDATION_EXIT=true only after hard-SL knobs are sized for live book.

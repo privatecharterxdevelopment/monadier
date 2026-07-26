@@ -1987,6 +1987,33 @@ export class HyperliquidTradingService {
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
 
+      // LONGs: let run — no trail / TP / SL / invalidation auto-close (user closes only).
+      if (positionDirection === 'LONG' && config.hyperliquid.longLetRun) {
+        let trailRecord = loadTrailRecord(lockKey);
+        const trailCloseDeferred =
+          trailRecord?.trailCloseDeferUntil != null &&
+          nowMs < trailRecord.trailCloseDeferUntil;
+        const trailResult = await evaluateDynamicTrail({
+          coin: pos.coin,
+          direction: positionDirection,
+          entryPrice: entry,
+          markPrice,
+          pnlUsd: pnl,
+          absSize,
+          notionalUsd: notional > 0 ? notional : absSize * markPrice,
+          collateralUsd: collateralEst,
+          nowMs,
+          totalHoldMs: holdMs,
+          stopLossPct: settings.stopLossPercent,
+          record: trailRecord,
+          trailDistanceMult: 1,
+          trailCloseDeferred,
+        });
+        // Keep trail state for UI — never act on shouldClose.
+        saveTrailRecord(lockKey, trailResult.record);
+        continue;
+      }
+
       const hardStopUsd = config.hyperliquid.hardStopLossUsd;
       if (hardStopUsd > 0 && pnl <= -hardStopUsd) {
         const closeCtx = {
