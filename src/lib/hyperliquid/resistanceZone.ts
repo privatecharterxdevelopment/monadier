@@ -253,11 +253,14 @@ export type ZoneOpenVerdict = {
   reason: string;
   insideResistance: boolean;
   insideSupport: boolean;
+  /** When set, open the opposite side — zone rejection/bounce is the edge. */
+  flipTo?: 'LONG' | 'SHORT';
 };
 
 /**
- * When price sits inside a zone, require reversal (or breakout) before allowing the open.
- * SHORT-primary safe: does not ban LONGs globally — only defers blind entries inside bands.
+ * When price sits inside a zone:
+ * - Same-direction with breakout/breakdown, OR
+ * - Counter-trade (flip) when rejection/bounce is confirmed.
  */
 export function evaluateZoneReversalGate(
   direction: 'LONG' | 'SHORT',
@@ -275,8 +278,16 @@ export function evaluateZoneReversalGate(
   const insideSupport = support != null && priceInsideZone(price, support);
 
   if (insideResistance && resistance) {
-    if (direction === 'SHORT') {
-      if (zoneReversalConfirmed(candles, resistance, lookbackBars)) {
+    const rejected = zoneReversalConfirmed(candles, resistance, lookbackBars);
+    const brokeOut = confirmedBreakAboveZone(
+      candles,
+      resistance,
+      breakoutBufferPct,
+      breakoutBars
+    );
+
+    if (rejected) {
+      if (direction === 'SHORT') {
         return {
           ok: true,
           reason: `Resistance-zone fade confirmed ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
@@ -285,32 +296,51 @@ export function evaluateZoneReversalGate(
         };
       }
       return {
-        ok: false,
-        reason: `SHORT blocked — price inside resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}; wait for rejection/reversal close below mid`,
+        ok: true,
+        flipTo: 'SHORT',
+        reason: `Resistance-zone rejection → flip LONG→SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
         insideResistance,
         insideSupport,
       };
     }
-    // LONG inside resistance: only breakout continuation
-    if (confirmedBreakAboveZone(candles, resistance, breakoutBufferPct, breakoutBars)) {
+
+    if (brokeOut) {
+      if (direction === 'LONG') {
+        return {
+          ok: true,
+          reason: `Resistance-zone breakout confirmed above $${resistance.zoneHigh.toFixed(4)}`,
+          insideResistance,
+          insideSupport,
+        };
+      }
       return {
         ok: true,
-        reason: `Resistance-zone breakout confirmed above $${resistance.zoneHigh.toFixed(4)}`,
+        flipTo: 'LONG',
+        reason: `Resistance-zone breakout → flip SHORT→LONG above $${resistance.zoneHigh.toFixed(4)}`,
         insideResistance,
         insideSupport,
       };
     }
+
     return {
       ok: false,
-      reason: `LONG blocked — price inside resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}; need breakout or pullback out of zone`,
+      reason: `Inside resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}; wait for rejection (→SHORT) or breakout (→LONG)`,
       insideResistance,
       insideSupport,
     };
   }
 
   if (insideSupport && support) {
-    if (direction === 'LONG') {
-      if (zoneReversalConfirmed(candles, support, lookbackBars)) {
+    const bounced = zoneReversalConfirmed(candles, support, lookbackBars);
+    const brokeDown = confirmedBreakBelowZone(
+      candles,
+      support,
+      breakoutBufferPct,
+      breakoutBars
+    );
+
+    if (bounced) {
+      if (direction === 'LONG') {
         return {
           ok: true,
           reason: `Support-zone bounce confirmed ($${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)})`,
@@ -319,24 +349,35 @@ export function evaluateZoneReversalGate(
         };
       }
       return {
-        ok: false,
-        reason: `LONG blocked — price inside support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)}; wait for bounce/reversal close above mid`,
+        ok: true,
+        flipTo: 'LONG',
+        reason: `Support-zone bounce → flip SHORT→LONG ($${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)})`,
         insideResistance,
         insideSupport,
       };
     }
-    // SHORT inside support = classic "short the bottom" — need breakdown
-    if (confirmedBreakBelowZone(candles, support, breakoutBufferPct, breakoutBars)) {
+
+    if (brokeDown) {
+      if (direction === 'SHORT') {
+        return {
+          ok: true,
+          reason: `Support-zone breakdown confirmed below $${support.zoneLow.toFixed(4)}`,
+          insideResistance,
+          insideSupport,
+        };
+      }
       return {
         ok: true,
-        reason: `Support-zone breakdown confirmed below $${support.zoneLow.toFixed(4)}`,
+        flipTo: 'SHORT',
+        reason: `Support-zone breakdown → flip LONG→SHORT below $${support.zoneLow.toFixed(4)}`,
         insideResistance,
         insideSupport,
       };
     }
+
     return {
       ok: false,
-      reason: `SHORT blocked — price inside support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)}; wait for breakdown or rally out of zone (do not sell the floor)`,
+      reason: `Inside support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)}; wait for bounce (→LONG) or breakdown (→SHORT) — do not sell the floor blind`,
       insideResistance,
       insideSupport,
     };

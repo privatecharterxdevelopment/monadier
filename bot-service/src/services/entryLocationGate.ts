@@ -35,6 +35,8 @@ export type EntryLocationResult = {
   ok: boolean;
   reason: string;
   analysis: SrZoneAnalysis;
+  /** Zone rejection/bounce says take the other side. */
+  flipTo?: 'LONG' | 'SHORT';
 };
 
 function pricePosition(price: number, support: number, resistance: number): number {
@@ -385,5 +387,15 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  return evaluateEntryLocation(opts.direction, sr);
+  if (zoneGate.flipTo && zoneGate.flipTo !== opts.direction) {
+    return {
+      ok: true,
+      reason: zoneGate.reason,
+      analysis: sr,
+      flipTo: zoneGate.flipTo,
+    };
+  }
+
+  const classic = evaluateEntryLocation(opts.direction, sr);
+  return classic;
 }

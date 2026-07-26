@@ -31,6 +31,7 @@ export type HlOpenBlockGate =
   | 'perp_context'
   | 'pump_sweep'
   | 'entry_location'
+  | 'sr_zone_flip'
   | 'entry_momentum'
   | 'htf_sr'
   | 'llm_confirm'

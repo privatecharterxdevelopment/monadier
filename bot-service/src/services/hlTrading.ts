@@ -1297,8 +1297,6 @@ export class HyperliquidTradingService {
         return rejectOpen('perp_context', perpCtxGate.reason, 'perp context (funding/24h/range)');
       }
 
-      // Peak / pump-apex protection is NEVER skipped — even for 100% MTF scan picks.
-      // relaxSecondaryGates may skip chop filters; it must not allow LONGs at the apex.
       const pumpSweepGate = await validatePumpSweepGate({
         coin,
         direction: opts.direction,
@@ -1311,7 +1309,8 @@ export class HyperliquidTradingService {
 
       // Entry location always runs — trusted MTF must NOT skip support/bottom checks.
       // (Old bypassEntryLocationWhenTrusted for SHORT = "short the lows" disasters.)
-      const locationGate = await validateEntryLocation({
+      // Zone rejection/bounce may flip the planned side (counter-trade).
+      let locationGate = await validateEntryLocation({
         symbol,
         coin,
         direction: opts.direction,
@@ -1321,6 +1320,63 @@ export class HyperliquidTradingService {
           resistance: locationGate.analysis.resistance,
           rejections: locationGate.analysis.resistanceRejections,
         });
+      }
+
+      let pumpSweepGateLive = pumpSweepGate;
+      if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
+        const zoneFlipFrom = opts.direction;
+        const flipped = locationGate.flipTo;
+        opts.pick.direction = flipped;
+        if (flipped === 'SHORT') {
+          opts.pick.peakLiquidityGrab = true;
+        }
+        logger.info('HL open direction flipped by S/R zone', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          from: zoneFlipFrom,
+          to: flipped,
+          reason: locationGate.reason,
+        });
+        void recordHlOpenBlock({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: flipped,
+          gate: 'sr_zone_flip',
+          reason: `${zoneFlipFrom}→${flipped}: ${locationGate.reason}`,
+          h1Trend: opts.pick.h1Trend,
+          confidence: opts.pick.confidence,
+          notionalUsd: opts.notionalUsd,
+          leverage: opts.leverage,
+        });
+
+        const pumpAfterFlip = await validatePumpSweepGate({
+          coin,
+          direction: flipped,
+        });
+        if (!pumpAfterFlip.ok) {
+          return rejectOpen('pump_sweep', pumpAfterFlip.reason, 'pump apex after zone flip', {
+            phase: pumpAfterFlip.analysis?.phase,
+          });
+        }
+        pumpSweepGateLive = pumpAfterFlip;
+
+        locationGate = await validateEntryLocation({
+          symbol,
+          coin,
+          direction: flipped,
+        });
+        if (!locationGate.ok) {
+          return rejectOpen(
+            'entry_location',
+            locationGate.reason,
+            'S/R after zone flip',
+            {
+              resistance: locationGate.analysis.resistance,
+              rejections: locationGate.analysis.resistanceRejections,
+            }
+          );
+        }
+        (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
       }
 
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
@@ -1393,7 +1449,7 @@ export class HyperliquidTradingService {
       // Peak-short agreement on re-check is SHADOW-ONLY (never auto-open from that path).
       let tradeDirection: 'LONG' | 'SHORT' = opts.direction;
       let locationGateForOpen = locationGate;
-      let pumpSweepGateForOpen = pumpSweepGate;
+      let pumpSweepGateForOpen = pumpSweepGateLive;
       let htfSrForOpen = htfSrGate;
 
       const llmInput = {
