@@ -448,15 +448,19 @@ export const config = {
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /**
      * Hard invalidation exits — evaluated BEFORE profitOnlyExits.
-     * May close red when zone adverse-break or hard ATR/% SL hits.
+     * DEFAULT OFF — enabling with a tight hard SL nukes already-red open book on deploy.
+     * Set HL_INVALIDATION_EXIT=true only after hard-SL knobs are sized for live book.
      */
     invalidationExit: {
-      enabled: process.env.HL_INVALIDATION_EXIT !== 'false',
+      enabled: process.env.HL_INVALIDATION_EXIT === 'true',
       candleLimit: Number(process.env.HL_INVALIDATION_CANDLES || 48),
       atrPeriod: Number(process.env.HL_INVALIDATION_ATR_PERIOD || 14),
-      /** Closer of ATR×mult and entry×pct is the hard stop distance. */
-      hardStopAtrMult: Number(process.env.HL_INVALIDATION_ATR_MULT || 1.5),
-      hardStopEntryPct: Number(process.env.HL_INVALIDATION_ENTRY_PCT || 0.015),
+      /**
+       * Hard SL distance = closer of ATR×mult and entry×pct.
+       * Default 0 = hard SL path OFF (zone adverse-break only when enabled).
+       */
+      hardStopAtrMult: Number(process.env.HL_INVALIDATION_ATR_MULT || 0),
+      hardStopEntryPct: Number(process.env.HL_INVALIDATION_ENTRY_PCT || 0),
       zoneBreakConfirmBars: Number(process.env.HL_INVALIDATION_ZONE_BARS || 2),
       /** Entry/mark within this fraction of zone mid counts as “in/near zone”. */
       nearZonePct: Number(process.env.HL_INVALIDATION_NEAR_ZONE || 0.012),
