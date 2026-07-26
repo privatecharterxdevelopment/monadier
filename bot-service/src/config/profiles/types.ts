@@ -109,7 +109,7 @@ export const PRIMARY_RULES: HlDirectionRules = {
   relaxSecondaryGates: true,
   enforceHtfSr: false,
   bypassFreshPumpWhenTrusted: true,
-  bypassMacroBetaWhenTrusted: true,
+  bypassMacroBetaWhenTrusted: false,
   bypassPumpShortWhenTrusted: true,
   /** Never skip S/R — trusted SHORTs still must not sell support / range bottom. */
   bypassEntryLocationWhenTrusted: false,
