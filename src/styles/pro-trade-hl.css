@@ -1944,6 +1944,18 @@
   background: #eab308;
 }
 
+.hl-chart-legend__item--rz::before {
+  background: #f59e0b;
+  height: 4px;
+  opacity: 0.9;
+}
+
+.hl-chart-legend__item--sz::before {
+  background: #fde68a;
+  height: 4px;
+  opacity: 0.95;
+}
+
 .hl-chart-legend__item--liq::before {
   background: #ff9800;
 }

@@ -181,6 +181,13 @@ const ProTradeChartInner: React.FC<Props> = ({
           {positionOverlay.trailStopPx ? (
             <span className="hl-chart-legend__item hl-chart-legend__item--trail">Profit SL</span>
           ) : null}
+          <span className="hl-chart-legend__item hl-chart-legend__item--rz">R zone</span>
+          <span className="hl-chart-legend__item hl-chart-legend__item--sz">S zone</span>
+        </div>
+      ) : engine === 'hl' ? (
+        <div className="hl-chart-legend" aria-label="Chart S/R zones">
+          <span className="hl-chart-legend__item hl-chart-legend__item--rz">R zone</span>
+          <span className="hl-chart-legend__item hl-chart-legend__item--sz">S zone</span>
         </div>
       ) : null}
       <ChartPaneErrorBoundary engine={engine} theme={theme}>

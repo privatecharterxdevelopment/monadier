@@ -3,9 +3,16 @@
  *
  * Blocks LONG into a ceiling that already rejected price multiple times.
  * Allows LONG only on confirmed breakout above resistance or pullback toward support.
+ * In-house resistance/support *bands*: opens inside a zone require reversal/breakout first.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import {
+  computeResistanceZone,
+  computeSupportZone,
+  evaluateZoneReversalGate,
+  type PriceZone,
+} from './resistanceZone';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -20,6 +27,8 @@ export type SrZoneAnalysis = {
   confirmedBreakdown: boolean;
   nearResistance: boolean;
   nearSupport: boolean;
+  resistanceZone?: PriceZone | null;
+  supportZone?: PriceZone | null;
 };
 
 export type EntryLocationResult = {
@@ -141,25 +150,25 @@ function confirmedBreakdown(candles: Candle[], level: number, buffer: number, ba
   return recent.every((c) => c.close < level * (1 - buffer));
 }
 
-export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZoneAnalysis {
+export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candle[]): SrZoneAnalysis {
   const cfg = config.hyperliquid.entryLocation;
-  const price = candles15[candles15.length - 1]?.close ?? 0;
+  const price = candlesPrimary[candlesPrimary.length - 1]?.close ?? 0;
 
-  const resistance15 = resolveResistanceLevel(candles15, cfg.swingClusterPct);
-  const support15 = resolveSupportLevel(candles15, cfg.swingClusterPct);
+  const resistance15 = resolveResistanceLevel(candlesPrimary, cfg.swingClusterPct);
+  const support15 = resolveSupportLevel(candlesPrimary, cfg.swingClusterPct);
 
   let resistance = resistance15;
   let support = support15;
 
-  if (candles1h.length >= 20) {
-    const resistance1h = resolveResistanceLevel(candles1h, cfg.swingClusterPct);
-    const support1h = resolveSupportLevel(candles1h, cfg.swingClusterPct);
+  if (candlesSecondary.length >= 20) {
+    const resistance1h = resolveResistanceLevel(candlesSecondary, cfg.swingClusterPct);
+    const support1h = resolveSupportLevel(candlesSecondary, cfg.swingClusterPct);
     resistance = Math.min(resistance, resistance1h);
     support = Math.max(support, support1h);
   }
 
-  const resTests = countLevelTests(candles15, resistance, 'resistance', cfg.touchTolerancePct);
-  const supTests = countLevelTests(candles15, support, 'support', cfg.touchTolerancePct);
+  const resTests = countLevelTests(candlesPrimary, resistance, 'resistance', cfg.touchTolerancePct);
+  const supTests = countLevelTests(candlesPrimary, support, 'support', cfg.touchTolerancePct);
 
   const pos = pricePosition(price, support, resistance);
   const distToResPct = resistance > 0 ? (resistance - price) / resistance : 1;
@@ -175,6 +184,13 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     distToSupPct <= cfg.nearLevelPct ||
     price <= support * (1 + cfg.nearLevelPct);
 
+  const zoneOpts = {
+    swingClusterPct: cfg.swingClusterPct,
+    touchTolerancePct: cfg.touchTolerancePct,
+  };
+  const resistanceZone = computeResistanceZone(candlesPrimary, zoneOpts);
+  const supportZone = computeSupportZone(candlesPrimary, zoneOpts);
+
   return {
     support,
     resistance,
@@ -185,19 +201,21 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     supportTouches: supTests.touches,
     supportRejections: supTests.rejections,
     confirmedBreakoutUp: confirmedBreakoutUp(
-      candles15,
+      candlesPrimary,
       resistance,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
     confirmedBreakdown: confirmedBreakdown(
-      candles15,
+      candlesPrimary,
       support,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
     nearResistance,
     nearSupport,
+    resistanceZone,
+    supportZone,
   };
 }
 
@@ -338,10 +356,34 @@ export async function validateEntryLocation(opts: {
         confirmedBreakdown: false,
         nearResistance: false,
         nearSupport: false,
+        resistanceZone: null,
+        supportZone: null,
       },
     };
   }
 
   const sr = analyzeSrZones(candles5, candles15);
+
+  // In-house zone bands: no blind opens inside resistance/support — require reversal first.
+  const zoneGate = evaluateZoneReversalGate(
+    opts.direction,
+    sr.price,
+    candles5,
+    sr.resistanceZone ?? null,
+    sr.supportZone ?? null,
+    {
+      breakoutBufferPct: config.hyperliquid.entryLocation.breakoutBufferPct,
+      breakoutBars: config.hyperliquid.entryLocation.breakoutConfirmBars,
+      lookbackBars: 4,
+    }
+  );
+  if (!zoneGate.ok) {
+    return {
+      ok: false,
+      reason: zoneGate.reason,
+      analysis: sr,
+    };
+  }
+
   return evaluateEntryLocation(opts.direction, sr);
 }

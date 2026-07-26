@@ -38,6 +38,11 @@ import {
   buildSeriesPriceFormat,
 } from '../../lib/hyperliquid/chartPriceAxis';
 import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import {
+  computeResistanceZone,
+  computeSupportZone,
+  type PriceZone,
+} from '../../lib/hyperliquid/resistanceZone';
 import { chartDebugWarn } from '../../lib/hyperliquid/chartDebug';
 
 type Props = {
@@ -75,6 +80,69 @@ type Props = {
   chartError?: string | null;
   fetchAttempts?: number;
 };
+
+const RES_ZONE_HI = '#f59e0b';
+const RES_ZONE_LO = '#fbbf24';
+const SUP_ZONE_HI = '#fde68a';
+const SUP_ZONE_LO = '#eab308';
+
+function applySrZonePriceLines(
+  series: ISeriesApi<'Candlestick'>,
+  zoneLinesRef: React.MutableRefObject<IPriceLine[]>,
+  resistance: PriceZone | null,
+  support: PriceZone | null
+) {
+  for (const line of zoneLinesRef.current) {
+    series.removePriceLine(line);
+  }
+  zoneLinesRef.current = [];
+
+  if (resistance && resistance.zoneHigh > 0 && resistance.zoneLow > 0) {
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: resistance.zoneHigh,
+        color: RES_ZONE_HI,
+        lineWidth: 1,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'R zone',
+      })
+    );
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: resistance.zoneLow,
+        color: RES_ZONE_LO,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: false,
+        title: '',
+      })
+    );
+  }
+
+  if (support && support.zoneHigh > 0 && support.zoneLow > 0) {
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: support.zoneHigh,
+        color: SUP_ZONE_HI,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: false,
+        title: '',
+      })
+    );
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: support.zoneLow,
+        color: SUP_ZONE_LO,
+        lineWidth: 1,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'S zone',
+      })
+    );
+  }
+}
 
 function safeChartOp(fn: () => void) {
   try {
@@ -206,6 +274,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const zoneLinesRef = useRef<IPriceLine[]>([]);
   const markLineRef = useRef<IPriceLine | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const candlesRef = useRef<HlCandleBar[]>([]);
@@ -214,6 +283,19 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = useMemo(() => getProTradeChartColors(theme), [theme]);
+  const srZones = useMemo(() => {
+    const bars = candles.map((c) => ({
+      high: c.high,
+      low: c.low,
+      open: c.open,
+      close: c.close,
+      time: c.time,
+    }));
+    return {
+      resistance: computeResistanceZone(bars),
+      support: computeSupportZone(bars),
+    };
+  }, [candles]);
   const overlayRef = useRef(positionOverlay);
   overlayRef.current = positionOverlay;
   const markPxRef = useRef(markPx);
@@ -455,6 +537,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       seriesRef.current = null;
       volumeRef.current = null;
       priceLinesRef.current = [];
+      zoneLinesRef.current = [];
       markLineRef.current = null;
       markersPluginRef.current = null;
       el.replaceChildren();
@@ -482,8 +565,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         chartColors: getProTradeChartColors(themeRef.current),
         bandRefPx: markPxRef.current ?? overlayRef.current?.entryPx,
       });
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
     });
-  }, [openOrders, overlayCoin]);
+  }, [openOrders, overlayCoin, srZones]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -593,6 +677,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         series.removePriceLine(line);
       }
       priceLinesRef.current = [];
+      for (const line of zoneLinesRef.current) {
+        series.removePriceLine(line);
+      }
+      zoneLinesRef.current = [];
       if (markLineRef.current) {
         series.removePriceLine(markLineRef.current);
         markLineRef.current = null;
@@ -845,8 +933,17 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         chartColors,
         bandRefPx: markPxRef.current ?? positionOverlay?.entryPx,
       });
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
     });
-  }, [openOrders, overlayCoin, theme, positionOverlay, chartColors]);
+  }, [openOrders, overlayCoin, theme, positionOverlay, chartColors, srZones]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    safeChartOp(() => {
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
+    });
+  }, [srZones]);
 
   useEffect(() => {
     const series = seriesRef.current;
