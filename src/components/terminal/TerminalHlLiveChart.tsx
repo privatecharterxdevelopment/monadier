@@ -153,6 +153,10 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
       </div>
 
       <div className="term-hl-live-chart__canvas-wrap">
+        <div className="hl-chart-legend term-hl-live-chart__sr-legend" aria-label="Chart S/R zones">
+          <span className="hl-chart-legend__item hl-chart-legend__item--rz">R zone</span>
+          <span className="hl-chart-legend__item hl-chart-legend__item--sz">S zone</span>
+        </div>
         {market.loading && !hasCandles ? (
           <div className="term-hl-live-chart__loading">
             <Loader2 size={18} className="animate-spin" aria-hidden />

@@ -120,7 +120,7 @@ export function computeResistanceZone(
   candles: CandleLike[],
   opts: ResistanceZoneOpts = {}
 ): PriceZone | null {
-  if (!candles || candles.length < 8) return null;
+  if (!candles || candles.length < 6) return null;
   const swingClusterPct = opts.swingClusterPct ?? DEFAULTS.swingClusterPct;
   const touchTolerancePct = opts.touchTolerancePct ?? DEFAULTS.touchTolerancePct;
   const minHalfWidthPct = opts.minHalfWidthPct ?? DEFAULTS.minHalfWidthPct;
@@ -154,7 +154,7 @@ export function computeSupportZone(
   candles: CandleLike[],
   opts: ResistanceZoneOpts = {}
 ): PriceZone | null {
-  if (!candles || candles.length < 8) return null;
+  if (!candles || candles.length < 6) return null;
   const swingClusterPct = opts.swingClusterPct ?? DEFAULTS.swingClusterPct;
   const touchTolerancePct = opts.touchTolerancePct ?? DEFAULTS.touchTolerancePct;
   const minHalfWidthPct = opts.minHalfWidthPct ?? DEFAULTS.minHalfWidthPct;

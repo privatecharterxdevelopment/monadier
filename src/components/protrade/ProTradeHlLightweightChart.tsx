@@ -83,7 +83,7 @@ type Props = {
 
 const RES_ZONE_HI = '#f59e0b';
 const RES_ZONE_LO = '#fbbf24';
-const SUP_ZONE_HI = '#fde68a';
+const SUP_ZONE_HI = '#fcd34d';
 const SUP_ZONE_LO = '#eab308';
 
 function applySrZonePriceLines(
@@ -102,20 +102,20 @@ function applySrZonePriceLines(
       series.createPriceLine({
         price: resistance.zoneHigh,
         color: RES_ZONE_HI,
-        lineWidth: 1,
+        lineWidth: 2,
         lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: 'R zone',
+        title: 'R↑',
       })
     );
     zoneLinesRef.current.push(
       series.createPriceLine({
         price: resistance.zoneLow,
         color: RES_ZONE_LO,
-        lineWidth: 1,
+        lineWidth: 2,
         lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: '',
+        axisLabelVisible: true,
+        title: 'R↓',
       })
     );
   }
@@ -125,20 +125,20 @@ function applySrZonePriceLines(
       series.createPriceLine({
         price: support.zoneHigh,
         color: SUP_ZONE_HI,
-        lineWidth: 1,
+        lineWidth: 2,
         lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: '',
+        axisLabelVisible: true,
+        title: 'S↑',
       })
     );
     zoneLinesRef.current.push(
       series.createPriceLine({
         price: support.zoneLow,
         color: SUP_ZONE_LO,
-        lineWidth: 1,
+        lineWidth: 2,
         lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: 'S zone',
+        title: 'S↓',
       })
     );
   }
@@ -296,6 +296,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       support: computeSupportZone(bars),
     };
   }, [candles]);
+  const srZonesRef = useRef(srZones);
+  srZonesRef.current = srZones;
   const overlayRef = useRef(positionOverlay);
   overlayRef.current = positionOverlay;
   const markPxRef = useRef(markPx);
@@ -844,6 +846,13 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       volumeSeries.setData(volData);
       prevCoinForDataRef.current = coin;
       prevIntervalForDataRef.current = interval;
+      // Zones on EVERY coin/TF — re-draw after every full paint (coin switch cleared them).
+      applySrZonePriceLines(
+        series,
+        zoneLinesRef,
+        srZonesRef.current.resistance,
+        srZonesRef.current.support
+      );
       if (forceFull || followLiveRef.current) {
         showLatestBars(chart, data.length);
       }
@@ -894,6 +903,14 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       // Only snap on a new bar — per-tick scrollToRealTime fights the live range and shakes L/R.
       if (followLiveRef.current && newBar) {
         scrollLive(chart);
+      }
+      if (newBar) {
+        applySrZonePriceLines(
+          series,
+          zoneLinesRef,
+          srZonesRef.current.resistance,
+          srZonesRef.current.support
+        );
       }
     });
   }, [candles, coin, interval, theme, layoutKey]);

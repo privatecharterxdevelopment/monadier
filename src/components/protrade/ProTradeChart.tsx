@@ -80,13 +80,16 @@ type Props = {
   fetchAttempts?: number;
 };
 
-const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine';
+const CHART_ENGINE_STORAGE = 'monadier-hl-chart-engine-v2';
 
 function readStoredEngine(fallback: ChartEngine): ChartEngine {
   try {
     const stored = localStorage.getItem(CHART_ENGINE_STORAGE);
     if (stored === 'hl' || stored === 'tv') return stored;
-    if (stored === 'hltv') return 'hl';
+    // Migrate v1: prefer HL so R/S zones show on every pair by default.
+    const legacy = localStorage.getItem('monadier-hl-chart-engine');
+    if (legacy === 'tv') return 'hl';
+    if (legacy === 'hl' || legacy === 'hltv') return 'hl';
   } catch {
     /* private mode */
   }
@@ -153,7 +156,7 @@ const ProTradeChartInner: React.FC<Props> = ({
             type="button"
             className={`hl-chart-tf ${engine === 'hl' ? 'hl-chart-tf--on' : ''}`}
             onClick={() => switchEngine('hl')}
-            title="Hyperliquid live chart — entry, SL, TP, bot markers"
+            title="Hyperliquid live chart — R/S zones, entry, trail, bot markers"
           >
             HL
           </button>
@@ -164,7 +167,7 @@ const ProTradeChartInner: React.FC<Props> = ({
             disabled={!tvOk}
             title={
               tvOk
-                ? 'TradingView — indicators & drawings'
+                ? 'TradingView — no HyperGain R/S zones (switch to HL)'
                 : `${coin} is HL-only — use HL chart (no Binance TV feed)`
             }
           >
@@ -172,6 +175,13 @@ const ProTradeChartInner: React.FC<Props> = ({
           </button>
         </div>
       </div>
+      {engine === 'tv' ? (
+        <div className="hl-chart-legend" aria-label="Chart engine note">
+          <span className="hl-chart-legend__item hl-chart-legend__item--rz">
+            R/S zones live on HL chart — switch to HL
+          </span>
+        </div>
+      ) : null}
       {positionOverlay && engine === 'hl' ? (
         <div className="hl-chart-legend" aria-label="Chart position lines">
           <span className="hl-chart-legend__item hl-chart-legend__item--entry">Entry</span>
