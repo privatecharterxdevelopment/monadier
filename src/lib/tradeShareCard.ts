@@ -22,7 +22,7 @@ export type TradeShareCardInput = {
 };
 
 const W = 720;
-const H = 1280;
+const H = 980;
 /** Share-card wordmark — camelCase per brand ask. */
 const SHARE_BRAND = 'hyperGain';
 const FONT = `"Open Sans", "DM Sans", system-ui, sans-serif`;
@@ -238,20 +238,19 @@ export async function renderTradeShareCardPng(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
 
-  // Soft silver gradient (light, metallic, clean)
-  const bg = ctx.createLinearGradient(0, 0, W * 0.35, H);
-  bg.addColorStop(0, '#f7f7f8');
-  bg.addColorStop(0.4, '#ebecee');
-  bg.addColorStop(0.72, '#d8dadf');
-  bg.addColorStop(1, '#c9ccd3');
+  // Readable silver metal (not near-white paper)
+  const bg = ctx.createLinearGradient(0, 0, W * 0.4, H);
+  bg.addColorStop(0, '#e4e6eb');
+  bg.addColorStop(0.35, '#d2d5dc');
+  bg.addColorStop(0.7, '#b8bcc6');
+  bg.addColorStop(1, '#9ea3af');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle diagonal sheen
-  const sheen = ctx.createLinearGradient(0, 0, W, H * 0.55);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.55)');
-  sheen.addColorStop(0.45, 'rgba(255,255,255,0)');
-  sheen.addColorStop(1, 'rgba(255,255,255,0.18)');
+  const sheen = ctx.createLinearGradient(0, 0, W, H * 0.5);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.35)');
+  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sheen.addColorStop(1, 'rgba(255,255,255,0.12)');
   ctx.fillStyle = sheen;
   ctx.fillRect(0, 0, W, H);
 
@@ -361,17 +360,25 @@ export async function renderTradeShareCardPng(
     input.leverage != null && input.leverage > 0 ? ` · ${Math.round(input.leverage)}×` : '';
   ctx.fillText(`Size ${fmtPx(Math.abs(input.size))} ${input.coin}${levLabel}`, 56, 640);
 
-  // QR block — white pad, production referral URL
+  // Hairline before QR — keep block high so modal preview always shows it
+  ctx.strokeStyle = 'rgba(26,26,30,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(56, 690);
+  ctx.lineTo(W - 56, 690);
+  ctx.stroke();
+
   const referralUrl = qrTargetUrl(input.referralCode);
   const q = 168;
   const qx = W - 56 - q;
-  const qy = H - 56 - q - 48;
-  const qrImg = await renderQrImage(referralUrl, q * 2); // 2× for crisp downsample
+  const qy = 730;
+  const qrImg = await renderQrImage(referralUrl, q * 2);
 
+  ctx.beginPath();
   roundRect(ctx, qx - 12, qy - 12, q + 24, q + 24, 12);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(26,26,30,0.08)';
+  ctx.strokeStyle = 'rgba(26,26,30,0.1)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
@@ -385,18 +392,18 @@ export async function renderTradeShareCardPng(
     ctx.textAlign = 'left';
   }
 
-  setType(ctx, 600, 16, '-0.02em');
+  setType(ctx, 700, 22, '-0.03em');
   ctx.fillStyle = ink;
-  ctx.fillText(SHARE_BRAND, 56, qy + 28);
+  ctx.fillText(SHARE_BRAND, 56, qy + 36);
+  setType(ctx, 500, 15, '0');
+  ctx.fillStyle = soft;
+  ctx.fillText('Scan to join', 56, qy + 64);
+  setType(ctx, 600, 16, '-0.01em');
+  ctx.fillStyle = mute;
+  ctx.fillText(input.referralCode, 56, qy + 98);
   setType(ctx, 500, 13, '0');
   ctx.fillStyle = soft;
-  ctx.fillText('Scan to join', 56, qy + 52);
-  setType(ctx, 600, 14, '-0.01em');
-  ctx.fillStyle = mute;
-  ctx.fillText(input.referralCode, 56, qy + 84);
-  setType(ctx, 500, 12, '0');
-  ctx.fillStyle = soft;
-  ctx.fillText('app.hypergain.io', 56, qy + 112);
+  ctx.fillText('app.hypergain.io', 56, qy + 128);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(

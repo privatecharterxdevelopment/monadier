@@ -8965,9 +8965,11 @@
 
 .hl-trade-share-body {
   padding: 18px 16px 8px;
-  overflow: auto;
-  min-height: 180px;
-  max-height: min(62dvh, 560px);
+  overflow: hidden;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .hl-trade-share-loading {
@@ -8989,8 +8991,14 @@
 
 .hl-trade-share-stage {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 16px;
   overflow: hidden;
+  background: #c9ccd3;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 }
 
@@ -9005,9 +9013,12 @@
 
 .hl-trade-share-preview {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: min(58dvh, 540px);
   height: auto;
-  background: #0a0a0a;
+  object-fit: contain;
+  background: transparent;
 }
 
 .hl-trade-share-footer {
