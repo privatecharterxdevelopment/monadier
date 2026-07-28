@@ -8902,28 +8902,27 @@
 
 .hl-trade-share-backdrop {
   z-index: 1300;
-  background: rgba(6, 8, 10, 0.72);
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  background: rgba(28, 30, 36, 0.55);
+  backdrop-filter: blur(20px) saturate(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.05);
   padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
 }
 
 .hl-trade-share-modal {
   position: relative;
-  width: min(380px, calc(100vw - 28px));
-  max-height: min(92dvh, 860px);
+  width: min(400px, calc(100vw - 28px));
+  max-height: min(92dvh, 900px);
   display: flex;
   flex-direction: column;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(120% 80% at 50% -10%, rgba(61, 214, 140, 0.12), transparent 55%),
-    linear-gradient(180deg, #141618 0%, #0c0d0f 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(20, 20, 24, 0.08);
+  background: linear-gradient(180deg, #f2f3f6 0%, #dfe2e9 100%);
   box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 28px 80px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
   overflow: hidden;
-  color: #f4f4f5;
+  color: #141418;
+  font-family: 'Open Sans', 'Montserrat', system-ui, sans-serif;
   animation: hl-trade-share-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -8950,16 +8949,14 @@
   height: 34px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #e4e4e7;
+  background: rgba(20, 20, 24, 0.06);
+  color: #141418;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .hl-trade-share-close:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(20, 20, 24, 0.12);
   transform: scale(1.04);
 }
 
@@ -8979,13 +8976,13 @@
   justify-content: center;
   gap: 10px;
   min-height: 280px;
-  color: #a1a1aa;
+  color: #6b7080;
   font-size: 13px;
 }
 
 .hl-trade-share-error {
   margin: 0 0 10px;
-  color: #fb7185;
+  color: #a61e32;
   font-size: 12px;
 }
 
@@ -8996,100 +8993,94 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  background: #c9ccd3;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  box-shadow: none;
 }
 
 .hl-trade-share-stage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  display: none;
 }
 
 .hl-trade-share-preview {
   display: block;
   width: auto;
   max-width: 100%;
-  max-height: min(58dvh, 540px);
+  max-height: min(58dvh, 560px);
   height: auto;
   object-fit: contain;
   background: transparent;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(20, 20, 24, 0.12);
 }
 
 .hl-trade-share-footer {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 6px 16px 16px;
+  padding: 8px 16px 18px;
+  border-top: 1px solid rgba(20, 20, 24, 0.08);
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .hl-trade-share-via {
   margin: 0;
   text-align: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #71717a;
+  color: #8a8f9a;
+  font-family: 'Montserrat', 'Open Sans', system-ui, sans-serif;
 }
 
 .hl-trade-share-social {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .hl-trade-share-social-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border: 0;
+  border: 1px solid rgba(20, 20, 24, 0.12);
   border-radius: 999px;
-  color: #fff !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: #141418 !important;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+  box-shadow: none;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 
 .hl-trade-share-social-btn:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.05);
-  filter: brightness(1.08);
+  transform: translateY(-1px);
+  background: #fff !important;
+  border-color: rgba(20, 20, 24, 0.22);
+  filter: none;
 }
 
 .hl-trade-share-social-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.hl-trade-share-social-btn--whatsapp {
-  background: #25d366 !important;
-}
-
-.hl-trade-share-social-btn--facebook {
-  background: #1877f2 !important;
-}
-
-.hl-trade-share-social-btn--x {
-  background: #111113 !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 10px 24px rgba(0, 0, 0, 0.35);
-}
-
+.hl-trade-share-social-btn--whatsapp,
+.hl-trade-share-social-btn--facebook,
+.hl-trade-share-social-btn--x,
 .hl-trade-share-social-btn--telegram {
-  background: #2aabee !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none;
 }
 
 .hl-trade-share-actions {
   display: grid;
-  grid-template-columns: 1fr 1.15fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding-top: 2px;
 }
@@ -9105,32 +9096,33 @@
   border: 0;
   font-size: 13px;
   font-weight: 650;
+  font-family: 'Open Sans', 'Montserrat', system-ui, sans-serif;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
 }
 
 .hl-trade-share-action:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .hl-trade-share-action--ghost {
-  background: rgba(255, 255, 255, 0.06);
-  color: #f4f4f5;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #141418;
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 24, 0.16);
 }
 
 .hl-trade-share-action--ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 20, 24, 0.04);
 }
 
 .hl-trade-share-action--primary {
-  background: #3dd68c;
-  color: #04140c;
+  background: #141418;
+  color: #f4f4f5;
 }
 
 .hl-trade-share-action--primary:hover:not(:disabled) {
-  background: #4ae09a;
+  background: #2a2a30;
   transform: translateY(-1px);
 }
 

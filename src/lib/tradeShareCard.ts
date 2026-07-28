@@ -22,11 +22,10 @@ export type TradeShareCardInput = {
 };
 
 const W = 720;
-const H = 980;
-/** Share-card wordmark — camelCase per brand ask. */
+const H = 1080;
 const SHARE_BRAND = 'hyperGain';
-const FONT = `"Open Sans", "DM Sans", system-ui, sans-serif`;
-/** QR always targets live app — never localhost / preview hosts. */
+const FONT_DISPLAY = '"Montserrat", "Open Sans", system-ui, sans-serif';
+const FONT_BODY = '"Open Sans", "Montserrat", system-ui, sans-serif';
 const QR_APP_BASE = 'https://app.hypergain.io';
 
 function fmtMoney(n: number): string {
@@ -36,9 +35,9 @@ function fmtMoney(n: number): string {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
-  if (n > 0) return `+${body}`;
-  if (n < 0) return `-${body}`;
-  return body;
+  if (n > 0) return `+$${body}`;
+  if (n < 0) return `-$${body}`;
+  return `$${body}`;
 }
 
 function fmtPx(n: number): string {
@@ -105,7 +104,6 @@ export function tradeShareRoiPct(input: {
   return null;
 }
 
-/** Infer entry from close PnL when HL fill has no entry field. */
 export function estimateEntryFromClose(opts: {
   side: 'LONG' | 'SHORT';
   closePrice: number;
@@ -171,26 +169,50 @@ function setType(
   ctx: CanvasRenderingContext2D,
   weight: number,
   size: number,
-  tracking = '-0.02em'
+  family: string,
+  tracking = '0'
 ) {
-  ctx.font = `${weight} ${size}px ${FONT}`;
+  ctx.font = `${weight} ${size}px ${family}`;
   if ('letterSpacing' in ctx) {
     (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = tracking;
   }
 }
 
+let fontsReady: Promise<void> | null = null;
+
 async function ensureShareFonts(): Promise<void> {
-  if (typeof document === 'undefined' || !document.fonts?.load) return;
-  try {
-    await Promise.all([
-      document.fonts.load(`700 64px ${FONT}`),
-      document.fonts.load(`800 88px ${FONT}`),
-      document.fonts.load(`600 22px ${FONT}`),
-      document.fonts.load(`500 18px ${FONT}`),
-    ]);
-  } catch {
-    /* fall back to system stack */
+  if (typeof document === 'undefined') return;
+  if (!fontsReady) {
+    fontsReady = (async () => {
+      try {
+        const faces = [
+          new FontFace('Montserrat', 'url(/fonts/Montserrat-SemiBold.ttf)', { weight: '600' }),
+          new FontFace('Montserrat', 'url(/fonts/Montserrat-Bold.ttf)', { weight: '700' }),
+          new FontFace('Montserrat', 'url(/fonts/Montserrat-ExtraBold.ttf)', { weight: '800' }),
+          new FontFace('Open Sans', 'url(/fonts/OpenSans-Regular.ttf)', { weight: '400' }),
+          new FontFace('Open Sans', 'url(/fonts/OpenSans-SemiBold.ttf)', { weight: '600' }),
+          new FontFace('Open Sans', 'url(/fonts/OpenSans-Bold.ttf)', { weight: '700' }),
+        ];
+        await Promise.all(
+          faces.map(async (f) => {
+            const loaded = await f.load();
+            document.fonts.add(loaded);
+          })
+        );
+      } catch {
+        /* CDN Open Sans / Montserrat from index.html may still work */
+      }
+      if (document.fonts?.load) {
+        await Promise.all([
+          document.fonts.load(`700 48px ${FONT_DISPLAY}`),
+          document.fonts.load(`800 72px ${FONT_DISPLAY}`),
+          document.fonts.load(`600 20px ${FONT_BODY}`),
+          document.fonts.load(`400 16px ${FONT_BODY}`),
+        ]).catch(() => undefined);
+      }
+    })();
   }
+  await fontsReady;
 }
 
 function loadImage(src: string, cors = true): Promise<HTMLImageElement | null> {
@@ -208,17 +230,13 @@ function qrTargetUrl(referralCode: string): string {
   return `${QR_APP_BASE}/?ref=${encodeURIComponent(code || 'HYPERGAIN')}`;
 }
 
-/**
- * Robust QR bitmap — toDataURL → Image (avoids blank/toCanvas scale bugs).
- * Always dark-on-white for scan reliability on silver cards.
- */
 async function renderQrImage(url: string, size: number): Promise<HTMLImageElement | null> {
   if (!url || !/^https:\/\//i.test(url)) return null;
   try {
     const dataUrl = await QRCode.toDataURL(url, {
       margin: 2,
       width: size,
-      color: { dark: '#111113', light: '#ffffff' },
+      color: { dark: '#141418', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     });
     return loadImage(dataUrl, false);
@@ -238,41 +256,48 @@ export async function renderTradeShareCardPng(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
 
-  // Readable silver metal (not near-white paper)
-  const bg = ctx.createLinearGradient(0, 0, W * 0.4, H);
-  bg.addColorStop(0, '#e4e6eb');
-  bg.addColorStop(0.35, '#d2d5dc');
-  bg.addColorStop(0.7, '#b8bcc6');
-  bg.addColorStop(1, '#9ea3af');
-  ctx.fillStyle = bg;
+  // Soft silver field
+  const bg2 = ctx.createLinearGradient(0, 0, 0, H);
+  bg2.addColorStop(0, '#f0f1f4');
+  bg2.addColorStop(1, '#c5cad3');
+  ctx.fillStyle = bg2;
   ctx.fillRect(0, 0, W, H);
 
-  const sheen = ctx.createLinearGradient(0, 0, W, H * 0.5);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.35)');
-  sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
-  sheen.addColorStop(1, 'rgba(255,255,255,0.12)');
-  ctx.fillStyle = sheen;
-  ctx.fillRect(0, 0, W, H);
+  // Opaque card panel
+  const pad = 40;
+  roundRect(ctx, pad, pad, W - pad * 2, H - pad * 2, 28);
+  ctx.fillStyle = '#f7f8fa';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(20,20,24,0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-  const ink = '#1a1a1e';
-  const mute = '#6b6e76';
-  const soft = '#8a8e97';
+  const ink = '#141418';
+  const mute = '#5c606a';
+  const soft = '#8a8f9a';
   const profit = input.closedPnlUsd >= 0;
-  const accent = profit ? '#1f7a4d' : '#b42338';
-  const sideColor = input.side === 'LONG' ? '#1f7a4d' : '#b42338';
+  const accent = profit ? '#1a6b45' : '#a61e32';
+  const sideColor = input.side === 'LONG' ? '#1a6b45' : '#a61e32';
+  const left = pad + 44;
+  const right = W - pad - 44;
+  const contentW = right - left;
 
-  // Brand — quiet hero
-  setType(ctx, 700, 36, '-0.04em');
+  // Brand
+  setType(ctx, 700, 34, FONT_DISPLAY, '-0.03em');
   ctx.fillStyle = ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(SHARE_BRAND, 56, 72);
+  ctx.fillText(SHARE_BRAND, left, pad + 78);
 
-  // Trader row (minimal — no heavy avatar chrome)
+  setType(ctx, 500, 13, FONT_BODY, '0.06em');
+  ctx.fillStyle = soft;
+  ctx.fillText('TRADE RESULT', left, pad + 102);
+
+  // Trader
   const name = input.displayName.trim() || `${BRAND_NAME} trader`;
-  const avatarX = 56;
-  const avatarY = 108;
-  const avatarR = 18;
+  const avatarX = left;
+  const avatarY = pad + 130;
+  const avatarR = 20;
   const avatar = input.avatarUrl ? await loadImage(input.avatarUrl) : null;
   ctx.save();
   ctx.beginPath();
@@ -282,9 +307,9 @@ export async function renderTradeShareCardPng(
   if (avatar) {
     ctx.drawImage(avatar, avatarX, avatarY, avatarR * 2, avatarR * 2);
   } else {
-    ctx.fillStyle = 'rgba(26,26,30,0.08)';
+    ctx.fillStyle = '#e6e8ee';
     ctx.fillRect(avatarX, avatarY, avatarR * 2, avatarR * 2);
-    setType(ctx, 700, 14, '-0.02em');
+    setType(ctx, 700, 15, FONT_DISPLAY, '0');
     ctx.fillStyle = ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -294,116 +319,109 @@ export async function renderTradeShareCardPng(
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  setType(ctx, 600, 18, '-0.02em');
+  setType(ctx, 600, 18, FONT_BODY, '-0.01em');
   ctx.fillStyle = ink;
-  ctx.fillText(name, avatarX + avatarR * 2 + 12, avatarY + 16);
-  setType(ctx, 500, 13, '0');
+  ctx.fillText(name, avatarX + avatarR * 2 + 14, avatarY + 18);
+  setType(ctx, 400, 13, FONT_BODY, '0');
   ctx.fillStyle = soft;
-  ctx.fillText(fmtStamp(input.closedAtMs), avatarX + avatarR * 2 + 12, avatarY + 36);
+  ctx.fillText(fmtStamp(input.closedAtMs), avatarX + avatarR * 2 + 14, avatarY + 38);
 
-  // Pair + side
-  setType(ctx, 700, 48, '-0.045em');
+  // Pair
+  setType(ctx, 800, 52, FONT_DISPLAY, '-0.04em');
   ctx.fillStyle = ink;
-  ctx.fillText(`${input.coin} PERP`, 56, 240);
+  ctx.fillText(`${input.coin} PERP`, left, pad + 250);
 
   const sideLabel = input.side === 'LONG' ? 'Long' : 'Short';
-  setType(ctx, 600, 20, '-0.02em');
+  setType(ctx, 600, 18, FONT_BODY, '0');
   ctx.fillStyle = sideColor;
-  ctx.fillText(sideLabel, 56, 276);
+  ctx.fillText(sideLabel, left, pad + 282);
   const sideW = ctx.measureText(sideLabel).width;
   ctx.fillStyle = soft;
-  ctx.fillText(`  ·  ${input.venueLabel ?? 'Hyperliquid'}`, 56 + sideW, 276);
+  ctx.fillText(`  ·  ${input.venueLabel ?? 'Hyperliquid Perp'}`, left + sideW, pad + 282);
 
-  // PnL — one clear number
+  // PnL hero
   const pnlText = fmtMoney(input.closedPnlUsd);
-  setType(ctx, 800, 88, '-0.05em');
+  setType(ctx, 800, 78, FONT_DISPLAY, '-0.045em');
   ctx.fillStyle = accent;
-  ctx.fillText(pnlText, 56, 400);
-  const pnlW = ctx.measureText(pnlText).width;
-  setType(ctx, 600, 28, '-0.02em');
-  ctx.fillStyle = mute;
-  ctx.fillText('USD', 56 + pnlW + 12, 400);
+  ctx.fillText(pnlText, left, pad + 390);
 
   const roi = tradeShareRoiPct(input);
   if (roi) {
-    setType(ctx, 600, 28, '-0.03em');
+    setType(ctx, 600, 26, FONT_DISPLAY, '-0.02em');
     ctx.fillStyle = accent;
-    const pct = fmtPct(roi.pct);
-    ctx.fillText(pct, 56, 446);
-    const pctW = ctx.measureText(pct).width;
-    setType(ctx, 500, 14, '0.04em');
-    ctx.fillStyle = soft;
-    ctx.fillText(roi.label === 'ROE' ? 'ROE' : 'MOVE', 56 + pctW + 10, 446);
+    ctx.fillText(`${fmtPct(roi.pct)} ${roi.label}`, left, pad + 430);
   }
 
-  // Hairline
-  ctx.strokeStyle = 'rgba(26,26,30,0.12)';
+  // Divider
+  ctx.strokeStyle = 'rgba(20,20,24,0.1)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(56, 500);
-  ctx.lineTo(W - 56, 500);
+  ctx.moveTo(left, pad + 470);
+  ctx.lineTo(right, pad + 470);
   ctx.stroke();
 
-  // Stats — two columns, no boxes
-  setType(ctx, 500, 12, '0.08em');
-  ctx.fillStyle = soft;
-  ctx.fillText('ENTRY', 56, 548);
-  ctx.fillText('CLOSE', 360, 548);
-  setType(ctx, 700, 30, '-0.03em');
-  ctx.fillStyle = ink;
-  ctx.fillText(input.entryPrice != null ? fmtPx(input.entryPrice) : '—', 56, 592);
-  ctx.fillText(fmtPx(input.closePrice), 360, 592);
+  // Stats grid — 2×2
+  const col2 = left + contentW / 2 + 12;
+  const row1 = pad + 520;
+  const row2 = pad + 610;
+  const lev =
+    input.leverage != null && input.leverage > 0 ? `${Math.round(input.leverage)}×` : '—';
 
-  setType(ctx, 500, 15, '-0.01em');
-  ctx.fillStyle = mute;
-  const levLabel =
-    input.leverage != null && input.leverage > 0 ? ` · ${Math.round(input.leverage)}×` : '';
-  ctx.fillText(`Size ${fmtPx(Math.abs(input.size))} ${input.coin}${levLabel}`, 56, 640);
+  const cells: Array<{ label: string; value: string; x: number; y: number }> = [
+    { label: 'ENTRY', value: input.entryPrice != null ? fmtPx(input.entryPrice) : '—', x: left, y: row1 },
+    { label: 'CLOSE', value: fmtPx(input.closePrice), x: col2, y: row1 },
+    { label: 'SIZE', value: `${fmtPx(Math.abs(input.size))} ${input.coin}`, x: left, y: row2 },
+    { label: 'LEVERAGE', value: lev, x: col2, y: row2 },
+  ];
+  for (const cell of cells) {
+    setType(ctx, 600, 11, FONT_BODY, '0.12em');
+    ctx.fillStyle = soft;
+    ctx.fillText(cell.label, cell.x, cell.y);
+    setType(ctx, 700, 28, FONT_DISPLAY, '-0.02em');
+    ctx.fillStyle = ink;
+    ctx.fillText(cell.value, cell.x, cell.y + 36);
+  }
 
-  // Hairline before QR — keep block high so modal preview always shows it
-  ctx.strokeStyle = 'rgba(26,26,30,0.12)';
-  ctx.lineWidth = 1;
+  // Footer band
+  const footY = H - pad - 220;
+  ctx.strokeStyle = 'rgba(20,20,24,0.1)';
   ctx.beginPath();
-  ctx.moveTo(56, 690);
-  ctx.lineTo(W - 56, 690);
+  ctx.moveTo(left, footY);
+  ctx.lineTo(right, footY);
   ctx.stroke();
 
-  const referralUrl = qrTargetUrl(input.referralCode);
-  const q = 168;
-  const qx = W - 56 - q;
-  const qy = 730;
+  const referralCode =
+    normalizeReferralCode(input.referralCode) ?? input.referralCode.trim().toUpperCase();
+  const referralUrl = qrTargetUrl(referralCode);
+  const q = 148;
+  const qx = right - q;
+  const qy = footY + 36;
   const qrImg = await renderQrImage(referralUrl, q * 2);
 
-  ctx.beginPath();
-  roundRect(ctx, qx - 12, qy - 12, q + 24, q + 24, 12);
+  roundRect(ctx, qx - 10, qy - 10, q + 20, q + 20, 14);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(26,26,30,0.1)';
+  roundRect(ctx, qx - 10, qy - 10, q + 20, q + 20, 14);
+  ctx.strokeStyle = 'rgba(20,20,24,0.08)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
   if (qrImg) {
     ctx.drawImage(qrImg, qx, qy, q, q);
-  } else {
-    setType(ctx, 500, 13, '0');
-    ctx.fillStyle = mute;
-    ctx.textAlign = 'center';
-    ctx.fillText('app.hypergain.io', qx + q / 2, qy + q / 2);
-    ctx.textAlign = 'left';
   }
 
-  setType(ctx, 700, 22, '-0.03em');
+  setType(ctx, 700, 22, FONT_DISPLAY, '-0.02em');
   ctx.fillStyle = ink;
-  ctx.fillText(SHARE_BRAND, 56, qy + 36);
-  setType(ctx, 500, 15, '0');
-  ctx.fillStyle = soft;
-  ctx.fillText('Scan to join', 56, qy + 64);
-  setType(ctx, 600, 16, '-0.01em');
+  ctx.fillText(SHARE_BRAND, left, footY + 56);
+  setType(ctx, 400, 14, FONT_BODY, '0');
   ctx.fillStyle = mute;
-  ctx.fillText(input.referralCode, 56, qy + 98);
-  setType(ctx, 500, 13, '0');
+  ctx.fillText('Scan to join on Hyperliquid', left, footY + 84);
+  setType(ctx, 600, 15, FONT_BODY, '0.04em');
+  ctx.fillStyle = ink;
+  ctx.fillText(referralCode, left, footY + 120);
+  setType(ctx, 400, 13, FONT_BODY, '0');
   ctx.fillStyle = soft;
-  ctx.fillText('app.hypergain.io', 56, qy + 128);
+  ctx.fillText('app.hypergain.io', left, footY + 148);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
