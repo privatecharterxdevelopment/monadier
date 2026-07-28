@@ -1,6 +1,6 @@
 /**
  * Server-side win flyer PNG (mirrors browser tradeShareCard look).
- * Uses @napi-rs/canvas + DejaVu fonts from Alpine.
+ * Soft silver gradient, minimal layout, robust QR.
  */
 import { createCanvas, GlobalFonts, loadImage, type SKRSContext2D } from '@napi-rs/canvas';
 import QRCode from 'qrcode';
@@ -27,6 +27,7 @@ const W = 720;
 const H = 1280;
 const SHARE_BRAND = 'hyperGain';
 const FONT = '"DejaVu Sans", "Noto Sans", sans-serif';
+const QR_APP_BASE = 'https://app.hypergain.io';
 
 let fontsRegistered = false;
 
@@ -166,56 +167,54 @@ function setType(ctx: SKRSContext2D, weight: number, size: number) {
   ctx.font = `${bold}${size}px ${FONT}`;
 }
 
+function qrTargetUrl(referralCode: string, fallbackUrl?: string): string {
+  const code = String(referralCode || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  if (code) return `${QR_APP_BASE}/?ref=${encodeURIComponent(code)}`;
+  if (fallbackUrl && /^https:\/\//i.test(fallbackUrl)) return fallbackUrl;
+  return `${QR_APP_BASE}/`;
+}
+
 export async function renderWinFlyerPng(input: WinFlyerInput): Promise<Buffer> {
   registerFontsOnce();
 
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#12141a');
-  bg.addColorStop(0.45, '#0b0c0f');
-  bg.addColorStop(1, '#070809');
+  const bg = ctx.createLinearGradient(0, 0, W * 0.35, H);
+  bg.addColorStop(0, '#f7f7f8');
+  bg.addColorStop(0.4, '#ebecee');
+  bg.addColorStop(0.72, '#d8dadf');
+  bg.addColorStop(1, '#c9ccd3');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.save();
-  ctx.globalAlpha = 0.08;
-  ctx.strokeStyle = '#3dd68c';
-  ctx.lineWidth = 1.5;
-  for (let i = 0; i < 8; i++) {
-    const cx = (i % 4) * 220 - 40;
-    const cy = Math.floor(i / 4) * 520 + 200;
-    ctx.beginPath();
-    ctx.moveTo(cx + 110, cy);
-    ctx.lineTo(cx + 220, cy + 110);
-    ctx.lineTo(cx + 110, cy + 220);
-    ctx.lineTo(cx, cy + 110);
-    ctx.closePath();
-    ctx.stroke();
-  }
-  ctx.restore();
+  const sheen = ctx.createLinearGradient(0, 0, W, H * 0.55);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.55)');
+  sheen.addColorStop(0.45, 'rgba(255,255,255,0)');
+  sheen.addColorStop(1, 'rgba(255,255,255,0.18)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, W, H);
 
-  const bar = ctx.createLinearGradient(0, 0, W, 0);
-  bar.addColorStop(0, '#1a6b45');
-  bar.addColorStop(0.5, '#3dd68c');
-  bar.addColorStop(1, '#1a6b45');
-  ctx.fillStyle = bar;
-  ctx.fillRect(0, 0, W, 5);
+  const ink = '#1a1a1e';
+  const mute = '#6b6e76';
+  const soft = '#8a8e97';
+  const isProfit = input.closedPnlUsd >= 0;
+  const accent = isProfit ? '#1f7a4d' : '#b42338';
+  const sideColor = input.side === 'LONG' ? '#1f7a4d' : '#b42338';
 
-  setType(ctx, 700, 42);
-  ctx.fillStyle = '#ffffff';
+  setType(ctx, 700, 36);
+  ctx.fillStyle = ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(SHARE_BRAND, 56, 78);
-  setType(ctx, 500, 16);
-  ctx.fillStyle = '#8b8b93';
-  ctx.fillText('Bot trading on Hyperliquid', 56, 106);
+  ctx.fillText(SHARE_BRAND, 56, 72);
 
   const name = input.displayName.trim() || `${BRAND_NAME} trader`;
   const avatarX = 56;
-  const avatarY = 148;
-  const avatarR = 26;
+  const avatarY = 108;
+  const avatarR = 18;
 
   ctx.save();
   ctx.beginPath();
@@ -233,147 +232,121 @@ export async function renderWinFlyerPng(input: WinFlyerInput): Promise<Buffer> {
     }
   }
   if (!drewAvatar) {
-    ctx.fillStyle = '#1a1b1f';
+    ctx.fillStyle = 'rgba(26,26,30,0.08)';
     ctx.fillRect(avatarX, avatarY, avatarR * 2, avatarR * 2);
-    setType(ctx, 700, 20);
-    ctx.fillStyle = '#3dd68c';
+    setType(ctx, 700, 14);
+    ctx.fillStyle = ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(name.slice(0, 1).toUpperCase(), avatarX + avatarR, avatarY + avatarR + 1);
+    ctx.fillText(name.slice(0, 1).toUpperCase(), avatarX + avatarR, avatarY + avatarR + 0.5);
   }
   ctx.restore();
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  setType(ctx, 700, 24);
-  ctx.fillStyle = '#f4f4f5';
-  ctx.fillText(name, avatarX + avatarR * 2 + 14, avatarY + 24);
-  setType(ctx, 500, 16);
-  ctx.fillStyle = '#8b8b93';
-  ctx.fillText(fmtStamp(input.closedAtMs), avatarX + avatarR * 2 + 14, avatarY + 48);
+  setType(ctx, 600, 18);
+  ctx.fillStyle = ink;
+  ctx.fillText(name, avatarX + avatarR * 2 + 12, avatarY + 16);
+  setType(ctx, 500, 13);
+  ctx.fillStyle = soft;
+  ctx.fillText(fmtStamp(input.closedAtMs), avatarX + avatarR * 2 + 12, avatarY + 36);
 
-  const pair = `${input.coin} PERP`;
-  setType(ctx, 800, 56);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(pair, 56, 290);
+  setType(ctx, 700, 48);
+  ctx.fillStyle = ink;
+  ctx.fillText(`${input.coin} PERP`, 56, 240);
 
   const sideLabel = input.side === 'LONG' ? 'Long' : 'Short';
-  const sideColor = input.side === 'LONG' ? '#3dd68c' : '#f6465d';
-  setType(ctx, 700, 26);
+  setType(ctx, 600, 20);
   ctx.fillStyle = sideColor;
-  ctx.fillText(sideLabel, 56, 336);
+  ctx.fillText(sideLabel, 56, 276);
   const sideW = ctx.measureText(sideLabel).width;
-  ctx.fillStyle = '#8b8b93';
-  ctx.fillText(`  ·  ${input.venueLabel ?? 'Hyperliquid Perp'}`, 56 + sideW, 336);
+  ctx.fillStyle = soft;
+  ctx.fillText(`  ·  ${input.venueLabel ?? 'Hyperliquid'}`, 56 + sideW, 276);
 
-  const profit = input.closedPnlUsd >= 0;
   const pnlText = fmtMoney(input.closedPnlUsd);
-  setType(ctx, 800, 92);
-  ctx.fillStyle = profit ? '#3dd68c' : '#f6465d';
-  ctx.fillText(pnlText, 56, 470);
+  setType(ctx, 800, 88);
+  ctx.fillStyle = accent;
+  ctx.fillText(pnlText, 56, 400);
   const pnlW = ctx.measureText(pnlText).width;
-  setType(ctx, 700, 34);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText('USD', 56 + pnlW + 14, 470);
+  setType(ctx, 600, 28);
+  ctx.fillStyle = mute;
+  ctx.fillText('USD', 56 + pnlW + 12, 400);
 
   const roi = winFlyerRoiPct(input);
   if (roi) {
-    setType(ctx, 700, 36);
-    ctx.fillStyle = profit ? '#3dd68c' : '#f6465d';
-    ctx.fillText(fmtPct(roi.pct), 56, 520);
-    const pctW = ctx.measureText(fmtPct(roi.pct)).width;
-    setType(ctx, 600, 18);
-    ctx.fillStyle = '#8b8b93';
-    ctx.fillText(roi.label === 'ROE' ? 'ROE' : 'PRICE', 56 + pctW + 12, 520);
+    setType(ctx, 600, 28);
+    ctx.fillStyle = accent;
+    const pct = fmtPct(roi.pct);
+    ctx.fillText(pct, 56, 446);
+    const pctW = ctx.measureText(pct).width;
+    setType(ctx, 500, 14);
+    ctx.fillStyle = soft;
+    ctx.fillText(roi.label === 'ROE' ? 'ROE' : 'MOVE', 56 + pctW + 10, 446);
   }
 
-  setType(ctx, 600, 15);
-  ctx.fillStyle = '#6f6f78';
-  ctx.fillText('ENTRY', 56, 580);
-  ctx.fillText('AVG CLOSE', 360, 580);
-  setType(ctx, 700, 34);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(input.entryPrice != null ? fmtPx(input.entryPrice) : '—', 56, 628);
-  ctx.fillText(fmtPx(input.closePrice), 360, 628);
-  setType(ctx, 500, 18);
-  ctx.fillStyle = '#8b8b93';
-  const levLabel =
-    input.leverage != null && input.leverage > 0 ? ` · ${Math.round(input.leverage)}x` : '';
-  ctx.fillText(`Size ${fmtPx(input.size)} ${input.coin}${levLabel}`, 56, 670);
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.strokeStyle = 'rgba(26,26,30,0.12)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(56, 700);
-  ctx.lineTo(W - 56, 700);
+  ctx.moveTo(56, 500);
+  ctx.lineTo(W - 56, 500);
   ctx.stroke();
 
-  const footY = 740;
-  roundRect(ctx, 48, footY, W - 96, 260, 22);
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.stroke();
+  setType(ctx, 500, 12);
+  ctx.fillStyle = soft;
+  ctx.fillText('ENTRY', 56, 548);
+  ctx.fillText('CLOSE', 360, 548);
+  setType(ctx, 700, 30);
+  ctx.fillStyle = ink;
+  ctx.fillText(input.entryPrice != null ? fmtPx(input.entryPrice) : '—', 56, 592);
+  ctx.fillText(fmtPx(input.closePrice), 360, 592);
 
-  ctx.strokeStyle = '#3dd68c';
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
-  const mx = 92;
-  const my = footY + 78;
-  ctx.beginPath();
-  ctx.moveTo(mx, my - 13);
-  ctx.lineTo(mx, my + 13);
-  ctx.moveTo(mx - 13, my);
-  ctx.lineTo(mx + 13, my);
-  ctx.stroke();
-
-  setType(ctx, 700, 32);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(SHARE_BRAND, 120, footY + 88);
-  setType(ctx, 500, 17);
-  ctx.fillStyle = '#8b8b93';
-  ctx.fillText('Scan to join & trade', 120, footY + 122);
-  setType(ctx, 700, 19);
-  ctx.fillStyle = '#3dd68c';
-  ctx.fillText(`Referral ${input.referralCode}`, 120, footY + 162);
   setType(ctx, 500, 15);
-  ctx.fillStyle = '#63636b';
-  ctx.fillText('app.hypergain.io', 120, footY + 196);
+  ctx.fillStyle = mute;
+  const levLabel =
+    input.leverage != null && input.leverage > 0 ? ` · ${Math.round(input.leverage)}x` : '';
+  ctx.fillText(`Size ${fmtPx(Math.abs(input.size))} ${input.coin}${levLabel}`, 56, 640);
 
-  const q = 176;
-  const qx = W - 56 - 30 - q;
-  const qy = footY + (260 - q) / 2;
+  const q = 168;
+  const qx = W - 56 - q;
+  const qy = H - 56 - q - 48;
+  const referralUrl = qrTargetUrl(input.referralCode, input.referralUrl);
+
+  roundRect(ctx, qx - 12, qy - 12, q + 24, q + 24, 12);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(26,26,30,0.08)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
   try {
-    const dataUrl = await QRCode.toDataURL(input.referralUrl, {
-      margin: 1,
-      width: q,
-      color: { dark: '#0a0a0a', light: '#ffffff' },
+    const dataUrl = await QRCode.toDataURL(referralUrl, {
+      margin: 2,
+      width: q * 2,
+      color: { dark: '#111113', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     });
     const qrImg = await loadImage(dataUrl);
-    roundRect(ctx, qx - 10, qy - 10, q + 20, q + 20, 14);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
     ctx.drawImage(qrImg, qx, qy, q, q);
   } catch {
-    roundRect(ctx, qx, qy, q, q, 12);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    setType(ctx, 700, 16);
-    ctx.fillStyle = '#0a0a0a';
+    setType(ctx, 500, 13);
+    ctx.fillStyle = mute;
     ctx.textAlign = 'center';
-    ctx.fillText('QR', qx + q / 2, qy + q / 2 + 4);
+    ctx.fillText('app.hypergain.io', qx + q / 2, qy + q / 2);
     ctx.textAlign = 'left';
   }
 
-  setType(ctx, 700, 22);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.textAlign = 'center';
-  ctx.fillText(SHARE_BRAND, W / 2, H - 72);
-  setType(ctx, 500, 14);
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
-  ctx.fillText('Share your edge', W / 2, H - 44);
-  ctx.textAlign = 'left';
+  setType(ctx, 600, 16);
+  ctx.fillStyle = ink;
+  ctx.fillText(SHARE_BRAND, 56, qy + 28);
+  setType(ctx, 500, 13);
+  ctx.fillStyle = soft;
+  ctx.fillText('Scan to join', 56, qy + 52);
+  setType(ctx, 600, 14);
+  ctx.fillStyle = mute;
+  ctx.fillText(input.referralCode, 56, qy + 84);
+  setType(ctx, 500, 12);
+  ctx.fillStyle = soft;
+  ctx.fillText('app.hypergain.io', 56, qy + 112);
 
   return canvas.toBuffer('image/png');
 }
