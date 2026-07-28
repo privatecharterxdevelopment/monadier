@@ -138,18 +138,11 @@ export async function evaluateMacroBetaAlignment(opts: {
   const anchor = classifyAnchor(coin);
   const cfg = config.hyperliquid.macroBeta;
 
-  const [btc, eth, coinMom] = await Promise.all([
+  const [btc, eth, altMom] = await Promise.all([
     fetch15mMomentum('BTCUSDT'),
     fetch15mMomentum('ETHUSDT'),
     coin === 'BTC' || coin === 'ETH'
-      ? Promise.resolve({
-          change15mPct: 0,
-          change1hPct: 0,
-          trend15m: 'FLAT' as const,
-          trend1h: 'FLAT' as const,
-          consecutiveGreen15m: 0,
-          consecutiveRed15m: 0,
-        })
+      ? Promise.resolve(null)
       : fetch15mMomentum(hlCoinToBinanceSymbol(coin)),
   ]);
 
@@ -158,18 +151,12 @@ export async function evaluateMacroBetaAlignment(opts: {
     anchor,
     btc,
     eth,
-    coinMom: coin === 'BTC' ? btc : coin === 'ETH' ? eth : coinMom,
+    coinMom: coin === 'BTC' ? btc : coin === 'ETH' ? eth : (altMom as MacroMomentum),
     checkedAt: new Date().toISOString(),
   };
 
-  if (anchor === 'SELF') {
-    return {
-      ok: true,
-      reason: `Major ${coin} — macro beta gate skipped`,
-      snapshot,
-      blockers: [],
-    };
-  }
+  // Majors used to skip this gate entirely → ETH/BTC SHORTs opened into their own pumps
+  // (Jul 28 ETH SHORT 1872→1909 −$65). Always check the coin's own momentum.
 
   const blockers: string[] = [];
   const pump15 = cfg.pumpBlock15mPct;

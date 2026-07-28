@@ -439,7 +439,11 @@ export const config = {
       enforceHardCap: process.env.HL_LOSS_CAP_ENFORCE === 'true',
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
-    maxMarginLossPctBeforeForceClose: Number(process.env.HL_MAX_MARGIN_LOSS_PCT || 55),
+    /**
+     * Force-close when |uPnL| / margin ≥ this % — works even with profitOnlyExits + SL%=0.
+     * Was advertised in /health but unwired; 25% would have cut the Jul 28 ETH −$65 bleed ~halfway.
+     */
+    maxMarginLossPctBeforeForceClose: Number(process.env.HL_MAX_MARGIN_LOSS_PCT || 25),
     liquidation: {
       closeWhenRemainingFrac: Number(process.env.HL_LIQ_CLOSE_REMAINING_FRAC || 0.28),
       closeWhenWithinPct: Number(process.env.HL_LIQ_CLOSE_WITHIN_PCT || 0.004),

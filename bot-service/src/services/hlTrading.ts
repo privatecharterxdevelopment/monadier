@@ -44,6 +44,7 @@ import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
+import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
@@ -156,6 +157,7 @@ function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
   if (
     reason === 'hard_stop_usd' ||
     reason === 'emergency_close' ||
+    reason === 'margin_loss_cap' ||
     reason === 'invalidation_zone' ||
     reason === 'invalidation_hard_sl'
   ) {
@@ -1305,10 +1307,8 @@ export class HyperliquidTradingService {
         return rejectOpen('pump_short', pumpShortGate.reason, 'pump-short gate');
       }
 
-      const megaGate = {
-        ok: true as const,
-        reason: `${coin} — per-coin chart/macro beta only (no global flow override)`,
-      };
+      // Live BTC+ETH flow — stubbing this to always-ok let SHORTs open into mega pumps.
+      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         return rejectOpen('mega_pair', megaGate.reason, 'mega pair volume');
       }
@@ -2049,6 +2049,34 @@ export class HyperliquidTradingService {
           'hard_stop_usd',
           closeCtx,
           `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
+        );
+        continue;
+      }
+
+      // Wire previously dead HL_MAX_MARGIN_LOSS_PCT — profitOnlyExits + SL%=0 otherwise
+      // held losers to −$65 (ETH SHORT Jul 28) until a manual panic close.
+      const maxMarginLossPct = config.hyperliquid.maxMarginLossPctBeforeForceClose;
+      if (
+        maxMarginLossPct > 0 &&
+        pnl < 0 &&
+        collateralEst > 0 &&
+        (Math.abs(pnl) / collateralEst) * 100 >= maxMarginLossPct
+      ) {
+        const closeCtx = {
+          entryPx: entry,
+          unrealizedPnlUsd: pnl,
+          size,
+          leverage: lev,
+          holdMs,
+        };
+        const lossPct = (Math.abs(pnl) / collateralEst) * 100;
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'margin_loss_cap',
+          closeCtx,
+          `MARGIN LOSS CAP — ${pos.coin} −${lossPct.toFixed(1)}% of margin (cap ${maxMarginLossPct}%) uPnL $${pnl.toFixed(2)}`
         );
         continue;
       }
