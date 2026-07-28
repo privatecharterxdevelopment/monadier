@@ -30,6 +30,17 @@ export type HlDirectionRules = {
   minDirectionalTfs: number;
   minTrendAlignment: number;
   requiredH1Trend: 'UP' | 'DOWN' | null;
+  /**
+   * Optional 15m trend gate (bear_market LONG counter-trend).
+   * When set, this replaces the 1h requirement for that side only.
+   * Unset on PRIMARY / shared COUNTER_TREND — SHORT paths stay unchanged.
+   */
+  required15mTrend?: 'UP' | 'DOWN' | null;
+  /**
+   * Closed 15m candles that must confirm required15mTrend (bullish/bearish bodies).
+   * 0 / unset = no candle-count gate.
+   */
+  minConfirm15mCandles?: number;
   trustMtfScan: boolean;
   relaxSecondaryGates: boolean;
   enforceHtfSr: boolean;

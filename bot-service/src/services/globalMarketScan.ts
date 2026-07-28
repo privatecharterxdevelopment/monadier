@@ -14,6 +14,7 @@ import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { resolvePeakAwareDirection } from './peakShortLiquidity';
+import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import type { Timeframe } from './signalEngine';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -281,12 +282,21 @@ async function scanStandardCoinDirection(
     ) {
       return null;
     }
+    const entryTrend = await validateProfileEntryTrend({ coin, direction });
+    if (!entryTrend.ok) {
+      logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
+      return null;
+    }
+    const dirRules = rulesFor(direction, peakLiquidityGrab);
     if (
       !relaxed &&
       !peakLiquidityGrab &&
       (
+        // Only enforce legacy 1h-DOWN block when this side still requires 1h.
+        // bear_market LONG uses 15m instead — do not starve counter-trend LONGs.
         (direction === 'LONG' &&
           !trustedDirection &&
+          dirRules.requiredH1Trend != null &&
           analysis.metrics?.h1Trend === 'DOWN') ||
         (direction === 'SHORT' &&
           !trustedDirection &&
@@ -406,7 +416,19 @@ async function scanAggressiveCoin(
           });
           return null;
         }
-        if (!trustedDirection && h1Check.metrics?.h1Trend === 'DOWN') {
+        const aggLongTrend = await validateProfileEntryTrend({ coin, direction: 'LONG' });
+        if (!aggLongTrend.ok) {
+          logger.debug('HL agg scan skip: profile 15m entry-trend', {
+            coin,
+            reason: aggLongTrend.reason,
+          });
+          return null;
+        }
+        if (
+          !trustedDirection &&
+          rulesFor(direction, peakLiquidityGrab).requiredH1Trend != null &&
+          h1Check.metrics?.h1Trend === 'DOWN'
+        ) {
           logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
           return null;
         }
@@ -421,7 +443,10 @@ async function scanAggressiveCoin(
       ) {
         return null;
       }
-    } else if (rulesFor(direction, peakLiquidityGrab).requiredH1Trend) {
+    } else if (
+      rulesFor(direction, peakLiquidityGrab).requiredH1Trend ||
+      rulesFor(direction, peakLiquidityGrab).required15mTrend
+    ) {
       return null;
     }
 

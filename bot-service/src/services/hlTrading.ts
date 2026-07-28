@@ -64,6 +64,7 @@ import {
 } from './llmDisagreementCycle';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
+import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -1119,6 +1120,24 @@ export class HyperliquidTradingService {
             profile: directionProfile.name,
             primaryDirection: directionProfile.primaryDirection,
             peakLiquidityGrab,
+          }
+        );
+      }
+
+      const entryTrendGate = await validateProfileEntryTrend({
+        coin,
+        direction: opts.direction,
+      });
+      if (!entryTrendGate.ok) {
+        return rejectOpen(
+          'direction_profile',
+          entryTrendGate.reason,
+          '15m entry-trend',
+          {
+            profile: directionProfile.name,
+            primaryDirection: directionProfile.primaryDirection,
+            peakLiquidityGrab,
+            trend15m: entryTrendGate.trend15m,
           }
         );
       }

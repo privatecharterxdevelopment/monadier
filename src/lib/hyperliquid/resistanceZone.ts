@@ -1,6 +1,11 @@
 /**
  * In-house swing-cluster resistance / support zones (high–low bands).
  * Shared algorithm — keep in sync with `bot-service/src/services/resistanceZone.ts`.
+ *
+ * Zones are candle-dynamic and price-relative (active S/R):
+ * - Resistance = best swing-high cluster at/above last close
+ * - Support    = best swing-low cluster at/below last close
+ * Dense historical shelves ABOVE a dump are never labeled "support".
  */
 
 export type CandleLike = {
@@ -27,70 +32,94 @@ export type ResistanceZoneOpts = {
   touchTolerancePct?: number;
   /** Minimum zone half-width as fraction of mid (avoid hairline bands). */
   minHalfWidthPct?: number;
+  /** Bars left/right that must be lower/higher for a swing pivot. */
+  swingStrength?: number;
+  /** Prefer zones within this distance of price (inactive shelves ignored). */
+  maxZoneDistPct?: number;
 };
 
 const DEFAULTS = {
-  swingClusterPct: 0.004,
-  touchTolerancePct: 0.0025,
-  minHalfWidthPct: 0.0012,
+  swingClusterPct: 0.006,
+  touchTolerancePct: 0.003,
+  minHalfWidthPct: 0.0015,
+  swingStrength: 3,
+  maxZoneDistPct: 0.08,
 };
 
-function isSwingHigh(candles: CandleLike[], i: number): boolean {
-  if (i < 2 || i >= candles.length - 2) return false;
+type Swing = { price: number; index: number };
+
+function lastClose(candles: CandleLike[]): number {
+  return candles[candles.length - 1]?.close ?? 0;
+}
+
+function isSwingHigh(candles: CandleLike[], i: number, strength: number): boolean {
+  if (i < strength || i >= candles.length - strength) return false;
   const h = candles[i].high;
-  for (let j = i - 2; j <= i + 2; j += 1) {
+  for (let j = i - strength; j <= i + strength; j += 1) {
     if (j !== i && candles[j].high > h) return false;
   }
   return true;
 }
 
-function isSwingLow(candles: CandleLike[], i: number): boolean {
-  if (i < 2 || i >= candles.length - 2) return false;
+function isSwingLow(candles: CandleLike[], i: number, strength: number): boolean {
+  if (i < strength || i >= candles.length - strength) return false;
   const l = candles[i].low;
-  for (let j = i - 2; j <= i + 2; j += 1) {
+  for (let j = i - strength; j <= i + strength; j += 1) {
     if (j !== i && candles[j].low < l) return false;
   }
   return true;
 }
 
+function collectSwingHighs(candles: CandleLike[], strength: number): Swing[] {
+  const out: Swing[] = [];
+  for (let i = strength; i < candles.length - strength; i += 1) {
+    if (isSwingHigh(candles, i, strength)) out.push({ price: candles[i].high, index: i });
+  }
+  return out;
+}
+
+function collectSwingLows(candles: CandleLike[], strength: number): Swing[] {
+  const out: Swing[] = [];
+  for (let i = strength; i < candles.length - strength; i += 1) {
+    if (isSwingLow(candles, i, strength)) out.push({ price: candles[i].low, index: i });
+  }
+  return out;
+}
+
+function approxAtr(candles: CandleLike[], period = 14): number {
+  if (candles.length < 2) return 0;
+  const n = Math.min(period, candles.length - 1);
+  let sum = 0;
+  for (let i = candles.length - n; i < candles.length; i += 1) {
+    const c = candles[i];
+    const prev = candles[i - 1] ?? c;
+    const tr = Math.max(
+      c.high - c.low,
+      Math.abs(c.high - prev.close),
+      Math.abs(c.low - prev.close)
+    );
+    sum += tr;
+  }
+  return sum / n;
+}
+
 function padZone(
   low: number,
   high: number,
-  minHalfWidthPct: number
+  midHint: number,
+  minHalfWidthPct: number,
+  atr: number
 ): { zoneLow: number; zoneHigh: number; mid: number } {
-  const mid = (low + high) / 2;
-  const half = Math.max((high - low) / 2, mid * minHalfWidthPct);
+  const mid = midHint > 0 ? midHint : (low + high) / 2;
+  const half = Math.max(
+    (high - low) / 2,
+    mid * minHalfWidthPct,
+    atr > 0 ? atr * 0.2 : 0
+  );
   return { zoneLow: mid - half, zoneHigh: mid + half, mid };
 }
 
-function bestSwingCluster(
-  swings: number[],
-  clusterPct: number,
-  preferHigh: boolean
-): { members: number[]; mid: number } | null {
-  if (swings.length === 0) return null;
-  const sorted = [...swings].sort((a, b) => (preferHigh ? b - a : a - b));
-  let bestMembers: number[] = [sorted[0]];
-  let bestScore = 0;
-  let bestMid = sorted[0];
-
-  for (const seed of sorted) {
-    const members = swings.filter((p) => Math.abs(p - seed) / seed <= clusterPct);
-    const score = members.length;
-    const mid = members.reduce((s, p) => s + p, 0) / members.length;
-    if (
-      score > bestScore ||
-      (score === bestScore &&
-        (preferHigh ? mid > bestMid : mid < bestMid))
-    ) {
-      bestScore = score;
-      bestMembers = members;
-      bestMid = mid;
-    }
-  }
-  return { members: bestMembers, mid: bestMid };
-}
-
+/** Strict touch = wick enters the band (not everything above zoneLow). */
 function countZoneTests(
   candles: CandleLike[],
   zone: { zoneLow: number; zoneHigh: number },
@@ -99,88 +128,201 @@ function countZoneTests(
 ): { touches: number; rejections: number } {
   let touches = 0;
   let rejections = 0;
+  const lo = zone.zoneLow * (1 - touchTol);
+  const hi = zone.zoneHigh * (1 + touchTol);
   for (const c of candles) {
     if (side === 'resistance') {
-      const tested = c.high >= zone.zoneLow * (1 - touchTol);
+      const tested = c.high >= lo && c.low <= hi;
       if (!tested) continue;
       touches += 1;
-      if (c.close < zone.zoneLow * (1 - touchTol * 0.35)) rejections += 1;
+      if (c.close < zone.zoneLow) rejections += 1;
     } else {
-      const tested = c.low <= zone.zoneHigh * (1 + touchTol);
+      const tested = c.low <= hi && c.high >= lo;
       if (!tested) continue;
       touches += 1;
-      if (c.close > zone.zoneHigh * (1 + touchTol * 0.35)) rejections += 1;
+      if (c.close > zone.zoneHigh) rejections += 1;
     }
   }
   return { touches, rejections };
 }
 
-/** Strongest resistance band from swing-high cluster. */
+type Cluster = { members: Swing[]; mid: number };
+
+function clustersFromSwings(swings: Swing[], clusterPct: number): Cluster[] {
+  if (swings.length === 0) return [];
+  const used = new Set<number>();
+  const clusters: Cluster[] = [];
+  const byPrice = [...swings].sort((a, b) => b.price - a.price);
+
+  for (const seed of byPrice) {
+    if (used.has(seed.index)) continue;
+    const members = swings.filter(
+      (p) => Math.abs(p.price - seed.price) / seed.price <= clusterPct
+    );
+    for (const m of members) used.add(m.index);
+    const mid = members.reduce((s, p) => s + p.price, 0) / members.length;
+    clusters.push({ members, mid });
+  }
+  return clusters;
+}
+
+function scoreCluster(
+  cluster: Cluster,
+  candles: CandleLike[],
+  side: 'resistance' | 'support',
+  price: number,
+  touchTol: number,
+  maxDistPct: number
+): number | null {
+  if (!(price > 0) || !(cluster.mid > 0)) return null;
+
+  // Active geometry only.
+  if (side === 'resistance' && cluster.mid < price * 0.998) return null;
+  if (side === 'support' && cluster.mid > price * 1.002) return null;
+
+  const distPct =
+    side === 'resistance'
+      ? (cluster.mid - price) / price
+      : (price - cluster.mid) / price;
+  if (distPct < 0 || distPct > maxDistPct) return null;
+
+  const rawLow = Math.min(...cluster.members.map((m) => m.price));
+  const rawHigh = Math.max(...cluster.members.map((m) => m.price));
+  const tests = countZoneTests(
+    candles,
+    { zoneLow: rawLow, zoneHigh: rawHigh },
+    side,
+    touchTol
+  );
+
+  const newestIdx = Math.max(...cluster.members.map((m) => m.index));
+  const recency = newestIdx / Math.max(1, candles.length - 1);
+  // Closer to live price wins over Himalaya shelves.
+  const proximity = 1 / (1 + distPct * 22);
+
+  return (
+    cluster.members.length * 4 +
+    tests.rejections * 5 +
+    tests.touches * 1.25 +
+    recency * 8 +
+    proximity * 18
+  );
+}
+
+function pickBestZone(
+  candles: CandleLike[],
+  side: 'resistance' | 'support',
+  opts: Required<
+    Pick<
+      ResistanceZoneOpts,
+      | 'swingClusterPct'
+      | 'touchTolerancePct'
+      | 'minHalfWidthPct'
+      | 'swingStrength'
+      | 'maxZoneDistPct'
+    >
+  >
+): PriceZone | null {
+  if (!candles || candles.length < 8) return null;
+  const price = lastClose(candles);
+  if (!(price > 0)) return null;
+
+  const swings =
+    side === 'resistance'
+      ? collectSwingHighs(candles, opts.swingStrength)
+      : collectSwingLows(candles, opts.swingStrength);
+
+  const atr = approxAtr(candles);
+  let clusters = clustersFromSwings(swings, opts.swingClusterPct);
+
+  // Fallback: recent extreme on the correct side of price.
+  if (clusters.length === 0) {
+    const window = candles.slice(-24);
+    if (side === 'resistance') {
+      const hi = Math.max(...window.map((c) => c.high));
+      if (hi >= price * 0.998) {
+        clusters = [{ members: [{ price: hi, index: candles.length - 1 }], mid: hi }];
+      }
+    } else {
+      const lo = Math.min(...window.map((c) => c.low));
+      if (lo <= price * 1.002) {
+        clusters = [{ members: [{ price: lo, index: candles.length - 1 }], mid: lo }];
+      }
+    }
+  }
+
+  let best: { cluster: Cluster; score: number } | null = null;
+  for (const cluster of clusters) {
+    const score = scoreCluster(
+      cluster,
+      candles,
+      side,
+      price,
+      opts.touchTolerancePct,
+      opts.maxZoneDistPct
+    );
+    if (score == null) continue;
+    if (!best || score > best.score) best = { cluster, score };
+  }
+
+  // Soften distance once if nothing scored (still keep side-of-price).
+  if (!best) {
+    for (const cluster of clusters) {
+      const score = scoreCluster(
+        cluster,
+        candles,
+        side,
+        price,
+        opts.touchTolerancePct,
+        Math.max(opts.maxZoneDistPct, 0.18)
+      );
+      if (score == null) continue;
+      if (!best || score > best.score) best = { cluster, score };
+    }
+  }
+
+  if (!best) return null;
+
+  const rawLow = Math.min(...best.cluster.members.map((m) => m.price));
+  const rawHigh = Math.max(...best.cluster.members.map((m) => m.price));
+  const padded = padZone(rawLow, rawHigh, best.cluster.mid, opts.minHalfWidthPct, atr);
+  const tests = countZoneTests(candles, padded, side, opts.touchTolerancePct);
+
+  return {
+    side,
+    zoneLow: padded.zoneLow,
+    zoneHigh: padded.zoneHigh,
+    mid: padded.mid,
+    touches: tests.touches,
+    rejections: tests.rejections,
+    clusterSize: best.cluster.members.length,
+  };
+}
+
+function resolveOpts(opts: ResistanceZoneOpts = {}) {
+  return {
+    swingClusterPct: opts.swingClusterPct ?? DEFAULTS.swingClusterPct,
+    touchTolerancePct: opts.touchTolerancePct ?? DEFAULTS.touchTolerancePct,
+    minHalfWidthPct: opts.minHalfWidthPct ?? DEFAULTS.minHalfWidthPct,
+    swingStrength: opts.swingStrength ?? DEFAULTS.swingStrength,
+    maxZoneDistPct: opts.maxZoneDistPct ?? DEFAULTS.maxZoneDistPct,
+  };
+}
+
+/** Strongest active resistance band (at/above price). */
 export function computeResistanceZone(
   candles: CandleLike[],
   opts: ResistanceZoneOpts = {}
 ): PriceZone | null {
-  if (!candles || candles.length < 6) return null;
-  const swingClusterPct = opts.swingClusterPct ?? DEFAULTS.swingClusterPct;
-  const touchTolerancePct = opts.touchTolerancePct ?? DEFAULTS.touchTolerancePct;
-  const minHalfWidthPct = opts.minHalfWidthPct ?? DEFAULTS.minHalfWidthPct;
-
-  const swings: number[] = [];
-  for (let i = 2; i < candles.length - 2; i += 1) {
-    if (isSwingHigh(candles, i)) swings.push(candles[i].high);
-  }
-  const fallback = Math.max(...candles.slice(-20).map((c) => c.high));
-  const cluster = bestSwingCluster(swings.length ? swings : [fallback], swingClusterPct, true);
-  if (!cluster) return null;
-
-  const rawLow = Math.min(...cluster.members);
-  const rawHigh = Math.max(...cluster.members);
-  const padded = padZone(rawLow, rawHigh, minHalfWidthPct);
-  const tests = countZoneTests(candles, padded, 'resistance', touchTolerancePct);
-
-  return {
-    side: 'resistance',
-    zoneLow: padded.zoneLow,
-    zoneHigh: padded.zoneHigh,
-    mid: padded.mid,
-    touches: tests.touches,
-    rejections: tests.rejections,
-    clusterSize: cluster.members.length,
-  };
+  return pickBestZone(candles, 'resistance', resolveOpts(opts));
 }
 
-/** Strongest support band from swing-low cluster. */
+/** Strongest active support band (at/below price). */
 export function computeSupportZone(
   candles: CandleLike[],
   opts: ResistanceZoneOpts = {}
 ): PriceZone | null {
-  if (!candles || candles.length < 6) return null;
-  const swingClusterPct = opts.swingClusterPct ?? DEFAULTS.swingClusterPct;
-  const touchTolerancePct = opts.touchTolerancePct ?? DEFAULTS.touchTolerancePct;
-  const minHalfWidthPct = opts.minHalfWidthPct ?? DEFAULTS.minHalfWidthPct;
-
-  const swings: number[] = [];
-  for (let i = 2; i < candles.length - 2; i += 1) {
-    if (isSwingLow(candles, i)) swings.push(candles[i].low);
-  }
-  const fallback = Math.min(...candles.slice(-20).map((c) => c.low));
-  const cluster = bestSwingCluster(swings.length ? swings : [fallback], swingClusterPct, false);
-  if (!cluster) return null;
-
-  const rawLow = Math.min(...cluster.members);
-  const rawHigh = Math.max(...cluster.members);
-  const padded = padZone(rawLow, rawHigh, minHalfWidthPct);
-  const tests = countZoneTests(candles, padded, 'support', touchTolerancePct);
-
-  return {
-    side: 'support',
-    zoneLow: padded.zoneLow,
-    zoneHigh: padded.zoneHigh,
-    mid: padded.mid,
-    touches: tests.touches,
-    rejections: tests.rejections,
-    clusterSize: cluster.members.length,
-  };
+  return pickBestZone(candles, 'support', resolveOpts(opts));
 }
 
 export function priceInsideZone(
@@ -194,7 +336,6 @@ export function priceInsideZone(
   return price >= lo && price <= hi;
 }
 
-/** Wick pierced the zone on the last N bars (touch), for reversal detection. */
 export function recentZonePierce(
   candles: CandleLike[],
   zone: PriceZone,
@@ -230,10 +371,6 @@ export function confirmedBreakBelowZone(
   return recent.every((c) => c.close < zone.zoneLow * (1 - bufferPct));
 }
 
-/**
- * Rejection / fade off resistance: pierced zone, last close back below zone mid.
- * Bounce off support: pierced zone, last close back above zone mid.
- */
 export function zoneReversalConfirmed(
   candles: CandleLike[],
   zone: PriceZone,
@@ -253,15 +390,9 @@ export type ZoneOpenVerdict = {
   reason: string;
   insideResistance: boolean;
   insideSupport: boolean;
-  /** When set, open the opposite side — zone rejection/bounce is the edge. */
   flipTo?: 'LONG' | 'SHORT';
 };
 
-/**
- * When price sits inside a zone:
- * - Same-direction with breakout/breakdown, OR
- * - Counter-trade (flip) when rejection/bounce is confirmed.
- */
 export function evaluateZoneReversalGate(
   direction: 'LONG' | 'SHORT',
   price: number,

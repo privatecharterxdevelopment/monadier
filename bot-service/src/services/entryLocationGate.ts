@@ -156,42 +156,72 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
   const cfg = config.hyperliquid.entryLocation;
   const price = candlesPrimary[candlesPrimary.length - 1]?.close ?? 0;
 
-  const resistance15 = resolveResistanceLevel(candlesPrimary, cfg.swingClusterPct);
-  const support15 = resolveSupportLevel(candlesPrimary, cfg.swingClusterPct);
+  const zoneOpts = {
+    swingClusterPct: cfg.swingClusterPct,
+    touchTolerancePct: cfg.touchTolerancePct,
+  };
+  // Primary: price-relative swing-cluster bands (same algo as chart).
+  // Fallback scalars only if a side has no active zone near price.
+  const resistanceZone = computeResistanceZone(candlesPrimary, zoneOpts);
+  const supportZone = computeSupportZone(candlesPrimary, zoneOpts);
 
-  let resistance = resistance15;
-  let support = support15;
+  let resistance = resistanceZone?.mid ?? resolveResistanceLevel(candlesPrimary, cfg.swingClusterPct);
+  let support = supportZone?.mid ?? resolveSupportLevel(candlesPrimary, cfg.swingClusterPct);
 
+  // Prefer nearer secondary-TF zone on the correct side of price (never Himalaya shelves).
   if (candlesSecondary.length >= 20) {
-    const resistance1h = resolveResistanceLevel(candlesSecondary, cfg.swingClusterPct);
-    const support1h = resolveSupportLevel(candlesSecondary, cfg.swingClusterPct);
-    resistance = Math.min(resistance, resistance1h);
-    support = Math.max(support, support1h);
+    const resistance1h = computeResistanceZone(candlesSecondary, zoneOpts);
+    const support1h = computeSupportZone(candlesSecondary, zoneOpts);
+    if (resistance1h && resistance1h.mid >= price * 0.998) {
+      resistance =
+        resistanceZone != null
+          ? Math.min(resistance, resistance1h.mid)
+          : resistance1h.mid;
+    }
+    if (support1h && support1h.mid <= price * 1.002) {
+      support =
+        supportZone != null ? Math.max(support, support1h.mid) : support1h.mid;
+    }
   }
 
-  const resTests = countLevelTests(candlesPrimary, resistance, 'resistance', cfg.touchTolerancePct);
-  const supTests = countLevelTests(candlesPrimary, support, 'support', cfg.touchTolerancePct);
+  // Hard geometry: resistance must sit at/above price, support at/below.
+  if (resistance < price) {
+    resistance =
+      resistanceZone?.mid ??
+      Math.max(...candlesPrimary.slice(-24).map((c) => c.high), price);
+  }
+  if (support > price) {
+    support =
+      supportZone?.mid ??
+      Math.min(...candlesPrimary.slice(-24).map((c) => c.low), price);
+  }
+
+  const resTests = resistanceZone
+    ? { touches: resistanceZone.touches, rejections: resistanceZone.rejections }
+    : countLevelTests(candlesPrimary, resistance, 'resistance', cfg.touchTolerancePct);
+  const supTests = supportZone
+    ? { touches: supportZone.touches, rejections: supportZone.rejections }
+    : countLevelTests(candlesPrimary, support, 'support', cfg.touchTolerancePct);
 
   const pos = pricePosition(price, support, resistance);
   const distToResPct = resistance > 0 ? (resistance - price) / resistance : 1;
   const distToSupPct = support > 0 ? (price - support) / support : 1;
 
   const nearResistance =
+    (resistanceZone != null &&
+      price >= resistanceZone.zoneLow * (1 - cfg.nearLevelPct) &&
+      price <= resistanceZone.zoneHigh * (1 + cfg.nearLevelPct)) ||
     pos >= cfg.rangeTopBlock ||
     distToResPct <= cfg.nearLevelPct ||
     price >= resistance * (1 - cfg.nearLevelPct);
 
   const nearSupport =
+    (supportZone != null &&
+      price <= supportZone.zoneHigh * (1 + cfg.nearLevelPct) &&
+      price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
     pos <= cfg.rangeBottomBlock ||
     distToSupPct <= cfg.nearLevelPct ||
     price <= support * (1 + cfg.nearLevelPct);
-
-  const zoneOpts = {
-    swingClusterPct: cfg.swingClusterPct,
-    touchTolerancePct: cfg.touchTolerancePct,
-  };
-  const resistanceZone = computeResistanceZone(candlesPrimary, zoneOpts);
-  const supportZone = computeSupportZone(candlesPrimary, zoneOpts);
 
   return {
     support,
