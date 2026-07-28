@@ -30,16 +30,27 @@ export const FEE_EXEMPT_WALLETS = [
   '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
 ] as const;
 
+/** Emails that never pay platform / trading / betting fees. */
+export const FEE_EXEMPT_EMAILS = [
+  'claudio.steyskal@icloud.com',
+] as const;
+
 export function isFeeExemptWallet(wallet: string | undefined | null): boolean {
   if (!wallet) return false;
   const w = wallet.trim().toLowerCase();
   return FEE_EXEMPT_WALLETS.some((a) => a === w);
 }
 
-/** Admin email or exempt wallet — skip all platform fee UI, gates, and bot blockers. */
+export function isFeeExemptEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  return FEE_EXEMPT_EMAILS.some((a) => a === e);
+}
+
+/** Admin email, exempt email, or exempt wallet — skip all platform fee UI, gates, and bot blockers. */
 export function isFeeExemptUser(
   email: string | undefined | null,
   wallet?: string | undefined | null
 ): boolean {
-  return isAdminEmail(email) || isFeeExemptWallet(wallet);
+  return isAdminEmail(email) || isFeeExemptEmail(email) || isFeeExemptWallet(wallet);
 }

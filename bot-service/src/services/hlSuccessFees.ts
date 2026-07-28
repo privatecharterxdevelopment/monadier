@@ -3,6 +3,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { recordHlChartMarker } from './hlChartMarkers';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
+import { isFeeExemptWallet } from './feeExempt';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -36,8 +37,10 @@ export async function recordHlBotClose(params: {
   const wallet = params.walletAddress.toLowerCase();
   const { snapshot } = params;
   const profitUsd = snapshot.unrealizedPnlUsd;
-  const successFee =
-    params.collectedFeeUsd != null && params.collectedFeeUsd > 0
+  const feeExempt = await isFeeExemptWallet(wallet);
+  const successFee = feeExempt
+    ? 0
+    : params.collectedFeeUsd != null && params.collectedFeeUsd > 0
       ? params.collectedFeeUsd
       : calculateHlSuccessFee(profitUsd);
   const feeStatus =
