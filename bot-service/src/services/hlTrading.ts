@@ -2053,8 +2053,8 @@ export class HyperliquidTradingService {
         continue;
       }
 
-      // Wire previously dead HL_MAX_MARGIN_LOSS_PCT — profitOnlyExits + SL%=0 otherwise
-      // held losers to −$65 (ETH SHORT Jul 28) until a manual panic close.
+      // Optional ops-only margin cap (HL_MAX_MARGIN_LOSS_PCT). Default 0 — never invent
+      // a stop when the user left SL at 0 / Profit trail.
       const maxMarginLossPct = config.hyperliquid.maxMarginLossPctBeforeForceClose;
       if (
         maxMarginLossPct > 0 &&

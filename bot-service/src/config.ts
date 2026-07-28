@@ -440,10 +440,11 @@ export const config = {
       closeOnThesisBreak: process.env.HL_LOSS_THESIS_CLOSE === 'true',
     },
     /**
-     * Force-close when |uPnL| / margin ≥ this % — works even with profitOnlyExits + SL%=0.
-     * Was advertised in /health but unwired; 25% would have cut the Jul 28 ETH −$65 bleed ~halfway.
+     * Optional force-close when |uPnL| / margin ≥ this %. Default 0 = OFF.
+     * Must stay OFF unless ops explicitly set HL_MAX_MARGIN_LOSS_PCT — user SL%=0
+     * (“Profit trail”) must never get a synthetic platform stop (ADA −$30 Jul 28).
      */
-    maxMarginLossPctBeforeForceClose: Number(process.env.HL_MAX_MARGIN_LOSS_PCT || 25),
+    maxMarginLossPctBeforeForceClose: Number(process.env.HL_MAX_MARGIN_LOSS_PCT || 0),
     liquidation: {
       closeWhenRemainingFrac: Number(process.env.HL_LIQ_CLOSE_REMAINING_FRAC || 0.28),
       closeWhenWithinPct: Number(process.env.HL_LIQ_CLOSE_WITHIN_PCT || 0.004),
