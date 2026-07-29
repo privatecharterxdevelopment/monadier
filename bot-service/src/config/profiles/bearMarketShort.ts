@@ -13,8 +13,8 @@ import {
  *
  * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
  *         but NEVER skips entry_location / pump_sweep (no shorting lows).
- * LONG  = counter-trend only: 15m UP + ≥2 closed 15m candles + 65% conf
- *         (no 1h UP requirement — does not touch SHORT rules). SHORT stays primary.
+ * LONG  = 1h UP only (timing: last 5m of 1h candle — see long1hEntryGate).
+ *         (no 15m requirement — does not touch SHORT rules). SHORT stays primary.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
  * leaving mid-caps (PUMP, WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
@@ -22,7 +22,7 @@ import {
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary June replica: PRIMARY_RULES (S/R always on), no rank cap, $5M/24h floor; LONG = 15m UP + 2 candles + 65% conf.',
+    'SHORT-primary June replica: PRIMARY_RULES (S/R always on), no rank cap, $5M/24h floor; LONG = 1h UP + last 5m of 1h candle.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
@@ -42,12 +42,12 @@ export const BEAR_MARKET: HlDirectionProfile = {
   enableHtfSr: false,
   enableLlmConfirm: false,
   short: { ...PRIMARY_RULES },
-  // Override ONLY bear LONG — shared COUNTER_TREND_RULES stays intact for bull SHORT.
+  // LONG = 1h basis only (window enforced in long1hEntryGate).
   long: {
     ...COUNTER_TREND_RULES('UP'),
     minConfidence: 65,
-    requiredH1Trend: null,
-    required15mTrend: 'UP',
-    minConfirm15mCandles: 2,
+    requiredH1Trend: 'UP',
+    required15mTrend: null,
+    minConfirm15mCandles: 0,
   },
 };

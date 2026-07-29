@@ -482,6 +482,13 @@ export const config = {
      * Set HL_ZONE_FLIP_ENABLED=false to only wait/block inside zones (no counter-open).
      */
     zoneFlipEnabled: process.env.HL_ZONE_FLIP_ENABLED !== 'false',
+    /**
+     * LONG opens: 1h-basis only, and only in the last N minutes of the UTC 1h candle.
+     * SHORT unaffected. Set HL_LONG_1H_LAST_MINUTES (default 5).
+     */
+    long1hEntry: {
+      lastMinutesOfHour: Number(process.env.HL_LONG_1H_LAST_MINUTES || 5),
+    },
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */
     megaPairVolume: {
       minVolRatio: Number(process.env.HL_MEGA_MIN_VOL_RATIO || 1.2),

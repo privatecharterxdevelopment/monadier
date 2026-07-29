@@ -66,6 +66,7 @@ import {
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
+import { validateLong1hEntry } from './long1hEntryGate';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -1693,6 +1694,23 @@ export class HyperliquidTradingService {
         candleAnalyticsLine: candleAnalytics.summary,
       });
       const openReasonFull = `${openReasonDoc}\n── LLM confirm (${llmAgreed.shadow ? 'shadow' : 'enforce'}) eval=${disagreement.evaluationId} ── ${llmAgreed.verdict} → ${llmAgreed.direction}: ${llmAgreed.reason}`;
+
+      // LONG requirement: 1h UP + only last N minutes of the UTC 1h candle (after all flips).
+      const long1hGate = await validateLong1hEntry({
+        coin,
+        direction: tradeDirection,
+      });
+      if (!long1hGate.ok) {
+        return rejectOpen(
+          'long_1h_entry',
+          long1hGate.reason,
+          'LONG 1h entry window/basis',
+          {
+            trend1h: long1hGate.trend1h,
+            minutesLeftInHour: long1hGate.minutesLeftInHour,
+          }
+        );
+      }
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({

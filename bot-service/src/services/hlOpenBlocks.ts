@@ -36,6 +36,7 @@ export type HlOpenBlockGate =
   | 'htf_sr'
   | 'llm_confirm'
   | 'llm_disagreement'
+  | 'long_1h_entry'
   | 'order_error'
   | 'open_exception'
   | 'margin'
