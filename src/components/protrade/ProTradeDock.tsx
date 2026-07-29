@@ -29,6 +29,7 @@ import {
   hlFillResultLabel,
   isHlFillClose,
   isMeaningfulHlPosition,
+  isHlDustPosition,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import {
@@ -277,12 +278,20 @@ const ProTradeDock: React.FC<Props> = ({
   const scopedPositions = useMemo(() => {
     const list = account?.positions ?? [];
     return list.filter((p) => {
+      if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+      // Always show dust leftovers — hide = support tickets about "ghost" 3/3 slots.
+      if (isHlDustPosition(p.szi, p.entryPx)) return true;
       if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
       const coin = normalizeHlPerpCoin(p.coin);
       const isBot = managedCoins.has(coin);
       return scope === 'bot' ? isBot : !isBot;
     });
   }, [account?.positions, managedCoins, scope]);
+
+  const dustPositions = useMemo(
+    () => scopedPositions.filter((p) => isHlDustPosition(p.szi, p.entryPx)),
+    [scopedPositions]
+  );
 
   const hlOpenPositionCount = useMemo(
     () =>
@@ -564,6 +573,12 @@ const ProTradeDock: React.FC<Props> = ({
           )
         ) : tab === 'positions' ? (
           <div className="hl-dock-positions-pane">
+            {dustPositions.length > 0 ? (
+              <div className="hl-dust-banner" role="status">
+                Leftover dust on {dustPositions.map((p) => p.coin).join(', ')} — bot is
+                cleaning it up automatically. This is not a real trade.
+              </div>
+            ) : null}
             {filteredPositions.length > 0 ? (
             <>
             <div className="hl-dock-table-scroll">
@@ -585,6 +600,7 @@ const ProTradeDock: React.FC<Props> = ({
               <tbody>
                 {filteredPositions.map((p) => {
                   const isLong = toNum(p.szi) >= 0;
+                  const isDust = isHlDustPosition(p.szi, p.entryPx);
                   const mark = markPrices[p.coin] ?? 0;
                   const upnl = livePositionPnl(p, mark);
                   const lev = isBotMode
@@ -615,11 +631,12 @@ const ProTradeDock: React.FC<Props> = ({
                       : undefined,
                   });
                   return (
-                    <tr key={p.coin}>
+                    <tr key={p.coin} className={isDust ? 'hl-pos-row--dust' : undefined}>
                       <td>
                         <button type="button" className="hl-coin-link" onClick={() => onCoinClick?.(p.coin)}>
                           {p.coin}
                         </button>
+                        {isDust ? <span className="hl-dust-badge">DUST</span> : null}
                       </td>
                       <td className={isLong ? 'hl-up' : 'hl-down'}>{isLong ? 'LONG' : 'SHORT'}</td>
                       <td>{fmtSize(Math.abs(toNum(p.szi)))}</td>
@@ -676,6 +693,7 @@ const ProTradeDock: React.FC<Props> = ({
             <div className="hl-pos-cards" aria-hidden={false}>
               {filteredPositions.map((p) => {
                 const isLong = toNum(p.szi) >= 0;
+                const isDust = isHlDustPosition(p.szi, p.entryPx);
                 const mark = markPrices[p.coin] ?? 0;
                 const upnl = livePositionPnl(p, mark);
                 const lev = isBotMode
@@ -706,7 +724,10 @@ const ProTradeDock: React.FC<Props> = ({
                     : undefined,
                 });
                 return (
-                  <article key={`card-${p.coin}`} className="hl-pos-card">
+                  <article
+                    key={`card-${p.coin}`}
+                    className={`hl-pos-card${isDust ? ' hl-pos-card--dust' : ''}`}
+                  >
                     <header className="hl-pos-card__head">
                       <button
                         type="button"
@@ -715,6 +736,7 @@ const ProTradeDock: React.FC<Props> = ({
                       >
                         {p.coin}
                       </button>
+                      {isDust ? <span className="hl-dust-badge">DUST</span> : null}
                       <span className={isLong ? 'hl-up' : 'hl-down'}>
                         {isLong ? 'LONG' : 'SHORT'} · {fmtLeverage(lev)}
                       </span>

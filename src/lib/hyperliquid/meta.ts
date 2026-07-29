@@ -64,6 +64,19 @@ export function formatHlSize(size: number, szDecimals: number): string {
   // Math.round — bare Math.floor truncates float noise (0.5105*1e4 → 5104.999… → 0.5104)
   // and leaves residual open size after reduce-only closes.
   const rounded = Math.round(size * factor) / factor;
+  if (rounded <= 0) {
+    const minLot = 1 / factor;
+    return minLot.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
+  }
+  return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
+}
+
+/** Reduce-only close — ceil so UI closes never leave dust either. */
+export function formatHlCloseSize(size: number, szDecimals: number): string {
+  if (!Number.isFinite(size) || size <= 0) return '0';
+  const factor = 10 ** szDecimals;
+  let rounded = Math.ceil(size * factor - 1e-12) / factor;
+  if (rounded <= 0) rounded = 1 / factor;
   return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 

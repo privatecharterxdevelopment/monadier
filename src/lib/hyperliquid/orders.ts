@@ -1,4 +1,4 @@
-import { formatHlPrice, formatHlSize } from './meta';
+import { formatHlPrice, formatHlSize, formatHlCloseSize } from './meta';
 import type { HlAssetMeta } from './types';
 
 export type OrderSide = 'long' | 'short';
@@ -35,7 +35,7 @@ export function buildSimpleOrderLeg(opts: {
     a: opts.assetIndex,
     b: opts.side === 'long',
     p: formatHlPrice(price, opts.meta.szDecimals),
-    s: formatHlSize(opts.size, opts.meta.szDecimals),
+    s: (opts.reduceOnly ? formatHlCloseSize : formatHlSize)(opts.size, opts.meta.szDecimals),
     r: opts.reduceOnly ?? false,
     t:
       opts.kind === 'market'

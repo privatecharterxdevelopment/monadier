@@ -2615,6 +2615,35 @@
   min-height: 100%;
 }
 
+.hl-dust-banner {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  font-size: 12px;
+  line-height: 1.35;
+  border-radius: 6px;
+}
+
+.hl-dust-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.hl-pos-row--dust td,
+.hl-pos-card--dust {
+  opacity: 0.85;
+}
+
 .hl-dock-table-scroll {
   display: block;
   width: 100%;

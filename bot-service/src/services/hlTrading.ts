@@ -22,11 +22,13 @@ import {
   fetchHlCloseRealizedPnlUsd,
   formatHlPrice,
   formatHlSize,
+  formatHlCloseSize,
   hlAccountValueUsd,
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
   hlIsMeaningfulPerpPosition,
+  hlResidualDustPositions,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
@@ -160,7 +162,8 @@ function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
     reason === 'emergency_close' ||
     reason === 'margin_loss_cap' ||
     reason === 'invalidation_zone' ||
-    reason === 'invalidation_hard_sl'
+    reason === 'invalidation_hard_sl' ||
+    reason === 'dust_flatten'
   ) {
     return true;
   }
@@ -471,14 +474,18 @@ export class HyperliquidTradingService {
     const state = await fetchHlClearinghouseState(userAddress);
     if (!state) return 'skip';
 
-    const openCoins = hlOpenPerpCoins(state);
+    // Residual dust from floored closes must never linger (slots + support tickets).
+    await this.sweepResidualDust(userAddress, state);
+    const stateAfterDust = (await fetchHlClearinghouseState(userAddress)) ?? state;
+
+    const openCoins = hlOpenPerpCoins(stateAfterDust);
     const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
     // Always trail/SL open perps first — never strand positions because auto-trade
     // is off or new-open gates (fees/balance) failed.
     if (openCoins.length > 0) {
       rememberOpenPositionMonitor(userAddress);
-      await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
+      await this.monitorOpenPositions(userAddress, stateAfterDust, settings, { fast: false });
     } else {
       forgetOpenPositionMonitor(userAddress);
     }
@@ -566,7 +573,89 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
+    return this.tryOpenFromGlobalSignals(userAddress, settings, stateAfterDust, ctx, openCoins);
+  }
+
+  /** Flatten sub-$1 leftover sizes so they never eat slots or confuse users. */
+  private async sweepResidualDust(
+    userAddress: `0x${string}`,
+    state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>
+  ): Promise<void> {
+    const dust = hlResidualDustPositions(state);
+    if (dust.length === 0) return;
+    for (const row of dust) {
+      const notional = Math.abs(row.size) * (row.entryPx > 0 ? row.entryPx : 0);
+      logger.warn('HL sweeping residual dust position', {
+        user: userAddress.slice(0, 10),
+        coin: row.coin,
+        size: row.size,
+        notionalUsd: notional.toFixed(4),
+      });
+      const result = await this.closeMarketPosition(
+        userAddress,
+        row.coin,
+        'dust_flatten',
+        {
+          entryPx: row.entryPx,
+          unrealizedPnlUsd: row.unrealizedPnl,
+          size: row.size,
+          leverage: 1,
+        },
+        `Residual dust flatten (notional ~$${notional.toFixed(2)})`
+      );
+      if (!result.success) {
+        logger.warn('HL dust flatten failed', {
+          user: userAddress.slice(0, 10),
+          coin: row.coin,
+          error: result.error,
+        });
+      }
+    }
+  }
+
+  /** After a normal close, kill any micro residual before it becomes a ghost slot. */
+  private async flattenCloseResidual(
+    userAddress: `0x${string}`,
+    coin: string
+  ): Promise<void> {
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      const state = await fetchHlClearinghouseState(userAddress);
+      const row = state?.assetPositions?.find(
+        (p) => p.position?.coin?.toUpperCase() === coin.toUpperCase()
+      )?.position;
+      if (!row) return;
+      const size = Number(row.szi ?? 0);
+      const entryPx = Number(row.entryPx ?? 0);
+      if (!Number.isFinite(size) || Math.abs(size) <= 1e-12) return;
+      if (hlIsMeaningfulPerpPosition(size, entryPx)) {
+        // Still a real position — close did not fill; leave for retry/monitor.
+        logger.warn('HL close left meaningful size — not treating as dust', {
+          user: userAddress.slice(0, 10),
+          coin,
+          size,
+        });
+        return;
+      }
+      await this.closeMarketPosition(
+        userAddress,
+        coin,
+        'dust_flatten',
+        {
+          entryPx,
+          unrealizedPnlUsd: Number(row.unrealizedPnl ?? 0),
+          size,
+          leverage: row.leverage?.value ?? 1,
+        },
+        'Post-close residual flatten'
+      );
+    } catch (err) {
+      logger.warn('HL post-close residual check failed', {
+        user: userAddress.slice(0, 10),
+        coin,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   /** Ranked signals that pass liquidity gates — prefers high 24h volume / OI. */
@@ -2391,7 +2480,8 @@ export class HyperliquidTradingService {
           try {
             const state = await fetchHlClearinghouseState(wallet as `0x${string}`);
             const open = state ? hlOpenPerpCoins(state) : [];
-            if (open.length > 0) {
+            const dust = state ? hlResidualDustPositions(state) : [];
+            if (open.length > 0 || dust.length > 0) {
               rememberOpenPositionMonitor(wallet);
               withOpen += 1;
             } else {
@@ -2434,9 +2524,17 @@ export class HyperliquidTradingService {
           const wallet = wallets[idx++] as `0x${string}`;
           try {
             const state = await fetchHlClearinghouseState(wallet);
-            const openCoins = state ? hlOpenPerpCoins(state) : [];
-            if (!state || openCoins.length === 0) {
+            if (!state) {
               forgetOpenPositionMonitor(wallet);
+              continue;
+            }
+            await this.sweepResidualDust(wallet, state);
+            const stateAfter = (await fetchHlClearinghouseState(wallet)) ?? state;
+            const openCoins = hlOpenPerpCoins(stateAfter);
+            if (openCoins.length === 0) {
+              if (hlResidualDustPositions(stateAfter).length === 0) {
+                forgetOpenPositionMonitor(wallet);
+              }
               continue;
             }
             rememberOpenPositionMonitor(wallet);
@@ -2444,7 +2542,7 @@ export class HyperliquidTradingService {
               wallet,
               config.arbitrum.chainId
             );
-            await this.monitorOpenPositions(wallet, state, settings, { fast: true });
+            await this.monitorOpenPositions(wallet, stateAfter, settings, { fast: true });
           } catch (err) {
             logger.debug('Fast position monitor skip', {
               user: wallet.slice(0, 10),
@@ -2590,7 +2688,7 @@ export class HyperliquidTradingService {
             a: assetIndex,
             b: !isLong,
             p: formatHlPrice(limitPx, szDecimals),
-            s: formatHlSize(absSize, szDecimals),
+            s: formatHlCloseSize(absSize, szDecimals),
             r: true,
             t: { limit: { tif: 'FrontendMarket' as const } },
           },
@@ -2719,13 +2817,16 @@ export class HyperliquidTradingService {
             : calculateHlSuccessFee(realizedPnlUsd)
           : 0;
 
-      await recordHlBotClose({
-        walletAddress: userAddress,
-        reason: reasonDetail ?? reason,
-        snapshot,
-        collectedFeeUsd: collectedFee,
-        viaHlBuilder,
-      });
+      // Dust flatten is housekeeping — don't spam close emails / fee ledgers.
+      if (reason !== 'dust_flatten') {
+        await recordHlBotClose({
+          walletAddress: userAddress,
+          reason: reasonDetail ?? reason,
+          snapshot,
+          collectedFeeUsd: collectedFee,
+          viaHlBuilder,
+        });
+      }
 
       logger.info('HL position closed', {
         user: userAddress.slice(0, 10),
@@ -2737,6 +2838,12 @@ export class HyperliquidTradingService {
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
+
+      // If floor/round left a micro residual, flatten it immediately.
+      if (reason !== 'dust_flatten') {
+        await this.flattenCloseResidual(userAddress, coinUpper);
+      }
+
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2844,7 +2951,7 @@ export class HyperliquidTradingService {
             a: assetIndex,
             b: isLong,
             p: formatHlPrice(limitPx, szDecimals),
-            s: formatHlSize(opts.size, szDecimals),
+            s: (opts.reduceOnly ? formatHlCloseSize : formatHlSize)(opts.size, szDecimals),
             r: opts.reduceOnly ?? false,
             t:
               opts.kind === 'market'

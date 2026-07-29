@@ -272,6 +272,28 @@ export function hlIsMeaningfulPerpPosition(
   return Math.abs(size) >= 1e-6;
 }
 
+/** Tiny leftover size after a partial/floored close — must be flattened, not counted as a slot. */
+export function hlResidualDustPositions(
+  state: HlClearinghouseState | null,
+  minNotionalUsd = 1
+): Array<{ coin: string; size: number; entryPx: number; unrealizedPnl: number }> {
+  const out: Array<{ coin: string; size: number; entryPx: number; unrealizedPnl: number }> = [];
+  for (const row of state?.assetPositions ?? []) {
+    const coin = row.position?.coin;
+    const size = Number(row.position?.szi ?? 0);
+    const entryPx = Number(row.position?.entryPx ?? 0);
+    if (!coin || !Number.isFinite(size) || Math.abs(size) <= 1e-12) continue;
+    if (hlIsMeaningfulPerpPosition(size, entryPx, minNotionalUsd)) continue;
+    out.push({
+      coin,
+      size,
+      entryPx,
+      unrealizedPnl: Number(row.position?.unrealizedPnl ?? 0),
+    });
+  }
+  return out;
+}
+
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   const coins: string[] = [];
   for (const row of state?.assetPositions ?? []) {
@@ -427,8 +449,23 @@ export function coinToAssetIndex(meta: { universe: { name: string }[] }, coin: s
 }
 
 export function formatHlSize(size: number, szDecimals: number): string {
+  if (!Number.isFinite(size) || size <= 0) return '0';
   const factor = 10 ** szDecimals;
-  const rounded = Math.floor(size * factor) / factor;
+  // Math.round — Math.floor truncated float noise and left residual dust after closes.
+  const rounded = Math.round(size * factor) / factor;
+  if (rounded <= 0) {
+    const minLot = 1 / factor;
+    return minLot.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
+  }
+  return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
+}
+
+/** Reduce-only close size — ceil so we never under-close and leave dust. */
+export function formatHlCloseSize(size: number, szDecimals: number): string {
+  if (!Number.isFinite(size) || size <= 0) return '0';
+  const factor = 10 ** szDecimals;
+  let rounded = Math.ceil(size * factor - 1e-12) / factor;
+  if (rounded <= 0) rounded = 1 / factor;
   return rounded.toFixed(szDecimals).replace(/\.?0+$/, '') || '0';
 }
 

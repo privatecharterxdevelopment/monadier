@@ -30,7 +30,7 @@ import {
 } from './services/userBatchProcessor';
 import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './services/hlAgent';
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
-import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
+import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
@@ -671,6 +671,7 @@ const healthServer = http.createServer(async (req, res) => {
       const feeStatus = await getPlatformFeeStatus(userAddress);
       const feeSummary = await getHlFeeSummary(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
+      const hlDustCoins = hlResidualDustPositions(hlState).map((d) => d.coin);
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
@@ -821,6 +822,7 @@ const healthServer = http.createServer(async (req, res) => {
           builderPlatformUsd: builderGate.platformAccountUsd,
           builderPlatformMinUsd: builderGate.platformMinUsd,
           openCoins: hlOpenCoins,
+          dustCoins: hlDustCoins,
           maxConcurrentPositions: maxPositions,
           autoBettingBudgetUsd: Math.max(0, Number(dbSettings.autoBettingBudgetUsd) || 0),
           minNotionalUsd: config.hyperliquid.minNotionalUsd,

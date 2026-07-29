@@ -159,6 +159,17 @@ export function isMeaningfulHlPosition(
   return Math.abs(size) >= 1e-6;
 }
 
+/** Non-zero leftover that is too small to be a real trade (< $1 notional). */
+export function isHlDustPosition(
+  szi: unknown,
+  entryPx: unknown,
+  minNotionalUsd = HL_DUST_NOTIONAL_USD
+): boolean {
+  const size = toNum(szi);
+  if (!Number.isFinite(size) || Math.abs(size) <= 1e-12) return false;
+  return !isMeaningfulHlPosition(szi, entryPx, minNotionalUsd);
+}
+
 export function fmtTimeMs(ms: unknown): string {
   const n = toNum(ms);
   if (n <= 0) return '—';
