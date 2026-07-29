@@ -471,7 +471,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       const range = chart.timeScale().getVisibleLogicalRange();
       const n = candlesRef.current.length;
       if (!range || n <= 0) return;
-      const following = range.to >= n - 2;
+      // "following" darf nur True sein, wenn der View wirklich am letzten Bar klebt.
+      // Sonst überschreibt die Live-Autoscroll/Zoom Logik bei User-Panning die
+      // gewünschte sichtbare Range (Chart "snapt" zurück).
+      const following = range.to >= n - 1;
       if (following !== followLiveRef.current) {
         followLiveRef.current = following;
         onFollowLiveChangeRef.current?.(following);
