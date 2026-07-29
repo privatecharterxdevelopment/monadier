@@ -3,7 +3,7 @@
  *
  * Blocks LONG into a ceiling that already rejected price multiple times.
  * Allows LONG only on confirmed breakout above resistance or pullback toward support.
- * SHORT: never in/near support without confirmed breakdown (no soft rally-fade escape).
+ * SHORT: only in/near resistance (fade) or confirmed support breakdown — no mid-range shorts.
  * In-house resistance/support *bands*: opens inside a zone require reversal/breakout first.
  */
 import { config } from '../config';
@@ -322,8 +322,7 @@ export function evaluateEntryLocation(
     };
   }
 
-  // HARD — never short the floor (SOL Jul 29: entry on S-zone without breakdown).
-  // nearSupport covers in-zone + near band; no "0 rejections → rally-fade OK" escape.
+  // HARD — never short the floor.
   if (analysis.nearSupport) {
     const zone =
       analysis.supportZone != null
@@ -336,26 +335,23 @@ export function evaluateEntryLocation(
     };
   }
 
-  if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) {
+  // SHORT only as a resistance-zone trade (fade / sell the ceiling). No mid-range shorts.
+  if (analysis.nearResistance) {
+    const zone =
+      analysis.resistanceZone != null
+        ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+        : fmtLevel(analysis.resistance);
     return {
       ok: true,
       analysis,
-      reason: `Pullback short (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
-    };
-  }
-
-  if (analysis.pricePosition < cfg.rangeBottomBlock) {
-    return {
-      ok: false,
-      analysis,
-      reason: `SHORT blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (sell high — need rally above ${((1 - cfg.pullbackMaxPosition) * 100).toFixed(0)}% or confirmed breakdown)`,
+      reason: `Resistance-zone short — in/near R ${zone}`,
     };
   }
 
   return {
-    ok: true,
+    ok: false,
     analysis,
-    reason: `Rally-fade entry — ${(analysis.pricePosition * 100).toFixed(0)}% of range (R ${fmtLevel(analysis.resistance)})`,
+    reason: `SHORT blocked — not in/near resistance (need R-zone fade or confirmed breakdown; mid-range short disabled)`,
   };
 }
 
