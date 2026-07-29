@@ -31,8 +31,12 @@ export type HlDirectionRules = {
   minTrendAlignment: number;
   requiredH1Trend: 'UP' | 'DOWN' | null;
   /**
+   * Optional 5m trend gate (LONG only). If 5m is DOWN → no LONG.
+   * Unset on SHORT / shared rules — SHORT paths stay unchanged.
+   */
+  required5mTrend?: 'UP' | 'DOWN' | null;
+  /**
    * Optional 15m trend gate (bear_market LONG counter-trend).
-   * When set, this replaces the 1h requirement for that side only.
    * Unset on PRIMARY / shared COUNTER_TREND — SHORT paths stay unchanged.
    */
   required15mTrend?: 'UP' | 'DOWN' | null;

@@ -1225,7 +1225,7 @@ export class HyperliquidTradingService {
         return rejectOpen(
           'direction_profile',
           entryTrendGate.reason,
-          '15m entry-trend',
+          '5m/15m entry-trend',
           {
             profile: directionProfile.name,
             primaryDirection: directionProfile.primaryDirection,
