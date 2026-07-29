@@ -18,6 +18,7 @@ export type HlOpenBlockGate =
   | 'direction_profile'
   | 'excluded_coin'
   | 'long_allowlist'
+  | 'book_direction'
   | 'long_confirmation'
   | 'no_mark_price'
   | 'invalid_size'

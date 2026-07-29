@@ -28,6 +28,7 @@ import {
   hlFreeMarginUsd,
   hlOpenPerpCoins,
   hlIsMeaningfulPerpPosition,
+  hlOpenPerpSides,
   hlResidualDustPositions,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
@@ -826,6 +827,28 @@ export class HyperliquidTradingService {
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
+      const sides = hlOpenPerpSides(stateRef);
+      const directionOk = (d: 'LONG' | 'SHORT') => {
+        if (d === 'LONG' && sides.shorts.length > 0) return false;
+        if (d === 'SHORT' && sides.longs.length > 0) return false;
+        return true;
+      };
+      const signalsForBook = signals.filter((s) => directionOk(s.direction));
+      if (signalsForBook.length === 0) {
+        if (sides.longs.length && sides.shorts.length === 0) {
+          logger.info('HL open skip: book is LONG-only — no SHORT candidates / mixed blocked', {
+            user: userAddress.slice(0, 10),
+            longs: sides.longs,
+          });
+        } else if (sides.shorts.length && sides.longs.length === 0) {
+          logger.info('HL open skip: book is SHORT-only — no LONG candidates / mixed blocked', {
+            user: userAddress.slice(0, 10),
+            shorts: sides.shorts,
+          });
+        }
+        break;
+      }
+
       const slotsLeft = maxPositions - coinsOpen.length;
       const balance = funding.tradablePerpUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
@@ -869,13 +892,13 @@ export class HyperliquidTradingService {
       await warmCoinCloseCacheForWallet(userAddress);
       const { picks, skips } = await this.pickBestSignalsPassingLiquidityGate(
         userAddress,
-        signals,
+        signalsForBook,
         ctx.liquidUniverse,
         coinsOpen,
         pickLimit
       );
       if (picks.length === 0) {
-        const top = signals.find(
+        const top = signalsForBook.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
         );
         // Persist the EXACT per-candidate reason (rank>cap / not liquid / Nm volume /
@@ -898,7 +921,7 @@ export class HyperliquidTradingService {
           .join(', ');
         const err = breakdown
           ? `Pre-trade gate blocked ${skips.length} candidate(s): ${breakdown}`
-          : `Pre-trade gate blocked ${signals.length} scan candidate(s) — volume/liquidity check`;
+          : `Pre-trade gate blocked ${signalsForBook.length} scan candidate(s) — volume/liquidity check`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
           coin: top?.coin,
@@ -906,7 +929,7 @@ export class HyperliquidTradingService {
         });
         logger.info('HL open skip: no signal passed pre-trade gate', {
           user: userAddress.slice(0, 10),
-          candidates: signals.length,
+          candidates: signalsForBook.length,
           skips: skips.map((s) => `${s.coin}:${s.shortReason}`),
           openCoins: coinsOpen,
           slot: coinsOpen.length + 1,
@@ -1087,6 +1110,26 @@ export class HyperliquidTradingService {
             'long_allowlist',
             `LONG blocked — ${coin} not in allowlist (${allow.join(',')}); alts are SHORT-only`,
             'LONG majors only'
+          );
+        }
+      }
+
+      // Never run a mixed book (AVAX LONG + HYPE SHORT = bet both ways on crypto beta).
+      {
+        const liveState = await fetchHlClearinghouseState(opts.userAddress);
+        const sides = hlOpenPerpSides(liveState);
+        if (opts.direction === 'LONG' && sides.shorts.length > 0) {
+          return rejectOpen(
+            'book_direction',
+            `LONG blocked — book already has SHORT (${sides.shorts.join(',')}); no mixed directions`,
+            'no mixed LONG+SHORT'
+          );
+        }
+        if (opts.direction === 'SHORT' && sides.longs.length > 0) {
+          return rejectOpen(
+            'book_direction',
+            `SHORT blocked — book already has LONG (${sides.longs.join(',')}); no mixed directions`,
+            'no mixed LONG+SHORT'
           );
         }
       }

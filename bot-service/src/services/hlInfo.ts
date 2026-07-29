@@ -307,6 +307,24 @@ export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   return coins;
 }
 
+/** Meaningful open sides — used to ban mixed LONG+SHORT books. */
+export function hlOpenPerpSides(state: HlClearinghouseState | null): {
+  longs: string[];
+  shorts: string[];
+} {
+  const longs: string[] = [];
+  const shorts: string[] = [];
+  for (const row of state?.assetPositions ?? []) {
+    const coin = row.position?.coin;
+    const size = Number(row.position?.szi ?? 0);
+    const entryPx = Number(row.position?.entryPx ?? 0);
+    if (!coin || !hlIsMeaningfulPerpPosition(size, entryPx)) continue;
+    if (size > 0) longs.push(coin);
+    else shorts.push(coin);
+  }
+  return { longs, shorts };
+}
+
 export type HlExtraAgent = {
   address: string;
   name: string;
