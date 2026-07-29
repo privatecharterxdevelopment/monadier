@@ -69,6 +69,7 @@ import {
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
+import { detectRangeRegime, type RangeRegimeResult } from './rangeRegimeDetector';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -2074,6 +2075,33 @@ export class HyperliquidTradingService {
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
 
+    // Pre-fetch range regime for all coins in one pass (cached, not per-loop).
+    const rangeCfg = config.hyperliquid.rangeRegime;
+    const rangeByCoins = new Map<string, RangeRegimeResult>();
+    if (rangeCfg.enabled && !fast) {
+      const coins = (state?.assetPositions ?? [])
+        .map((r) => r.position?.coin)
+        .filter((c): c is string => !!c);
+      await Promise.all(
+        coins.map(async (coin) => {
+          const r = await detectRangeRegime(coin, rangeCfg.lookbackCandles);
+          rangeByCoins.set(coin.toUpperCase(), r);
+          if (r.isRange) {
+            logger.info('HL position in RANGE regime', {
+              user: userAddress.slice(0, 10),
+              coin,
+              widthPct: (r.widthPct * 100).toFixed(2),
+              rangeHigh: r.rangeHigh.toFixed(6),
+              rangeLow: r.rangeLow.toFixed(6),
+              rangeTpForShort: r.rangeTpForShort?.toFixed(6),
+              rangeSlForShort: r.rangeSlForShort?.toFixed(6),
+              reason: r.reason,
+            });
+          }
+        })
+      );
+    }
+
     for (const row of state?.assetPositions ?? []) {
       const pos = row.position;
       if (!pos?.coin) continue;
@@ -2087,6 +2115,8 @@ export class HyperliquidTradingService {
       const notional = Math.abs(Number((pos as { positionValue?: string }).positionValue ?? 0));
       const collateralEst =
         notional > 0 ? notional / lev : entry > 0 ? (absSize * entry) / lev : 0;
+
+      const rangeRegime = rangeByCoins.get(pos.coin.toUpperCase()) ?? null;
 
       const lockKey = positionKey(userAddress, pos.coin);
       if (!hlPositionOpenedAt.has(lockKey)) {
@@ -2338,6 +2368,80 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
         holdMs,
       };
+
+      // ── RANGE EXIT (ahead of standard trail) ──────────────────────────────
+      // When price has been oscillating in a tight box (range regime detected):
+      //   SHORT: close near the bottom of the range (TP) OR abort near top (SL).
+      //   LONG:  close near the top  of the range (TP) OR abort near bottom (SL).
+      // Trend-mode (wide range or strong directional move) falls through to trail.
+      if (rangeCfg.enabled && rangeRegime?.isRange && pnl > 0) {
+        const rr = rangeRegime;
+        const markPrice = markFromPosition(entry, size, pnl);
+        if (positionDirection === 'SHORT' && rr.rangeTpForShort != null) {
+          // Close SHORT when price reaches the low end of the range.
+          if (markPrice <= rr.rangeTpForShort) {
+            clearTrailState(lockKey);
+            await this.closeMarketPosition(
+              userAddress,
+              pos.coin,
+              'trailing_stop',
+              closeCtx,
+              `RANGE TP — SHORT ${pos.coin} mark ${markPrice.toFixed(6)} ≤ range floor TP ${rr.rangeTpForShort.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
+            );
+            continue;
+          }
+        } else if (positionDirection === 'LONG' && rr.rangeTpForLong != null) {
+          if (markPrice >= rr.rangeTpForLong) {
+            clearTrailState(lockKey);
+            await this.closeMarketPosition(
+              userAddress,
+              pos.coin,
+              'trailing_stop',
+              closeCtx,
+              `RANGE TP — LONG ${pos.coin} mark ${markPrice.toFixed(6)} ≥ range ceiling TP ${rr.rangeTpForLong.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
+            );
+            continue;
+          }
+        }
+      }
+
+      // ── RANGE SL — abort if price breaks out of the range against the trade ──
+      if (rangeCfg.enabled && rangeRegime?.isRange) {
+        const rr = rangeRegime;
+        const markPrice = markFromPosition(entry, size, pnl);
+        if (
+          positionDirection === 'SHORT' &&
+          rr.rangeSlForShort != null &&
+          markPrice >= rr.rangeSlForShort &&
+          mayAutoCloseInRed('stop_loss', holdMs)
+        ) {
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'stop_loss',
+            closeCtx,
+            `RANGE SL — SHORT ${pos.coin} mark ${markPrice.toFixed(6)} ≥ range top SL ${rr.rangeSlForShort.toFixed(6)} (breakout above ${rr.rangeHigh.toFixed(6)})`
+          );
+          continue;
+        } else if (
+          positionDirection === 'LONG' &&
+          rr.rangeSlForLong != null &&
+          markPrice <= rr.rangeSlForLong &&
+          mayAutoCloseInRed('stop_loss', holdMs)
+        ) {
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'stop_loss',
+            closeCtx,
+            `RANGE SL — LONG ${pos.coin} mark ${markPrice.toFixed(6)} ≤ range bottom SL ${rr.rangeSlForLong.toFixed(6)} (breakdown below ${rr.rangeLow.toFixed(6)})`
+          );
+          continue;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       if (shouldCloseTrail) {
         clearTrailState(lockKey);

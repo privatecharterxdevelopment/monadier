@@ -333,6 +333,36 @@ export const config = {
       /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
       shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
+    /**
+     * Range-regime exit profile.
+     * When price has been in a tight box (widthPct < maxRangeWidthPct) AND no strong
+     * trend move (trendMove < maxTrendMovePct), the bot switches to range exits:
+     * fixed TP near the opposite side, tight SL just outside the range.
+     * Trend-mode (range wide or strong move) keeps the existing dynamic trail.
+     */
+    rangeRegime: {
+      /** Ratio of (high − low) / mid over the lookback window. Above = trend mode. */
+      maxRangeWidthPct: Number(process.env.HL_RANGE_MAX_WIDTH_PCT || 0.022),
+      /** If first→last close moved more than this fraction of mid → trend, not range. */
+      maxTrendMovePct: Number(process.env.HL_RANGE_MAX_TREND_MOVE_PCT || 0.01),
+      /** 5m candles to analyse for regime detection. */
+      lookbackCandles: Number(process.env.HL_RANGE_LOOKBACK || 24),
+      /** ATR multiplier for SL placement outside range (adds buffer above/below range). */
+      slAtrBufferMult: Number(process.env.HL_RANGE_SL_ATR_MULT || 0.5),
+      /** Fallback: SL buffer as fraction of range width. */
+      slWidthBufferFrac: Number(process.env.HL_RANGE_SL_WIDTH_FRAC || 0.15),
+      /** ATR multiplier for TP placement inside range (leaves room from opposite wall). */
+      tpAtrBufferMult: Number(process.env.HL_RANGE_TP_ATR_MULT || 0.3),
+      /** Fallback: TP buffer as fraction of range width. */
+      tpWidthBufferFrac: Number(process.env.HL_RANGE_TP_WIDTH_FRAC || 0.08),
+      /** Min width of range in absolute price terms (avoid micro-ranges). */
+      minRangeWidthAbsolute: Number(process.env.HL_RANGE_MIN_WIDTH_ABS || 0),
+      /**
+       * Enable range-regime exits. Default ON.
+       * Set HL_RANGE_EXITS_ENABLED=false to disable without deploy.
+       */
+      enabled: process.env.HL_RANGE_EXITS_ENABLED !== 'false',
+    },
     /** Alts — never SHORT into a fresh pump / higher-TF rally. */
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
