@@ -16,7 +16,13 @@ import {
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
 import { getBotApiBase, type Timeframe } from '../lib/signalService';
-import { binanceSymbolToHlCoin, hlCoinToBotSymbol, isBotTradeableHlCoin, isHiddenFromBotUi } from '../lib/botTradingPairs';
+import {
+  binanceSymbolToHlCoin,
+  hlCoinToBotSymbol,
+  isBotTradeableHlCoin,
+  isHiddenFromBotUi,
+  normalizeHlPerpCoin,
+} from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerStatusCopy, isMarginEntryBlocked } from '../lib/botAnalyzerActive';
@@ -134,13 +140,25 @@ export function useTerminalBotAnalysis({
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
 
-  const effectiveOpenCount = useMemo(() => {
+  /**
+   * Live wallet coins win. Never union with bot-status openCoins — that list
+   * lags after closes and was showing 3/3 when only 2 positions were open.
+   */
+  const effectiveOpenCoins = useMemo(() => {
+    const source =
+      openPositionCoins.length > 0 ? openPositionCoins : serverOpenCoins;
     const merged = new Set<string>();
-    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
-    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
-    if (merged.size > 0) return merged.size;
+    for (const coin of source) {
+      const n = normalizeHlPerpCoin(coin);
+      if (n) merged.add(n);
+    }
+    return [...merged];
+  }, [openPositionCoins, serverOpenCoins]);
+
+  const effectiveOpenCount = useMemo(() => {
+    if (effectiveOpenCoins.length > 0) return effectiveOpenCoins.length;
     return openPositionsCount;
-  }, [openPositionCoins, serverOpenCoins, openPositionsCount]);
+  }, [effectiveOpenCoins, openPositionsCount]);
 
   const slotsLeft = effectiveOpenCount < serverMaxSlots;
   const slotsFull = effectiveOpenCount >= serverMaxSlots;
@@ -178,13 +196,6 @@ export function useTerminalBotAnalysis({
     botRunning && (analysisActive ?? false) && slotsLeft && !marginBlocked;
   const active = analyzerActive;
   const scanning = active;
-
-  const effectiveOpenCoins = useMemo(() => {
-    const merged = new Set<string>();
-    for (const coin of openPositionCoins) merged.add(coin.toUpperCase());
-    for (const coin of serverOpenCoins) merged.add(coin.toUpperCase());
-    return [...merged];
-  }, [openPositionCoins, serverOpenCoins]);
 
   const scanCandidate = useMemo(
     () =>

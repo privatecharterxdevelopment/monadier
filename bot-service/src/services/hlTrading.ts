@@ -26,6 +26,7 @@ import {
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
+  hlIsMeaningfulPerpPosition,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
@@ -1988,9 +1989,9 @@ export class HyperliquidTradingService {
       const pos = row.position;
       if (!pos?.coin) continue;
       const size = Number(pos.szi ?? 0);
-      if (!Number.isFinite(size) || Math.abs(size) < 1e-12) continue;
-
       const entry = Number(pos.entryPx ?? 0);
+      if (!hlIsMeaningfulPerpPosition(size, entry)) continue;
+
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);
       const absSize = Math.abs(size);

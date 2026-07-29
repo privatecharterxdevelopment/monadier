@@ -1,6 +1,6 @@
 import { normalizeHlPerpCoin } from '../botTradingPairs';
 import type { HlAccountState, HlPosition } from './user';
-import { toNum } from './parse';
+import { isMeaningfulHlPosition } from './format';
 
 export function filterHlPositions(
   positions: HlPosition[] | undefined,
@@ -9,7 +9,7 @@ export function filterHlPositions(
 ): HlPosition[] {
   const list = positions ?? [];
   return list.filter((p) => {
-    if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+    if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
     const coin = normalizeHlPerpCoin(p.coin);
     const isBot = botManagedCoins.has(coin);
     return scope === 'bot' ? isBot : !isBot;

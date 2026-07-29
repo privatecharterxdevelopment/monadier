@@ -56,6 +56,7 @@ import type { HlInterval } from '../../lib/hyperliquid/types';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
+import { isMeaningfulHlPosition } from '../../lib/hyperliquid/format';
 import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
@@ -167,7 +168,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const openPerpCoins = useMemo(
     () =>
       (account?.positions ?? [])
-        .filter((p) => Math.abs(toNum(p.szi)) > 1e-12)
+        .filter((p) => isMeaningfulHlPosition(p.szi, p.entryPx))
         .map((p) => p.coin),
     [account?.positions]
   );

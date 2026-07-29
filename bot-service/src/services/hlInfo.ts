@@ -259,12 +259,26 @@ export function hlTradableFreeMarginUsd(
   return hlFreeMarginUsd(state);
 }
 
+export function hlIsMeaningfulPerpPosition(
+  size: number,
+  entryPx: number,
+  minNotionalUsd = 1
+): boolean {
+  if (!Number.isFinite(size) || Math.abs(size) <= 1e-12) return false;
+  const notional =
+    Math.abs(size) * (Number.isFinite(entryPx) && entryPx > 0 ? entryPx : 0);
+  // Residual dust after partial closes (e.g. 1e-5 BTC ≈ $0.64) must not eat a slot.
+  if (notional > 0) return notional >= minNotionalUsd;
+  return Math.abs(size) >= 1e-6;
+}
+
 export function hlOpenPerpCoins(state: HlClearinghouseState | null): string[] {
   const coins: string[] = [];
   for (const row of state?.assetPositions ?? []) {
     const coin = row.position?.coin;
     const size = Number(row.position?.szi ?? 0);
-    if (coin && Number.isFinite(size) && Math.abs(size) > 0) {
+    const entryPx = Number(row.position?.entryPx ?? 0);
+    if (coin && hlIsMeaningfulPerpPosition(size, entryPx)) {
       coins.push(coin);
     }
   }

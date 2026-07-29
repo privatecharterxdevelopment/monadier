@@ -28,6 +28,7 @@ import {
   fillPositionDirection,
   hlFillResultLabel,
   isHlFillClose,
+  isMeaningfulHlPosition,
 } from '../../lib/hyperliquid/format';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import {
@@ -276,7 +277,7 @@ const ProTradeDock: React.FC<Props> = ({
   const scopedPositions = useMemo(() => {
     const list = account?.positions ?? [];
     return list.filter((p) => {
-      if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
+      if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
       const coin = normalizeHlPerpCoin(p.coin);
       const isBot = managedCoins.has(coin);
       return scope === 'bot' ? isBot : !isBot;
@@ -285,7 +286,8 @@ const ProTradeDock: React.FC<Props> = ({
 
   const hlOpenPositionCount = useMemo(
     () =>
-      (account?.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 1e-12).length,
+      (account?.positions ?? []).filter((p) => isMeaningfulHlPosition(p.szi, p.entryPx))
+        .length,
     [account?.positions]
   );
 

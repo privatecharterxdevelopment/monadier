@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlFundingSnapshot } from '../lib/hyperliquid/funding';
+import { isMeaningfulHlPosition } from '../lib/hyperliquid/format';
 import { fetchHlAccountState, type HlPosition } from '../lib/hyperliquid/user';
 import { MIN_HL_BOT_USD } from '../lib/hyperliquid/hlBotAgent';
 
@@ -34,10 +35,8 @@ let inFlight = false;
 let emptyEquityStreak = 0;
 const listeners = new Set<Listener>();
 
-function countOpen(positions: { szi?: string | null }[] | undefined): number {
-  return (positions ?? []).filter(
-    (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
-  ).length;
+function countOpen(positions: HlPosition[] | undefined): number {
+  return (positions ?? []).filter((p) => isMeaningfulHlPosition(p.szi, p.entryPx)).length;
 }
 
 function buildSnapshot(
@@ -45,8 +44,8 @@ function buildSnapshot(
   funding: Awaited<ReturnType<typeof fetchHlFundingSnapshot>>,
   acct: Awaited<ReturnType<typeof fetchHlAccountState>>
 ): HlAccountSnapshot {
-  const openPositions = (acct?.positions ?? []).filter(
-    (p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12
+  const openPositions = (acct?.positions ?? []).filter((p) =>
+    isMeaningfulHlPosition(p.szi, p.entryPx)
   );
   const marginUsed =
     Number(acct?.margin?.totalMarginUsed ?? 0) ||
