@@ -58,7 +58,13 @@ function pickPreferredCandidate(
   longC: GlobalSignalCandidate | null,
   shortC: GlobalSignalCandidate | null
 ): GlobalSignalCandidate | null {
-  const primary = config.hyperliquid.directionProfile.primaryDirection;
+  const profile = config.hyperliquid.directionProfile;
+  // ROOT: bear_market (allowLongOpens=false) never returns a LONG pick.
+  if (!profile.allowLongOpens) {
+    return shortC;
+  }
+
+  const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
 
   if (longC && shortC) {
@@ -220,7 +226,11 @@ async function scanStandardCoinDirection(
   wantedDirection: 'LONG' | 'SHORT'
 ): Promise<GlobalSignalCandidate | null> {
   // LONG only BTC/ETH/SOL/AVAX — skip LONG analysis for everything else.
+  // ROOT: bear_market allowLongOpens=false → never analyze LONG at all.
   if (wantedDirection === 'LONG') {
+    if (!config.hyperliquid.directionProfile.allowLongOpens) {
+      return null;
+    }
     const allow = config.hyperliquid.longOnlyCoins;
     const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
     if (allow.length > 0 && !allow.includes(normalized)) {
@@ -380,6 +390,7 @@ async function scanAggressiveCoin(
     if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
 
     if (direction === 'LONG') {
+      if (!config.hyperliquid.directionProfile.allowLongOpens) return null;
       const allow = config.hyperliquid.longOnlyCoins;
       const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
       if (allow.length > 0 && !allow.includes(normalized)) return null;

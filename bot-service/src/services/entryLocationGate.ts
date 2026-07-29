@@ -434,8 +434,9 @@ export async function validateEntryLocation(opts: {
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
   // A: clear support bounce — scan often arrives SHORT; don't dead-end, flip to LONG.
-  // Only flip to LONG when coin is on the LONG allowlist (majors).
+  // Only when profile allows LONGs AND coin is on the LONG allowlist.
   const longAllowed = (() => {
+    if (!config.hyperliquid.directionProfile.allowLongOpens) return false;
     const c = (opts.coin ?? '').toUpperCase();
     const allow = config.hyperliquid.longOnlyCoins;
     if (!allow.length) return true;

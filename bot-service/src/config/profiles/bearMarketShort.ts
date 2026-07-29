@@ -13,8 +13,8 @@ import {
  *
  * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
  *         but NEVER skips entry_location / pump_sweep (no shorting lows).
- * LONG  = rare only: 5m UP + 15m UP + 1h UP + ≥2×15m + 80% conf.
- *         Any TF down → no LONG. SHORT rules untouched.
+ * LONG  = OFF at source (`allowLongOpens: false`). No scan LONG, no open LONG,
+ *         no zone-flip→LONG. Patch filters kept below for if/when re-enabled.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
  * leaving mid-caps (PUMP, WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
@@ -22,7 +22,7 @@ import {
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary June replica: PRIMARY_RULES (S/R always on), no rank cap, $5M/24h floor; LONG = 5m+15m+1h UP + 2×15m + 80% conf only.',
+    'SHORT-only June replica: PRIMARY_RULES (S/R always on), no rank cap, $5M/24h floor; LONGs disabled at source.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
@@ -41,6 +41,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
   enableLlmConfirm: false,
+  /** ROOT: no LONGs in bear_market — scan/open/flip all blocked. */
+  allowLongOpens: false,
   short: { ...PRIMARY_RULES },
   long: {
     ...COUNTER_TREND_RULES('UP'),

@@ -1101,6 +1101,15 @@ export class HyperliquidTradingService {
         );
       }
 
+      // ROOT: bear_market — LONGs disabled at source (no patch-filter roulette).
+      if (opts.direction === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
+        return rejectOpen(
+          'direction_profile',
+          `LONG blocked — ${config.hyperliquid.directionProfile.name} has allowLongOpens=false (SHORT-only)`,
+          'LONG disabled at source'
+        );
+      }
+
       // LONG only on majors (BTC/ETH/SOL/AVAX). Alts = SHORT-only.
       if (opts.direction === 'LONG') {
         const allow = config.hyperliquid.longOnlyCoins;
@@ -1491,6 +1500,13 @@ export class HyperliquidTradingService {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
         if (flipped === 'LONG') {
+          if (!config.hyperliquid.directionProfile.allowLongOpens) {
+            return rejectOpen(
+              'direction_profile',
+              `LONG flip blocked — ${config.hyperliquid.directionProfile.name} has allowLongOpens=false (SHORT-only)`,
+              'LONG disabled at source'
+            );
+          }
           const allow = config.hyperliquid.longOnlyCoins;
           const normalized = coin === 'AVA' ? 'AVAX' : coin;
           if (allow.length > 0 && !allow.includes(normalized)) {

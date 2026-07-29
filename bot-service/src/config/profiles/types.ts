@@ -110,6 +110,11 @@ export type HlDirectionProfile = {
    * on for long regime when HL_LLM_GATE_ENABLED is not false.
    */
   enableLlmConfirm: boolean;
+  /**
+   * When false, LONGs are dead at the source (scan / open / zone-flip→LONG).
+   * bear_market = false (SHORT-only book). bull_market = true.
+   */
+  allowLongOpens: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
 };

@@ -32,6 +32,7 @@ export const BULL_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
   enableLlmConfirm: true,
+  allowLongOpens: true,
   long: { ...PRIMARY_RULES },
   short: COUNTER_TREND_RULES('DOWN'),
 };
