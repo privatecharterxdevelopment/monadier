@@ -266,6 +266,7 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
+    // 1) Confirmed breakout above R — only valid way to buy the ceiling.
     if (analysis.confirmedBreakoutUp) {
       return {
         ok: true,
@@ -274,6 +275,21 @@ export function evaluateEntryLocation(
       };
     }
 
+    // 2) Hard block: never LONG at/near resistance without breakout.
+    //    (Old path required rejection counts — 0 rejections at R still let BTC through.)
+    if (analysis.nearResistance) {
+      const zone =
+        analysis.resistanceZone != null
+          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+          : fmtLevel(analysis.resistance);
+      return {
+        ok: false,
+        analysis,
+        reason: `LONG blocked — at/near resistance ${zone} without breakout (buy support or wait for break above)`,
+      };
+    }
+
+    // 3) Pullback only in the lower half of the S–R range (near support).
     if (analysis.pricePosition <= cfg.pullbackMaxPosition) {
       return {
         ok: true,
@@ -282,36 +298,11 @@ export function evaluateEntryLocation(
       };
     }
 
-    if (analysis.nearResistance) {
-      const failedTests = analysis.resistanceRejections;
-      if (failedTests >= cfg.minRejectionsToBlock) {
-        return {
-          ok: false,
-          analysis,
-          reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× (need break above or pullback to support)`,
-        };
-      }
-      if (failedTests >= 1 || analysis.pricePosition >= cfg.rangeTopBlock) {
-        return {
-          ok: false,
-          analysis,
-          reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} without breakout (${failedTests} rejection${failedTests === 1 ? '' : 's'})`,
-        };
-      }
-    }
-
-    if (analysis.pricePosition > cfg.rangeTopBlock) {
-      return {
-        ok: false,
-        analysis,
-        reason: `LONG blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (buy low — need pullback below ${(cfg.pullbackMaxPosition * 100).toFixed(0)}% or confirmed breakout)`,
-      };
-    }
-
+    // 4) Mid / upper range without breakout — never LONG. (Closed the old 52–65% hole.)
     return {
-      ok: true,
+      ok: false,
       analysis,
-      reason: `Pullback entry — ${(analysis.pricePosition * 100).toFixed(0)}% of range (S ${fmtLevel(analysis.support)})`,
+      reason: `LONG blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (need pullback ≤${(cfg.pullbackMaxPosition * 100).toFixed(0)}% of range or confirmed breakout above ${fmtLevel(analysis.resistance)})`,
     };
   }
 
