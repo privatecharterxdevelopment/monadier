@@ -477,10 +477,11 @@ export const config = {
       nearZonePct: Number(process.env.HL_INVALIDATION_NEAR_ZONE || 0.012),
     },
     /**
-     * Zone counter-flip on open (SHORT↔LONG). OFF until exit invalidation is proven.
-     * When false: inside-zone only blocks / waits — never flips.
+     * Zone counter-flip on open (SHORT↔LONG).
+     * Default ON — Support bounce → LONG, Resistance rejection → SHORT.
+     * Set HL_ZONE_FLIP_ENABLED=false to only wait/block inside zones (no counter-open).
      */
-    zoneFlipEnabled: process.env.HL_ZONE_FLIP_ENABLED === 'true',
+    zoneFlipEnabled: process.env.HL_ZONE_FLIP_ENABLED !== 'false',
     /** BTC/ETH live volume flow for alt entry gate + open reasons. */
     megaPairVolume: {
       minVolRatio: Number(process.env.HL_MEGA_MIN_VOL_RATIO || 1.2),

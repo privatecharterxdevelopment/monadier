@@ -414,7 +414,7 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Zone flip OFF by default — counter-opens need own risk/SL + anti-ping-pong first.
+  // Zone flip ON by default — counter-open when zone confirms the other side.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
