@@ -280,6 +280,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
   const candlesRef = useRef<HlCandleBar[]>([]);
   const followLiveRef = useRef(true);
   const suppressFollowDetectRef = useRef(false);
+  /** User dragged/zoomed the time axis — never overwrite their view until → Live / coin / TF. */
+  const userHeldViewRef = useRef(false);
+  const interactingRef = useRef(false);
   const aliveRef = useRef(true);
   const overlayCoin = orderCoin ?? coin;
   const chartColors = useMemo(() => getProTradeChartColors(theme), [theme]);
@@ -417,7 +420,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         barSpacing: 14,
         minBarSpacing: chartMinBarSpacing(),
         rightOffset: 0,
-        shiftVisibleRangeOnNewBar: true,
+        // When false, panning left stays put while new bars arrive (no snap-back).
+        shiftVisibleRangeOnNewBar: false,
         fixLeftEdge: false,
         fixRightEdge: false,
       },
@@ -471,16 +475,26 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       const range = chart.timeScale().getVisibleLogicalRange();
       const n = candlesRef.current.length;
       if (!range || n <= 0) return;
-      // "following" darf nur True sein, wenn der View wirklich am letzten Bar klebt.
-      // Sonst überschreibt die Live-Autoscroll/Zoom Logik bei User-Panning die
-      // gewünschte sichtbare Range (Chart "snapt" zurück).
-      const following = range.to >= n - 1;
+      const following = range.to >= n - 1 - 1e-6;
+      // Pointer on chart (axis drag / pan / pinch) → user owns zoom+scroll until → Live.
+      if (interactingRef.current || !following) {
+        userHeldViewRef.current = true;
+      }
       if (following !== followLiveRef.current) {
         followLiveRef.current = following;
         onFollowLiveChangeRef.current?.(following);
       }
-      // Do not re-apply price axis here — digit jumps change axis width and shake L/R.
     });
+
+    const onPointerDown = () => {
+      interactingRef.current = true;
+    };
+    const onPointerUp = () => {
+      interactingRef.current = false;
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
 
     const ro = new ResizeObserver(() => {
       if (!aliveRef.current) return;
@@ -491,15 +505,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       if (Math.abs(prev.w - w) < 1 && Math.abs(prev.h - h) < 1) return;
       lastChartSizeRef.current = { w, h };
       safeChartOp(() => {
-        // Resize only — never reset visible range (that caused L/R shake).
+        // Size only — never reset barSpacing/visible range (axis-drag zoom must stick).
         chart.applyOptions({ width: w, height: h });
-        const spacing = chartBarSpacing(w, intervalRef.current);
-        chart.timeScale().applyOptions({
-          barSpacing: spacing,
-          minBarSpacing: chartMinBarSpacing(),
-        });
-        // Repaint only if the series actually vanished. Re-running setData for every
-        // ResizeObserver tick resets internal coordinates and makes the chart jump.
         const bars = candlesRef.current;
         const candleSeries = seriesRef.current;
         const volume = volumeRef.current;
@@ -536,6 +543,9 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
     return () => {
       aliveRef.current = false;
+      el.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       ro.disconnect();
       safeChartOp(() => chart.remove());
       chartRef.current = null;
@@ -554,12 +564,10 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const series = seriesRef.current;
     if (!chart || !series || !aliveRef.current) return;
 
-    const el = containerRef.current;
-    const width = el?.clientWidth ?? 800;
-    const spacing = chartBarSpacing(width, interval);
     safeChartOp(() => {
+      // Do not touch barSpacing here — srZones/orders update constantly and would
+      // wipe the user's time-axis zoom.
       chart.timeScale().applyOptions({
-        barSpacing: spacing,
         minBarSpacing: chartMinBarSpacing(),
         secondsVisible: chartSecondsVisible(interval),
       });
@@ -572,7 +580,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       });
       applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
     });
-  }, [openOrders, overlayCoin, srZones]);
+  }, [openOrders, overlayCoin, srZones, interval]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -582,6 +590,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const el = containerRef.current;
     const width = el?.clientWidth ?? 800;
     const spacing = chartBarSpacing(width, interval);
+    userHeldViewRef.current = false;
+    followLiveRef.current = true;
     safeChartOp(() => {
       chart.timeScale().applyOptions({
         barSpacing: spacing,
@@ -623,16 +633,15 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
       });
       if (barCount <= visibleBars + 24) {
         chart.timeScale().fitContent();
-        // Kill residual right padding fitContent sometimes leaves.
         chart.timeScale().applyOptions({ rightOffset: 0 });
         chart.timeScale().scrollToRealTime();
       } else {
         const from = Math.max(0, barCount - visibleBars);
-        // `to` = last bar index — no +N empty slots on the right.
         chart.timeScale().setVisibleLogicalRange({ from, to: barCount - 1 });
         chart.timeScale().applyOptions({ rightOffset: 0 });
       }
       followLiveRef.current = true;
+      userHeldViewRef.current = false;
     } finally {
       requestAnimationFrame(() => {
         suppressFollowDetectRef.current = false;
@@ -673,6 +682,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     prevCoinForDataRef.current = '';
     prevIntervalForDataRef.current = '';
     followLiveRef.current = true;
+    userHeldViewRef.current = false;
     lastAxisRefPxRef.current = 0;
 
     safeChartOp(() => {
@@ -743,6 +753,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const chart = chartRef.current;
     if (!chart || !aliveRef.current) return;
     followLiveRef.current = true;
+    userHeldViewRef.current = false;
     onFollowLiveChange?.(true);
     scrollLive(chart);
   }, [scrollToLiveTick, onFollowLiveChange]);
@@ -839,32 +850,50 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
     const axisRefPx =
       refPx ?? clean[clean.length - 1]?.close ?? markPxRef.current ?? 1;
 
-    const paintSeries = (bars: HlCandleBar[], forceFull: boolean) => {
+    const paintSeries = (bars: HlCandleBar[], snapToLive: boolean) => {
       const data = bars.map(toCandle);
       const volData = bars.filter((c) => (c.volume ?? 0) > 0).map(toVol);
-      // priceFormat changes require a full setData — update() alone can leave an empty pane.
+      // Preserve the user's time window across setData (logical indexes shift on history changes).
+      const heldTimeRange =
+        !snapToLive && (userHeldViewRef.current || !followLiveRef.current)
+          ? chart.timeScale().getVisibleRange()
+          : null;
       applyChartPriceAxis(chart, series, axisRefPx);
       candlesRef.current = bars;
       series.setData(data);
       volumeSeries.setData(volData);
       prevCoinForDataRef.current = coin;
       prevIntervalForDataRef.current = interval;
-      // Zones on EVERY coin/TF — re-draw after every full paint (coin switch cleared them).
       applySrZonePriceLines(
         series,
         zoneLinesRef,
         srZonesRef.current.resistance,
         srZonesRef.current.support
       );
-      if (forceFull || followLiveRef.current) {
+      if (snapToLive && followLiveRef.current && !userHeldViewRef.current) {
         showLatestBars(chart, data.length);
+      } else if (heldTimeRange) {
+        suppressFollowDetectRef.current = true;
+        try {
+          chart.timeScale().setVisibleRange(heldTimeRange);
+        } finally {
+          requestAnimationFrame(() => {
+            suppressFollowDetectRef.current = false;
+          });
+        }
       }
     };
 
     safeChartOp(() => {
       // Autoscale reads candlesRef — keep it in sync BEFORE setData.
       if (fullReset) {
-        paintSeries(clean, true);
+        const snapToLive =
+          !userHeldViewRef.current &&
+          (followLiveRef.current ||
+            coinChanged ||
+            intervalChanged ||
+            prev.length === 0);
+        paintSeries(clean, snapToLive);
         return;
       }
 
@@ -885,7 +914,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
           interval,
           bars: clean.length,
         });
-        paintSeries(clean, true);
+        paintSeries(clean, followLiveRef.current && !userHeldViewRef.current);
         return;
       }
 
@@ -903,8 +932,8 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
         }
       }
 
-      // Only snap on a new bar — per-tick scrollToRealTime fights the live range and shakes L/R.
-      if (followLiveRef.current && newBar) {
+      // Never snap while the user holds a custom time-axis view.
+      if (followLiveRef.current && !userHeldViewRef.current && newBar) {
         scrollLive(chart);
       }
       if (newBar) {
