@@ -3,6 +3,7 @@
  *
  * Blocks LONG into a ceiling that already rejected price multiple times.
  * Allows LONG only on confirmed breakout above resistance or pullback toward support.
+ * SHORT: never in/near support without confirmed breakdown (no soft rally-fade escape).
  * In-house resistance/support *bands*: opens inside a zone require reversal/breakout first.
  */
 import { config } from '../config';
@@ -321,30 +322,26 @@ export function evaluateEntryLocation(
     };
   }
 
+  // HARD — never short the floor (SOL Jul 29: entry on S-zone without breakdown).
+  // nearSupport covers in-zone + near band; no "0 rejections → rally-fade OK" escape.
+  if (analysis.nearSupport) {
+    const zone =
+      analysis.supportZone != null
+        ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
+        : fmtLevel(analysis.support);
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked — in/near support ${zone} without confirmed breakdown`,
+    };
+  }
+
   if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) {
     return {
       ok: true,
       analysis,
       reason: `Pullback short (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
     };
-  }
-
-  if (analysis.nearSupport) {
-    const failedTests = analysis.supportRejections;
-    if (failedTests >= cfg.minRejectionsToBlock) {
-      return {
-        ok: false,
-        analysis,
-        reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
-      };
-    }
-    if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
-      return {
-        ok: false,
-        analysis,
-        reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
-      };
-    }
   }
 
   if (analysis.pricePosition < cfg.rangeBottomBlock) {
