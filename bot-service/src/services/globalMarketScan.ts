@@ -49,18 +49,30 @@ const STANDARD_STRATEGY: TradingStrategy = 'normal';
  * When both sides print, prefer the active regime's primary direction unless
  * the other side is clearly stronger. SHORT-primary stays preferred (edge 18) —
  * LONGs only steal the slot when meaningfully competitive (was 30 = starved).
+ *
+ * Under SHORT-primary, a lone LONG (no SHORT printed for that coin) is rejected
+ * unless confidence is exceptional (≥85). That stops "rate" BTC LONGs that open
+ * just because SHORT failed gates while a soft 70% LONG scraped through.
  */
 function pickPreferredCandidate(
   longC: GlobalSignalCandidate | null,
   shortC: GlobalSignalCandidate | null
 ): GlobalSignalCandidate | null {
+  const primary = config.hyperliquid.directionProfile.primaryDirection;
+  const edge = primary === 'SHORT' ? 18 : 8;
+
   if (longC && shortC) {
-    const primary = config.hyperliquid.directionProfile.primaryDirection;
-    const edge = primary === 'SHORT' ? 18 : 8;
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) return longC;
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;
   }
+
+  if (longC && !shortC && primary === 'SHORT') {
+    const loneLongMin = 85;
+    if (longC.confidence < loneLongMin) return null;
+    return longC;
+  }
+
   return longC ?? shortC;
 }
 
