@@ -152,30 +152,17 @@ function isUserInitiatedClose(reason: string): boolean {
 }
 
 /**
- * Profit-only mode (default): hold losers until green — no MTF flip exit by default.
- * User SL% still works via shouldHardLossClose (cap > 0). SL% = 0 → never red stop.
- * Opt-in: HL_LOSS_CAP_ENFORCE, HL_LOSS_THESIS_CLOSE.
+ * Profit-only mode (default): NEVER auto-close red.
+ * Hold losers until green, user manual close, or exchange liquidation.
+ * Dust flatten only (sub-$1 residuals) — never margin/hard/invalidation/trail red exits.
  */
-function mayAutoCloseInRed(reason: string, holdMs = 0): boolean {
+function mayAutoCloseInRed(reason: string, _holdMs = 0): boolean {
   const cfg = config.hyperliquid;
-  if (
-    reason === 'hard_stop_usd' ||
-    reason === 'emergency_close' ||
-    reason === 'margin_loss_cap' ||
-    reason === 'invalidation_zone' ||
-    reason === 'invalidation_hard_sl' ||
-    reason === 'dust_flatten'
-  ) {
-    return true;
-  }
+  if (reason === 'dust_flatten') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
-  // stop_loss path always allowed to evaluate — shouldHardLossClose requires a real cap (SL% > 0).
-  if (reason === 'stop_loss') return true;
-  if (reason === 'signal_reversal' && cfg.lossProtection.closeOnThesisBreak) return true;
-  const maxSlMs = cfg.dynamicTrail.maxHoldBeforeSlTrailMs;
-  if (holdMs >= maxSlMs && reason === 'trailing_stop') return true;
+  // User order: no bot red closes — margin/SL/invalidation/trail do NOT cut losers.
   return false;
 }
 
@@ -2153,79 +2140,79 @@ export class HyperliquidTradingService {
         continue;
       }
 
-      const hardStopUsd = config.hyperliquid.hardStopLossUsd;
-      if (hardStopUsd > 0 && pnl <= -hardStopUsd) {
-        const closeCtx = {
-          entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: lev,
-          holdMs,
-        };
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
-          userAddress,
-          pos.coin,
-          'hard_stop_usd',
-          closeCtx,
-          `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
-        );
-        continue;
-      }
+      // profitOnlyExits: never force-cut losers (no hard USD / margin / invalidation).
+      // Hold until green, manual close, or exchange liquidation — like spot/Binance hold.
+      if (!config.hyperliquid.profitOnlyExits) {
+        const hardStopUsd = config.hyperliquid.hardStopLossUsd;
+        if (hardStopUsd > 0 && pnl <= -hardStopUsd) {
+          const closeCtx = {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: lev,
+            holdMs,
+          };
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'hard_stop_usd',
+            closeCtx,
+            `STOP LOSS — ${pos.coin} uPnL $${pnl.toFixed(2)} ≤ −$${hardStopUsd.toFixed(2)}`
+          );
+          continue;
+        }
 
-      // Optional ops-only margin cap (HL_MAX_MARGIN_LOSS_PCT). Default 0 — never invent
-      // a stop when the user left SL at 0 / Profit trail.
-      const maxMarginLossPct = config.hyperliquid.maxMarginLossPctBeforeForceClose;
-      if (
-        maxMarginLossPct > 0 &&
-        pnl < 0 &&
-        collateralEst > 0 &&
-        (Math.abs(pnl) / collateralEst) * 100 >= maxMarginLossPct
-      ) {
-        const closeCtx = {
-          entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: lev,
-          holdMs,
-        };
-        const lossPct = (Math.abs(pnl) / collateralEst) * 100;
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
-          userAddress,
-          pos.coin,
-          'margin_loss_cap',
-          closeCtx,
-          `MARGIN LOSS CAP — ${pos.coin} −${lossPct.toFixed(1)}% of margin (cap ${maxMarginLossPct}%) uPnL $${pnl.toFixed(2)}`
-        );
-        continue;
-      }
+        const maxMarginLossPct = config.hyperliquid.maxMarginLossPctBeforeForceClose;
+        if (
+          maxMarginLossPct > 0 &&
+          pnl < 0 &&
+          collateralEst > 0 &&
+          (Math.abs(pnl) / collateralEst) * 100 >= maxMarginLossPct
+        ) {
+          const closeCtx = {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: lev,
+            holdMs,
+          };
+          const lossPct = (Math.abs(pnl) / collateralEst) * 100;
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            'margin_loss_cap',
+            closeCtx,
+            `MARGIN LOSS CAP — ${pos.coin} −${lossPct.toFixed(1)}% of margin (cap ${maxMarginLossPct}%) uPnL $${pnl.toFixed(2)}`
+          );
+          continue;
+        }
 
-      // Structural / hard-SL invalidation — BEFORE trail and BEFORE profitOnlyExits hold.
-      // May close red when zone adverse-break or ATR/% stop hits.
-      const invalidation = await evaluateInvalidationExit({
-        coin: pos.coin,
-        direction: positionDirection,
-        entryPx: entry,
-        markPx: markPrice,
-      });
-      if (invalidation.close) {
-        const closeCtx = {
+        const invalidation = await evaluateInvalidationExit({
+          coin: pos.coin,
+          direction: positionDirection,
           entryPx: entry,
-          unrealizedPnlUsd: pnl,
-          size,
-          leverage: lev,
-          holdMs,
-        };
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
-          userAddress,
-          pos.coin,
-          invalidation.reason,
-          closeCtx,
-          invalidation.detail
-        );
-        continue;
+          markPx: markPrice,
+        });
+        if (invalidation.close) {
+          const closeCtx = {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: lev,
+            holdMs,
+          };
+          clearTrailState(lockKey);
+          await this.closeMarketPosition(
+            userAddress,
+            pos.coin,
+            invalidation.reason,
+            closeCtx,
+            invalidation.detail
+          );
+          continue;
+        }
       }
 
       if (!fast && meta) {
@@ -2369,11 +2356,7 @@ export class HyperliquidTradingService {
         holdMs,
       };
 
-      // ── RANGE EXIT (ahead of standard trail) ──────────────────────────────
-      // When price has been oscillating in a tight box (range regime detected):
-      //   SHORT: close near the bottom of the range (TP) OR abort near top (SL).
-      //   LONG:  close near the top  of the range (TP) OR abort near bottom (SL).
-      // Trend-mode (wide range or strong directional move) falls through to trail.
+      // ── RANGE TP only (green). NEVER range-SL / red abort — user holds to liq. ──
       if (rangeCfg.enabled && rangeRegime?.isRange && pnl > 0) {
         const rr = rangeRegime;
         const markPrice = markFromPosition(entry, size, pnl);
@@ -2402,43 +2385,6 @@ export class HyperliquidTradingService {
             );
             continue;
           }
-        }
-      }
-
-      // ── RANGE SL — abort if price breaks out of the range against the trade ──
-      if (rangeCfg.enabled && rangeRegime?.isRange) {
-        const rr = rangeRegime;
-        const markPrice = markFromPosition(entry, size, pnl);
-        if (
-          positionDirection === 'SHORT' &&
-          rr.rangeSlForShort != null &&
-          markPrice >= rr.rangeSlForShort &&
-          mayAutoCloseInRed('stop_loss', holdMs)
-        ) {
-          clearTrailState(lockKey);
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            'stop_loss',
-            closeCtx,
-            `RANGE SL — SHORT ${pos.coin} mark ${markPrice.toFixed(6)} ≥ range top SL ${rr.rangeSlForShort.toFixed(6)} (breakout above ${rr.rangeHigh.toFixed(6)})`
-          );
-          continue;
-        } else if (
-          positionDirection === 'LONG' &&
-          rr.rangeSlForLong != null &&
-          markPrice <= rr.rangeSlForLong &&
-          mayAutoCloseInRed('stop_loss', holdMs)
-        ) {
-          clearTrailState(lockKey);
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            'stop_loss',
-            closeCtx,
-            `RANGE SL — LONG ${pos.coin} mark ${markPrice.toFixed(6)} ≤ range bottom SL ${rr.rangeSlForLong.toFixed(6)} (breakdown below ${rr.rangeLow.toFixed(6)})`
-          );
-          continue;
         }
       }
       // ─────────────────────────────────────────────────────────────────────
@@ -2519,7 +2465,12 @@ export class HyperliquidTradingService {
       }
 
       const emergencyCap = config.hyperliquid.thesisEmergencyMaxLossUsd;
-      if (pnl < 0 && emergencyCap > 0 && pnl <= -emergencyCap) {
+      if (
+        !config.hyperliquid.profitOnlyExits &&
+        pnl < 0 &&
+        emergencyCap > 0 &&
+        pnl <= -emergencyCap
+      ) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
           userAddress,
