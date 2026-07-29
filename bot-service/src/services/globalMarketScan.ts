@@ -219,6 +219,14 @@ async function scanStandardCoinDirection(
   relaxed: boolean,
   wantedDirection: 'LONG' | 'SHORT'
 ): Promise<GlobalSignalCandidate | null> {
+  // LONG only BTC/ETH/SOL/AVAX — skip LONG analysis for everything else.
+  if (wantedDirection === 'LONG') {
+    const allow = config.hyperliquid.longOnlyCoins;
+    const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
+    if (allow.length > 0 && !allow.includes(normalized)) {
+      return null;
+    }
+  }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
@@ -370,6 +378,12 @@ async function scanAggressiveCoin(
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
     if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
+
+    if (direction === 'LONG') {
+      const allow = config.hyperliquid.longOnlyCoins;
+      const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
+      if (allow.length > 0 && !allow.includes(normalized)) return null;
+    }
 
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });

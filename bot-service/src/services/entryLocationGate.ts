@@ -275,9 +275,8 @@ export function evaluateEntryLocation(
       };
     }
 
-    // 2) Hard block: never LONG at/near resistance without breakout.
-    //    (Old path required rejection counts — 0 rejections at R still let BTC through.)
-    if (analysis.nearResistance) {
+    // 2) Upper line / near R → NEVER LONG (that's a SHORT fade).
+    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
           ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
@@ -285,24 +284,24 @@ export function evaluateEntryLocation(
       return {
         ok: false,
         analysis,
-        reason: `LONG blocked — at/near resistance ${zone} without breakout (buy support or wait for break above)`,
+        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
       };
     }
 
-    // 3) Pullback only in the lower half of the S–R range (near support).
-    if (analysis.pricePosition <= cfg.pullbackMaxPosition) {
+    // 3) Lower line / near S → LONG allowed (bounce).
+    if (analysis.nearSupport || analysis.pricePosition <= cfg.rangeBottomBlock) {
       return {
         ok: true,
         analysis,
-        reason: `Pullback entry (${(analysis.pricePosition * 100).toFixed(0)}% of range, support ${fmtLevel(analysis.support)})`,
+        reason: `Support/lower-range LONG (${(analysis.pricePosition * 100).toFixed(0)}% of range, S ${fmtLevel(analysis.support)})`,
       };
     }
 
-    // 4) Mid / upper range without breakout — never LONG. (Closed the old 52–65% hole.)
+    // 4) Mid-range — no LONG.
     return {
       ok: false,
       analysis,
-      reason: `LONG blocked — ${(analysis.pricePosition * 100).toFixed(0)}% of range (need pullback ≤${(cfg.pullbackMaxPosition * 100).toFixed(0)}% of range or confirmed breakout above ${fmtLevel(analysis.resistance)})`,
+      reason: `LONG blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need lower line / S ≤${(cfg.rangeBottomBlock * 100).toFixed(0)}% or breakout above R)`,
     };
   }
 
@@ -352,11 +351,13 @@ export async function validateEntryLocation(opts: {
   coin?: string;
   direction: 'LONG' | 'SHORT';
 }): Promise<EntryLocationResult> {
-  // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
-  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
+  // Match chart zone lines: primary 1h (what user sees) + 15m for nearer bands.
+  const candles1h = await signalEngine.fetchCandles(opts.symbol, '1h', 48);
   const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 24);
+  // Keep 5m for zone-reversal confirmation (wick/rejection speed).
+  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
 
-  if (candles15.length < 12 || candles5.length < 12) {
+  if (candles1h.length < 12 || candles15.length < 12) {
     return {
       ok: true,
       reason: 'insufficient candle history — location check skipped',
@@ -379,13 +380,13 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  const sr = analyzeSrZones(candles5, candles15);
+  const sr = analyzeSrZones(candles1h, candles15);
 
   // In-house zone bands: no blind opens inside resistance/support — require reversal first.
   const zoneGate = evaluateZoneReversalGate(
     opts.direction,
     sr.price,
-    candles5,
+    candles5.length >= 12 ? candles5 : candles15,
     sr.resistanceZone ?? null,
     sr.supportZone ?? null,
     {
@@ -430,8 +431,17 @@ export async function validateEntryLocation(opts: {
   }
 
   const classic = evaluateEntryLocation(opts.direction, sr);
+  const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
   // A: clear support bounce — scan often arrives SHORT; don't dead-end, flip to LONG.
+  // Only flip to LONG when coin is on the LONG allowlist (majors).
+  const longAllowed = (() => {
+    const c = (opts.coin ?? '').toUpperCase();
+    const allow = config.hyperliquid.longOnlyCoins;
+    if (!allow.length) return true;
+    return allow.includes(c === 'AVA' ? 'AVAX' : c);
+  })();
+
   if (
     config.hyperliquid.zoneFlipEnabled &&
     opts.direction === 'SHORT' &&
@@ -439,7 +449,8 @@ export async function validateEntryLocation(opts: {
     sr.nearSupport &&
     !sr.confirmedBreakdown &&
     sr.supportZone != null &&
-    zoneReversalConfirmed(candles5, sr.supportZone, 4)
+    longAllowed &&
+    zoneReversalConfirmed(revCandles, sr.supportZone, 4)
   ) {
     return {
       ok: true,
@@ -449,7 +460,7 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Symmetric: resistance rejection when scan arrived LONG.
+  // Symmetric: resistance rejection when scan arrived LONG → SHORT (top of range).
   if (
     config.hyperliquid.zoneFlipEnabled &&
     opts.direction === 'LONG' &&
@@ -457,7 +468,7 @@ export async function validateEntryLocation(opts: {
     sr.nearResistance &&
     !sr.confirmedBreakoutUp &&
     sr.resistanceZone != null &&
-    zoneReversalConfirmed(candles5, sr.resistanceZone, 4)
+    zoneReversalConfirmed(revCandles, sr.resistanceZone, 4)
   ) {
     return {
       ok: true,

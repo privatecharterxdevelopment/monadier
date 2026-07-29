@@ -1078,6 +1078,19 @@ export class HyperliquidTradingService {
         );
       }
 
+      // LONG only on majors (BTC/ETH/SOL/AVAX). Alts = SHORT-only.
+      if (opts.direction === 'LONG') {
+        const allow = config.hyperliquid.longOnlyCoins;
+        const normalized = coin === 'AVA' ? 'AVAX' : coin;
+        if (allow.length > 0 && !allow.includes(normalized)) {
+          return rejectOpen(
+            'long_allowlist',
+            `LONG blocked — ${coin} not in allowlist (${allow.join(',')}); alts are SHORT-only`,
+            'LONG majors only'
+          );
+        }
+      }
+
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
       if (flipGate.blocked) {
         return rejectOpen(
@@ -1434,6 +1447,17 @@ export class HyperliquidTradingService {
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
+        if (flipped === 'LONG') {
+          const allow = config.hyperliquid.longOnlyCoins;
+          const normalized = coin === 'AVA' ? 'AVAX' : coin;
+          if (allow.length > 0 && !allow.includes(normalized)) {
+            return rejectOpen(
+              'long_allowlist',
+              `LONG flip blocked — ${coin} not in allowlist (${allow.join(',')}); stay SHORT-only`,
+              'LONG majors only'
+            );
+          }
+        }
         opts.pick.direction = flipped;
         if (flipped === 'SHORT') {
           opts.pick.peakLiquidityGrab = true;
