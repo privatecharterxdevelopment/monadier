@@ -12,6 +12,7 @@ import {
   computeResistanceZone,
   computeSupportZone,
   evaluateZoneReversalGate,
+  zoneReversalConfirmed,
   type PriceZone,
 } from './resistanceZone';
 
@@ -438,5 +439,42 @@ export async function validateEntryLocation(opts: {
   }
 
   const classic = evaluateEntryLocation(opts.direction, sr);
+
+  // A: clear support bounce — scan often arrives SHORT; don't dead-end, flip to LONG.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    opts.direction === 'SHORT' &&
+    !classic.ok &&
+    sr.nearSupport &&
+    !sr.confirmedBreakdown &&
+    sr.supportZone != null &&
+    zoneReversalConfirmed(candles5, sr.supportZone, 4)
+  ) {
+    return {
+      ok: true,
+      reason: `Support-zone bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
+      analysis: sr,
+      flipTo: 'LONG',
+    };
+  }
+
+  // Symmetric: resistance rejection when scan arrived LONG.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    opts.direction === 'LONG' &&
+    !classic.ok &&
+    sr.nearResistance &&
+    !sr.confirmedBreakoutUp &&
+    sr.resistanceZone != null &&
+    zoneReversalConfirmed(candles5, sr.resistanceZone, 4)
+  ) {
+    return {
+      ok: true,
+      reason: `Resistance-zone rejection → flip LONG→SHORT ($${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)})`,
+      analysis: sr,
+      flipTo: 'SHORT',
+    };
+  }
+
   return classic;
 }

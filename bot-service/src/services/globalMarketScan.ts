@@ -47,8 +47,8 @@ const STANDARD_STRATEGY: TradingStrategy = 'normal';
 
 /**
  * When both sides print, prefer the active regime's primary direction unless
- * the other side is clearly stronger. SHORT-primary (June) keeps a wide edge
- * so soft LONGs do not steal the slot.
+ * the other side is clearly stronger. SHORT-primary stays preferred (edge 18) —
+ * LONGs only steal the slot when meaningfully competitive (was 30 = starved).
  */
 function pickPreferredCandidate(
   longC: GlobalSignalCandidate | null,
@@ -56,7 +56,7 @@ function pickPreferredCandidate(
 ): GlobalSignalCandidate | null {
   if (longC && shortC) {
     const primary = config.hyperliquid.directionProfile.primaryDirection;
-    const edge = primary === 'SHORT' ? 30 : 8;
+    const edge = primary === 'SHORT' ? 18 : 8;
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) return longC;
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;
