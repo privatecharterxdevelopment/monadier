@@ -8,6 +8,7 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { isLongAllowedCoin } from './longAllowlist';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -437,10 +438,7 @@ export async function validateEntryLocation(opts: {
   // Only when profile allows LONGs AND coin is on the LONG allowlist.
   const longAllowed = (() => {
     if (!config.hyperliquid.directionProfile.allowLongOpens) return false;
-    const c = (opts.coin ?? '').toUpperCase();
-    const allow = config.hyperliquid.longOnlyCoins;
-    if (!allow.length) return true;
-    return allow.includes(c === 'AVA' ? 'AVAX' : c);
+    return isLongAllowedCoin(opts.coin ?? '');
   })();
 
   if (

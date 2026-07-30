@@ -15,6 +15,7 @@ import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { resolvePeakAwareDirection } from './peakShortLiquidity';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
+import { isLongAllowedCoin } from './longAllowlist';
 import type { Timeframe } from './signalEngine';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -225,15 +226,13 @@ async function scanStandardCoinDirection(
   relaxed: boolean,
   wantedDirection: 'LONG' | 'SHORT'
 ): Promise<GlobalSignalCandidate | null> {
-  // LONG only BTC/ETH/SOL/AVAX — skip LONG analysis for everything else.
+  // LONG only BTC/ETH/SOL/AVAX — skip LONG analysis for memes/alts (VVV etc.).
   // ROOT: bear_market allowLongOpens=false → never analyze LONG at all.
   if (wantedDirection === 'LONG') {
     if (!config.hyperliquid.directionProfile.allowLongOpens) {
       return null;
     }
-    const allow = config.hyperliquid.longOnlyCoins;
-    const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
-    if (allow.length > 0 && !allow.includes(normalized)) {
+    if (!isLongAllowedCoin(coin)) {
       return null;
     }
   }
@@ -391,9 +390,7 @@ async function scanAggressiveCoin(
 
     if (direction === 'LONG') {
       if (!config.hyperliquid.directionProfile.allowLongOpens) return null;
-      const allow = config.hyperliquid.longOnlyCoins;
-      const normalized = coin.toUpperCase() === 'AVA' ? 'AVAX' : coin.toUpperCase();
-      if (allow.length > 0 && !allow.includes(normalized)) return null;
+      if (!isLongAllowedCoin(coin)) return null;
     }
 
     if (cautious) {

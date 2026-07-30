@@ -71,6 +71,7 @@ import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { detectRangeRegime, type RangeRegimeResult } from './rangeRegimeDetector';
+import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -833,7 +834,11 @@ export class HyperliquidTradingService {
         if (d === 'SHORT' && sides.longs.length > 0) return false;
         return true;
       };
-      const signalsForBook = signals.filter((s) => directionOk(s.direction));
+      const signalsForBook = signals.filter((s) => {
+        if (!directionOk(s.direction)) return false;
+        if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
+        return true;
+      });
       if (signalsForBook.length === 0) {
         if (sides.longs.length && sides.shorts.length === 0) {
           logger.info('HL open skip: book is LONG-only — no SHORT candidates / mixed blocked', {
@@ -1110,17 +1115,9 @@ export class HyperliquidTradingService {
         );
       }
 
-      // LONG only on majors (BTC/ETH/SOL/AVAX). Alts = SHORT-only.
-      if (opts.direction === 'LONG') {
-        const allow = config.hyperliquid.longOnlyCoins;
-        const normalized = coin === 'AVA' ? 'AVAX' : coin;
-        if (allow.length > 0 && !allow.includes(normalized)) {
-          return rejectOpen(
-            'long_allowlist',
-            `LONG blocked — ${coin} not in allowlist (${allow.join(',')}); alts are SHORT-only`,
-            'LONG majors only'
-          );
-        }
+      // LONG only BTC/ETH/SOL/AVAX — VVV and other memes are SHORT-only.
+      if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
+        return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
       }
 
       // Never run a mixed book (AVAX LONG + HYPE SHORT = bet both ways on crypto beta).
@@ -1507,12 +1504,10 @@ export class HyperliquidTradingService {
               'LONG disabled at source'
             );
           }
-          const allow = config.hyperliquid.longOnlyCoins;
-          const normalized = coin === 'AVA' ? 'AVAX' : coin;
-          if (allow.length > 0 && !allow.includes(normalized)) {
+          if (!isLongAllowedCoin(coin)) {
             return rejectOpen(
               'long_allowlist',
-              `LONG flip blocked — ${coin} not in allowlist (${allow.join(',')}); stay SHORT-only`,
+              `LONG flip blocked — ${longAllowlistReason(coin)}`,
               'LONG majors only'
             );
           }
@@ -1954,6 +1949,40 @@ export class HyperliquidTradingService {
   }> {
     const coin = opts.coin.toUpperCase();
     const direction = opts.direction;
+    if (direction === 'LONG') {
+      if (!config.hyperliquid.directionProfile.allowLongOpens) {
+        return {
+          coin,
+          direction,
+          opened: 0,
+          skipped: 0,
+          failed: 1,
+          results: [
+            {
+              wallet: 'n/a',
+              success: false,
+              error: `LONG force blocked — allowLongOpens=false`,
+            },
+          ],
+        };
+      }
+      if (!isLongAllowedCoin(coin)) {
+        return {
+          coin,
+          direction,
+          opened: 0,
+          skipped: 0,
+          failed: 1,
+          results: [
+            {
+              wallet: 'n/a',
+              success: false,
+              error: longAllowlistReason(coin),
+            },
+          ],
+        };
+      }
+    }
     const wallets =
       opts.wallets ??
       (await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId));
