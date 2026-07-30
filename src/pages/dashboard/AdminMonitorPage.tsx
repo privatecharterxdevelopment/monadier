@@ -370,6 +370,12 @@ function OverviewPanel({
           sub={`HL bot closes · ${stats.closed_trades_24h} in 24h · all-time ${fmtUsd(stats.total_pnl, true)}`}
           positive={stats.pnl_24h >= 0}
         />
+        <Kpi
+          label="Loss closes 24h"
+          value={String(stats.loss_closes_24h ?? 0)}
+          sub={fmtUsd(stats.loss_pnl_24h ?? 0, true)}
+          positive={(stats.loss_pnl_24h ?? 0) >= 0}
+        />
         <Kpi label="Win rate" value={`${stats.win_rate}%`} sub={`${stats.closed_trades_24h} closes / 24h`} />
         <Kpi
           label="Platform fees"
@@ -1380,6 +1386,7 @@ function TradesPanel({
   const [userStats, setUserStats] = useState<AdminTradeHistoryUserStats | null>(null);
   const [walletInput, setWalletInput] = useState(userFilter?.wallet ?? '');
   const [emailInput, setEmailInput] = useState(userFilter?.email ?? '');
+  const [pnlFilter, setPnlFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [appliedFilter, setAppliedFilter] = useState({
     wallet: userFilter?.wallet?.trim() ?? '',
     email: userFilter?.email?.trim() ?? '',
@@ -1426,6 +1433,12 @@ function TradesPanel({
     () => rows.reduce((s, t) => s + (t.profit_loss ?? 0), 0),
     [rows]
   );
+
+  const visibleRows = useMemo(() => {
+    if (pnlFilter === 'wins') return rows.filter((t) => (t.profit_loss ?? 0) > 0);
+    if (pnlFilter === 'losses') return rows.filter((t) => (t.profit_loss ?? 0) < 0);
+    return rows;
+  }, [rows, pnlFilter]);
 
   const applyFilter = () => {
     setAppliedFilter({
@@ -1485,11 +1498,23 @@ function TradesPanel({
       </div>
 
       {userStats && hasFilter ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Kpi
             label="Closed P/L"
             value={fmtUsdTrade(userStats.closed_pnl_total, true)}
             positive={userStats.closed_pnl_total >= 0}
+          />
+          <Kpi
+            label="Gross profits"
+            value={fmtUsdTrade(userStats.closed_profit_total ?? 0, true)}
+            positive
+            sub={`${userStats.closed_win_count ?? 0} wins`}
+          />
+          <Kpi
+            label="Gross losses"
+            value={fmtUsdTrade(userStats.closed_loss_total ?? 0, true)}
+            positive={(userStats.closed_loss_total ?? 0) >= 0}
+            sub={`${userStats.closed_loss_count ?? 0} losses`}
           />
           <Kpi label="Closed trades" value={String(userStats.closed_trades_count)} />
           <Kpi label="Open positions" value={String(userStats.open_positions_count)} />
@@ -1498,32 +1523,54 @@ function TradesPanel({
             value={fmtUsd(userStats.fees_accrued_usd)}
             sub={userStats.fees_accrued_usd > 0 ? 'pending payment' : 'clear'}
           />
-          <Kpi label="Fees paid" value={fmtUsd(userStats.fees_paid_usd)} />
           <Kpi
-            label="Unpaid bot wins"
-            value={`${userStats.fee_win_count ?? 0} / 20`}
-            sub={
-              (userStats.fee_win_count ?? 0) >= 20 && (userStats.fees_accrued_usd ?? 0) > 0
-                ? 'opens blocked until fees paid'
-                : `${userStats.wins_until_fee ?? 20} until block`
-            }
+            label="Fees paid"
+            value={fmtUsd(userStats.fees_paid_usd)}
           />
           <Kpi
-            label="Lifetime fee wins"
-            value={String(userStats.lifetime_bot_fee_wins ?? 0)}
-            sub="all hl_fee_ledger bot wins"
-          />
-          <Kpi
-            label="User"
-            value={userStats.email ?? shortWallet(userStats.wallet_address, 6)}
-            sub={shortWallet(userStats.wallet_address, 8)}
+            label="Fee wins"
+            value={String(userStats.fee_win_count)}
+            sub={`${userStats.wins_until_fee} until block`}
           />
         </div>
       ) : null}
 
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-secondary">Show:</span>
+        {(
+          [
+            ['all', 'All'],
+            ['losses', 'Losses only'],
+            ['wins', 'Wins only'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setPnlFilter(id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+              pnlFilter === id
+                ? id === 'losses'
+                  ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                  : id === 'wins'
+                    ? 'bg-green-500/20 border-green-500/50 text-green-300'
+                    : 'bg-white text-black border-white'
+                : 'border-border text-secondary hover:text-primary'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-xs text-secondary ml-auto">
+          Page P/L {fmtUsdTrade(pagePnl, true)} · showing {visibleRows.length}/{rows.length}
+        </span>
+      </div>
+
       <TableShell
         title={`Closed HL trades (${total})`}
-        subtitle={`Page P/L ${fmtUsdTrade(pagePnl, true)} · hyperliquid only`}
+        subtitle={`Page P/L ${fmtUsdTrade(pagePnl, true)} · hyperliquid only${
+          pnlFilter === 'losses' ? ' · losses only' : pnlFilter === 'wins' ? ' · wins only' : ''
+        }`}
         scrollable
         pagination={{
           page,
@@ -1566,20 +1613,21 @@ function TradesPanel({
         <tbody>
           {loading && rows.length === 0 ? (
             <tr>
-              <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+              <td colSpan={14} className="px-4 py-8 text-center text-secondary text-sm">
                 Loading trade history…
               </td>
             </tr>
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <tr>
-              <td colSpan={13} className="px-4 py-8 text-center text-secondary text-sm">
+              <td colSpan={14} className="px-4 py-8 text-center text-secondary text-sm">
                 No closed HL trades match this filter.
               </td>
             </tr>
           ) : (
-            rows.map((t) => {
+            visibleRows.map((t) => {
               const snap = t.snapshot_pnl_usd;
               const fill = t.profit_loss;
+              const isLoss = (fill ?? 0) < 0;
               const snapMismatch =
                 snap != null &&
                 fill != null &&
@@ -1587,7 +1635,12 @@ function TradesPanel({
                 Number.isFinite(fill) &&
                 Math.abs(snap - fill) > 0.02;
               return (
-                <tr key={t.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
+                <tr
+                  key={t.id}
+                  className={`border-t border-border text-sm hover:bg-black/[0.03] align-top ${
+                    isLoss ? 'bg-red-500/10' : ''
+                  }`}
+                >
                   <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap font-mono">
                     {t.closed_at ? new Date(t.closed_at).toISOString().replace('T', ' ').slice(0, 19) : '—'}
                     <div className="text-[10px] opacity-70">{formatTimeAgo(t.closed_at)}</div>
@@ -1599,7 +1652,14 @@ function TradesPanel({
                     {t.email ?? '—'}
                   </td>
                   <td className="px-4 py-2 font-mono text-xs">{shortWallet(t.wallet_address, 8)}</td>
-                  <td className="px-4 py-2 font-medium">{t.token_symbol}</td>
+                  <td className="px-4 py-2 font-medium">
+                    {t.token_symbol}
+                    {isLoss ? (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-red-400 font-semibold">
+                        LOSS
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-2">{t.direction}</td>
                   <td className="px-4 py-2">{t.leverage != null ? `${t.leverage}x` : '—'}</td>
                   <td className="px-4 py-2 font-mono text-xs">
@@ -1609,8 +1669,8 @@ function TradesPanel({
                     {t.exit_price != null ? fmtUsd(t.exit_price) : '—'}
                   </td>
                   <td
-                    className={`px-4 py-2 font-mono ${
-                      (fill ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                    className={`px-4 py-2 font-mono font-semibold ${
+                      isLoss ? 'text-red-400' : 'text-green-400'
                     }`}
                   >
                     {fill != null ? fmtUsdTrade(fill, true) : '—'}

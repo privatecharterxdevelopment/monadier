@@ -26,6 +26,10 @@ export type AdminHlStats = {
   open_upnl_total: number;
   closed_trades_24h: number;
   closed_trades_total: number;
+  /** Losing closes in last 24h (profit_loss < 0). */
+  loss_closes_24h?: number;
+  /** Sum of negative P/L in last 24h (negative number). */
+  loss_pnl_24h?: number;
   total_pnl: number;
   pnl_24h: number;
   win_rate: number;
@@ -130,7 +134,13 @@ export type AdminTradeHistoryUserStats = {
   wallet_address: string;
   email: string | null;
   closed_pnl_total: number;
+  /** Sum of profitable closes only (>0). */
+  closed_profit_total: number;
+  /** Sum of losing closes only (<0), as negative number. */
+  closed_loss_total: number;
   closed_trades_count: number;
+  closed_win_count: number;
+  closed_loss_count: number;
   open_positions_count: number;
   fees_accrued_usd: number;
   fees_paid_usd: number;
@@ -259,6 +269,8 @@ const EMPTY_ADMIN_STATS: AdminHlStats = {
   open_upnl_total: 0,
   closed_trades_24h: 0,
   closed_trades_total: 0,
+  loss_closes_24h: 0,
+  loss_pnl_24h: 0,
   total_pnl: 0,
   pnl_24h: 0,
   win_rate: 0,
@@ -404,7 +416,13 @@ function isHlBotCloseVenue(venue: string | null | undefined): boolean {
   return !venue || venue === 'hyperliquid';
 }
 
-type HlPnlAggregate = { sum: number; count: number; wins: number };
+type HlPnlAggregate = {
+  sum: number;
+  count: number;
+  wins: number;
+  lossCount: number;
+  lossSum: number;
+};
 
 /** Authoritative HL bot close P/L — paginates trade_history (matches Trades panel filter). */
 async function aggregateHlTradeHistoryPnl(sinceIso?: string): Promise<HlPnlAggregate> {
@@ -413,6 +431,8 @@ async function aggregateHlTradeHistoryPnl(sinceIso?: string): Promise<HlPnlAggre
   let sum = 0;
   let count = 0;
   let wins = 0;
+  let lossCount = 0;
+  let lossSum = 0;
 
   while (true) {
     let query = supabase
@@ -439,13 +459,18 @@ async function aggregateHlTradeHistoryPnl(sinceIso?: string): Promise<HlPnlAggre
       sum += pl;
       count += 1;
       if (pl > 0) wins += 1;
+      else if (pl < 0) {
+        lossCount += 1;
+        lossSum += pl;
+      }
     }
 
     if (data.length < pageSize) break;
     offset += pageSize;
+    if (offset > 50_000) break;
   }
 
-  return { sum, count, wins };
+  return { sum, count, wins, lossCount, lossSum };
 }
 
 function normalizeAdminStats(raw: Partial<AdminHlStats> | undefined): AdminHlStats {
@@ -462,6 +487,8 @@ function normalizeAdminStats(raw: Partial<AdminHlStats> | undefined): AdminHlSta
     open_upnl_total: num(s.open_upnl_total),
     closed_trades_24h: num(s.closed_trades_24h),
     closed_trades_total: num(s.closed_trades_total),
+    loss_closes_24h: num(s.loss_closes_24h),
+    loss_pnl_24h: num(s.loss_pnl_24h),
     total_pnl: num(s.total_pnl),
     pnl_24h: num(s.pnl_24h),
     win_rate: num(s.win_rate),
@@ -803,6 +830,8 @@ async function fetchAdminHlDashboardViaTables(): Promise<AdminHlDashboard | null
     open_upnl_total: 0,
     closed_trades_24h: pnl24h.count,
     closed_trades_total: pnlAll.count,
+    loss_closes_24h: pnl24h.lossCount,
+    loss_pnl_24h: pnl24h.lossSum,
     total_pnl: pnlAll.sum,
     pnl_24h: pnl24h.sum,
     win_rate:
@@ -1212,6 +1241,8 @@ export async function enrichAdminHlDashboard(
           open_upnl_total: openUpnl,
           closed_trades_24h: pnl24h.count,
           closed_trades_total: pnlAll.count,
+          loss_closes_24h: pnl24h.lossCount,
+          loss_pnl_24h: pnl24h.lossSum,
           total_pnl: pnlAll.sum,
           pnl_24h: pnl24h.sum,
           win_rate:
@@ -1371,6 +1402,20 @@ async function fetchAdminTradeHistoryUserStats(
     ]);
 
   const closedPnl = (tradesRes.data ?? []).reduce((sum, row) => sum + num(row.profit_loss), 0);
+  let closedProfit = 0;
+  let closedLoss = 0;
+  let winCount = 0;
+  let lossCount = 0;
+  for (const row of tradesRes.data ?? []) {
+    const p = num(row.profit_loss);
+    if (p > 0) {
+      closedProfit += p;
+      winCount += 1;
+    } else if (p < 0) {
+      closedLoss += p;
+      lossCount += 1;
+    }
+  }
   const feesAccrued = (feeAccruedRes.data ?? []).reduce(
     (sum, row) => sum + num(row.accrued_fee_usd ?? row.success_fee_usd),
     0
@@ -1382,7 +1427,11 @@ async function fetchAdminTradeHistoryUserStats(
     wallet_address: primaryWallet,
     email: profileRes.data?.email != null ? String(profileRes.data.email) : null,
     closed_pnl_total: closedPnl,
+    closed_profit_total: closedProfit,
+    closed_loss_total: closedLoss,
     closed_trades_count: tradesRes.data?.length ?? 0,
+    closed_win_count: winCount,
+    closed_loss_count: lossCount,
     open_positions_count: openRes.count ?? 0,
     fees_accrued_usd: feesAccrued,
     fees_paid_usd: feesPaid,
@@ -1539,7 +1588,11 @@ function parseAdminHlTradeHistoryPayload(
         wallet_address: String(rawStats.wallet_address ?? ''),
         email: rawStats.email != null ? String(rawStats.email) : null,
         closed_pnl_total: num(rawStats.closed_pnl_total),
+        closed_profit_total: num(rawStats.closed_profit_total),
+        closed_loss_total: num(rawStats.closed_loss_total),
         closed_trades_count: Number(rawStats.closed_trades_count) || 0,
+        closed_win_count: Number(rawStats.closed_win_count) || 0,
+        closed_loss_count: Number(rawStats.closed_loss_count) || 0,
         open_positions_count: Number(rawStats.open_positions_count) || 0,
         fees_accrued_usd: num(rawStats.fees_accrued_usd),
         fees_paid_usd: num(rawStats.fees_paid_usd),
