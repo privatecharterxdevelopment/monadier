@@ -2226,10 +2226,14 @@ export class HyperliquidTradingService {
       const markPrice = markFromPosition(entry, size, pnl);
       const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
+      const letRunAll = config.hyperliquid.letRunAll;
 
-      // Let-run coins (e.g. HYPE): no trail / TP / SL auto-close — user closes only.
-      // Also LONGs when longLetRun is on.
-      if (letRunCoin || (positionDirection === 'LONG' && config.hyperliquid.longLetRun)) {
+      // Let-run all / coin / LONG: no trail / TP / SL / range-TP auto-close — user only.
+      if (
+        letRunAll ||
+        letRunCoin ||
+        (positionDirection === 'LONG' && config.hyperliquid.longLetRun)
+      ) {
         let trailRecord = loadTrailRecord(lockKey);
         const trailCloseDeferred =
           trailRecord?.trailCloseDeferUntil != null &&
@@ -2252,12 +2256,13 @@ export class HyperliquidTradingService {
         });
         // Keep trail state for UI — never act on shouldClose.
         saveTrailRecord(lockKey, trailResult.record);
-        if (letRunCoin) {
-          logger.debug('HL let-run coin — skip auto exits', {
+        if (letRunAll || letRunCoin) {
+          logger.debug('HL let-run — skip auto exits', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             direction: positionDirection,
             pnlUsd: pnl.toFixed(4),
+            mode: letRunAll ? 'all' : 'coin',
           });
         }
         continue;

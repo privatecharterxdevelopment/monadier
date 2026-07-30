@@ -502,6 +502,12 @@ export const config = {
      */
     longLetRun: process.env.HL_LONG_LET_RUN !== 'false',
     /**
+     * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
+     * User closes manually only (exchange liq still possible). Default ON.
+     * Set HL_LET_RUN_ALL=false to restore normal exits (coin/LONG let-run still apply).
+     */
+    letRunAll: process.env.HL_LET_RUN_ALL !== 'false',
+    /**
      * Coins that must never get trail / TP / SL auto-close (any side).
      * User closes manually — “laufen lassen”. Default HYPE.
      * Override: HL_LET_RUN_COINS="HYPE,BTC"
