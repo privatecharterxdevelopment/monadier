@@ -502,6 +502,19 @@ export const config = {
      */
     longLetRun: process.env.HL_LONG_LET_RUN !== 'false',
     /**
+     * Coins that must never get trail / TP / SL auto-close (any side).
+     * User closes manually — “laufen lassen”. Default HYPE.
+     * Override: HL_LET_RUN_COINS="HYPE,BTC"
+     */
+    letRunCoins: [
+      ...new Set(
+        (process.env.HL_LET_RUN_COINS || 'HYPE')
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean)
+      ),
+    ],
+    /**
      * Hard invalidation exits — evaluated BEFORE profitOnlyExits.
      * DEFAULT OFF — enabling with a tight hard SL nukes already-red open book on deploy.
      * Set HL_INVALIDATION_EXIT=true only after hard-SL knobs are sized for live book.
