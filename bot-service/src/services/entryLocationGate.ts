@@ -220,11 +220,11 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
 
   const nearSupport =
     (supportZone != null &&
-      price <= supportZone.zoneHigh * (1 + cfg.nearLevelPct) &&
+      price <= supportZone.zoneHigh * (1 + Math.max(cfg.nearLevelPct, 0.008)) &&
       price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
-    pos <= cfg.rangeBottomBlock ||
-    distToSupPct <= cfg.nearLevelPct ||
-    price <= support * (1 + cfg.nearLevelPct);
+    pos <= Math.max(cfg.rangeBottomBlock, 0.5) ||
+    distToSupPct <= Math.max(cfg.nearLevelPct, 0.008) ||
+    price <= support * (1 + Math.max(cfg.nearLevelPct, 0.008));
 
   return {
     support,
@@ -306,6 +306,8 @@ export function evaluateEntryLocation(
     };
   }
 
+  // ── SHORT ──────────────────────────────────────────────────────────────
+  // Breakdown through the floor is the only valid "short the lows" path.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -314,8 +316,11 @@ export function evaluateEntryLocation(
     };
   }
 
-  // HARD — never short the floor.
-  if (analysis.nearSupport) {
+  // HARD — never short the floor / lower half of the S–R box.
+  // nearSupport alone misses when bot S-mid sits below the chart S↑ the user sees
+  // (ARB Open S on S↑ while pos looked "mid"). Block entire lower half.
+  const lowerHalf = Math.max(cfg.rangeBottomBlock, 0.5);
+  if (analysis.nearSupport || analysis.pricePosition <= lowerHalf) {
     const zone =
       analysis.supportZone != null
         ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
@@ -323,12 +328,12 @@ export function evaluateEntryLocation(
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — in/near support ${zone} without confirmed breakdown`,
+      reason: `SHORT blocked — at/near support / lower range ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤ ${(lowerHalf * 100).toFixed(0)}%); need R-fade or confirmed breakdown`,
     };
   }
 
-  // SHORT only as a resistance-zone trade (fade / sell the ceiling). No mid-range shorts.
-  if (analysis.nearResistance) {
+  // SHORT only as a resistance-zone trade (fade / sell the ceiling).
+  if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
         ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
@@ -359,9 +364,10 @@ export async function validateEntryLocation(opts: {
   const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
 
   if (candles1h.length < 12 || candles15.length < 12) {
+    // Fail closed — never open blind without S/R (especially SHORT into support).
     return {
-      ok: true,
-      reason: 'insufficient candle history — location check skipped',
+      ok: false,
+      reason: 'entry location blocked — insufficient candle history for S/R',
       analysis: {
         support: 0,
         resistance: 0,
