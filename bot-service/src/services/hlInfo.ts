@@ -132,25 +132,33 @@ export async function fetchHlClearinghouseState(
 
 /** USDC sitting in HL spot — on unified accounts this is the tradable perp balance too. */
 export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
-  try {
-    const res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'spotClearinghouseState',
-        user: userAddress.toLowerCase(),
-      }),
-    });
-    if (!res.ok) return 0;
-    const data = (await res.json()) as {
-      balances?: Array<{ coin?: string; total?: string }>;
-    };
-    const row = (data.balances ?? []).find((b) => String(b.coin ?? '').toUpperCase() === 'USDC');
-    const n = row?.total != null ? Number(row.total) : 0;
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  } catch {
-    return 0;
+  const user = userAddress.toLowerCase();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'spotClearinghouseState',
+          user,
+        }),
+      });
+      if (!res.ok) {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        continue;
+      }
+      const data = (await res.json()) as {
+        balances?: Array<{ coin?: string; total?: string; hold?: string }>;
+      };
+      const row = (data.balances ?? []).find((b) => String(b.coin ?? '').toUpperCase() === 'USDC');
+      const total = row?.total != null ? Number(row.total) : 0;
+      if (Number.isFinite(total) && total > 0) return total;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    } catch {
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
   }
+  return 0;
 }
 
 export type HlPerpFundingSnapshot = {
@@ -242,19 +250,34 @@ export function hlFreeMarginUsd(state: HlClearinghouseState | null): number {
   const withdrawable = hlWithdrawableUsd(state);
   const marginUsed = hlMarginUsedUsd(state);
   const derived = Math.max(0, balance - marginUsed);
-  return Math.max(0, Math.min(withdrawable, derived) - 1);
+  // Isolated positions often report withdrawable=$0 while accountValue − marginUsed
+  // is still the true free collateral. Never let wd=0 wipe derived.
+  const free = withdrawable >= 1 ? Math.min(withdrawable, derived) : derived;
+  return Math.max(0, free - 1);
 }
 
-/** Free margin for opening trades — unified accounts use spot USDC, not perp clearinghouse. */
+/**
+ * Free margin for opening trades.
+ * Unified: spot USDC is tradable collateral — subtract margin used.
+ * Never min() with clearinghouse withdrawable=$0 (isolated books false-trip
+ * "Insufficient margin — $0.00 free" while Trading balance still shows hundreds).
+ */
 export function hlTradableFreeMarginUsd(
   funding: HlPerpFundingSnapshot,
   state: HlClearinghouseState | null
 ): number {
   if (!funding.stateLoaded) return 0;
+  const marginUsed = hlMarginUsedUsd(state);
   if (funding.unifiedAccount) {
-    const marginUsed = hlMarginUsedUsd(state);
-    const derived = Math.max(0, funding.tradablePerpUsd - marginUsed);
-    return Math.max(0, Math.min(derived, funding.withdrawableUsd) - 1);
+    const equity = Math.max(
+      funding.tradablePerpUsd,
+      funding.spotUsdcUsd,
+      funding.perpUsd,
+      funding.withdrawableUsd,
+      hlAccountValueUsd(state)
+    );
+    const derived = Math.max(0, equity - marginUsed);
+    return Math.max(0, derived - 1);
   }
   return hlFreeMarginUsd(state);
 }
