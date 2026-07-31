@@ -29,6 +29,7 @@ export type HlOpenBlockGate =
   | 'scalp_align'
   | 'macro_beta'
   | 'pump_short'
+  | 'candle_wick'
   | 'mega_pair'
   | 'perp_context'
   | 'pump_sweep'

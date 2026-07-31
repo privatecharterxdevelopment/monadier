@@ -51,6 +51,7 @@ import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
+import { validateCandleWickGate } from './candleWickGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
@@ -1445,6 +1446,15 @@ export class HyperliquidTradingService {
             });
       if (!pumpShortGate.ok) {
         return rejectOpen('pump_short', pumpShortGate.reason, 'pump-short gate');
+      }
+
+      // Long-wick demand/rejection — NEVER bypass (user: candle eaten = no short into green wick).
+      const wickGate = await validateCandleWickGate({
+        coin,
+        direction: opts.direction,
+      });
+      if (!wickGate.ok) {
+        return rejectOpen('candle_wick', wickGate.reason, 'candle wick gate');
       }
 
       // Live BTC+ETH flow — stubbing this to always-ok let SHORTs open into mega pumps.
