@@ -122,6 +122,7 @@ const healthServer = http.createServer(async (req, res) => {
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
         longLetRun: config.hyperliquid.longLetRun,
         letRunAll: config.hyperliquid.letRunAll,
+        botCrossMargin: config.hyperliquid.botCrossMargin,
         invalidationExit: config.hyperliquid.invalidationExit.enabled,
         zoneFlipEnabled: config.hyperliquid.zoneFlipEnabled,
         lossCapEnforce: config.hyperliquid.lossProtection.enforceHardCap,

@@ -1187,7 +1187,7 @@ export class HyperliquidTradingService {
         const client = createAgentClient(opts.userAddress);
         await client.updateLeverage({
           asset: assetIndex,
-          isCross: false,
+          isCross: config.hyperliquid.botCrossMargin,
           leverage: effectiveLeverage,
         });
         const isLong = tradeDirection === 'LONG';
@@ -1861,9 +1861,10 @@ export class HyperliquidTradingService {
       const openReasonFull = `${openReasonDoc}\n── LLM confirm (${llmAgreed.shadow ? 'shadow' : 'enforce'}) eval=${disagreement.evaluationId} ── ${llmAgreed.verdict} → ${llmAgreed.direction}: ${llmAgreed.reason}`;
 
       const client = createAgentClient(opts.userAddress);
+      const useCross = config.hyperliquid.botCrossMargin;
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: false,
+        isCross: useCross,
         leverage: effectiveLeverage,
       });
 
@@ -2527,6 +2528,21 @@ export class HyperliquidTradingService {
       }
       // ─────────────────────────────────────────────────────────────────────
 
+      // Belt: never fire trail/TP into red (or NaN pnl) when profitOnlyExits.
+      if (
+        shouldCloseTrail &&
+        config.hyperliquid.profitOnlyExits &&
+        (!(Number.isFinite(pnl)) || pnl <= 0)
+      ) {
+        logger.warn('HL trail close skipped — red/NaN under profitOnlyExits', {
+          user: userAddress.slice(0, 10),
+          coin: pos.coin,
+          pnlUsd: Number.isFinite(pnl) ? pnl.toFixed(4) : String(pnl),
+          exitReason: trailExitReason,
+        });
+        shouldCloseTrail = false;
+      }
+
       if (shouldCloseTrail) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
@@ -2790,17 +2806,18 @@ export class HyperliquidTradingService {
       // profitOnlyExits governs the bot's AUTO exits only. A user clicking "Close"
       // must always execute immediately, red or green — never block a manual close.
       const userInitiated = isUserInitiatedClose(reason);
+      const pnlFinite = Number.isFinite(pnlUsd);
       if (
         config.hyperliquid.profitOnlyExits &&
-        pnlUsd < 0 &&
         !userInitiated &&
-        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0)
+        !mayAutoCloseInRed(reason, closeCtx?.holdMs ?? 0) &&
+        (!pnlFinite || pnlUsd < 0)
       ) {
         logger.warn('HL close rejected — never close in red', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
           reason,
-          pnlUsd: pnlUsd.toFixed(4),
+          pnlUsd: pnlFinite ? pnlUsd.toFixed(4) : String(pnlUsd),
         });
         return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
       }
