@@ -497,16 +497,16 @@ export const config = {
     profitOnlyExits: process.env.HL_PROFIT_ONLY_EXITS !== 'false',
     /**
      * LONGs: never auto-exit (no trail / TP / SL / invalidation).
-     * User closes manually. Default ON — “let LONGs run”.
-     * Set HL_LONG_LET_RUN=false to restore trail exits on LONGs.
+     * Default OFF — profit trail applies to LONGs too.
+     * Set HL_LONG_LET_RUN=true only to force-hold LONGs until manual close.
      */
-    longLetRun: process.env.HL_LONG_LET_RUN !== 'false',
+    longLetRun: process.env.HL_LONG_LET_RUN === 'true',
     /**
      * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
-     * User closes manually only (exchange liq still possible). Default ON.
-     * Set HL_LET_RUN_ALL=false to restore normal exits (coin/LONG let-run still apply).
+     * Default OFF — normal profit trail / TP exits.
+     * Set HL_LET_RUN_ALL=true only for emergency hold-all.
      */
-    letRunAll: process.env.HL_LET_RUN_ALL !== 'false',
+    letRunAll: process.env.HL_LET_RUN_ALL === 'true',
     /**
      * Coins that must never get trail / TP / SL auto-close (any side).
      * User closes manually — “laufen lassen”. Default HYPE.
