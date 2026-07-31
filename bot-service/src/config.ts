@@ -140,13 +140,12 @@ export const config = {
       ]),
     ],
     /**
-     * LONG allowlist — only these majors may open LONG.
-     * Everything else: SHORT-only (or skip). AVA → AVAX.
-     * Override via HL_LONG_ONLY_COINS="BTC,ETH,SOL,AVAX"
+     * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
+     * AVA → AVAX. Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL,AVAX,PUMP"
      */
     longOnlyCoins: [
       ...new Set(
-        (process.env.HL_LONG_ONLY_COINS || 'BTC,ETH,SOL,AVAX')
+        (process.env.HL_LONG_ONLY_COINS || 'BTC,ETH,SOL,AVAX,PUMP')
           .split(',')
           .map((s) => s.trim().toUpperCase())
           .map((s) => (s === 'AVA' ? 'AVAX' : s))

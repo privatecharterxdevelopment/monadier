@@ -130,7 +130,8 @@ export const PRIMARY_RULES: HlDirectionRules = {
   enforceHtfSr: false,
   bypassFreshPumpWhenTrusted: true,
   bypassMacroBetaWhenTrusted: false,
-  bypassPumpShortWhenTrusted: true,
+  /** Never skip — trusted MTF SHORT into a green pump is the PUMP/alt failure mode. */
+  bypassPumpShortWhenTrusted: false,
   /** Never skip S/R — trusted SHORTs still must not sell support / range bottom. */
   bypassEntryLocationWhenTrusted: false,
 };

@@ -13,16 +13,16 @@ import {
  *
  * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
  *         but NEVER skips entry_location / pump_sweep (no shorting lows).
- * LONG  = majors only: BTC/ETH/SOL/AVAX via longAllowlist (allowLongOpens=true).
- *         Memes (VVV, …) = SHORT-only. Entry: LONG at support / lower range, not at R.
+ * LONG  = allowlist BTC/ETH/SOL/AVAX/PUMP via longAllowlist (allowLongOpens=true).
+ *         Other memes (VVV, …) = SHORT-only. Entry: LONG at support / lower range, not at R.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
- * leaving mid-caps (PUMP, WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
+ * leaving mid-caps (WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
  */
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary; LONG allowlist BTC/ETH/SOL/AVAX (allowLongOpens=true). Memes SHORT-only.',
+    'SHORT-primary; LONG allowlist BTC/ETH/SOL/AVAX/PUMP (allowLongOpens=true). Other memes SHORT-only.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
@@ -41,7 +41,7 @@ export const BEAR_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
   enableLlmConfirm: false,
-  /** LONGs on — majors only via longAllowlist; memes never. */
+  /** LONGs on — allowlist via longOnlyCoins; non-listed memes never. */
   allowLongOpens: true,
   short: { ...PRIMARY_RULES },
   long: {

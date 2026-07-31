@@ -1,10 +1,10 @@
 /**
- * LONG allowlist — majors only. Memes / alts = SHORT-only forever under this gate.
+ * LONG allowlist — BTC/ETH/SOL/AVAX/PUMP. Other memes/alts = SHORT-only.
  * AVA normalizes to AVAX.
  */
 import { config } from '../config';
 
-const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'AVAX'] as const;
+const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'AVAX', 'PUMP'] as const;
 
 export function normalizeLongCoin(coin: string): string {
   const c = coin.trim().toUpperCase();
@@ -17,7 +17,7 @@ export function longAllowlistCoins(): string[] {
   return [...MAJOR_LONG_DEFAULT];
 }
 
-/** True only for BTC / ETH / SOL / AVAX (or env override). VVV etc. = false. */
+/** True for allowlisted LONG coins (default BTC/ETH/SOL/AVAX/PUMP). */
 export function isLongAllowedCoin(coin: string): boolean {
   const allow = longAllowlistCoins();
   if (allow.length === 0) return false;
@@ -26,5 +26,5 @@ export function isLongAllowedCoin(coin: string): boolean {
 
 export function longAllowlistReason(coin: string): string {
   const allow = longAllowlistCoins();
-  return `LONG blocked — ${normalizeLongCoin(coin)} not in allowlist (${allow.join(',')}); memes/alts are SHORT-only`;
+  return `LONG blocked — ${normalizeLongCoin(coin)} not in allowlist (${allow.join(',')}); other memes/alts are SHORT-only`;
 }
