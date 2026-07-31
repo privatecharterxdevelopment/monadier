@@ -97,6 +97,63 @@ function blockGreenRunShort(
   return null;
 }
 
+/** Local swing highs/lows on closed candles (pivot = 2 bars each side). */
+function swingExtremes(
+  candles: Candle[],
+  kind: 'high' | 'low',
+  pivot = 2
+): number[] {
+  const closed = candles.slice(0, -1);
+  const out: number[] = [];
+  for (let i = pivot; i < closed.length - pivot; i += 1) {
+    const c = closed[i];
+    const left = closed.slice(i - pivot, i);
+    const right = closed.slice(i + 1, i + 1 + pivot);
+    if (kind === 'high') {
+      const h = c.high;
+      if (left.every((x) => x.high <= h) && right.every((x) => x.high <= h)) out.push(h);
+    } else {
+      const l = c.low;
+      if (left.every((x) => x.low >= l) && right.every((x) => x.low >= l)) out.push(l);
+    }
+  }
+  return out;
+}
+
+/**
+ * User rule: clear higher-highs / higher-lows on 1h → no SHORT.
+ * Needs ≥2 rising swing highs (or HH + HL). Matches chart “seit Tagen nur hoch”.
+ */
+function blockHigherHighsShort(coin: string, c1h: Candle[]): PumpShortResult | null {
+  if (c1h.length < 24) return null;
+  const highs = swingExtremes(c1h, 'high', 2);
+  const lows = swingExtremes(c1h, 'low', 2);
+  if (highs.length < 2) return null;
+
+  const h1 = highs[highs.length - 2]!;
+  const h2 = highs[highs.length - 1]!;
+  const hh = h2 > h1 * 1.001;
+
+  let hl = false;
+  if (lows.length >= 2) {
+    const l1 = lows[lows.length - 2]!;
+    const l2 = lows[lows.length - 1]!;
+    hl = l2 > l1 * 1.001;
+  }
+
+  const net1h = pctChangeClosed(c1h, Math.min(24, c1h.length - 2));
+  // HH alone + net up over ~1d of 1h bars, or full HH+HL uptrend
+  if (hh && (hl || net1h > 0.5)) {
+    const reason =
+      `SHORT blocked — ${coin} 1h higher highs` +
+      (hl ? ' + higher lows' : '') +
+      ` (swings ${h1.toPrecision(4)}→${h2.toPrecision(4)}, net1h ${net1h >= 0 ? '+' : ''}${net1h.toFixed(2)}%)`;
+    logger.info('Pump-short gate blocked — higher highs', { coin, h1, h2, hl, net1h });
+    return { ok: false, reason };
+  }
+  return null;
+}
+
 export async function validateNoAltPumpShort(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
@@ -110,23 +167,23 @@ export async function validateNoAltPumpShort(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [c5m, c15m] = await Promise.all([
+    const [c5m, c15m, c1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '5m', 32),
       signalEngine.fetchCandles(symbol, '15m', 20),
+      signalEngine.fetchCandles(symbol, '1h', 48),
     ]);
 
-    // All coins (incl. BTC/ETH): never short a clear green run.
+    // All coins: never short a clear green run or 1h higher-highs structure.
     const greenBlock = blockGreenRunShort(coin, c5m, c15m);
     if (greenBlock) return greenBlock;
+    const hhBlock = blockHigherHighsShort(coin, c1h);
+    if (hhBlock) return hhBlock;
 
     if (coin === 'BTC' || coin === 'ETH') {
-      return { ok: true, reason: 'Pump-short gate — majors green-run clear; macro beta handles rest' };
+      return { ok: true, reason: 'Pump-short gate — majors green/HH clear; macro beta handles rest' };
     }
 
-    const [signal, c1h] = await Promise.all([
-      signalEngine.generateSignal(symbol, ['1m', '5m', '15m', '1h']),
-      signalEngine.fetchCandles(symbol, '1h', 8),
-    ]);
+    const signal = await signalEngine.generateSignal(symbol, ['1m', '5m', '15m', '1h']);
 
     const live5m = pctChangeLive(c5m, 1);
     const live15m = pctChangeLive(c15m, 1);
