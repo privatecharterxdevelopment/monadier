@@ -4,7 +4,7 @@
  */
 import { config } from '../config';
 
-const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'AVAX', 'PUMP'] as const;
+const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'AVAX'] as const;
 
 export function normalizeLongCoin(coin: string): string {
   const c = coin.trim().toUpperCase();
