@@ -506,10 +506,10 @@ export const config = {
     longLetRun: process.env.HL_LONG_LET_RUN === 'true',
     /**
      * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
-     * Default ON — hold until manual close or exchange liquidation (“margin gone”).
-     * Set HL_LET_RUN_ALL=false only to restore profit-trail auto exits.
+     * Default OFF — profit trail / TP exits active.
+     * Set HL_LET_RUN_ALL=true only for emergency hold-all (no auto exits).
      */
-    letRunAll: process.env.HL_LET_RUN_ALL !== 'false',
+    letRunAll: process.env.HL_LET_RUN_ALL === 'true',
     /**
      * Bot opens use HL cross (floating) margin so free USDC backs the book —
      * isolated was cutting losers while spot cash sat unused.
