@@ -28,7 +28,6 @@ import {
   hlFreeMarginUsd,
   hlOpenPerpCoins,
   hlIsMeaningfulPerpPosition,
-  hlOpenPerpSides,
   hlResidualDustPositions,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
