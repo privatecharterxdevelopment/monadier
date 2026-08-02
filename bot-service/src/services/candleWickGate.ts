@@ -42,8 +42,8 @@ export function isBullishLongLowerWick(c: Candle): boolean {
   const lowerFrac = w.lower / w.range;
   const bodyFrac = w.body / w.range;
   const closePos = (c.close - c.low) / w.range;
-  // Lower wick dominates; small body; close in upper half of range.
-  return lowerFrac >= 0.5 && bodyFrac <= 0.45 && closePos >= 0.55;
+  // Stricter: lower wick must dominate (≥60%), tiny body.
+  return lowerFrac >= 0.6 && bodyFrac <= 0.35 && closePos >= 0.6;
 }
 
 /** Bearish long upper wick — pump rejected, sellers in control. */
@@ -53,7 +53,7 @@ export function isBearishLongUpperWick(c: Candle): boolean {
   const upperFrac = w.upper / w.range;
   const bodyFrac = w.body / w.range;
   const closePos = (c.close - c.low) / w.range;
-  return upperFrac >= 0.5 && bodyFrac <= 0.45 && closePos <= 0.45;
+  return upperFrac >= 0.6 && bodyFrac <= 0.35 && closePos <= 0.4;
 }
 
 /**
@@ -65,10 +65,10 @@ export function isLiveBullishAbsorption(c: Candle): boolean {
   if (!w) return false;
   const lowerFrac = w.lower / w.range;
   const closePos = (c.close - c.low) / w.range;
-  return (w.bullish || closePos >= 0.6) && lowerFrac >= 0.4 && closePos >= 0.6;
+  return w.bullish && lowerFrac >= 0.55 && closePos >= 0.65;
 }
 
-function recentBullishDemand(candles: Candle[], lookbackClosed = 3): {
+function recentBullishDemand(candles: Candle[], lookbackClosed = 2): {
   hit: boolean;
   detail: string;
 } {
@@ -77,7 +77,7 @@ function recentBullishDemand(candles: Candle[], lookbackClosed = 3): {
   const closed = candles.slice(0, -1).slice(-lookbackClosed);
 
   if (isLiveBullishAbsorption(forming)) {
-    return { hit: true, detail: 'live 1h/15m absorption (long lower wick, close off lows)' };
+    return { hit: true, detail: 'live absorption (long lower wick, close off lows)' };
   }
   for (let i = closed.length - 1; i >= 0; i -= 1) {
     const c = closed[i]!;
@@ -87,18 +87,6 @@ function recentBullishDemand(candles: Candle[], lookbackClosed = 3): {
         detail: `closed long-lower-wick demand candle (${closed.length - i} bar(s) ago)`,
       };
     }
-  }
-  // Two+ of last 3 closed are green with meaningful lower wick (≥35%)
-  let demandish = 0;
-  for (const c of closed) {
-    const w = wickParts(c);
-    if (!w) continue;
-    if (w.bullish && w.lower / w.range >= 0.35 && (c.close - c.low) / w.range >= 0.55) {
-      demandish += 1;
-    }
-  }
-  if (demandish >= 2) {
-    return { hit: true, detail: `${demandish}/${closed.length} recent green demand wicks` };
   }
   return { hit: false, detail: '' };
 }
@@ -139,38 +127,26 @@ export async function validateCandleWickGate(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [c15m, c1h] = await Promise.all([
-      signalEngine.fetchCandles(symbol, '15m', 16),
+    const [c1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '1h', 16),
     ]);
 
     if (opts.direction === 'SHORT') {
-      const h1 = recentBullishDemand(c1h, 3);
+      // 1h only — 15m was blocking almost every short on micro wicks.
+      const h1 = recentBullishDemand(c1h, 2);
       if (h1.hit) {
         const reason = `SHORT blocked — ${coin} bullish long-wick demand on 1h (${h1.detail}) — candle was bought / eaten`;
         logger.info('Candle wick gate blocked SHORT', { coin, tf: '1h', detail: h1.detail });
         return { ok: false, reason };
       }
-      const m15 = recentBullishDemand(c15m, 3);
-      if (m15.hit) {
-        const reason = `SHORT blocked — ${coin} bullish long-wick demand on 15m (${m15.detail}) — no short into absorption`;
-        logger.info('Candle wick gate blocked SHORT', { coin, tf: '15m', detail: m15.detail });
-        return { ok: false, reason };
-      }
       return { ok: true, reason: `Candle wick OK SHORT ${coin} — no long-lower-wick demand` };
     }
 
-    // LONG: block into long upper wick rejection
-    const h1 = recentBearishSupply(c1h, 3);
+    // LONG: block into long upper wick rejection (1h)
+    const h1 = recentBearishSupply(c1h, 2);
     if (h1.hit) {
       const reason = `LONG blocked — ${coin} bearish long-wick rejection on 1h (${h1.detail})`;
       logger.info('Candle wick gate blocked LONG', { coin, tf: '1h', detail: h1.detail });
-      return { ok: false, reason };
-    }
-    const m15 = recentBearishSupply(c15m, 3);
-    if (m15.hit) {
-      const reason = `LONG blocked — ${coin} bearish long-wick rejection on 15m (${m15.detail})`;
-      logger.info('Candle wick gate blocked LONG', { coin, tf: '15m', detail: m15.detail });
       return { ok: false, reason };
     }
     return { ok: true, reason: `Candle wick OK LONG ${coin} — no long-upper-wick rejection` };

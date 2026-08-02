@@ -829,29 +829,11 @@ export class HyperliquidTradingService {
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
-      const sides = hlOpenPerpSides(stateRef);
-      const directionOk = (d: 'LONG' | 'SHORT') => {
-        if (d === 'LONG' && sides.shorts.length > 0) return false;
-        if (d === 'SHORT' && sides.longs.length > 0) return false;
-        return true;
-      };
       const signalsForBook = signals.filter((s) => {
-        if (!directionOk(s.direction)) return false;
         if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
         return true;
       });
       if (signalsForBook.length === 0) {
-        if (sides.longs.length && sides.shorts.length === 0) {
-          logger.info('HL open skip: book is LONG-only — no SHORT candidates / mixed blocked', {
-            user: userAddress.slice(0, 10),
-            longs: sides.longs,
-          });
-        } else if (sides.shorts.length && sides.longs.length === 0) {
-          logger.info('HL open skip: book is SHORT-only — no LONG candidates / mixed blocked', {
-            user: userAddress.slice(0, 10),
-            shorts: sides.shorts,
-          });
-        }
         break;
       }
 
@@ -1119,26 +1101,6 @@ export class HyperliquidTradingService {
       // LONG only BTC/ETH/SOL/AVAX — VVV and other memes are SHORT-only.
       if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
-      }
-
-      // Never run a mixed book (AVAX LONG + HYPE SHORT = bet both ways on crypto beta).
-      {
-        const liveState = await fetchHlClearinghouseState(opts.userAddress);
-        const sides = hlOpenPerpSides(liveState);
-        if (opts.direction === 'LONG' && sides.shorts.length > 0) {
-          return rejectOpen(
-            'book_direction',
-            `LONG blocked — book already has SHORT (${sides.shorts.join(',')}); no mixed directions`,
-            'no mixed LONG+SHORT'
-          );
-        }
-        if (opts.direction === 'SHORT' && sides.longs.length > 0) {
-          return rejectOpen(
-            'book_direction',
-            `SHORT blocked — book already has LONG (${sides.longs.join(',')}); no mixed directions`,
-            'no mixed LONG+SHORT'
-          );
-        }
       }
 
       const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);

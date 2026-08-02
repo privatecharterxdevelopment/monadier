@@ -36,8 +36,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
   preOpenMinVolumeRatio: 0.85,
   /** 0 = no rank cap — let every liquid pair through. */
   maxVolumeRank: 0,
-  /** Shitcoin filter — ~top liquid mid-caps; anti-starvation clamp keeps ≥40 tradable. */
-  minDayVolumeUsd: 5_000_000,
+  /** Shitcoin filter — liquid mid-caps; was $5M and starved opens. */
+  minDayVolumeUsd: 1_000_000,
   useScalpAlignment: true,
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
