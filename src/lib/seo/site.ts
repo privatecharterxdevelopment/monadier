@@ -23,12 +23,13 @@ export const SITE_ORIGIN = BRAND_SITE_URL;
 
 export const SITE_NAME = BRAND_NAME;
 
-export function ogImageUrl(path = '/og-image.png'): string {
+export function ogImageUrl(path = '/og-image-v2.png'): string {
   return `${getSiteOrigin()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-/** Build-time absolute OG image for index.html parity / helmet fallbacks */
-export const OG_IMAGE = `${BRAND_SITE_URL}/og-image.png`;
+/** Build-time absolute OG image for index.html parity / helmet fallbacks.
+ *  v2 filename busts WhatsApp/Telegram/iMessage caches of the old Monadier art. */
+export const OG_IMAGE = `${BRAND_SITE_URL}/og-image-v2.png`;
 
 export { SUPPORT_EMAIL };
 
