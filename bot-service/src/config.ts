@@ -506,10 +506,10 @@ export const config = {
     longLetRun: process.env.HL_LONG_LET_RUN === 'true',
     /**
      * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
-     * Default OFF — profit trail / TP exits active.
-     * Set HL_LET_RUN_ALL=true only for emergency hold-all (no auto exits).
+     * Default ON — hold until manual close or exchange liq (user: “einfach laufen”).
+     * Set HL_LET_RUN_ALL=false to re-enable profit trail / TP exits.
      */
-    letRunAll: process.env.HL_LET_RUN_ALL === 'true',
+    letRunAll: process.env.HL_LET_RUN_ALL !== 'false',
     /**
      * Bot opens use HL cross (floating) margin so free USDC backs the book —
      * isolated was cutting losers while spot cash sat unused.
@@ -518,12 +518,12 @@ export const config = {
     botCrossMargin: process.env.HL_BOT_CROSS_MARGIN !== 'false',
     /**
      * Coins that must never get trail / TP / SL auto-close (any side).
-     * User closes manually — “laufen lassen”. Default HYPE.
+     * User closes manually — “laufen lassen”. Default HYPE + BTC.
      * Override: HL_LET_RUN_COINS="HYPE,BTC"
      */
     letRunCoins: [
       ...new Set(
-        (process.env.HL_LET_RUN_COINS || 'HYPE')
+        (process.env.HL_LET_RUN_COINS || 'HYPE,BTC')
           .split(',')
           .map((s) => s.trim().toUpperCase())
           .filter(Boolean)
