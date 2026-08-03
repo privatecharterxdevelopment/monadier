@@ -20,7 +20,7 @@ const PRODUCT_CARD_META = [
 
 const CAROUSEL_AUTO_MS = 5200;
 const TITLE_ROTATE_MS = 3200;
-const ROTATE_FALLBACK = ['passively', 'today', 'tomorrow', 'whenever'] as const;
+const ROTATE_FALLBACK = ['automatically', 'today', 'tomorrow', 'whenever'] as const;
 
 function measureCarouselTravel(lane: HTMLElement, track: HTMLElement): number {
   const cards = track.querySelectorAll<HTMLElement>('.landing-gmx-product-carousel-card');

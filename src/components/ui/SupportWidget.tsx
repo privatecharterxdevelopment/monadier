@@ -23,7 +23,7 @@ const SupportWidget: React.FC = () => {
                 Ready to bot trade?
               </h3>
               <p className="text-secondary text-sm">
-                Start earning passive income today
+                Start trading with HyperGain
               </p>
             </div>
 

@@ -68,9 +68,9 @@
     },
     "carousel": {
       "titleStart": "Start",
-      "titleEarn": "earning",
+      "titleEarn": "trading",
       "rotateWords": [
-        "passively",
+        "automatically",
         "today",
         "tomorrow",
         "whenever"
@@ -98,7 +98,7 @@
     "sleepEarnings": {
       "appName": "HyperGain",
       "title": "AI agent that trades for you",
-      "description": "Markets never sleep — and your edge shouldn't either. HyperGain is built on one belief: discipline beats emotion, patience beats noise, and capital should compound while you rest.",
+      "description": "Markets never sleep — and neither does the bot while it is enabled. HyperGain automates execution on your Hyperliquid account. Discipline and risk limits are yours to set; returns are not guaranteed.",
       "notificationTitle": "{{pair}} position closed in profit",
       "amount": "+${{amount}}",
       "minutesAgo_one": "{{count}}m ago",

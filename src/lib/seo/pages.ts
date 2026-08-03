@@ -15,7 +15,7 @@ export type PageSeo = {
 };
 
 const BOT_KEYWORDS =
-  'hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, passive income bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial trading bot';
+  'hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial trading bot';
 
 export const PAGE_SEO: Record<string, PageSeo> = {
   '/': {

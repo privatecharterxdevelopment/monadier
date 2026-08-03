@@ -22,7 +22,7 @@ const MarketingBotPromo: React.FC<Props> = ({
       <h2 className="mkt-bot-promo-title">Hyperliquid Trading Bot</h2>
       <p className="mkt-bot-promo-text">
         Full auto 24/7 execution across 200+ perpetual markets — non-custodial, no subscription,
-        passive income automation on Hyperliquid.
+        full-auto Hyperliquid automation — non-custodial, no guaranteed returns.
       </p>
       <Link to="/trading-bot" className="mkt-bot-promo-link">
         Explore the trading bot

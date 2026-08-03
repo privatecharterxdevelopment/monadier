@@ -67,9 +67,9 @@
     },
     "carousel": {
       "titleStart": "开始",
-      "titleEarn": "赚取",
+      "titleEarn": "交易",
       "rotateWords": [
-        "被动",
+        "自动",
         "今天",
         "明天",
         "随时"

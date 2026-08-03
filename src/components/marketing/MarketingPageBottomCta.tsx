@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { goToOpenApp } from '../../lib/appUrls';
 
 export const MARKETING_PAGE_BOTTOM_DISCLAIMER =
-  'This is not financial advice. Crypto and leveraged trading carry substantial risk of loss. Passive income automation does not guarantee profits.';
+  'This is not financial advice. Crypto and leveraged trading carry substantial risk of loss. Automation does not guarantee profits.';
 
 const MarketingPageBottomCta: React.FC = () => (
   <section className="landing-gmx-gutter landing-bot-page-cta-section">

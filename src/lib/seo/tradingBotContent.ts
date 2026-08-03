@@ -10,7 +10,7 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
     a: 'HyperGain is a full auto trading bot for Hyperliquid perpetuals. You deposit USDC on your own Hyperliquid account, approve the HyperGain agent once, and the bot scans 200+ HL markets 24/7 to open and close trades automatically. This is software automation — not a promise of profit.',
   },
   {
-    q: 'Is this a passive income trading bot?',
+    q: 'Does the bot run while I am offline?',
     a: 'The bot can run 24/7 on HyperGain servers while you are offline, but crypto trading is not income and returns are not guaranteed. It automates execution; profits and losses depend on markets, settings, and risk. Only use capital you can afford to lose. See Terms of Service — no promised or guaranteed returns.',
   },
   {

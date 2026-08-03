@@ -26,7 +26,7 @@ const AboutPage: React.FC = () => {
             <MarketingPageHero
               eyebrow="Company"
               title={`About ${BRAND_NAME}`}
-              lead={`We help people around the world generate passive income — non-custodial Hyperliquid automation you control from your own wallet.`}
+              lead={`Non-custodial Hyperliquid automation you control from your own wallet — software tools only, no promised returns.`}
               sub="Built in Zug. Simple to run. Designed so the bot works while you live your life."
               aside={<MktTeamVisual />}
             />
@@ -107,7 +107,7 @@ const AboutPage: React.FC = () => {
                     <p className="mkt-about-team-role">To be announced · We&rsquo;re hiring</p>
                     <p className="mkt-about-team-bio">
                       Additional team members will be introduced over time. If you want to help
-                      more people earn passively through Hyperliquid automation — and you like
+                      more people ship non-custodial Hyperliquid automation — and you like
                       shipping with a small team in Zug — get in touch.
                     </p>
                     <a href={APPLY_MAILTO} className="mkt-cta-primary mkt-about-team-apply">
@@ -130,9 +130,9 @@ const AboutPage: React.FC = () => {
             Philosophy
           </h2>
           <p className="mkt-about-philosophy-text">
-            Passive income should be accessible globally — not locked behind a trading desk. You
-            stay in control of your wallet; we provide the automation. Markets move fast and
-            losses are real; only trade what you can afford to lose.
+            Automation should be accessible globally — not locked behind a trading desk. You
+            stay in control of your wallet; we provide the software. Markets move fast and
+            losses are real; only trade what you can afford to lose. No guaranteed returns.
           </p>
         </div>
       </section>

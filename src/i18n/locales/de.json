@@ -68,9 +68,9 @@
     },
     "carousel": {
       "titleStart": "Starte",
-      "titleEarn": "Verdienen",
+      "titleEarn": "Handeln",
       "rotateWords": [
-        "passiv",
+        "automatisch",
         "heute",
         "morgen",
         "wann immer"
@@ -98,7 +98,7 @@
     "sleepEarnings": {
       "appName": "HyperGain",
       "title": "KI-Agent, der für dich tradet",
-      "description": "Märkte schlafen nie — und dein Edge sollte es auch nicht. HyperGain folgt einer klaren Philosophie: Disziplin schlägt Emotion, Geduld schlägt Lärm, und Kapital soll wachsen, während du ruhest.",
+      "description": "Märkte schlafen nie — und der Bot auch nicht, solange er aktiv ist. HyperGain automatisiert die Ausführung auf deinem Hyperliquid-Konto. Risiko-Limits setzt du; Renditen sind nicht garantiert.",
       "notificationTitle": "{{pair}}-Trade mit Gewinn geschlossen",
       "amount": "+${{amount}}",
       "minutesAgo_one": "vor {{count}} Min.",
