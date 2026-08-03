@@ -14,16 +14,16 @@ import {
  * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
  *         but NEVER skips entry_location / pump_sweep (no shorting lows).
  * LONG  = allowlist BTC/ETH/SOL/AVAX via longAllowlist (allowLongOpens=true).
- *         PUMP/VVV hard-excluded. Other memes SHORT-only if not excluded.
+ *         PUMP/VVV/WLD hard-excluded. Other memes SHORT-only if not excluded.
  *         Entry: LONG at support / lower range, not at R.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
- * leaving mid-caps (WLD, …) tradable — $250M was BTC/ETH-only and starved opens.
+ * leaving mid-caps tradable — $250M was BTC/ETH-only and starved opens.
  */
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary; LONG allowlist BTC/ETH/SOL/AVAX. PUMP/VVV hard-excluded.',
+    'SHORT-primary; LONG allowlist BTC/ETH/SOL/AVAX. PUMP/VVV/WLD hard-excluded.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',

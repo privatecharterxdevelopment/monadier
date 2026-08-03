@@ -43,9 +43,7 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'SOL',
   'LIT',
   'XRP',
-  'WLD',
   'NEAR',
-  'PUMP',
   'AAVE',
   'FARTCOIN',
   'ARB',
@@ -79,9 +77,16 @@ const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);
 /**
  * Platform hard-delist — bot never scans/opens; markets ticker / pair picker hide them.
  * Open positions for these still show so the user can Close.
- * Keep in sync with bot-service hard bans (ZEC always + HL_EXCLUDED_COINS).
+ * Keep in sync with bot-service `excludedCoins` hard bans.
  */
-export const BOT_EXCLUDED_HL_COINS = new Set(['ZEC', 'CRV', 'CASHCAT']);
+export const BOT_EXCLUDED_HL_COINS = new Set([
+  'ZEC',
+  'CRV',
+  'CASHCAT',
+  'PUMP',
+  'VVV',
+  'WLD',
+]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
   return BOT_EXCLUDED_HL_COINS.has(normalizeHlPerpCoin(coin));
@@ -97,7 +102,14 @@ export function isHiddenFromBotUi(coin: string): boolean {
   if (BOT_EXCLUDED_HL_COINS.has(key)) return true;
   // Catch hyphen/space variants like "CASH CAT"
   const compact = key.replace(/[^A-Z0-9]/g, '');
-  return compact === 'CASHCAT' || compact === 'CRV' || compact === 'ZEC';
+  return (
+    compact === 'CASHCAT' ||
+    compact === 'CRV' ||
+    compact === 'ZEC' ||
+    compact === 'PUMP' ||
+    compact === 'VVV' ||
+    compact === 'WLD'
+  );
 }
 
 /** Bot-only: coin must be in live allowlist (or fallback) and not hard-excluded. */
