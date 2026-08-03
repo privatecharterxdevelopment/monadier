@@ -4,8 +4,6 @@
 -- 2) handle_new_user can throw on bad username metadata and abort profile creation
 -- 3) legacy users predating the trigger never got a backfill
 
-GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -22,6 +20,7 @@ BEGIN
     NULLIF(trim(NEW.raw_user_meta_data->>'name'), ''),
     ''
   );
+
   safe_country := COALESCE(NULLIF(trim(NEW.raw_user_meta_data->>'country'), ''), '');
 
   meta_username := NULLIF(trim(COALESCE(NEW.raw_user_meta_data->>'username', '')), '');
@@ -30,19 +29,22 @@ BEGIN
       meta_username := public.normalize_username(meta_username);
     EXCEPTION
       WHEN OTHERS THEN
-        meta_username := NULL; -- never block signup on bad username meta
+        meta_username := NULL;
     END;
   END IF;
 
   BEGIN
-    INSERT INTO public.profiles (id, email, full_name, country, username, onboarding_completed)
+    INSERT INTO public.profiles (
+      id, email, full_name, country, username, onboarding_completed, updated_at
+    )
     VALUES (
       NEW.id,
       NEW.email,
       safe_full_name,
       safe_country,
       meta_username,
-      FALSE
+      FALSE,
+      NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
       email = COALESCE(EXCLUDED.email, profiles.email),
@@ -52,11 +54,16 @@ BEGIN
       updated_at = NOW();
   EXCEPTION
     WHEN unique_violation THEN
-      -- username race: insert without username
-      INSERT INTO public.profiles (id, email, full_name, country, username, onboarding_completed)
-      VALUES (NEW.id, NEW.email, safe_full_name, safe_country, NULL, FALSE)
+      INSERT INTO public.profiles (
+        id, email, full_name, country, username, onboarding_completed, updated_at
+      )
+      VALUES (
+        NEW.id, NEW.email, safe_full_name, safe_country, NULL, FALSE, NOW()
+      )
       ON CONFLICT (id) DO UPDATE SET
         email = COALESCE(EXCLUDED.email, profiles.email),
+        full_name = COALESCE(NULLIF(profiles.full_name, ''), EXCLUDED.full_name),
+        country = COALESCE(NULLIF(profiles.country, ''), EXCLUDED.country),
         updated_at = NOW();
     WHEN OTHERS THEN
       RAISE WARNING 'handle_new_user profile insert failed for %: %', NEW.id, SQLERRM;
@@ -99,13 +106,24 @@ DECLARE
   u_email TEXT;
   u_meta JSONB;
   meta_username TEXT;
+  safe_full_name TEXT;
+  safe_country TEXT;
 BEGIN
   IF uid IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
   SELECT email, raw_user_meta_data INTO u_email, u_meta
-  FROM auth.users WHERE id = uid;
+  FROM auth.users
+  WHERE id = uid;
+
+  safe_full_name := COALESCE(
+    NULLIF(trim(u_meta->>'full_name'), ''),
+    NULLIF(trim(u_meta->>'name'), ''),
+    ''
+  );
+
+  safe_country := COALESCE(NULLIF(trim(u_meta->>'country'), ''), '');
 
   meta_username := NULLIF(trim(COALESCE(u_meta->>'username', '')), '');
   IF meta_username IS NOT NULL THEN
@@ -117,19 +135,23 @@ BEGIN
     END;
   END IF;
 
-  INSERT INTO public.profiles (id, email, full_name, country, username, onboarding_completed)
+  INSERT INTO public.profiles (
+    id, email, full_name, country, username, onboarding_completed, updated_at
+  )
   VALUES (
     uid,
     u_email,
-    COALESCE(NULLIF(trim(u_meta->>'full_name'), ''), NULLIF(trim(u_meta->>'name'), ''), ''),
-    COALESCE(NULLIF(trim(u_meta->>'country'), ''), ''),
+    safe_full_name,
+    safe_country,
     meta_username,
-    FALSE
+    FALSE,
+    NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
     email = COALESCE(EXCLUDED.email, profiles.email),
     full_name = COALESCE(NULLIF(profiles.full_name, ''), EXCLUDED.full_name),
     country = COALESCE(NULLIF(profiles.country, ''), EXCLUDED.country),
+    username = COALESCE(profiles.username, EXCLUDED.username),
     updated_at = NOW();
 
   INSERT INTO public.subscriptions (
