@@ -150,7 +150,7 @@ export const MktFeeVisual: React.FC = () => (
     <div className="mkt-illus-fee-bar">
       <span className="mkt-illus-fee-seg mkt-illus-fee-seg--you">100%</span>
     </div>
-    <p className="mkt-illus-fee-caption">No Monadier success fee</p>
+    <p className="mkt-illus-fee-caption">Fees as disclosed</p>
   </div>
 );
 

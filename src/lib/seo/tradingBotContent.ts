@@ -1,15 +1,17 @@
-/** SEO-focused content for /trading-bot — English only (marketing). */
+/** SEO-focused content for /trading-bot — English only (marketing).
+ * Must stay consistent with Terms of Service (no guaranteed returns; Platform Success Fee).
+ */
 
 export type TradingBotFaq = { q: string; a: string };
 
 export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   {
     q: 'What is the HyperGain Hyperliquid trading bot?',
-    a: 'HyperGain is a full auto trading bot for Hyperliquid perpetuals. You deposit USDC on your own Hyperliquid account, approve the HyperGain agent once, and the bot scans 200+ HL markets 24/7 to open and close trades automatically.',
+    a: 'HyperGain is a full auto trading bot for Hyperliquid perpetuals. You deposit USDC on your own Hyperliquid account, approve the HyperGain agent once, and the bot scans 200+ HL markets 24/7 to open and close trades automatically. This is software automation — not a promise of profit.',
   },
   {
     q: 'Is this a passive income trading bot?',
-    a: 'The bot runs 24/7 on HyperGain servers while you are offline — but crypto trading is not guaranteed income. It automates execution; profits and losses depend on market conditions. Only use capital you can afford to lose.',
+    a: 'The bot can run 24/7 on HyperGain servers while you are offline, but crypto trading is not income and returns are not guaranteed. It automates execution; profits and losses depend on markets, settings, and risk. Only use capital you can afford to lose. See Terms of Service — no promised or guaranteed returns.',
   },
   {
     q: 'Is the Hyperliquid bot non-custodial?',
@@ -21,7 +23,7 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   },
   {
     q: 'Can the trading bot run 24/7?',
-    a: 'Yes. Once you press Start bot and your HL account is funded, the bot scans all Hyperliquid perpetuals around the clock. You do not need to keep your browser or computer open.',
+    a: 'Yes. Once you press Start bot and your HL account is funded, the bot can scan Hyperliquid perpetuals around the clock. You do not need to keep your browser open. Uptime and fills are not guaranteed (outages, rejections, and slippage can occur).',
   },
   {
     q: 'Which markets does the full auto bot trade?',
@@ -29,30 +31,30 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   },
   {
     q: 'What fees does the Hyperliquid trading bot charge?',
-    a: 'No platform subscription. HyperGain covers Arbitrum gas for bot trades. No HyperGain success fee on closes — standard Hyperliquid trading and funding fees apply.',
+    a: 'No monthly platform subscription. Standard Hyperliquid trading and funding fees apply on every trade. HyperGain may charge a Platform Success Fee on qualifying profitable closes as disclosed in the Terms of Service and in-app (currently up to 10% when enabled). Arbitrum gas for bot trades may be covered by HyperGain when that feature is active.',
   },
   {
     q: 'Can I stop the bot or close trades manually?',
-    a: 'Yes. Press Stop bot to halt new entries. Open positions remain until take profit, stop loss, or manual close in the HyperGain terminal.',
+    a: 'Yes. Press Stop bot to halt new entries. Open positions remain until your configured exits, exchange liquidation, or manual close in the HyperGain terminal. Stop-loss and take-profit fills are not guaranteed (see Terms).',
   },
   {
     q: 'Do I need trading experience to use the bot?',
-    a: 'No PhD required — connect wallet, fund HL, approve agent, set risk parameters, and start. Leverage is optional and suited to experienced traders. Crypto perpetuals carry substantial risk.',
+    a: 'You can connect a wallet, fund HL, approve the agent, set risk parameters, and start — but leveraged crypto perpetuals carry substantial risk of loss. This is not investment advice. Only trade if it is lawful where you live and only with capital you can afford to lose.',
   },
   {
     q: 'How is HyperGain different from manual Hyperliquid trading?',
-    a: 'HyperGain adds full auto execution, multi-timeframe signal scanning, dynamic trailing stops, and 24/7 monitoring in one terminal — while your funds stay non-custodial on Hyperliquid.',
+    a: 'HyperGain adds optional full-auto execution, multi-timeframe scanning, trailing exits when enabled, and 24/7 monitoring in one terminal — while your funds stay non-custodial on Hyperliquid. Automation does not remove market risk.',
   },
 ];
 
 export const TRADING_BOT_BENEFITS = [
   {
     title: 'Full auto 24/7',
-    text: 'The Hyperliquid trading bot scans every listed perp around the clock — no manual chart watching required.',
+    text: 'The Hyperliquid trading bot can scan listed perps around the clock — no manual chart watching required while it is enabled.',
   },
   {
-    title: 'Passive automation',
-    text: 'Set your risk once, start the bot, and let server-side automation handle entries and exits while you sleep.',
+    title: 'Hands-off automation',
+    text: 'Set your risk once, start the bot, and let server-side automation handle entries and exits while you are offline. Results are not guaranteed.',
   },
   {
     title: 'Non-custodial',
@@ -63,12 +65,12 @@ export const TRADING_BOT_BENEFITS = [
     text: 'Not limited to BTC or ETH — the bot ranks the full Hyperliquid perpetual universe each cycle.',
   },
   {
-    title: 'No subscription',
-    text: 'No monthly platform fee and no HyperGain success fee on bot closes. Standard HL trading costs apply.',
+    title: 'Fees as disclosed',
+    text: 'No monthly subscription. HL trading/funding fees always apply. A Platform Success Fee may accrue on profitable closes per the Terms and in-app disclosure.',
   },
   {
     title: 'You stay in control',
-    text: 'Start, stop, adjust TP/SL and leverage, close positions manually, or withdraw HL funds anytime.',
+    text: 'Start, stop, adjust risk and leverage, close positions manually, or withdraw HL funds anytime (wallet signature required for withdrawals).',
   },
 ] as const;
 
@@ -85,8 +87,8 @@ export const TRADING_BOT_CAPABILITIES = [
     icon: 'shield' as const,
   },
   {
-    title: 'Trails profit 24/7',
-    text: 'ATR-based trailing lets winners run while the bot cuts losers — server-side, even when your phone is locked.',
+    title: 'Trails when enabled',
+    text: 'ATR-based trailing can manage winners when profit-trail exits are on — fills and protection from liquidation are not guaranteed (Terms §6).',
     icon: 'trend' as const,
   },
 ] as const;
@@ -99,27 +101,27 @@ export const TRADING_BOT_WALLET_BANNER = {
 export const TRADING_BOT_RISK_BANNER = {
   eyebrow: 'Risk management',
   title: 'You set the guardrails',
-  desc: 'Risk % controls margin per trade — not leverage. Cap LVRG, limit concurrent positions, and preview illustrative P/L before you press Start bot.',
+  desc: 'Risk % controls margin per trade — not leverage. Cap LVRG, limit concurrent positions, and preview illustrative P/L before you press Start bot. Illustrative only — not a profit forecast.',
 } as const;
 
 export const BOT_AUDIENCE_VIDEO_BANNER = {
   videoSrc: '/videos/6667321-uhd_4096_2160_25fps.mp4',
   lineOne: 'Focus on what matters',
-  lineTwo: 'with a bot you can trust',
+  lineTwo: 'with a bot you control',
 } as const;
 
 export const BOT_PAGE_HERO = {
   title: 'Trading bot',
   rotateLines: ['200+ markets', 'runs 24/7', 'trails profits'],
   footer: 'on Hyperliquid',
-  tagline: 'A bot built for passive income — transparent performance on-chain.',
-  lead: 'Approve once, fund HL USDC, and let the agent scan every perpetual while you are offline.',
+  tagline: 'Hands-off Hyperliquid automation — on-chain positions, no guaranteed returns.',
+  lead: 'Approve once, fund HL USDC, and let the agent scan perpetuals while you are offline. You bear every trade’s risk.',
 } as const;
 
 export const BOT_PAGE_LEADERBOARD = {
   eyebrow: 'On-chain proof',
   title: 'Leaderboard',
-  lead: 'Real Hyperliquid closes from bot wallets — wallet labels only, full addresses on HypurrScan.',
+  lead: 'Real Hyperliquid closes from bot wallets — wallet labels only, full addresses on HypurrScan. Past results do not predict future performance.',
 } as const;
 
 export const TRADING_BOT_FEATURES = [
@@ -129,7 +131,7 @@ export const TRADING_BOT_FEATURES = [
   },
   {
     title: 'Dynamic trailing stops',
-    text: 'ATR-based trailing lets winners run while profits ratchet up — exits on price cross, not fixed USD floors.',
+    text: 'When enabled, ATR-based trailing can ratchet wins — exit fills are not guaranteed under volatility or outages.',
   },
   {
     title: 'Confidence scoring',
@@ -145,6 +147,6 @@ export const TRADING_BOT_FEATURES = [
   },
   {
     title: 'Gas covered',
-    text: 'Network gas on Arbitrum for automated bot trades is paid by HyperGain — not billed per trade.',
+    text: 'Network gas on Arbitrum for automated bot trades may be paid by HyperGain when that feature is active — not a fee waiver on HL trading costs.',
   },
 ] as const;

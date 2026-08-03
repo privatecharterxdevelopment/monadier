@@ -67,15 +67,16 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD',
-      description: 'No platform subscription; no Monadier success fee on closes',
+      description:
+        'No monthly subscription; Hyperliquid fees apply; Platform Success Fee may apply on profitable closes as disclosed',
     },
     featureList: [
       'Full auto Hyperliquid trading bot',
       'Non-custodial Hyperliquid account trading',
       '200+ Hyperliquid perpetual markets',
-      '24/7 passive income automation',
+      '24/7 automated execution',
       'Live chart terminal',
-      'Automated risk management',
+      'Configurable risk management',
     ],
   };
 }

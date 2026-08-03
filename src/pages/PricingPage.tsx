@@ -33,19 +33,19 @@ const steps: { title: string; text: string; icon: LucideIcon; visual?: React.Rea
   {
     icon: Fuel,
     title: 'Gas covered for you',
-    text: 'Network gas on Arbitrum for bot trades is paid by Monadier — not billed to you per trade.',
+    text: 'Network gas on Arbitrum for bot trades is paid by HyperGain — not billed to you per trade.',
     visual: <MktGasCoveredVisual />,
   },
   {
     icon: TrendingUp,
-    title: 'No success fee',
-    text: 'No Monadier cut on profitable closes. You only pay standard Hyperliquid trading and funding costs.',
+    title: 'Platform Success Fee',
+    text: 'On qualifying profitable closes, a Platform Success Fee may accrue as disclosed in the Terms and in-app (currently up to 10% when enabled). Standard Hyperliquid trading and funding costs always apply.',
     visual: <MktFeeVisual />,
   },
   {
     icon: Wallet,
-    title: 'You keep your gains',
-    text: 'Wins stay yours minus normal HL execution costs — no hidden platform take on profit.',
+    title: 'You keep net gains',
+    text: 'After Hyperliquid costs and any disclosed Platform Success Fee, remaining profit stays on your HL account — we never hold your keys.',
     visual: <MktProfitShareVisual />,
   },
   {
@@ -68,8 +68,8 @@ const PricingPage: React.FC = () => {
       <MarketingPageHero
         eyebrow="Pricing"
         title="Transparent fees"
-        lead="No platform fee — standard Hyperliquid costs only."
-        sub="Full breakdowns and live numbers are in your dashboard before you trade."
+        lead="No monthly subscription — Hyperliquid costs plus fees as disclosed in Terms."
+        sub="Full breakdowns and live numbers are in your dashboard before you trade. No promised returns."
         aside={<PricingHeroGraphic />}
       />
 

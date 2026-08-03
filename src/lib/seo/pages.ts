@@ -22,7 +22,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/',
     title: `${SITE_NAME} | Hyperliquid Trading Bot — Full Auto 24/7`,
     description:
-      'HyperGain is a full auto Hyperliquid trading bot. Deposit USDC on HL, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial, passive income automation.',
+      'HyperGain is a full auto Hyperliquid trading bot. Deposit USDC on HL, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial automation. No guaranteed returns.',
     keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading bot`,
     changefreq: 'weekly',
     priority: 1.0,
@@ -32,7 +32,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/trading-bot',
     title: `AI Trading Bot | Full Auto Hyperliquid — ${SITE_NAME}`,
     description:
-      'AI trading bot for Hyperliquid: full auto 24/7 across 200+ perp markets. Connect wallet, fund HL with USDC, approve agent, start bot — non-custodial automation.',
+      'AI trading bot for Hyperliquid: full auto 24/7 across 200+ perp markets. Non-custodial USDC on HL. No guaranteed returns — fees as disclosed in Terms (HL costs + optional Platform Success Fee).',
     keywords: `${BOT_KEYWORDS}, AI trading bot, 24/7 crypto bot, algorithmic Hyperliquid trading`,
     changefreq: 'weekly',
     priority: 1.0,
