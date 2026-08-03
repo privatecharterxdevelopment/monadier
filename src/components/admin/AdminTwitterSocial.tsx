@@ -252,7 +252,11 @@ const AdminTwitterSocial: React.FC = () => {
           <h2 className="text-lg font-semibold text-primary">X / Twitter</h2>
           <p className="text-secondary text-sm mt-1 max-w-2xl">
             AI stats drafts on a schedule, plus an optional daily random win flyer (PNG + caption).
-            Cron runs on bot-service (~1 min). Requires Railway X API keys + BOT_ADMIN_SECRET.
+            Cron runs on bot-service (~1 min). Requires Railway:{' '}
+            <code className="text-xs">X_API_*</code> keys,{' '}
+            <code className="text-xs">BOT_ADMIN_SECRET</code>, and either Auto-post ON here or{' '}
+            <code className="text-xs">X_SOCIAL_AUTO_PUBLISH=true</code>. Approval must be off for
+            fully automatic posts.
           </p>
         </div>
         <button

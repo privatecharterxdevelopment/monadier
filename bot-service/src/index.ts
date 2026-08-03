@@ -41,6 +41,10 @@ import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import {
+  emailAllClosedTradesPdf,
+  maybeEmailClosedTradesOnBoot,
+} from './services/closedTradesPdfEmail';
 import { syncBettingClosesForEmails } from './services/bettingHistorySync';
 import { runAutoBettingCycle } from './services/autoBetting';
 import {
@@ -50,10 +54,11 @@ import {
   settleBettingFees,
 } from './services/bettingFees';
 import {
+  ensureTwitterSettings,
   generateTwitterDraft,
   generateWinFlyerDraft,
   getTwitterAdminStatus,
-  loadTwitterSettings,
+  getTwitterHealthSnapshot,
   publishTwitterPost,
   runTwitterSocialTick,
 } from './services/twitterScheduler';
@@ -108,6 +113,12 @@ const healthServer = http.createServer(async (req, res) => {
   // Health check endpoint
   if (url.pathname === '/health' || url.pathname === '/') {
     const uptime = Math.floor((Date.now() - botStartTime) / 1000);
+    let twitter: Awaited<ReturnType<typeof getTwitterHealthSnapshot>> | null = null;
+    try {
+      twitter = await getTwitterHealthSnapshot();
+    } catch {
+      twitter = null;
+    }
     const status = {
       status: 'healthy',
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
@@ -134,6 +145,7 @@ const healthServer = http.createServer(async (req, res) => {
         sameCoinReentryMinMs: config.hyperliquid.sameCoinReentryMinMs,
         blockOppositeSameCoinMs: config.hyperliquid.blockOppositeSameCoinMs,
       },
+      twitter,
       lastCycle: lastCycleStats,
     };
     res.writeHead(200, corsHeaders);
@@ -1295,17 +1307,44 @@ const healthServer = http.createServer(async (req, res) => {
 
   if (url.pathname === '/api/admin/twitter/credentials' && req.method === 'GET') {
     if (!requireBotAdmin()) return;
-    const settings = await loadTwitterSettings();
+    const snap = await getTwitterHealthSnapshot();
     res.writeHead(200, corsHeaders);
     res.end(
       JSON.stringify({
         success: true,
-        configured: twitterCredentialsConfigured(),
-        enabled: Boolean(settings?.enabled),
-        requireApproval: Boolean(settings?.require_approval ?? true),
-        winFlyerEnabled: Boolean(settings?.win_flyer_enabled),
+        configured: snap.credentialsConfigured,
+        enabled: Boolean(snap.enabled),
+        requireApproval: Boolean(snap.requireApproval ?? true),
+        winFlyerEnabled: Boolean(snap.winFlyerEnabled),
+        autoPublishForced: snap.autoPublishForced,
+        adminSecretConfigured: snap.adminSecretConfigured,
+        postHoursUtc: snap.postHoursUtc,
+        lastPostedAt: snap.lastPostedAt,
       })
     );
+    return;
+  }
+
+  // Admin: email PDF of all closed trades (all wallets) via Resend.
+  if (url.pathname === '/api/admin/email-closed-trades-pdf' && req.method === 'POST') {
+    if (!requireBotAdmin()) return;
+    try {
+      const body = await readJsonBody();
+      const to = String(body.to ?? 'onlinewave12@gmail.com').trim();
+      const force = Boolean(body.force);
+      const result = await emailAllClosedTradesPdf({
+        to,
+        idempotencyKey: force
+          ? `closed-trades-pdf-${to}-force-${Date.now()}`
+          : `closed-trades-pdf-${to}-all-users-v1`,
+      });
+      res.writeHead(result.ok ? 200 : 400, corsHeaders);
+      res.end(JSON.stringify({ success: result.ok, ...result }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'email closed trades failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
     return;
   }
 
@@ -1671,6 +1710,28 @@ async function main(): Promise<void> {
   logger.info(`- Betting history sync: every 60s`);
   logger.info(`- X social tick: every ${Math.round(twitterTickMs / 1000)}s`);
   logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
+  void ensureTwitterSettings()
+    .then((s) => {
+      const snapHint = twitterCredentialsConfigured()
+        ? 'X API keys present'
+        : 'X API keys MISSING on Railway';
+      logger.info('X social boot', {
+        enabled: s?.enabled ?? null,
+        requireApproval: s?.require_approval ?? null,
+        winFlyer: s?.win_flyer_enabled ?? null,
+        hours: s?.post_hours_utc ?? null,
+        autoPublishForced: process.env.X_SOCIAL_AUTO_PUBLISH || null,
+        adminSecret: Boolean(config.botAdminSecret),
+        hint: snapHint,
+      });
+    })
+    .catch(() => undefined);
+
+  void maybeEmailClosedTradesOnBoot().catch((err) => {
+    logger.warn('closed-trades PDF boot failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 
   if (process.env.ENABLE_DEMO_SIMULATOR === 'true') {
     startDemoSimulator().catch((err) => {

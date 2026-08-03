@@ -149,6 +149,35 @@ export function composeWinFlyerCaption(opts: {
   return text;
 }
 
+function envFlag(name: string): boolean | null {
+  const raw = (process.env[name] || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (['1', 'true', 'yes', 'on'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'off'].includes(raw)) return false;
+  return null;
+}
+
+/** Railway override / default:
+ * - X_SOCIAL_AUTO_PUBLISH=true → force enabled + no approval
+ * - X_SOCIAL_AUTO_PUBLISH=false → respect DB only
+ * - unset → auto when X API credentials are present (live keys already on Railway)
+ */
+export function twitterAutoPublishForced(): boolean {
+  const flag = envFlag('X_SOCIAL_AUTO_PUBLISH');
+  if (flag === false) return false;
+  if (flag === true) return true;
+  return twitterCredentialsConfigured();
+}
+
+function mapTwitterSettingsRow(data: Record<string, unknown>): TwitterSettings {
+  return {
+    ...(data as TwitterSettings),
+    win_flyer_enabled: Boolean(data.win_flyer_enabled ?? false),
+    win_flyer_hour_utc: Number(data.win_flyer_hour_utc ?? 16),
+    win_flyer_lookback_hours: Number(data.win_flyer_lookback_hours ?? 24),
+  };
+}
+
 export async function loadTwitterSettings(): Promise<TwitterSettings | null> {
   const { data, error } = await supabase
     .from('twitter_settings')
@@ -160,12 +189,73 @@ export async function loadTwitterSettings(): Promise<TwitterSettings | null> {
     return null;
   }
   if (!data) return null;
-  const row = data as Record<string, unknown>;
+  return mapTwitterSettingsRow(data as Record<string, unknown>);
+}
+
+/** Ensure singleton row exists; optionally force auto-publish flags from env. */
+export async function ensureTwitterSettings(): Promise<TwitterSettings | null> {
+  let settings = await loadTwitterSettings();
+  if (!settings) {
+    const nowIso = new Date().toISOString();
+    const forceAuto = twitterAutoPublishForced();
+    const { data, error } = await supabase
+      .from('twitter_settings')
+      .upsert(
+        {
+          id: 1,
+          enabled: forceAuto,
+          require_approval: !forceAuto,
+          posts_per_day: 2,
+          post_hours_utc: [10, 18],
+          site_url: 'https://hypergain.io',
+          updated_at: nowIso,
+        },
+        { onConflict: 'id' }
+      )
+      .select('*')
+      .maybeSingle();
+    if (error) {
+      logger.warn('twitter_settings upsert failed', { error: error.message });
+      return null;
+    }
+    if (!data) return null;
+    settings = mapTwitterSettingsRow(data as Record<string, unknown>);
+  }
+
+  if (twitterAutoPublishForced() && (!settings.enabled || settings.require_approval)) {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('twitter_settings')
+      .update({
+        enabled: true,
+        require_approval: false,
+        updated_at: nowIso,
+      })
+      .eq('id', 1)
+      .select('*')
+      .maybeSingle();
+    if (error) {
+      logger.warn('twitter_settings auto-publish force failed', { error: error.message });
+    } else if (data) {
+      settings = mapTwitterSettingsRow(data as Record<string, unknown>);
+      logger.info('twitter auto-publish forced via X_SOCIAL_AUTO_PUBLISH');
+    }
+  }
+
+  return settings;
+}
+
+/** Effective gates for generate/publish (DB + Railway override). */
+export function effectiveTwitterGates(settings: TwitterSettings): {
+  enabled: boolean;
+  requireApproval: boolean;
+} {
+  if (twitterAutoPublishForced()) {
+    return { enabled: true, requireApproval: false };
+  }
   return {
-    ...(data as TwitterSettings),
-    win_flyer_enabled: Boolean(row.win_flyer_enabled ?? false),
-    win_flyer_hour_utc: Number(row.win_flyer_hour_utc ?? 16),
-    win_flyer_lookback_hours: Number(row.win_flyer_lookback_hours ?? 24),
+    enabled: Boolean(settings.enabled),
+    requireApproval: Boolean(settings.require_approval),
   };
 }
 
@@ -303,7 +393,7 @@ export async function generateTwitterDraft(opts?: {
   slotKey?: string | null;
   force?: boolean;
 }): Promise<{ ok: boolean; post?: TwitterPostRow; error?: string; skipped?: boolean }> {
-  const settings = await loadTwitterSettings();
+  const settings = await ensureTwitterSettings();
   if (!settings) return { ok: false, error: 'twitter_settings missing — run migration' };
 
   const slotKey = opts?.slotKey ?? null;
@@ -321,7 +411,7 @@ export async function generateTwitterDraft(opts?: {
     brandHandle: settings.brand_handle,
     tweetTemplate: settings.tweet_template,
   });
-  const requireApproval = settings.require_approval;
+  const requireApproval = effectiveTwitterGates(settings).requireApproval;
   const status = requireApproval ? 'draft' : 'approved';
   const nowIso = new Date().toISOString();
 
@@ -371,7 +461,7 @@ export async function generateWinFlyerDraft(opts?: {
   force?: boolean;
   slotKey?: string | null;
 }): Promise<{ ok: boolean; post?: TwitterPostRow; error?: string; skipped?: boolean }> {
-  const settings = await loadTwitterSettings();
+  const settings = await ensureTwitterSettings();
   if (!settings) return { ok: false, error: 'twitter_settings missing — run migration' };
 
   const slotKey = opts?.force
@@ -387,7 +477,7 @@ export async function generateWinFlyerDraft(opts?: {
   }
 
   const lookback = Math.max(6, Math.min(168, settings.win_flyer_lookback_hours || 24));
-  const requireApproval = settings.require_approval;
+  const requireApproval = effectiveTwitterGates(settings).requireApproval;
   const status = requireApproval ? 'draft' : 'approved';
   const nowIso = new Date().toISOString();
 
@@ -677,36 +767,89 @@ export async function publishTwitterPost(
 }
 
 /**
+ * Hours due for auto-gen: current UTC hour, plus earlier schedule hours today
+ * (catch-up if the bot was down / disabled during that hour).
+ */
+function dueScheduleHours(hours: number[], now: Date): number[] {
+  const currentHour = now.getUTCHours();
+  return hours.filter((h) => h <= currentHour);
+}
+
+let lastTwitterSkipLogAt = 0;
+
+/**
  * Cron tick:
  * - When win flyers enabled: at each schedule hour, post a bucket flyer (🔥 caption).
  * - Else: AI stats text drafts at schedule hours.
+ * - Catch-up for missed earlier hours today (slot_key dedupes).
  * - Always drain approved/due posts.
  */
 export async function runTwitterSocialTick(): Promise<void> {
-  const settings = await loadTwitterSettings();
-  if (!settings?.enabled) return;
+  const settings = await ensureTwitterSettings();
+  const now = new Date();
+  const creds = twitterCredentialsConfigured();
+
+  if (!settings) {
+    if (now.getTime() - lastTwitterSkipLogAt > 15 * 60_000) {
+      lastTwitterSkipLogAt = now.getTime();
+      logger.warn('twitter tick skipped: twitter_settings missing — run migration');
+    }
+    return;
+  }
+
+  const gates = effectiveTwitterGates(settings);
+  if (!gates.enabled) {
+    if (now.getTime() - lastTwitterSkipLogAt > 15 * 60_000) {
+      lastTwitterSkipLogAt = now.getTime();
+      logger.info('twitter tick skipped: auto-post disabled (Admin toggle or set X_SOCIAL_AUTO_PUBLISH=true)');
+    }
+    return;
+  }
 
   const hours = normalizeHours(settings.post_hours_utc, settings.posts_per_day);
-  const now = new Date();
-  const currentHour = now.getUTCHours();
+  const dueHours = dueScheduleHours(hours, now);
 
-  if (hours.includes(currentHour)) {
-    if (settings.win_flyer_enabled) {
-      const slotKey = utcWinFlyerSlotKey(now, currentHour);
-      const gen = await generateWinFlyerDraft({ slotKey });
-      if (gen.ok && gen.post && !settings.require_approval && twitterCredentialsConfigured()) {
-        await publishTwitterPost(gen.post.id);
-      }
-    } else {
-      const slotKey = utcSlotKey(now, currentHour);
-      const gen = await generateTwitterDraft({ source: 'auto', slotKey });
-      if (gen.ok && gen.post && !settings.require_approval && twitterCredentialsConfigured()) {
-        await publishTwitterPost(gen.post.id);
+  if (dueHours.length === 0) {
+    // Before first schedule hour today — nothing to generate yet.
+  } else {
+    for (const hour of dueHours) {
+      if (settings.win_flyer_enabled) {
+        const slotKey = utcWinFlyerSlotKey(now, hour);
+        const gen = await generateWinFlyerDraft({ slotKey });
+        if (gen.ok && gen.post && !gates.requireApproval && creds) {
+          await publishTwitterPost(gen.post.id);
+        } else if (gen.ok && gen.post && !creds) {
+          logger.warn('twitter draft ready but X API credentials missing on bot-service');
+        } else if (gen.ok && gen.post && gates.requireApproval) {
+          logger.info('twitter draft waiting for approval', { id: gen.post.id, slotKey });
+        } else if (!gen.ok && gen.error) {
+          logger.warn('twitter generate failed', { error: gen.error, slotKey });
+        }
+      } else {
+        const slotKey = utcSlotKey(now, hour);
+        const gen = await generateTwitterDraft({ source: 'auto', slotKey });
+        if (gen.ok && gen.post && !gates.requireApproval && creds) {
+          await publishTwitterPost(gen.post.id);
+        } else if (gen.ok && gen.post && !creds) {
+          logger.warn('twitter draft ready but X API credentials missing on bot-service');
+        } else if (gen.ok && gen.post && gates.requireApproval) {
+          logger.info('twitter draft waiting for approval', { id: gen.post.id, slotKey });
+        } else if (!gen.ok && gen.error) {
+          logger.warn('twitter generate failed', { error: gen.error, slotKey });
+        }
       }
     }
   }
 
-  if (!twitterCredentialsConfigured()) return;
+  if (!creds) {
+    if (now.getTime() - lastTwitterSkipLogAt > 15 * 60_000) {
+      lastTwitterSkipLogAt = now.getTime();
+      logger.warn(
+        'twitter publish skipped: set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET on Railway'
+      );
+    }
+    return;
+  }
 
   const dueBefore = now.toISOString();
   const { data: dueNull } = await supabase
@@ -733,13 +876,49 @@ export async function runTwitterSocialTick(): Promise<void> {
   }
 }
 
+export async function getTwitterHealthSnapshot(): Promise<{
+  credentialsConfigured: boolean;
+  adminSecretConfigured: boolean;
+  autoPublishForced: boolean;
+  enabled: boolean | null;
+  requireApproval: boolean | null;
+  winFlyerEnabled: boolean | null;
+  postHoursUtc: number[] | null;
+  lastGeneratedAt: string | null;
+  lastPostedAt: string | null;
+  settingsMissing: boolean;
+  currentHourUtc: number;
+  dueNow: boolean;
+}> {
+  const settings = await loadTwitterSettings();
+  const hours = settings
+    ? normalizeHours(settings.post_hours_utc, settings.posts_per_day)
+    : null;
+  const currentHourUtc = new Date().getUTCHours();
+  const gates = settings ? effectiveTwitterGates(settings) : null;
+  return {
+    credentialsConfigured: twitterCredentialsConfigured(),
+    adminSecretConfigured: Boolean(config.botAdminSecret),
+    autoPublishForced: twitterAutoPublishForced(),
+    enabled: gates ? gates.enabled : null,
+    requireApproval: gates ? gates.requireApproval : null,
+    winFlyerEnabled: settings ? Boolean(settings.win_flyer_enabled) : null,
+    postHoursUtc: hours,
+    lastGeneratedAt: settings?.last_generated_at ?? null,
+    lastPostedAt: settings?.last_posted_at ?? null,
+    settingsMissing: !settings,
+    currentHourUtc,
+    dueNow: Boolean(hours && hours.some((h) => h <= currentHourUtc) && gates?.enabled),
+  };
+}
+
 export async function getTwitterAdminStatus(): Promise<{
   settings: TwitterSettings | null;
   credentialsConfigured: boolean;
   openaiConfigured: boolean;
   recent: TwitterPostRow[];
 }> {
-  const settings = await loadTwitterSettings();
+  const settings = await ensureTwitterSettings();
   const { data: recent } = await supabase
     .from('twitter_posts')
     .select('*')
