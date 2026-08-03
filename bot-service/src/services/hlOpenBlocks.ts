@@ -30,6 +30,7 @@ export type HlOpenBlockGate =
   | 'macro_beta'
   | 'pump_short'
   | 'candle_wick'
+  | 'long_dump_tape'
   | 'mega_pair'
   | 'perp_context'
   | 'pump_sweep'

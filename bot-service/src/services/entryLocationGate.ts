@@ -411,11 +411,23 @@ export async function validateEntryLocation(opts: {
   }
 
   // Zone flip ON by default — counter-open when zone confirms the other side.
+  // SHORT-primary (bear_market): NEVER flip SHORT→LONG at "support" — that is the
+  // falling-knife bug (ETH/SOL 2026-08-03). Wait for breakdown or skip.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
     zoneGate.flipTo !== opts.direction
   ) {
+    if (
+      zoneGate.flipTo === 'LONG' &&
+      config.hyperliquid.directionProfile.primaryDirection === 'SHORT'
+    ) {
+      return {
+        ok: false,
+        reason: `${zoneGate.reason} — SHORT-primary: no SHORT→LONG into support (dump = stay SHORT / wait breakdown)`,
+        analysis: sr,
+      };
+    }
     return {
       ok: true,
       reason: zoneGate.reason,
@@ -441,8 +453,9 @@ export async function validateEntryLocation(opts: {
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
   // A: clear support bounce — scan often arrives SHORT; don't dead-end, flip to LONG.
-  // Only when profile allows LONGs AND coin is on the LONG allowlist.
+  // DISABLED under SHORT-primary — that path opened ETH/SOL LONG into red dumps.
   const longAllowed = (() => {
+    if (config.hyperliquid.directionProfile.primaryDirection === 'SHORT') return false;
     if (!config.hyperliquid.directionProfile.allowLongOpens) return false;
     return isLongAllowedCoin(opts.coin ?? '');
   })();

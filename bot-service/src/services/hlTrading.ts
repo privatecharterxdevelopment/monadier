@@ -51,6 +51,7 @@ import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { validateCandleWickGate } from './candleWickGate';
+import { validateLongDumpTapeGate } from './longDumpTapeGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
@@ -1418,6 +1419,14 @@ export class HyperliquidTradingService {
         return rejectOpen('candle_wick', wickGate.reason, 'candle wick gate');
       }
 
+      // Dump tape — never LONG into red 15m/1h (user: last candles red → SHORT only).
+      if (opts.direction === 'LONG') {
+        const dumpTape = await validateLongDumpTapeGate({ coin });
+        if (!dumpTape.ok) {
+          return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG into red dump');
+        }
+      }
+
       // Live BTC+ETH flow — stubbing this to always-ok let SHORTs open into mega pumps.
       const megaGate = validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
@@ -1468,6 +1477,13 @@ export class HyperliquidTradingService {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
         if (flipped === 'LONG') {
+          if (config.hyperliquid.directionProfile.primaryDirection === 'SHORT') {
+            return rejectOpen(
+              'sr_zone_flip',
+              `SHORT→LONG flip blocked — ${config.hyperliquid.directionProfile.name} SHORT-primary (no long into support/dump)`,
+              'no SHORT→LONG in bear'
+            );
+          }
           if (!config.hyperliquid.directionProfile.allowLongOpens) {
             return rejectOpen(
               'direction_profile',
@@ -1481,6 +1497,10 @@ export class HyperliquidTradingService {
               `LONG flip blocked — ${longAllowlistReason(coin)}`,
               'LONG majors only'
             );
+          }
+          const dumpTape = await validateLongDumpTapeGate({ coin });
+          if (!dumpTape.ok) {
+            return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
           }
         }
         opts.pick.direction = flipped;
