@@ -851,6 +851,31 @@ export async function runTwitterSocialTick(): Promise<void> {
     return;
   }
 
+  // Approval was on historically → drafts never left the queue. Auto mode promotes + drains them.
+  if (!gates.requireApproval) {
+    const nowIso = now.toISOString();
+    const { data: drafts } = await supabase
+      .from('twitter_posts')
+      .select('id')
+      .eq('status', 'draft')
+      .order('created_at', { ascending: true })
+      .limit(20);
+    const draftIds = (drafts ?? []).map((d) => d.id);
+    if (draftIds.length > 0) {
+      await supabase
+        .from('twitter_posts')
+        .update({
+          status: 'approved',
+          approved_at: nowIso,
+          approved_by: 'auto',
+          scheduled_for: nowIso,
+          updated_at: nowIso,
+          error: null,
+        })
+        .in('id', draftIds);
+    }
+  }
+
   const dueBefore = now.toISOString();
   const { data: dueNull } = await supabase
     .from('twitter_posts')
