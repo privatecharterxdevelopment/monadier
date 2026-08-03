@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import Logo from '../components/ui/Logo';
-import { supabase } from '../lib/supabase';
+import { supabase, ensureUserProfile } from '../lib/supabase';
+import { ensureFreeSubscription } from '../lib/ensureSubscription';
 import { afterAuthGo, OPEN_APP_PATH } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 import {
@@ -10,9 +11,11 @@ import {
   isPasswordRecoveryPending,
   markPasswordRecoveryPending,
 } from '../lib/passwordRecovery';
+import type { User } from '@supabase/supabase-js';
 
 /**
  * Finishes Supabase OAuth (Google) and password-recovery redirects.
+ * Google users MUST get a profiles row before entering the app.
  */
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,10 +44,27 @@ const AuthCallbackPage: React.FC = () => {
       setError(message);
     };
 
+    const finishSignedIn = async (user: User) => {
+      await ensureUserProfile(user);
+      await ensureFreeSubscription().catch(() => undefined);
+      goApp();
+    };
+
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) return;
+      if (!session?.user) return;
       if (event === 'PASSWORD_RECOVERY') {
         goToRecovery();
+        return;
+      }
+      if (event === 'SIGNED_IN' && !done) {
+        void finishSignedIn(session.user).catch((err: unknown) => {
+          console.error('[AuthCallback] profile ensure failed', err);
+          fail(
+            err instanceof Error
+              ? err.message
+              : 'Account setup failed after Google sign-in. Please try again.'
+          );
+        });
       }
     });
 
@@ -57,21 +77,23 @@ const AuthCallbackPage: React.FC = () => {
           return;
         }
 
-        if (result === 'sign_in') {
-          goApp();
-          return;
-        }
-
         if (result === 'error') {
-          fail('Sign-in could not be completed. The link may be invalid or expired — try Google again from the login page.');
+          fail(
+            'Sign-in could not be completed. The link may be invalid or expired — try Google again from the login page.'
+          );
           return;
         }
 
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (session) {
-          goApp();
+        if (session?.user) {
+          await finishSignedIn(session.user);
+          return;
+        }
+
+        if (result === 'sign_in') {
+          // Session may arrive via listener a tick later
           return;
         }
 

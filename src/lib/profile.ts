@@ -14,54 +14,46 @@ export type ProfileRow = {
   [key: string]: unknown;
 };
 
-/** Create profile row if trigger missed (OAuth / legacy orphans). */
+/**
+ * Guarantees a public.profiles row for this auth user.
+ * Google / email / returning sessions all go through here.
+ * Uses SECURITY DEFINER RPC first — never optional.
+ */
 export async function ensureUserProfile(user: User): Promise<void> {
-  const { data: existing } = await supabase
+  if (!user?.id) throw new Error('No auth user — cannot create profile');
+
+  const { error: rpcError } = await supabase.rpc('ensure_own_profile');
+  if (rpcError) {
+    // Fallback upsert if RPC somehow missing on a stale env
+    const meta = user.user_metadata ?? {};
+    const { error: upsertError } = await supabase.from('profiles').upsert(
+      {
+        id: user.id,
+        email: user.email ?? null,
+        full_name: (meta.full_name as string) || (meta.name as string) || '',
+        country: (meta.country as string) || '',
+        username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
+      },
+      { onConflict: 'id' }
+    );
+    if (upsertError) {
+      throw new Error(
+        `Profile create failed (rpc: ${rpcError.message}; upsert: ${upsertError.message})`
+      );
+    }
+  }
+
+  const { data, error } = await supabase
     .from('profiles')
     .select('id')
     .eq('id', user.id)
     .maybeSingle();
 
-  if (existing?.id) return;
-
-  // Prefer SECURITY DEFINER RPC (works even without INSERT grant)
-  const { error: rpcError } = await supabase.rpc('ensure_own_profile');
-  if (!rpcError) {
-    const { data: afterRpc } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (afterRpc?.id) return;
-  }
-
-  const meta = user.user_metadata ?? {};
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      id: user.id,
-      email: user.email ?? null,
-      full_name: (meta.full_name as string) || (meta.name as string) || '',
-      country: (meta.country as string) || '',
-      username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
-    },
-    { onConflict: 'id' }
-  );
-
   if (error) {
-    const code = String((error as { code?: string }).code ?? '');
-    if (
-      code === '23505' ||
-      error.message.includes('duplicate') ||
-      error.message.includes('unique constraint') ||
-      error.message.includes('409')
-    ) {
-      return;
-    }
-    // RPC missing on older envs — surface original insert error
-    if (rpcError) {
-      console.warn('[ensureUserProfile] rpc failed', rpcError.message);
-    }
-    throw error;
+    throw new Error(`Profile verify failed: ${error.message}`);
+  }
+  if (!data?.id) {
+    throw new Error('Profile row missing after ensure_own_profile — signup incomplete');
   }
 }
 

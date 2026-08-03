@@ -86,7 +86,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await withTimeout(ensureUserProfile(currentUser), PROFILE_TIMEOUT_MS);
       } catch (error) {
-        console.warn('[Auth] ensureUserProfile deferred:', error);
+        console.error('[Auth] ensureUserProfile failed:', error);
+        if (attempt < MAX_PROFILE_RETRIES) {
+          const timer = setTimeout(() => {
+            void hydrateProfile(currentUser, attempt + 1);
+          }, PROFILE_RETRY_MS * (attempt + 1));
+          profileRetryTimers.current.push(timer);
+          return;
+        }
+        // Exhausted — still try to load whatever exists
       }
 
       try {
