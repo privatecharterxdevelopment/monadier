@@ -852,6 +852,7 @@ export async function runTwitterSocialTick(): Promise<void> {
   }
 
   // Approval was on historically → drafts never left the queue. Auto mode promotes + drains them.
+  // Also retry recent `failed` (e.g. X "credits depleted") once keys/billing recover.
   if (!gates.requireApproval) {
     const nowIso = now.toISOString();
     const { data: drafts } = await supabase
@@ -893,11 +894,25 @@ export async function runTwitterSocialTick(): Promise<void> {
     .order('created_at', { ascending: true })
     .limit(5);
 
+  const dayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  ).toISOString();
+  const { data: dueFailed } = await supabase
+    .from('twitter_posts')
+    .select('id,error')
+    .eq('status', 'failed')
+    .gte('created_at', dayStart)
+    .order('created_at', { ascending: true })
+    .limit(5);
+
   const seen = new Set<string>();
-  for (const row of [...(dueNull ?? []), ...(dueTimed ?? [])]) {
+  for (const row of [...(dueNull ?? []), ...(dueTimed ?? []), ...(dueFailed ?? [])]) {
     if (seen.has(row.id)) continue;
     seen.add(row.id);
-    await publishTwitterPost(row.id);
+    const pub = await publishTwitterPost(row.id);
+    if (!pub.ok && pub.error) {
+      logger.warn('twitter publish attempt failed', { id: row.id, error: pub.error });
+    }
   }
 }
 
