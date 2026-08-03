@@ -14,7 +14,7 @@ export type ProfileRow = {
   [key: string]: unknown;
 };
 
-/** Create profile row if trigger missed (OAuth edge cases). */
+/** Create profile row if trigger missed (OAuth / legacy orphans). */
 export async function ensureUserProfile(user: User): Promise<void> {
   const { data: existing } = await supabase
     .from('profiles')
@@ -24,14 +24,28 @@ export async function ensureUserProfile(user: User): Promise<void> {
 
   if (existing?.id) return;
 
+  // Prefer SECURITY DEFINER RPC (works even without INSERT grant)
+  const { error: rpcError } = await supabase.rpc('ensure_own_profile');
+  if (!rpcError) {
+    const { data: afterRpc } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (afterRpc?.id) return;
+  }
+
   const meta = user.user_metadata ?? {};
-  const { error } = await supabase.from('profiles').insert({
-    id: user.id,
-    email: user.email ?? null,
-    full_name: (meta.full_name as string) || '',
-    country: (meta.country as string) || '',
-    username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
-  });
+  const { error } = await supabase.from('profiles').upsert(
+    {
+      id: user.id,
+      email: user.email ?? null,
+      full_name: (meta.full_name as string) || (meta.name as string) || '',
+      country: (meta.country as string) || '',
+      username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
+    },
+    { onConflict: 'id' }
+  );
 
   if (error) {
     const code = String((error as { code?: string }).code ?? '');
@@ -42,6 +56,10 @@ export async function ensureUserProfile(user: User): Promise<void> {
       error.message.includes('409')
     ) {
       return;
+    }
+    // RPC missing on older envs — surface original insert error
+    if (rpcError) {
+      console.warn('[ensureUserProfile] rpc failed', rpcError.message);
     }
     throw error;
   }
