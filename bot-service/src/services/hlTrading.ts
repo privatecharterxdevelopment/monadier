@@ -1477,6 +1477,13 @@ export class HyperliquidTradingService {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
         if (flipped === 'LONG') {
+          if (config.hyperliquid.excludedCoins.includes(coin)) {
+            return rejectOpen(
+              'excluded_coin',
+              `${coin} is hard-delisted for ALL users — never traded`,
+              'excluded coin'
+            );
+          }
           if (config.hyperliquid.directionProfile.primaryDirection === 'SHORT') {
             return rejectOpen(
               'sr_zone_flip',
@@ -1961,6 +1968,27 @@ export class HyperliquidTradingService {
       opts.leverage != null && Number.isFinite(opts.leverage) && opts.leverage > 0
         ? Math.max(1, Math.floor(opts.leverage))
         : null;
+
+    // Global hard-delist — every wallet, force-open included (no exceptions).
+    if (config.hyperliquid.excludedCoins.includes(coin)) {
+      return {
+        coin,
+        direction,
+        dryRun,
+        leverage: leverageOverride,
+        opened: 0,
+        eligible: 0,
+        skipped: 0,
+        failed: 1,
+        results: [
+          {
+            wallet: 'n/a',
+            success: false,
+            error: `${coin} is hard-delisted for ALL users — never traded`,
+          },
+        ],
+      };
+    }
 
     if (direction === 'LONG') {
       if (!config.hyperliquid.directionProfile.allowLongOpens) {
@@ -3175,6 +3203,16 @@ export class HyperliquidTradingService {
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const coin = opts.coin.toUpperCase();
+      // Global hard-delist for ALL wallets — block new opens (reduce-only closes still ok).
+      if (
+        !opts.reduceOnly &&
+        config.hyperliquid.excludedCoins.includes(coin)
+      ) {
+        return {
+          success: false,
+          error: `${coin} is hard-delisted for ALL users — never traded`,
+        };
+      }
       const agentAddr = await this.getAgentAddress(opts.userAddress);
       const approved = await hlAgentApprovalService.isApproved(opts.userAddress, agentAddr);
       if (!approved) {
