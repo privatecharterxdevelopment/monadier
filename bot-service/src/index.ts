@@ -1209,12 +1209,20 @@ const healthServer = http.createServer(async (req, res) => {
       const walletFilter = Array.isArray(body.wallets)
         ? body.wallets.map((w) => String(w).toLowerCase()).filter((w) => /^0x[a-f0-9]{40}$/.test(w))
         : undefined;
+      const leverageRaw = body.leverage != null ? Number(body.leverage) : undefined;
+      const leverage =
+        leverageRaw != null && Number.isFinite(leverageRaw) && leverageRaw > 0
+          ? Math.max(1, Math.floor(leverageRaw))
+          : undefined;
+      const dryRun = Boolean(body.dryRun);
       const ctx = await buildTradingCycleContext();
       const result = await hyperliquidTradingService.forceOpenForAutoTradeUsers({
         coin,
         direction,
         ctx,
         wallets: walletFilter,
+        leverage,
+        dryRun,
       });
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({ success: true, ...result }));

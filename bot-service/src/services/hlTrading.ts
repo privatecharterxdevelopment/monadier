@@ -1931,22 +1931,46 @@ export class HyperliquidTradingService {
     direction: 'LONG' | 'SHORT';
     ctx: TradingCycleContext;
     wallets?: string[];
+    /** Override per-user leverageMultiplier (still capped by HL max for coin). */
+    leverage?: number;
+    /** Eligibility only — no orders. */
+    dryRun?: boolean;
   }): Promise<{
     coin: string;
     direction: 'LONG' | 'SHORT';
+    dryRun: boolean;
+    leverage: number | null;
     opened: number;
+    eligible: number;
     skipped: number;
     failed: number;
-    results: Array<{ wallet: string; success: boolean; error?: string }>;
+    results: Array<{
+      wallet: string;
+      success: boolean;
+      error?: string;
+      slots?: string;
+      freeMarginUsd?: number;
+      leverage?: number;
+      notionalUsd?: number;
+    }>;
   }> {
     const coin = opts.coin.toUpperCase();
     const direction = opts.direction;
+    const dryRun = opts.dryRun === true;
+    const leverageOverride =
+      opts.leverage != null && Number.isFinite(opts.leverage) && opts.leverage > 0
+        ? Math.max(1, Math.floor(opts.leverage))
+        : null;
+
     if (direction === 'LONG') {
       if (!config.hyperliquid.directionProfile.allowLongOpens) {
         return {
           coin,
           direction,
+          dryRun,
+          leverage: leverageOverride,
           opened: 0,
+          eligible: 0,
           skipped: 0,
           failed: 1,
           results: [
@@ -1962,7 +1986,10 @@ export class HyperliquidTradingService {
         return {
           coin,
           direction,
+          dryRun,
+          leverage: leverageOverride,
           opened: 0,
+          eligible: 0,
           skipped: 0,
           failed: 1,
           results: [
@@ -1993,8 +2020,17 @@ export class HyperliquidTradingService {
       h1Trend: direction === 'LONG' ? 'UP' : 'DOWN',
     };
 
-    const results: Array<{ wallet: string; success: boolean; error?: string }> = [];
+    const results: Array<{
+      wallet: string;
+      success: boolean;
+      error?: string;
+      slots?: string;
+      freeMarginUsd?: number;
+      leverage?: number;
+      notionalUsd?: number;
+    }> = [];
     let opened = 0;
+    let eligible = 0;
     let skipped = 0;
     let failed = 0;
 
@@ -2021,19 +2057,27 @@ export class HyperliquidTradingService {
         }
 
         const openCoins = hlOpenPerpCoins(state);
+        const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
+        const slotsLabel = `${openCoins.length}/${maxPositions}`;
+
         if (openCoins.some((c) => c.toUpperCase() === coin)) {
           skipped += 1;
-          results.push({ wallet: userAddress, success: false, error: `${coin} already open` });
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: `${coin} already open`,
+            slots: slotsLabel,
+          });
           return;
         }
 
-        const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
         if (openCoins.length >= maxPositions) {
           skipped += 1;
           results.push({
             wallet: userAddress,
             success: false,
-            error: `slots full (${openCoins.length}/${maxPositions})`,
+            error: `slots full (${slotsLabel})`,
+            slots: slotsLabel,
           });
           return;
         }
@@ -2054,11 +2098,14 @@ export class HyperliquidTradingService {
             wallet: userAddress,
             success: false,
             error: `margin too small ($${collateral.toFixed(2)})`,
+            slots: slotsLabel,
+            freeMarginUsd: freeMargin,
           });
           return;
         }
 
-        const leverageCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
+        const userLevCap = Math.max(1, Math.floor(settings.leverageMultiplier || 10));
+        const leverageCap = leverageOverride ?? userLevCap;
         const maxLev = maxLeverageForCoin(opts.ctx.meta, coin);
         let leverage = Math.min(leverageCap, maxLev);
         let notionalUsd = collateral * leverage;
@@ -2074,6 +2121,21 @@ export class HyperliquidTradingService {
             wallet: userAddress,
             success: false,
             error: `notional below floor ($${notionalUsd.toFixed(2)})`,
+            slots: slotsLabel,
+            freeMarginUsd: freeMargin,
+          });
+          return;
+        }
+
+        if (dryRun) {
+          eligible += 1;
+          results.push({
+            wallet: userAddress,
+            success: true,
+            slots: slotsLabel,
+            freeMarginUsd: freeMargin,
+            leverage,
+            notionalUsd,
           });
           return;
         }
@@ -2094,14 +2156,26 @@ export class HyperliquidTradingService {
 
         if (openedRes.success) {
           opened += 1;
+          eligible += 1;
           await subscriptionService.recordTrade(userAddress);
-          results.push({ wallet: userAddress, success: true });
+          results.push({
+            wallet: userAddress,
+            success: true,
+            slots: slotsLabel,
+            freeMarginUsd: freeMargin,
+            leverage,
+            notionalUsd,
+          });
         } else {
           failed += 1;
           results.push({
             wallet: userAddress,
             success: false,
             error: openedRes.error ?? 'open failed',
+            slots: slotsLabel,
+            freeMarginUsd: freeMargin,
+            leverage,
+            notionalUsd,
           });
         }
       } catch (err: unknown) {
@@ -2114,7 +2188,17 @@ export class HyperliquidTradingService {
       }
     });
 
-    return { coin, direction, opened, skipped, failed, results };
+    return {
+      coin,
+      direction,
+      dryRun,
+      leverage: leverageOverride,
+      opened,
+      eligible,
+      skipped,
+      failed,
+      results,
+    };
   }
 
   private async syncOpenPositionLeverage(

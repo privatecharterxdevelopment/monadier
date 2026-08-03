@@ -6,6 +6,7 @@ import {
   Bot,
   Coins,
   CreditCard,
+  Crosshair,
   DollarSign,
   ExternalLink,
   Flag,
@@ -45,6 +46,7 @@ import {
 import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
+import AdminForceOpenPanel from '../../components/admin/AdminForceOpenPanel';
 import { BotTradeDiagnosisPanel } from '../../components/admin/BotTradeDiagnosisPanel';
 import {
   fetchAdminSupportRequests,
@@ -76,11 +78,13 @@ type Section =
   | 'users'
   | 'subscriptions'
   | 'affiliate'
-  | 'twitter';
+  | 'twitter'
+  | 'forceopen';
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
   { id: 'bots', label: 'HL bots', icon: <Bot size={16} /> },
+  { id: 'forceopen', label: 'Force open', icon: <Crosshair size={16} /> },
   { id: 'positions', label: 'Open', icon: <Zap size={16} /> },
   { id: 'trades', label: 'History', icon: <TrendingUp size={16} /> },
   { id: 'events', label: 'Events', icon: <Bell size={16} /> },
@@ -326,8 +330,13 @@ const AdminMonitorPage: React.FC = () => {
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
       {section === 'twitter' && <AdminTwitterSocial />}
+      {section === 'forceopen' && <AdminForceOpenPanel />}
 
-      {!dash && !loading && section !== 'affiliate' && section !== 'twitter' && (
+      {!dash &&
+        !loading &&
+        section !== 'affiliate' &&
+        section !== 'twitter' &&
+        section !== 'forceopen' && (
         <p className="text-secondary text-sm py-8 text-center">No dashboard data yet.</p>
       )}
     </div>
