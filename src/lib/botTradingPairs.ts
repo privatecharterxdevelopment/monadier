@@ -66,7 +66,6 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'BNB',
   'kPEPE',
   'VIRTUAL',
-  'VVV',
   'TRUMP',
   'TRB',
   'ZRO',
