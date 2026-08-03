@@ -23,8 +23,8 @@ export async function ensureUserProfile(user: User): Promise<void> {
   if (!user?.id) throw new Error('No auth user — cannot create profile');
 
   const { error: rpcError } = await supabase.rpc('ensure_own_profile');
+
   if (rpcError) {
-    // Fallback upsert if RPC somehow missing on a stale env
     const meta = user.user_metadata ?? {};
     const { error: upsertError } = await supabase.from('profiles').upsert(
       {
@@ -33,9 +33,11 @@ export async function ensureUserProfile(user: User): Promise<void> {
         full_name: (meta.full_name as string) || (meta.name as string) || '',
         country: (meta.country as string) || '',
         username: meta.username ? normalizeUsernameInput(String(meta.username)) : null,
+        updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
     );
+
     if (upsertError) {
       throw new Error(
         `Profile create failed (rpc: ${rpcError.message}; upsert: ${upsertError.message})`
@@ -45,7 +47,7 @@ export async function ensureUserProfile(user: User): Promise<void> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id')
+    .select('id, email, full_name, username, country, updated_at')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -60,13 +62,16 @@ export async function ensureUserProfile(user: User): Promise<void> {
 export async function isUsernameAvailable(username: string): Promise<boolean> {
   const err = validateUsername(username);
   if (err) return false;
+
   const { data, error } = await supabase.rpc('is_username_available', {
     p_username: normalizeUsernameInput(username),
   });
+
   if (error) {
     console.error('[isUsernameAvailable]', error);
     throw new Error(error.message || 'Could not check username');
   }
+
   return Boolean(data);
 }
 
@@ -79,10 +84,12 @@ export async function setUsernameOnce(username: string): Promise<string> {
   });
 
   if (error) throw new Error(error.message || 'Could not set username');
+
   const row = data as { success?: boolean; error?: string; username?: string };
   if (!row?.success) {
     throw new Error(row?.error || 'Could not set username');
   }
+
   return row.username || normalizeUsernameInput(username);
 }
 
@@ -90,9 +97,24 @@ export async function patchUserProfile(
   userId: string,
   updates: Record<string, unknown>
 ): Promise<ProfileRow> {
+  const allowedKeys = new Set([
+    'full_name',
+    'country',
+    'avatar_url',
+    'avatar_emoji',
+    'wallet_address',
+  ]);
+
+  const safeUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([key]) => allowedKeys.has(key))
+  );
+
   const { data, error } = await supabase
     .from('profiles')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({
+      ...safeUpdates,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', userId)
     .select()
     .single();
