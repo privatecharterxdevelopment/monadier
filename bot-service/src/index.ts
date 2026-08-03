@@ -339,16 +339,25 @@ const healthServer = http.createServer(async (req, res) => {
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
       const agents = await fetchHlExtraAgents(wallet);
-      const live = agents.find(
-        (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
-      );
-      if (!live) {
+      const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
+      const live =
+        agents.find(
+          (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
+        ) ??
+        agents.find(
+          (a) =>
+            isHlExtraAgentActive(a) && a.name.toLowerCase().startsWith(agentNamePrefix)
+        );
+      // Chain extraAgents can flake empty — DB approval is enough to attempt close.
+      const dbApproved =
+        live != null || (await hlAgentApprovalService.isApproved(wallet, agentAddr));
+      if (!dbApproved) {
         res.writeHead(400, corsHeaders);
         res.end(
           JSON.stringify({
             success: false,
             error:
-              'HL trading agent not approved on Hyperliquid — press Start bot and approve in MetaMask first.',
+              'Trading agent not active on Hyperliquid for this wallet — approve the agent once in the Bot tab, then retry Close.',
           })
         );
         return;
