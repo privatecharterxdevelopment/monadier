@@ -13,6 +13,7 @@ import {
   findActiveMonadierHlAgent,
   saveHlAgentApproval,
 } from './hlBotAgent';
+import { hlAgentNeedsRenew } from './hlAgentExpiry';
 
 export type HlBotApprovalResult = {
   agentSigned: boolean;
@@ -96,19 +97,24 @@ export async function approveHlBotAgentRequired(opts: {
   walletClient: WalletClient;
   walletAddress: string;
   userId?: string;
+  /** Force MetaMask re-approve to refresh HL ~90d validity. */
+  forceRenew?: boolean;
 }): Promise<boolean> {
   const { walletClient, walletAddress } = opts;
 
   const monadierLive = await findActiveMonadierHlAgent(walletAddress);
-  if (monadierLive) {
-    await saveHlAgentApproval({
-      walletAddress,
-      agentAddress: monadierLive.address,
-      agentName: monadierLive.name,
-      expiresAt: new Date(monadierLive.validUntil).toISOString(),
-      userId: opts.userId,
-    });
-    return false;
+  if (monadierLive && !opts.forceRenew) {
+    const expiresAt = new Date(monadierLive.validUntil).toISOString();
+    if (!hlAgentNeedsRenew(true, expiresAt)) {
+      await saveHlAgentApproval({
+        walletAddress,
+        agentAddress: monadierLive.address,
+        agentName: monadierLive.name,
+        expiresAt,
+        userId: opts.userId,
+      });
+      return false;
+    }
   }
 
   const meta = await fetchHlAgentAddress(walletAddress);
@@ -116,10 +122,14 @@ export async function approveHlBotAgentRequired(opts: {
     throw new Error(meta.error || 'Could not load agent address');
   }
 
-  const hadAgent = Boolean(
-    await findActiveHlAgent(walletAddress, meta.agentAddress)
-  );
-  if (hadAgent) return false;
+  const live = await findActiveHlAgent(walletAddress, meta.agentAddress);
+  const liveExpires = live ? new Date(live.validUntil).toISOString() : null;
+  const needs =
+    opts.forceRenew ||
+    !live ||
+    hlAgentNeedsRenew(Boolean(live), liveExpires ?? meta.expiresAt ?? null);
+
+  if (!needs) return false;
 
   await approveAndSaveHlBotAgent({
     walletClient,
@@ -128,6 +138,7 @@ export async function approveHlBotAgentRequired(opts: {
     agentName: meta.agentName || 'monadier',
     expiresAt: meta.expiresAt ?? null,
     userId: opts.userId,
+    forceRenew: true,
   });
   return true;
 }

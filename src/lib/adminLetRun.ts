@@ -12,10 +12,19 @@ export type LetRunPositionRow = {
   source: string;
 };
 
+export type AgentExpiryRow = {
+  wallet: string;
+  agentAddress: string | null;
+  expiresAt: string | null;
+  daysLeft: number | null;
+  status: 'expired' | 'expiring_soon' | 'ok';
+};
+
 export type LetRunStatusResponse = {
   success: boolean;
   letRunAll: boolean;
   positions: LetRunPositionRow[];
+  agentExpiry?: AgentExpiryRow[];
   error?: string;
   timestamp?: string;
 };

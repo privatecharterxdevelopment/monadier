@@ -214,6 +214,8 @@ export async function approveAndSaveHlBotAgent(opts: {
   agentName?: string;
   expiresAt?: string | null;
   userId?: string;
+  /** Re-call approveAgent even if still active — refreshes HL ~90d validUntil. */
+  forceRenew?: boolean;
 }): Promise<void> {
   const wallet = opts.walletAddress;
   const agent = opts.agentAddress as `0x${string}`;
@@ -224,7 +226,7 @@ export async function approveAndSaveHlBotAgent(opts: {
 
   const agentName = live?.name ?? pickHlAgentName(agents, agent, opts.agentName ?? HL_AGENT_NAME);
 
-  if (!live) {
+  if (!live || opts.forceRenew) {
     try {
       await approveHlBotAgent(opts.walletClient, agent, agentName);
     } catch (err) {

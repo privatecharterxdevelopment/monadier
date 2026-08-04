@@ -346,12 +346,15 @@ const healthServer = http.createServer(async (req, res) => {
       if (!wallet) {
         // Admin overview — all open positions + global flag (no secret; ops desk).
         const status = await hyperliquidTradingService.listOpenPositionsLetRunStatus();
+        const { listAgentExpiryStatuses } = await import('./services/hlAgentExpiryAdmin');
+        const agentExpiry = await listAgentExpiryStatuses();
         res.writeHead(200, corsHeaders);
         res.end(
           JSON.stringify({
             success: true,
             letRunAll: status.letRunAll,
             positions: status.positions,
+            agentExpiry,
             timestamp: new Date().toISOString(),
           })
         );

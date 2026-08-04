@@ -4,8 +4,12 @@ import {
   fetchHlAgentAddress,
   resolveHlAgentApproval,
 } from './hlBotAgent';
+import { hlAgentNeedsRenew } from './hlAgentExpiry';
 
-/** One-time approveAgent (Arbitrum) so Monadier can sign HL L1 orders server-side. */
+/**
+ * Ensure trading agent is approved on Hyperliquid.
+ * Re-prompts MetaMask when missing, expired, or inside the renew window (~14d).
+ */
 export async function ensureHlAgentForTrading(walletClient: WalletClient): Promise<void> {
   const address = walletClient.account?.address;
   if (!address) throw new Error('Connect wallet first');
@@ -16,7 +20,8 @@ export async function ensureHlAgentForTrading(walletClient: WalletClient): Promi
   }
 
   const approval = await resolveHlAgentApproval(address, meta.agentAddress);
-  if (approval.approved) return;
+  const needsRenew = hlAgentNeedsRenew(approval.approved, approval.expiresAt);
+  if (!needsRenew) return;
 
   await approveAndSaveHlBotAgent({
     walletClient,
@@ -24,5 +29,6 @@ export async function ensureHlAgentForTrading(walletClient: WalletClient): Promi
     agentAddress: meta.agentAddress,
     agentName: meta.agentName,
     expiresAt: meta.expiresAt,
+    forceRenew: true,
   });
 }

@@ -280,6 +280,11 @@ const TerminalTradePanel: React.FC<Props> = ({
   ]);
 
   const needsAgentApproval = walletReady && hlSetup.setupSettled && !hlSetup.agentApproved;
+  const needsAgentRenew =
+    walletReady &&
+    hlSetup.setupSettled &&
+    hlSetup.agentApproved &&
+    (hlSetup.agentExpiringSoon || hlSetup.agentExpired);
   const needsBuilderFeeApproval =
     walletReady &&
     hlSetup.setupSettled &&
@@ -439,7 +444,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     });
   };
 
-  const runApproveAgent = async () => {
+  const runApproveAgent = async (forceRenew = false) => {
     if (!wallet || !address || !walletClient) {
       setBotError('Connect and unlock your wallet first.');
       return;
@@ -447,11 +452,11 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotError(null);
     setBotBusy(true);
     try {
-      // One-time agent approval only — platform fee has its own button; start/stop is DB-only.
       await approveHlBotAgentRequired({
         walletClient,
         walletAddress: address,
         userId: user?.id,
+        forceRenew,
       });
       await hlSetup.refresh();
     } catch (err: unknown) {
@@ -570,7 +575,11 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const handleApproveAgent = () => {
-    ensureAccepted(() => void runApproveAgent());
+    ensureAccepted(() => void runApproveAgent(false));
+  };
+
+  const handleRenewAgent = () => {
+    ensureAccepted(() => void runApproveAgent(true));
   };
 
   const handleApproveBuilderFee = () => {
@@ -722,6 +731,29 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
 
             <div className="term-bot-action-stack flex flex-col gap-2">
+              {needsAgentRenew ? (
+                <div
+                  className="rounded border border-amber-600/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
+                  role="status"
+                >
+                  {hlSetup.agentExpired
+                    ? 'Trading agent expired — bot cannot open/close until you renew (Hyperliquid ~90 day limit).'
+                    : `Trading agent expires in ~${hlSetup.agentDaysLeft ?? '?'} day(s). Renew now so the bot does not stop silently.`}
+                  <button
+                    type="button"
+                    className="term-btn-sm term-btn-sm--primary w-full justify-center mt-2"
+                    disabled={botBusy}
+                    onClick={() => void handleRenewAgent()}
+                  >
+                    {botBusy ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ShieldCheck size={14} />
+                    )}
+                    {botBusy ? 'Renewing…' : 'Renew trading agent'}
+                  </button>
+                </div>
+              ) : null}
               {walletReady && botRunning ? (
                 <button
                   type="button"

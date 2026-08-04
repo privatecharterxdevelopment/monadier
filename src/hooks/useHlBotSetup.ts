@@ -8,6 +8,11 @@ import { fetchMaxBuilderFee, isBuilderApprovalSufficient } from '../lib/hyperliq
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { fetchHlBuilderPlatformStatus } from '../lib/hyperliquid/builderPlatform';
 import { useHlAccountSnapshot } from './useHlAccountSnapshot';
+import {
+  hlAgentDaysUntilExpiry,
+  isHlAgentExpired,
+  isHlAgentExpiringSoon,
+} from '../lib/hyperliquid/hlAgentExpiry';
 
 export type HlBotSetupPhase =
   | 'connect'
@@ -222,6 +227,10 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   }, [walletAddress, refreshMeta]);
 
   const setupSettled = hlLoaded && agentLoaded;
+  const agentExpired = isHlAgentExpired(agentExpiresAt);
+  const agentExpiringSoon =
+    agentApproved && !agentExpired && isHlAgentExpiringSoon(agentExpiresAt);
+  const agentDaysLeft = hlAgentDaysUntilExpiry(agentExpiresAt);
 
   return {
     phase,
@@ -233,6 +242,9 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     totalMarginUsedUsd,
     openPositionsCount,
     agentApproved,
+    agentExpired,
+    agentExpiringSoon,
+    agentDaysLeft,
     builderFeeApproved,
     builderFeeEnabled,
     builderPlatformReady,

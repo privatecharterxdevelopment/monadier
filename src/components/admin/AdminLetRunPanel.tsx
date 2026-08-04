@@ -4,6 +4,7 @@ import {
   fetchAdminLetRunStatus,
   setAdminLetRunAll,
   setAdminPositionLetRun,
+  type AgentExpiryRow,
   type LetRunPositionRow,
 } from '../../lib/adminLetRun';
 
@@ -15,6 +16,7 @@ function shortWallet(w: string): string {
 const AdminLetRunPanel: React.FC = () => {
   const [letRunAll, setLetRunAll] = useState(false);
   const [positions, setPositions] = useState<LetRunPositionRow[]>([]);
+  const [agentExpiry, setAgentExpiry] = useState<AgentExpiryRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,7 @@ const AdminLetRunPanel: React.FC = () => {
     }
     setLetRunAll(Boolean(res.data.letRunAll));
     setPositions(res.data.positions ?? []);
+    setAgentExpiry(res.data.agentExpiry ?? []);
     setUpdatedAt(res.data.timestamp ?? new Date().toISOString());
   }, []);
 
@@ -183,6 +186,51 @@ const AdminLetRunPanel: React.FC = () => {
                   </tr>
                 );
               })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card-dark overflow-x-auto">
+        <div className="p-3 border-b border-border">
+          <h3 className="text-sm font-semibold text-primary">Agent expiry (HL ~90d)</h3>
+          <p className="text-[11px] text-secondary mt-0.5">
+            Users must re-sign approveAgent — bot cannot rotate silently. Warn window = 14 days.
+          </p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-secondary border-b border-border">
+              <th className="p-3">Wallet</th>
+              <th className="p-3">Status</th>
+              <th className="p-3">Days left</th>
+              <th className="p-3">Expires</th>
+            </tr>
+          </thead>
+          <tbody>
+            {agentExpiry.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="p-4 text-secondary text-sm">
+                  No agents expired or inside 14-day renew window.
+                </td>
+              </tr>
+            ) : (
+              agentExpiry.map((a) => (
+                <tr key={a.wallet} className="border-b border-border/60">
+                  <td className="p-3 font-mono text-xs">{shortWallet(a.wallet)}</td>
+                  <td
+                    className={`p-3 text-xs font-semibold ${
+                      a.status === 'expired' ? 'text-red-400' : 'text-amber-300'
+                    }`}
+                  >
+                    {a.status === 'expired' ? 'EXPIRED' : 'RENEW SOON'}
+                  </td>
+                  <td className="p-3">{a.daysLeft ?? '—'}</td>
+                  <td className="p-3 text-xs text-secondary">
+                    {a.expiresAt ? new Date(a.expiresAt).toLocaleString() : '—'}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
