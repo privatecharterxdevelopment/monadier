@@ -326,9 +326,38 @@ function loadTrailRecord(lockKey: string): DynamicTrailRecord | null {
   return getDynamicTrailRecord(lockKey) ?? null;
 }
 
-function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
-  setDynamicTrailRecord(lockKey, rec);
+function mergeFavorableExtreme(
+  direction: 'LONG' | 'SHORT',
+  a: number,
+  b: number
+): number {
+  return direction === 'LONG' ? Math.max(a, b) : Math.min(a, b);
 }
+
+function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
+  const prev = getDynamicTrailRecord(lockKey);
+  let next = rec;
+  if (prev && prev.highestPnlSinceEntry > rec.highestPnlSinceEntry) {
+    // Never let a cold/empty tick wipe a reconstructed or lived peak.
+    next = {
+      ...rec,
+      highestPnlSinceEntry: prev.highestPnlSinceEntry,
+      maxRunup: Math.max(rec.maxRunup, prev.maxRunup),
+      highestPriceSinceEntry: mergeFavorableExtreme(
+        rec.direction,
+        rec.highestPriceSinceEntry,
+        prev.highestPriceSinceEntry
+      ),
+      phase: rec.phase === 'idle' && prev.phase !== 'idle' ? prev.phase : rec.phase,
+      currentTrailStop:
+        rec.currentTrailStop ?? prev.currentTrailStop,
+      trailArmedAt: rec.trailArmedAt ?? prev.trailArmedAt,
+    };
+  }
+  setDynamicTrailRecord(lockKey, next);
+}
+
+const trailRehydrateAttempted = new Set<string>();
 
 /** Load trail + candle-rehydrate peak after redeploy wipe so profit SL still arms. */
 async function loadTrailRecordWithRehydrate(opts: {
@@ -358,8 +387,12 @@ async function loadTrailRecordWithRehydrate(opts: {
     openedAtMs: opts.openedAtMs,
     existing,
   });
-  if (rehydrated) saveTrailRecord(opts.lockKey, rehydrated);
-  return rehydrated;
+  if (rehydrated && rehydrated.highestPnlSinceEntry > 0) {
+    saveTrailRecord(opts.lockKey, rehydrated);
+    trailRehydrateAttempted.add(opts.lockKey);
+    return rehydrated;
+  }
+  return rehydrated ?? existing;
 }
 
 function resolveMarginPerSlot(

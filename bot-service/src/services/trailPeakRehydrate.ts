@@ -5,10 +5,29 @@
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { signalEngine } from './signalEngine';
+import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import { estimateRoundTripFeesUsd } from './dynamicTrailingStop';
+
+async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
+  try {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=5m&limit=500`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return [];
+    return data.map((k: unknown[]) => ({
+      time: Number(k[0]),
+      open: Number(k[1]),
+      high: Number(k[2]),
+      low: Number(k[3]),
+      close: Number(k[4]),
+      volume: Number(k[5]),
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export async function rehydrateTrailPeakFromCandles(opts: {
   coin: string;
@@ -36,25 +55,22 @@ export async function rehydrateTrailPeakFromCandles(opts: {
 
   try {
     const symbol = hlCoinToBinanceSymbol(opts.coin);
-    const candles = await signalEngine.fetchCandles(symbol, '5m', 500);
+    let candles = await fetchCandlesDirect(symbol);
+    if (candles.length === 0) {
+      candles = await signalEngine.fetchCandles(symbol, '5m', 500);
+    }
     const nowMs = Date.now();
-    // After Railway restart openedAt is often "now" — still scan ~72h so we don't
-    // forget a real peak from earlier in the position's life.
-    const ageGuess = nowMs - (opts.openedAtMs || nowMs);
-    const lookbackMs = 72 * 3600_000;
-    const since =
-      ageGuess < 10 * 60_000
-        ? nowMs - lookbackMs
-        : Math.max(0, opts.openedAtMs - 5 * 60_000);
-    const relevant = candles.filter((c) => c.time >= since);
-    if (relevant.length === 0) return existing;
+    // After Railway restart openedAt is often "now" — scan full candle window.
+    // Do NOT filter by openedAt (it is wrong after redeploy); use all fetched bars.
+    if (candles.length === 0) {
+      logger.warn('HL trail peak rehydrate — no candles', { coin: opts.coin, symbol });
+      return existing;
+    }
 
     let bestPnl = 0;
-    let favorable =
-      existing?.highestPriceSinceEntry ??
-      (opts.direction === 'LONG' ? opts.entryPrice : opts.entryPrice);
+    let favorable = opts.entryPrice;
 
-    for (const c of relevant) {
+    for (const c of candles) {
       if (opts.direction === 'LONG') {
         favorable = Math.max(favorable, c.high);
         const pnl = (c.high - opts.entryPrice) * opts.absSize;
@@ -66,7 +82,15 @@ export async function rehydrateTrailPeakFromCandles(opts: {
       }
     }
 
-    if (bestPnl <= 0) return existing;
+    if (bestPnl <= 0) {
+      logger.info('HL trail peak rehydrate — no green extreme in window', {
+        coin: opts.coin,
+        direction: opts.direction,
+        entry: opts.entryPrice,
+        candles: candles.length,
+      });
+      return existing;
+    }
 
     const feesUsd = estimateRoundTripFeesUsd(opts.notionalUsd);
     const rec: DynamicTrailRecord = existing
@@ -96,18 +120,8 @@ export async function rehydrateTrailPeakFromCandles(opts: {
         ? Math.max(rec.highestPriceSinceEntry, favorable)
         : Math.min(rec.highestPriceSinceEntry, favorable);
 
-    // If peak was big enough to arm, restore armed BE/peak-floor stop immediately
-    // so givebacks after redeploy still lock (while still green).
-    const armRoe = config.hyperliquid.dynamicTrail.breakevenArmRoePct;
-    const collateralGuess = opts.notionalUsd > 0 ? opts.notionalUsd / 10 : 0;
-    // Use peak vs a conservative collateral: ROE check uses live collateral in trail tick;
-    // here we only decide whether to restore an armed stop from reconstructed peak.
-    const peakEnough =
-      armRoe <= 0 ||
-      collateralGuess <= 0 ||
-      (bestPnl / Math.max(collateralGuess, 1)) * 100 >= armRoe * 0.5;
-
-    if (peakEnough && rec.phase === 'idle') {
+    // Restore armed peak-floor stop so a later green bounce can still lock.
+    if (rec.phase === 'idle') {
       const dropFrac = Math.min(
         0.95,
         Math.max(0.05, config.hyperliquid.dynamicTrail.profitFloorPeakDropFrac)
@@ -136,6 +150,7 @@ export async function rehydrateTrailPeakFromCandles(opts: {
       favorablePx: favorable.toFixed(6),
       phase: rec.phase,
       stop: rec.currentTrailStop?.toFixed(6) ?? '—',
+      candles: candles.length,
     });
     return rec;
   } catch (err) {
