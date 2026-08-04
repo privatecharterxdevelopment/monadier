@@ -11,6 +11,35 @@ import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import { estimateRoundTripFeesUsd } from './dynamicTrailingStop';
 
 async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
+  // Prefer Hyperliquid — same venue as the perp, works from Railway (Binance often blocked).
+  const hlCoin = symbol.replace(/USDT$/i, '').toUpperCase();
+  try {
+    const now = Date.now();
+    const start = now - 96 * 3600_000;
+    const res = await fetch('https://api.hyperliquid.xyz/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'candleSnapshot',
+        req: { coin: hlCoin, interval: '5m', startTime: start, endTime: now },
+      }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((c: { t: number; o: string; h: string; l: string; c: string; v: string }) => ({
+        time: Number(c.t),
+        open: Number(c.o),
+        high: Number(c.h),
+        low: Number(c.l),
+        close: Number(c.c),
+        volume: Number(c.v),
+      }));
+    }
+  } catch {
+    /* fall through */
+  }
+
   try {
     const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=5m&limit=500`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
