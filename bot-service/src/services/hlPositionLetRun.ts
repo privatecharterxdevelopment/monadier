@@ -7,6 +7,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { getRuntimeLetRunAll } from './hlRuntimePolicy';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -53,25 +54,27 @@ async function loadPrefs(wallet: string): Promise<PrefMap> {
   }
 }
 
-/** Effective let-run for this position (global + per-user override). */
+/** Effective let-run for this position (runtime global + per-user override). */
 export async function resolvePositionLetRun(opts: {
   wallet: string;
   coin: string;
   direction: 'LONG' | 'SHORT';
-  letRunAll: boolean;
+  /** Ignored when runtime policy exists — kept for call-site compat. */
+  letRunAll?: boolean;
   letRunCoin: boolean;
   longLetRun: boolean;
-}): Promise<{ letRun: boolean; source: string }> {
+}): Promise<{ letRun: boolean; source: string; letRunAll: boolean }> {
+  const letRunAll = await getRuntimeLetRunAll();
   const prefs = await loadPrefs(opts.wallet);
   const pref = prefs.get(coinKey(opts.coin));
-  if (pref === true) return { letRun: true, source: 'user_on' };
-  if (pref === false) return { letRun: false, source: 'user_off' };
-  if (opts.letRunAll) return { letRun: true, source: 'all' };
-  if (opts.letRunCoin) return { letRun: true, source: 'coin' };
+  if (pref === true) return { letRun: true, source: 'user_on', letRunAll };
+  if (pref === false) return { letRun: false, source: 'user_off', letRunAll };
+  if (letRunAll) return { letRun: true, source: 'all', letRunAll };
+  if (opts.letRunCoin) return { letRun: true, source: 'coin', letRunAll };
   if (opts.direction === 'LONG' && opts.longLetRun) {
-    return { letRun: true, source: 'long' };
+    return { letRun: true, source: 'long', letRunAll };
   }
-  return { letRun: false, source: 'trail' };
+  return { letRun: false, source: 'trail', letRunAll };
 }
 
 export async function setUserPositionLetRun(
@@ -111,4 +114,25 @@ export async function listUserPositionLetRun(
   const out: Record<string, boolean> = {};
   for (const [c, v] of prefs) out[c] = v;
   return out;
+}
+
+export async function listAllPositionLetRunPrefs(): Promise<
+  Array<{ wallet: string; coin: string; letRun: boolean }>
+> {
+  try {
+    const { data, error } = await supabase
+      .from('hl_position_let_run')
+      .select('wallet_address, coin, let_run');
+    if (error) {
+      logger.warn('HL let-run list-all failed', { error: error.message });
+      return [];
+    }
+    return (data ?? []).map((r) => ({
+      wallet: String(r.wallet_address ?? '').toLowerCase(),
+      coin: coinKey(String(r.coin ?? '')),
+      letRun: Boolean(r.let_run),
+    }));
+  } catch {
+    return [];
+  }
 }

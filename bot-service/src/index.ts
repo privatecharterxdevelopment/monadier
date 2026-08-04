@@ -133,7 +133,8 @@ const healthServer = http.createServer(async (req, res) => {
       policy: {
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
         longLetRun: config.hyperliquid.longLetRun,
-        letRunAll: config.hyperliquid.letRunAll,
+        letRunAll: await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll(),
+        letRunAllConfigFallback: config.hyperliquid.letRunAll,
         botCrossMargin: config.hyperliquid.botCrossMargin,
         invalidationExit: config.hyperliquid.invalidationExit.enabled,
         zoneFlipEnabled: config.hyperliquid.zoneFlipEnabled,
@@ -334,10 +335,26 @@ const healthServer = http.createServer(async (req, res) => {
   // API: Per-position let-run toggle (skip trail auto-close for wallet+coin)
   if (url.pathname === '/api/hl-let-run' && req.method === 'GET') {
     try {
+      const { getRuntimeLetRunAll } = await import('./services/hlRuntimePolicy');
+      const letRunAll = await getRuntimeLetRunAll();
       const wallet = String(url.searchParams.get('wallet') ?? '').toLowerCase();
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+      if (wallet && !/^0x[a-f0-9]{40}$/.test(wallet)) {
         res.writeHead(400, corsHeaders);
         res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!wallet) {
+        // Admin overview — all open positions + global flag (no secret; ops desk).
+        const status = await hyperliquidTradingService.listOpenPositionsLetRunStatus();
+        res.writeHead(200, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: true,
+            letRunAll: status.letRunAll,
+            positions: status.positions,
+            timestamp: new Date().toISOString(),
+          })
+        );
         return;
       }
       const { listUserPositionLetRun } = await import('./services/hlPositionLetRun');
@@ -348,7 +365,7 @@ const healthServer = http.createServer(async (req, res) => {
           success: true,
           wallet,
           prefs,
-          letRunAll: config.hyperliquid.letRunAll,
+          letRunAll,
           timestamp: new Date().toISOString(),
         })
       );
@@ -362,6 +379,19 @@ const healthServer = http.createServer(async (req, res) => {
   if (url.pathname === '/api/hl-let-run' && req.method === 'POST') {
     try {
       const body = await readJsonBody();
+      // Global let-run (instant — Supabase runtime policy, no Railway).
+      if (body.letRunAll != null && body.wallet == null && body.coin == null) {
+        const { setRuntimeLetRunAll } = await import('./services/hlRuntimePolicy');
+        const result = await setRuntimeLetRunAll(Boolean(body.letRunAll), 'api');
+        if (!result.ok) {
+          res.writeHead(400, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: result.error || 'save failed' }));
+          return;
+        }
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, letRunAll: Boolean(body.letRunAll) }));
+        return;
+      }
       const wallet = String(body.wallet ?? '').toLowerCase();
       const coin = String(body.coin ?? '').trim().toUpperCase();
       const letRun = Boolean(body.letRun);

@@ -2856,6 +2856,79 @@ export class HyperliquidTradingService {
     return [...merged];
   }
 
+  /** Admin desk: every monitored wallet’s open perps + effective let-run. */
+  async listOpenPositionsLetRunStatus(): Promise<{
+    letRunAll: boolean;
+    positions: Array<{
+      wallet: string;
+      coin: string;
+      side: 'LONG' | 'SHORT';
+      size: number;
+      entryPx: number;
+      uPnlUsd: number;
+      leverage: number;
+      letRun: boolean;
+      source: string;
+    }>;
+  }> {
+    const { getRuntimeLetRunAll } = await import('./hlRuntimePolicy');
+    const letRunAll = await getRuntimeLetRunAll();
+    const wallets = await this.resolvePositionMonitorWallets();
+    const positions: Array<{
+      wallet: string;
+      coin: string;
+      side: 'LONG' | 'SHORT';
+      size: number;
+      entryPx: number;
+      uPnlUsd: number;
+      leverage: number;
+      letRun: boolean;
+      source: string;
+    }> = [];
+
+    const { mapPool } = await import('../utils/asyncPool');
+    await mapPool(wallets, Math.min(12, config.scaling.userProcessConcurrency), async (walletRaw) => {
+      const wallet = walletRaw.toLowerCase() as `0x${string}`;
+      try {
+        const state = await fetchHlClearinghouseState(wallet);
+        if (!state) return;
+        for (const row of state.assetPositions ?? []) {
+          const pos = row.position;
+          if (!pos?.coin) continue;
+          const size = Number(pos.szi ?? 0);
+          const entry = Number(pos.entryPx ?? 0);
+          if (!hlIsMeaningfulPerpPosition(size, entry)) continue;
+          const coin = pos.coin.toUpperCase();
+          const side: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
+          const decision = await resolvePositionLetRun({
+            wallet,
+            coin,
+            direction: side,
+            letRunAll,
+            letRunCoin: config.hyperliquid.letRunCoins.includes(coin),
+            longLetRun: config.hyperliquid.longLetRun,
+          });
+          positions.push({
+            wallet,
+            coin,
+            side,
+            size: Math.abs(size),
+            entryPx: entry,
+            uPnlUsd: Number(pos.unrealizedPnl ?? 0),
+            leverage: Math.max(1, Number(pos.leverage?.value ?? 1)),
+            letRun: decision.letRun,
+            source: decision.source,
+          });
+        }
+      } catch {
+        /* skip wallet */
+      }
+    });
+
+    positions.sort((a, b) => a.wallet.localeCompare(b.wallet) || a.coin.localeCompare(b.coin));
+    return { letRunAll, positions };
+  }
+
   /** Scan agent-approved wallets for open perps and keep them on the trail loop. */
   async refreshOpenPositionMonitorFromApprovals(): Promise<void> {
     openPositionMonitorRefreshAt = Date.now();
