@@ -100,6 +100,7 @@ import {
   getDynamicTrailRecord,
   setDynamicTrailRecord,
 } from './profitTrailState';
+import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
   isSameCoinOpenBlocked,
   isSameCoinOpenBlockedSync,
@@ -327,6 +328,38 @@ function loadTrailRecord(lockKey: string): DynamicTrailRecord | null {
 
 function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
   setDynamicTrailRecord(lockKey, rec);
+}
+
+/** Load trail + candle-rehydrate peak after redeploy wipe so profit SL still arms. */
+async function loadTrailRecordWithRehydrate(opts: {
+  lockKey: string;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  entryPrice: number;
+  absSize: number;
+  markPrice: number;
+  notionalUsd: number;
+  openedAtMs: number;
+}): Promise<DynamicTrailRecord | null> {
+  const existing = loadTrailRecord(opts.lockKey);
+  if (
+    existing &&
+    (existing.phase !== 'idle' || existing.highestPnlSinceEntry > 0)
+  ) {
+    return existing;
+  }
+  const rehydrated = await rehydrateTrailPeakFromCandles({
+    coin: opts.coin,
+    direction: opts.direction,
+    entryPrice: opts.entryPrice,
+    absSize: opts.absSize,
+    markPrice: opts.markPrice,
+    notionalUsd: opts.notionalUsd,
+    openedAtMs: opts.openedAtMs,
+    existing,
+  });
+  if (rehydrated) saveTrailRecord(opts.lockKey, rehydrated);
+  return rehydrated;
 }
 
 function resolveMarginPerSlot(
@@ -2338,7 +2371,17 @@ export class HyperliquidTradingService {
         letRunCoin ||
         (positionDirection === 'LONG' && config.hyperliquid.longLetRun)
       ) {
-        let trailRecord = loadTrailRecord(lockKey);
+        const notionalUsd = notional > 0 ? notional : absSize * markPrice;
+        let trailRecord = await loadTrailRecordWithRehydrate({
+          lockKey,
+          coin: pos.coin,
+          direction: positionDirection,
+          entryPrice: entry,
+          absSize,
+          markPrice,
+          notionalUsd,
+          openedAtMs: hlPositionOpenedAt.get(lockKey) ?? nowMs,
+        });
         const trailCloseDeferred =
           trailRecord?.trailCloseDeferUntil != null &&
           nowMs < trailRecord.trailCloseDeferUntil;
@@ -2349,7 +2392,7 @@ export class HyperliquidTradingService {
           markPrice,
           pnlUsd: pnl,
           absSize,
-          notionalUsd: notional > 0 ? notional : absSize * markPrice,
+          notionalUsd,
           collateralUsd: collateralEst,
           nowMs,
           totalHoldMs: holdMs,
@@ -2460,7 +2503,17 @@ export class HyperliquidTradingService {
         );
       }
 
-      let trailRecord = loadTrailRecord(lockKey);
+      const notionalUsd = notional > 0 ? notional : absSize * markPrice;
+      let trailRecord = await loadTrailRecordWithRehydrate({
+        lockKey,
+        coin: pos.coin,
+        direction: positionDirection,
+        entryPrice: entry,
+        absSize,
+        markPrice,
+        notionalUsd,
+        openedAtMs: hlPositionOpenedAt.get(lockKey) ?? nowMs,
+      });
       const profitHoldMsForAnalysis =
         trailRecord?.profitSinceAt != null
           ? nowMs - trailRecord.profitSinceAt
@@ -2492,7 +2545,7 @@ export class HyperliquidTradingService {
         markPrice,
         pnlUsd: pnl,
         absSize,
-        notionalUsd: notional > 0 ? notional : absSize * markPrice,
+        notionalUsd,
         collateralUsd: collateralEst,
         nowMs,
         totalHoldMs: holdMs,

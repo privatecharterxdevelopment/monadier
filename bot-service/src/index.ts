@@ -32,6 +32,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
+import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
@@ -1640,6 +1641,9 @@ async function main(): Promise<void> {
   }
 
   await releaseHlBotTradingPauses();
+
+  // Restore profit-trail peaks/stops from Supabase before first monitor pass.
+  await ensureProfitTrailStateHydrated();
 
   // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
   await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
