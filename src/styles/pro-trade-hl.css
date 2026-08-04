@@ -2568,6 +2568,19 @@
   cursor: pointer;
 }
 
+.hl-let-run-btn--on {
+  border-color: #3d7a4a;
+  color: #8fd49a;
+  background: rgba(61, 122, 74, 0.15);
+}
+
+.hl-pos-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .hl-dock-body {
   flex: 1;
   min-height: 0;

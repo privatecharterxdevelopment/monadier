@@ -100,6 +100,7 @@ import {
   getDynamicTrailRecord,
   setDynamicTrailRecord,
 } from './profitTrailState';
+import { resolvePositionLetRun } from './hlPositionLetRun';
 import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
   isSameCoinOpenBlocked,
@@ -2397,13 +2398,18 @@ export class HyperliquidTradingService {
       const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
+      const letRunDecision = await resolvePositionLetRun({
+        wallet: userAddress,
+        coin: coinUpper,
+        direction: positionDirection,
+        letRunAll,
+        letRunCoin,
+        longLetRun: config.hyperliquid.longLetRun,
+      });
 
-      // Let-run all / coin / LONG: no trail / TP / SL / range-TP auto-close — user only.
-      if (
-        letRunAll ||
-        letRunCoin ||
-        (positionDirection === 'LONG' && config.hyperliquid.longLetRun)
-      ) {
+      // Let-run (global / coin / LONG / per-user): no trail close — user only.
+      // Per-user let_run=false forces trail even when letRunAll is on.
+      if (letRunDecision.letRun) {
         const notionalUsd = notional > 0 ? notional : absSize * markPrice;
         let trailRecord = await loadTrailRecordWithRehydrate({
           lockKey,
@@ -2436,15 +2442,13 @@ export class HyperliquidTradingService {
         });
         // Keep trail state for UI — never act on shouldClose.
         saveTrailRecord(lockKey, trailResult.record);
-        if (letRunAll || letRunCoin) {
-          logger.debug('HL let-run — skip auto exits', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl.toFixed(4),
-            mode: letRunAll ? 'all' : 'coin',
-          });
-        }
+        logger.debug('HL let-run — skip auto exits', {
+          user: userAddress.slice(0, 10),
+          coin: pos.coin,
+          direction: positionDirection,
+          pnlUsd: pnl.toFixed(4),
+          source: letRunDecision.source,
+        });
         continue;
       }
 

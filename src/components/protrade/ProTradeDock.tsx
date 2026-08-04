@@ -48,6 +48,7 @@ import {
   filterOrdersByScope,
 } from '../../lib/hyperliquid/splitHlActivity';
 import { trailStopForOpenPosition, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
+import { fetchHlLetRunPrefs, setHlLetRunPref } from '../../lib/hyperliquid/hlLetRun';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
@@ -438,6 +439,53 @@ const ProTradeDock: React.FC<Props> = ({
     isBotMode && Boolean(walletAddress)
   );
 
+  const [letRunPrefs, setLetRunPrefs] = useState<Record<string, boolean>>({});
+  const [letRunAllPolicy, setLetRunAllPolicy] = useState(false);
+  const [letRunBusyCoin, setLetRunBusyCoin] = useState<string | null>(null);
+
+  const openCoinsKey = filteredPositions.map((p) => p.coin).join(',');
+
+  useEffect(() => {
+    if (!isBotMode || !walletAddress) {
+      setLetRunPrefs({});
+      setLetRunAllPolicy(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { prefs, letRunAll } = await fetchHlLetRunPrefs(walletAddress);
+      if (cancelled) return;
+      setLetRunPrefs(prefs);
+      setLetRunAllPolicy(letRunAll);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBotMode, walletAddress, openCoinsKey]);
+
+  const effectiveLetRun = (coin: string): boolean => {
+    const pref = letRunPrefs[coin.toUpperCase()];
+    if (pref === true) return true;
+    if (pref === false) return false;
+    return letRunAllPolicy;
+  };
+
+  const toggleLetRun = async (coin: string) => {
+    if (!walletAddress || letRunBusyCoin) return;
+    const next = !effectiveLetRun(coin);
+    setLetRunBusyCoin(coin);
+    setLetRunPrefs((prev) => ({ ...prev, [coin.toUpperCase()]: next }));
+    const res = await setHlLetRunPref(walletAddress, coin, next);
+    if (!res.ok) {
+      setLetRunPrefs((prev) => {
+        const copy = { ...prev };
+        delete copy[coin.toUpperCase()];
+        return copy;
+      });
+    }
+    setLetRunBusyCoin(null);
+  };
+
   const filteredCloseFills = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return closeFills;
@@ -594,6 +642,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>{t('dock.cols.pnl')}</th>
                   <th className="hl-col-optional">{t('dock.cols.lev')}</th>
                   {isBotMode ? <th>{t('dock.cols.stop')}</th> : null}
+                  {isBotMode ? <th>Let run</th> : null}
                   <th />
                 </tr>
               </thead>
@@ -672,6 +721,25 @@ const ProTradeDock: React.FC<Props> = ({
                               {activeSl.label}
                             </span>
                           )}
+                        </td>
+                      ) : null}
+                      {isBotMode ? (
+                        <td>
+                          <button
+                            type="button"
+                            className={`hl-dock-action hl-let-run-btn${
+                              effectiveLetRun(p.coin) ? ' hl-let-run-btn--on' : ''
+                            }`}
+                            disabled={actionBusy || letRunBusyCoin === p.coin}
+                            title={
+                              effectiveLetRun(p.coin)
+                                ? 'Let run ON — bot will not auto-close (trail off). Click to enable profit trail.'
+                                : 'Let run OFF — profit trail / TP can close. Click to hold until manual Close.'
+                            }
+                            onClick={() => void toggleLetRun(p.coin)}
+                          >
+                            {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
+                          </button>
                         </td>
                       ) : null}
                       <td>
@@ -792,14 +860,33 @@ const ProTradeDock: React.FC<Props> = ({
                         </div>
                       ) : null}
                     </dl>
-                    <button
-                      type="button"
-                      className="hl-dock-action hl-pos-card__close"
-                      disabled={actionBusy}
-                      onClick={() => onClosePosition?.(p)}
-                    >
-                      Close
-                    </button>
+                    <div className="hl-pos-card__actions">
+                      {isBotMode ? (
+                        <button
+                          type="button"
+                          className={`hl-dock-action hl-let-run-btn${
+                            effectiveLetRun(p.coin) ? ' hl-let-run-btn--on' : ''
+                          }`}
+                          disabled={actionBusy || letRunBusyCoin === p.coin}
+                          title={
+                            effectiveLetRun(p.coin)
+                              ? 'Let run ON — bot will not auto-close. Click for profit trail.'
+                              : 'Let run OFF — trail can close. Click to hold.'
+                          }
+                          onClick={() => void toggleLetRun(p.coin)}
+                        >
+                          Let run {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="hl-dock-action hl-pos-card__close"
+                        disabled={actionBusy}
+                        onClick={() => onClosePosition?.(p)}
+                      >
+                        Close
+                      </button>
+                    </div>
                   </article>
                 );
               })}

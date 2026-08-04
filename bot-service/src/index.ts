@@ -331,6 +331,66 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // API: Per-position let-run toggle (skip trail auto-close for wallet+coin)
+  if (url.pathname === '/api/hl-let-run' && req.method === 'GET') {
+    try {
+      const wallet = String(url.searchParams.get('wallet') ?? '').toLowerCase();
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      const { listUserPositionLetRun } = await import('./services/hlPositionLetRun');
+      const prefs = await listUserPositionLetRun(wallet);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          prefs,
+          letRunAll: config.hyperliquid.letRunAll,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-let-run failed' }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-let-run' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      const coin = String(body.coin ?? '').trim().toUpperCase();
+      const letRun = Boolean(body.letRun);
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      if (!coin || coin.length > 16) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'coin required' }));
+        return;
+      }
+      const { setUserPositionLetRun } = await import('./services/hlPositionLetRun');
+      const result = await setUserPositionLetRun(wallet, coin, letRun);
+      if (!result.ok) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: result.error || 'save failed' }));
+        return;
+      }
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, coin, letRun }));
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: err.message || 'hl-let-run failed' }));
+    }
+    return;
+  }
+
   // API: Manual close via Monadier HL agent (MetaMask cannot sign L1 chainId 1337)
   if (url.pathname === '/api/hl-close' && req.method === 'POST') {
     try {

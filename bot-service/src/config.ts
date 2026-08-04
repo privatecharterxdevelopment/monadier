@@ -507,10 +507,11 @@ export const config = {
     longLetRun: process.env.HL_LONG_LET_RUN === 'true',
     /**
      * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
-     * Default OFF — profit trail / TP / SL apply.
-     * Set HL_LET_RUN_ALL=true only to force-hold everything until manual close.
+     * Forced ON for current book (user 2026-08-04). Per-position toggle can
+     * force trail back on for a single coin. To disable global: set this false
+     * and redeploy (Railway env HL_LET_RUN_ALL=false alone is ignored while forced).
      */
-    letRunAll: process.env.HL_LET_RUN_ALL === 'true',
+    letRunAll: true,
     /**
      * Bot opens use HL cross (floating) margin so free USDC backs the book —
      * isolated was cutting losers while spot cash sat unused.
