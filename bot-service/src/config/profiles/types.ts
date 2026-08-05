@@ -112,9 +112,14 @@ export type HlDirectionProfile = {
   enableLlmConfirm: boolean;
   /**
    * When false, LONGs are dead at the source (scan / open / zone-flip→LONG).
-   * bear_market = false (SHORT-only book). bull_market = true.
+   * bear_market historically used this for SHORT-only books.
    */
   allowLongOpens: boolean;
+  /**
+   * When false, SHORTs are dead at the source (scan / open / zone-flip→SHORT /
+   * peak-short / force-open). bull_market = false — no shorts in a long bull run.
+   */
+  allowShortOpens: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
 };

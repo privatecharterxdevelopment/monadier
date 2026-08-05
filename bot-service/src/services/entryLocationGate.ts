@@ -479,8 +479,10 @@ export async function validateEntryLocation(opts: {
   }
 
   // Symmetric: resistance rejection when scan arrived LONG → SHORT (top of range).
+  // Disabled under LONG-only bull (allowShortOpens=false).
   if (
     config.hyperliquid.zoneFlipEnabled &&
+    config.hyperliquid.directionProfile.allowShortOpens &&
     opts.direction === 'LONG' &&
     !classic.ok &&
     sr.nearResistance &&

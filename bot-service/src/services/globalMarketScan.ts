@@ -64,6 +64,10 @@ function pickPreferredCandidate(
   if (!profile.allowLongOpens) {
     return shortC;
   }
+  // ROOT: bull_market (allowShortOpens=false) never returns a SHORT pick.
+  if (!profile.allowShortOpens) {
+    return longC;
+  }
 
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
@@ -84,14 +88,15 @@ function pickPreferredCandidate(
 }
 
 /**
- * Both sides stay eligible under every regime. Primary gets that profile's
- * primary-side rules; the opposite side uses COUNTER_TREND_RULES (stricter)
- * via passesProfileThresholds / rulesFor. Peak→SHORT is always allowed.
+ * Regime hard gates. Peak→SHORT is NOT a bypass when allowShortOpens=false.
  */
 function isActiveProfileDirection(
-  _direction: 'LONG' | 'SHORT',
+  direction: 'LONG' | 'SHORT',
   _peakLiquidityGrab = false
 ): boolean {
+  const profile = config.hyperliquid.directionProfile;
+  if (direction === 'LONG' && !profile.allowLongOpens) return false;
+  if (direction === 'SHORT' && !profile.allowShortOpens) return false;
   return true;
 }
 
@@ -236,6 +241,10 @@ async function scanStandardCoinDirection(
       return null;
     }
   }
+  // ROOT: bull_market allowShortOpens=false → never analyze SHORT at all.
+  if (wantedDirection === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+    return null;
+  }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
@@ -247,10 +256,12 @@ async function scanStandardCoinDirection(
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
-    // Peak may flip LONG→SHORT; only keep that on the LONG analysis path.
+    // Peak may flip LONG→SHORT; kill that when shorts are hard-disabled.
     if (wantedDirection === 'SHORT' && direction !== 'SHORT') return null;
-    if (wantedDirection === 'LONG' && direction === 'SHORT' && !peakLiquidityGrab) {
-      return null;
+    if (wantedDirection === 'LONG' && direction === 'SHORT') {
+      if (!config.hyperliquid.directionProfile.allowShortOpens || !peakLiquidityGrab) {
+        return null;
+      }
     }
     if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
 
@@ -391,6 +402,9 @@ async function scanAggressiveCoin(
     if (direction === 'LONG') {
       if (!config.hyperliquid.directionProfile.allowLongOpens) return null;
       if (!isLongAllowedCoin(coin)) return null;
+    }
+    if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+      return null;
     }
 
     if (cautious) {

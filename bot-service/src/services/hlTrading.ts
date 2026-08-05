@@ -1165,6 +1165,15 @@ export class HyperliquidTradingService {
         );
       }
 
+      // ROOT: bull_market — SHORTs disabled at source (no shorting a long bull run).
+      if (opts.direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+        return rejectOpen(
+          'direction_profile',
+          `SHORT blocked — ${config.hyperliquid.directionProfile.name} has allowShortOpens=false (LONG-only bull run)`,
+          'SHORT disabled at source'
+        );
+      }
+
       // LONG only BTC/ETH/SOL/AVAX — VVV and other memes are SHORT-only.
       if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
@@ -1576,6 +1585,13 @@ export class HyperliquidTradingService {
           if (!dumpTape.ok) {
             return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
           }
+        }
+        if (flipped === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+          return rejectOpen(
+            'direction_profile',
+            `SHORT flip blocked — ${config.hyperliquid.directionProfile.name} has allowShortOpens=false (LONG-only bull run)`,
+            'SHORT disabled at source'
+          );
         }
         opts.pick.direction = flipped;
         if (flipped === 'SHORT') {
@@ -2096,6 +2112,25 @@ export class HyperliquidTradingService {
           ],
         };
       }
+    }
+    if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+      return {
+        coin,
+        direction,
+        dryRun,
+        leverage: leverageOverride,
+        opened: 0,
+        eligible: 0,
+        skipped: 0,
+        failed: 1,
+        results: [
+          {
+            wallet: 'n/a',
+            success: false,
+            error: `SHORT force blocked — allowShortOpens=false (LONG-only bull run)`,
+          },
+        ],
+      };
     }
     const wallets =
       opts.wallets ??
