@@ -25,6 +25,11 @@ function isNetworkCloseError(err: unknown): boolean {
   );
 }
 
+/** Legacy / race: position already flat — treat as successful Close for the UI. */
+function isAlreadyFlatCloseError(msg: string): boolean {
+  return /no hl position|zero size|already (flat|closed)|nothing to close/i.test(msg);
+}
+
 export async function closeHlPositionViaAgent(params: {
   walletAddress: string;
   coin: string;
@@ -44,12 +49,30 @@ export async function closeHlPositionViaAgent(params: {
     }
     throw err;
   }
-  let json: { success?: boolean; error?: string | null } = {};
+  let json: {
+    success?: boolean;
+    error?: string | null;
+    alreadyClosed?: boolean;
+  } = {};
   try {
-    json = (await res.json()) as { success?: boolean; error?: string | null };
+    json = (await res.json()) as {
+      success?: boolean;
+      error?: string | null;
+      alreadyClosed?: boolean;
+    };
   } catch {
     throw closeAgentError(res, json);
   }
+
+  // Ghost UI row + live book already flat — never surface as a Close failure.
+  if (
+    json.alreadyClosed ||
+    (!json.success && isAlreadyFlatCloseError(String(json.error ?? '')))
+  ) {
+    clearHlInfoCache();
+    return;
+  }
+
   if (!res.ok || !json.success) {
     throw closeAgentError(res, json);
   }

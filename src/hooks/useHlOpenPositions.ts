@@ -22,7 +22,8 @@ export function useHlOpenPositions(walletAddress: string | undefined) {
         acct.positions.filter((p) => Math.abs(Number.parseFloat(p.szi || '0')) > 1e-12)
       );
     } catch {
-      /* keep last positions */
+      // Only keep last snapshot on a true fetch failure — never invent opens.
+      if (!hasSnapshotRef.current) setPositions([]);
     } finally {
       refreshInFlightRef.current = false;
     }

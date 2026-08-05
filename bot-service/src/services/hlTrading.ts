@@ -3039,29 +3039,57 @@ export class HyperliquidTradingService {
       holdMs?: number;
     },
     reasonDetail?: string
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; alreadyClosed?: boolean }> {
     try {
       const coinUpper = coin.toUpperCase();
-      const state = await fetchHlClearinghouseState(userAddress);
-      const row = state?.assetPositions?.find(
-        (p) => p.position?.coin?.toUpperCase() === coinUpper
-      )?.position;
-      if (!row) return { success: false, error: 'No HL position' };
+      const userInitiated = isUserInitiatedClose(reason);
 
-      const size = Number(row.szi ?? 0);
-      if (!Number.isFinite(size) || Math.abs(size) < 1e-12) {
-        return { success: false, error: 'Zero size' };
+      // Manual Close is sacred — retry HL state; never lie with "No HL position" on a flake.
+      let state = await fetchHlClearinghouseState(userAddress);
+      if (!state) {
+        for (let i = 0; i < 4 && !state; i += 1) {
+          await new Promise((r) => setTimeout(r, 200 * (i + 1)));
+          state = await fetchHlClearinghouseState(userAddress);
+        }
+      }
+      if (!state) {
+        return {
+          success: false,
+          error: userInitiated
+            ? 'Hyperliquid unreachable — retry Close'
+            : 'No HL position',
+        };
       }
 
-      const entryPx = closeCtx?.entryPx ?? Number(row.entryPx ?? 0);
+      const row = state.assetPositions?.find(
+        (p) => p.position?.coin?.toUpperCase() === coinUpper
+      )?.position;
+      const size = Number(row?.szi ?? 0);
+      const flat =
+        !row || !Number.isFinite(size) || Math.abs(size) < 1e-12;
+
+      // Idempotent manual close: UI often shows a ghost after the fill already landed.
+      // Returning an error here makes traders think Close is broken.
+      if (flat) {
+        if (userInitiated) {
+          logger.info('HL close no-op — already flat', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            reason,
+          });
+          return { success: true, alreadyClosed: true };
+        }
+        return { success: false, error: 'No HL position' };
+      }
+
+      const entryPx = closeCtx?.entryPx ?? Number(row!.entryPx ?? 0);
       const pnlUsd =
-        closeCtx?.unrealizedPnlUsd ?? Number(row.unrealizedPnl ?? 0);
-      const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
+        closeCtx?.unrealizedPnlUsd ?? Number(row!.unrealizedPnl ?? 0);
+      const leverage = closeCtx?.leverage ?? row!.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
       // profitOnlyExits governs the bot's AUTO exits only. A user clicking "Close"
       // must always execute immediately, red or green — never block a manual close.
-      const userInitiated = isUserInitiatedClose(reason);
       const pnlFinite = Number.isFinite(pnlUsd);
       if (
         config.hyperliquid.profitOnlyExits &&

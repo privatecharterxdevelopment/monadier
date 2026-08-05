@@ -127,6 +127,20 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
     if (prevFunded && nextEmpty) {
       emptyEquityStreak += 1;
       if (emptyEquityStreak < 2) {
+        // Keep equity briefly on a flaky $0 read — but NEVER keep ghost positions
+        // with a Close button (that produces "No HL position" after a real fill).
+        if (prev && openCount === 0) {
+          snapshot = {
+            ...prev,
+            positions: [],
+            openPositionsCount: 0,
+            openNotionalUsd: 0,
+            unrealizedPnlUsd: 0,
+            updatedAt: Date.now(),
+          };
+          for (const listener of listeners) listener(snapshot);
+          return;
+        }
         for (const listener of listeners) listener(prev);
         return;
       }

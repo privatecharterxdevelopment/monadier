@@ -481,7 +481,14 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, coin }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          wallet,
+          coin,
+          alreadyClosed: Boolean(result.alreadyClosed),
+        })
+      );
     } catch (err: any) {
       logger.error('API: hl-close failed', { error: err.message });
       res.writeHead(500, corsHeaders);
