@@ -66,21 +66,21 @@ export function preOpenTimeframeForDirection(
 }
 
 /**
- * One-switch market-regime selector.
+ * One-switch market-regime selector (manual override).
  *
- * Two fully separate profile files, one env var to swap between them:
- *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts (LONG stack)
- *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts (June-26 SHORT engine)
+ * Prefer HL_DIRECTION_PROFILE=auto (default) — BTC 4h/1h picks bull vs bear live
+ * via liveDirectionProfile.refreshLiveDirectionProfile().
+ *
+ * Forced:
+ *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts
+ *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts
+ *   aliases: bear | short | short_friendly → bear
  *
  * Analysis TFs are always direction-hardcoded (not flipped by the regime switch):
  *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
  *
- * DEFAULT is bull_market in code so a deploy without the env set does not
- * change long behavior. Live red markets set bear_market on Railway.
  * Switching profiles only affects NEW opens — existing positions keep being
  * managed by the close/trail path regardless of the active profile.
- *
- * Aliases keep emergency/manual changes forgiving.
  */
 export function resolveDirectionProfile(raw: string | undefined) {
   const value = String(raw ?? '').trim().toLowerCase();
@@ -92,5 +92,7 @@ export function resolveDirectionProfile(raw: string | undefined) {
   ) {
     return BEAR_MARKET;
   }
+  // auto / btc / empty / bull → caller uses live BTC for auto; this returns bull
+  // as the static fallback when forced-bull or unknown.
   return BULL_MARKET;
 }

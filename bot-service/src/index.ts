@@ -13,6 +13,11 @@ import { validateProductionEnvironment } from './startup/validateProduction';
 import { checkWinRateGate } from './services/tradeGates';
 import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
+  getDirectionProfileMode,
+  getLiveBtcRegime,
+  refreshLiveDirectionProfile,
+} from './services/liveDirectionProfile';
+import {
   lastHlGlobalScanStats,
   lastGlobalScanResult,
   scanGlobalHlSignals,
@@ -1037,6 +1042,7 @@ const healthServer = http.createServer(async (req, res) => {
           onChainOpenTokens: hlOpenCoins,
         },
         directionProfile: {
+          mode: getDirectionProfileMode(),
           name: config.hyperliquid.directionProfile.name,
           description: config.hyperliquid.directionProfile.description,
           primaryDirection: config.hyperliquid.directionProfile.primaryDirection,
@@ -1054,6 +1060,22 @@ const healthServer = http.createServer(async (req, res) => {
           allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
           shortRelaxSecondaryGates:
             config.hyperliquid.directionProfile.short.relaxSecondaryGates,
+          btcRegime: (() => {
+            const r = getLiveBtcRegime();
+            if (!r) return null;
+            return {
+              regime: r.regime,
+              reason: r.reason,
+              btcLast: r.btcLast,
+              sma20_4h: r.sma20_4h,
+              change24hPct: r.change24hPct,
+              change7dPct: r.change7dPct,
+              aboveSma4h: r.aboveSma4h,
+              bullScore: r.bullScore,
+              sticky: r.sticky,
+              checkedAt: r.checkedAt,
+            };
+          })(),
         },
         llmTradeConfirm: {
           enabled: config.hyperliquid.llmTradeConfirm.enabled,
@@ -1726,6 +1748,15 @@ function logStartupInfo(): void {
 async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
+
+  // Seed BTC (or forced) direction profile before the first trade cycle.
+  const bootProfile = await refreshLiveDirectionProfile();
+  logger.info('Direction profile ready', {
+    mode: getDirectionProfileMode(),
+    profile: bootProfile.name,
+    primaryDirection: bootProfile.primaryDirection,
+    btc: getLiveBtcRegime()?.reason ?? null,
+  });
 
   // Start payment monitoring (listens for USDC transfers to treasury)
   await paymentService.startMonitoring();

@@ -3,11 +3,9 @@ import {
   MONADIER_VAULT_V11_ADDRESS,
   MONADIER_VAULT_V11_TREASURY_ADDRESS,
 } from './monadierVault';
-import { resolveDirectionProfile } from './config/directionProfiles';
+import { getLiveDirectionProfile } from './services/liveDirectionProfile';
 
 dotenv.config();
-
-const activeDirectionProfile = resolveDirectionProfile(process.env.HL_DIRECTION_PROFILE);
 
 // Only genuine secrets are required — no safe in-repo default exists for these.
 // TREASURY_ADDRESS is intentionally NOT here: it's a public, canonical constant
@@ -103,8 +101,10 @@ export const config = {
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
-    /** One-switch market regime; defaults to June-style SHORT-first bear_market. */
-    directionProfile: activeDirectionProfile,
+    /** Live BTC regime (or forced env). Always read via getter — never freeze at boot. */
+    get directionProfile() {
+      return getLiveDirectionProfile();
+    },
     /**
      * Platform ceiling for concurrent HL perp slots per wallet (different coins).
      * Must be 3 so a user who selects 3 slots is respected — normalizeMaxConcurrentPositions
@@ -116,13 +116,14 @@ export const config = {
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /**
      * Bot open floor (24h notional USD).
-     * Direction profile wins when it sets a floor (bear_market = $5M).
+     * Direction profile wins when it sets a floor (bear_market = $1M).
      * Else env HL_MIN_DAY_VOLUME_USD, else 0 = no floor.
      */
-    minDayVolumeUsd:
-      activeDirectionProfile.minDayVolumeUsd > 0
-        ? activeDirectionProfile.minDayVolumeUsd
-        : Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    get minDayVolumeUsd() {
+      const profile = getLiveDirectionProfile();
+      if (profile.minDayVolumeUsd > 0) return profile.minDayVolumeUsd;
+      return Number(process.env.HL_MIN_DAY_VOLUME_USD || 0);
+    },
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
@@ -415,13 +416,12 @@ export const config = {
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
       // Profile maxVolumeRank === 0 → no rank cap (bear_market), ignore stale Railway env.
-      // Else env HL_OPEN_MAX_VOLUME_RANK, else profile.
-      maxVolumeRank:
-        activeDirectionProfile.maxVolumeRank === 0
-          ? 0
-          : Number(
-              process.env.HL_OPEN_MAX_VOLUME_RANK || activeDirectionProfile.maxVolumeRank
-            ),
+      // Else env HL_OPEN_MAX_VOLUME_RANK, else live profile.
+      get maxVolumeRank() {
+        const profile = getLiveDirectionProfile();
+        if (profile.maxVolumeRank === 0) return 0;
+        return Number(process.env.HL_OPEN_MAX_VOLUME_RANK || profile.maxVolumeRank);
+      },
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
@@ -430,11 +430,15 @@ export const config = {
     /** Mandatory profile-specific structure read immediately before every open. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
-      candleCount: Number(
-        process.env.HL_PRE_OPEN_CANDLE_COUNT || activeDirectionProfile.preOpenCandleCount
-      ),
-      timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF ||
-        activeDirectionProfile.preOpenTimeframe) as '1m' | '5m' | '15m',
+      get candleCount() {
+        return Number(
+          process.env.HL_PRE_OPEN_CANDLE_COUNT || getLiveDirectionProfile().preOpenCandleCount
+        );
+      },
+      get timeframe(): '1m' | '5m' | '15m' {
+        return (process.env.HL_PRE_OPEN_CANDLE_TF ||
+          getLiveDirectionProfile().preOpenTimeframe) as '1m' | '5m' | '15m';
+      },
       minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
       minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
       maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
@@ -444,10 +448,12 @@ export const config = {
       // Volume-fade veto: only a genuine collapse (recent 5 bars < 50% of base) blocks.
       // 0.85 vetoed liquid majors during quiet hours (Sunday BTC 0.54×) — the trades we
       // actually want. Real dumps (<0.5×, e.g. XLM 0.17×) still block.
-      minVolumeRatio: Number(
-        process.env.HL_PRE_OPEN_MIN_VOL_RATIO ||
-          activeDirectionProfile.preOpenMinVolumeRatio
-      ),
+      get minVolumeRatio() {
+        return Number(
+          process.env.HL_PRE_OPEN_MIN_VOL_RATIO ||
+            getLiveDirectionProfile().preOpenMinVolumeRatio
+        );
+      },
       /**
        * Reversal veto (structure flipping / active dump against the trade). ATR-normalized
        * so a sluggish −0.15% drift over 100min (noise inside a confirmed uptrend) never
@@ -620,9 +626,12 @@ export const config = {
      * Default shadow: log allow/block/flip only. Set HL_LLM_GATE_MODE=enforce to apply.
      */
     llmTradeConfirm: {
-      enabled:
-        activeDirectionProfile.enableLlmConfirm &&
-        process.env.HL_LLM_GATE_ENABLED !== 'false',
+      get enabled() {
+        return (
+          getLiveDirectionProfile().enableLlmConfirm &&
+          process.env.HL_LLM_GATE_ENABLED !== 'false'
+        );
+      },
       mode: (process.env.HL_LLM_GATE_MODE === 'enforce' ? 'enforce' : 'shadow') as
         | 'shadow'
         | 'enforce',
