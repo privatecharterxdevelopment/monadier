@@ -7,16 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-only regime.
+ * BULL MARKET — LONG-first regime.
  *
  * LONG analysis: 15m + 1h (+ optional 4h at runtime).
- * SHORT opens are hard-disabled (allowShortOpens=false) — no counter-trend
- * shorts, no peak shorts, no zone-flip→SHORT during a long bull run.
+ * SHORT analysis: 1m + 5m + 15m + 1h (counter-trend / peak / zone-flip still allowed).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-only bull run: LONG on 15m/1h/(4h). SHORT opens hard-blocked.',
+    'LONG-primary: LONG on 15m/1h/(4h), SHORT on 1m/5m/15m/1h. Entry 15m long / 5m short.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -34,8 +33,8 @@ export const BULL_MARKET: HlDirectionProfile = {
   enableHtfSr: true,
   enableLlmConfirm: true,
   allowLongOpens: true,
-  /** No shorts while we're in a long bull run. */
-  allowShortOpens: false,
+  /** Counter-trend / peak / zone shorts allowed in bull. */
+  allowShortOpens: true,
   long: { ...PRIMARY_RULES },
   short: COUNTER_TREND_RULES('DOWN'),
 };
