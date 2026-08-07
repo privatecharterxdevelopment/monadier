@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, PauseCircle, PlayCircle, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import {
   fetchAdminLetRunStatus,
-  setAdminLetRunAll,
   setAdminPositionLetRun,
   type AgentExpiryRow,
   type LetRunPositionRow,
@@ -42,19 +41,6 @@ const AdminLetRunPanel: React.FC = () => {
     const id = window.setInterval(() => void refresh(), 15_000);
     return () => window.clearInterval(id);
   }, [refresh]);
-
-  const onToggleAll = async (next: boolean) => {
-    setBusy(true);
-    setError(null);
-    const res = await setAdminLetRunAll(next);
-    if (!res.ok) {
-      setBusy(false);
-      setError(res.error ?? 'Failed to set letRunAll');
-      return;
-    }
-    setLetRunAll(next);
-    await refresh();
-  };
 
   const onToggleRow = async (row: LetRunPositionRow) => {
     const key = `${row.wallet}:${row.coin}`;
