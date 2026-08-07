@@ -64,9 +64,8 @@ import {
   type CommunityReportRow,
 } from '../../lib/adminCommunityReports';
 import {
-  fetchAdminNotifications,
-  markAdminNotificationsRead,
-  type AdminNotification,
+  fetchRecentProfileSignups,
+  type RecentSignupRow,
 } from '../../lib/adminNotifications';
 
 type Section =
@@ -322,14 +321,17 @@ const AdminMonitorPage: React.FC = () => {
         <BettingPanel positions={dash.betting_positions} closes={dash.betting_closes} />
       )}
       {section === 'users' && dash && (
-        <UsersPanel
-          rows={dash.users}
-          openPositions={dash.open_positions}
-          onViewHistory={(wallet, email) => {
-            setHistoryFilter({ wallet, email: email ?? undefined });
-            setSection('trades');
-          }}
-        />
+        <div className="space-y-4">
+          <NewSignupsCard refreshAt={lastRefresh} />
+          <UsersPanel
+            rows={dash.users}
+            openPositions={dash.open_positions}
+            onViewHistory={(wallet, email) => {
+              setHistoryFilter({ wallet, email: email ?? undefined });
+              setSection('trades');
+            }}
+          />
+        </div>
       )}
       {section === 'subscriptions' && dash && <SubsPanel rows={dash.subscriptions} />}
       {section === 'affiliate' && <AdminAffiliateOps />}
@@ -538,22 +540,27 @@ function BotServiceCard({
 }
 
 function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
-  const [rows, setRows] = useState<AdminNotification[]>([]);
+  const [rows, setRows] = useState<RecentSignupRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const WITHIN_HOURS = 24;
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const all = await fetchAdminNotifications(50);
-      setRows(all.filter((r) => r.kind === 'signup'));
+      // Source of truth: profiles.created_at — not stale admin_notifications.
+      const recent = await fetchRecentProfileSignups(WITHIN_HOURS, 100);
+      const cutoff = Date.now() - WITHIN_HOURS * 60 * 60 * 1000;
+      setRows(
+        recent.filter((r) => {
+          const t = Date.parse(r.created_at);
+          return Number.isFinite(t) && t >= cutoff;
+        })
+      );
     } catch (err) {
       console.error(err);
-      setLoadError(
-        'Could not load signups — apply migration 20270122150000_admin_notifications_signups'
-      );
+      setLoadError('Could not load signups from profiles');
       setRows([]);
     } finally {
       setLoading(false);
@@ -564,17 +571,33 @@ function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
     void load();
   }, [load, refreshAt]);
 
+  // Rolling 24h: drop rows that age out even if the list wasn't re-fetched.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const cutoff = Date.now() - WITHIN_HOURS * 60 * 60 * 1000;
+      setRows((prev) =>
+        prev.filter((r) => {
+          const t = Date.parse(r.created_at);
+          return Number.isFinite(t) && t >= cutoff;
+        })
+      );
+      void load();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [load]);
+
   useEffect(() => {
     const channel = supabase
-      .channel('admin-signup-feed')
+      .channel('admin-signup-profiles')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'admin_notifications' },
+        { event: 'INSERT', schema: 'public', table: 'profiles' },
         (payload) => {
-          const row = payload.new as AdminNotification;
-          if (row?.kind === 'signup') {
-            setRows((prev) => [row, ...prev.filter((r) => r.id !== row.id)].slice(0, 50));
-          }
+          const row = payload.new as RecentSignupRow;
+          if (!row?.id || !row.created_at) return;
+          const t = Date.parse(row.created_at);
+          if (!Number.isFinite(t) || Date.now() - t > WITHIN_HOURS * 60 * 60 * 1000) return;
+          setRows((prev) => [row, ...prev.filter((r) => r.id !== row.id)].slice(0, 100));
         }
       )
       .subscribe();
@@ -583,42 +606,25 @@ function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
     };
   }, []);
 
-  const unread = rows.filter((r) => !r.read_at).length;
-
-  const markAllRead = async () => {
-    setBusy(true);
-    try {
-      await markAdminNotificationsRead(rows.filter((r) => !r.read_at).map((r) => r.id));
-      await load();
-    } catch (err) {
-      console.error(err);
-      setLoadError('Could not mark as read');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="bg-card-dark rounded-xl border border-border overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
         <Users size={18} className="text-emerald-400" />
         <h3 className="font-semibold text-primary">New registrations</h3>
-        {unread > 0 && (
+        {rows.length > 0 && (
           <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-            {unread} new
+            {rows.length} in 24h
           </span>
         )}
-        <span className="text-xs text-secondary ml-auto">realtime · email → administration@</span>
-        {unread > 0 && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void markAllRead()}
-            className="text-xs px-2 py-1 rounded-md border border-border text-secondary hover:text-primary"
-          >
-            Mark read
-          </button>
-        )}
+        <span className="text-xs text-secondary ml-auto">profiles · last 24h · auto-refresh</span>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="text-xs px-2 py-1 rounded-md border border-border text-secondary hover:text-primary inline-flex items-center gap-1"
+        >
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
       </div>
       {loadError && (
         <p className="px-4 py-2 text-amber-500 text-xs border-b border-border">{loadError}</p>
@@ -629,32 +635,31 @@ function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
             <RefreshCw size={14} className="animate-spin" /> Loading…
           </p>
         ) : rows.length === 0 ? (
-          <p className="p-6 text-secondary text-sm text-center">No registrations yet</p>
+          <p className="p-6 text-secondary text-sm text-center">No new registrations in the last 24h</p>
         ) : (
-          rows.map((r) => {
-            const payload = (r.payload ?? {}) as Record<string, unknown>;
-            const email = String(payload.email || r.body || '—');
-            const username = String(payload.username || '');
-            const name = String(payload.full_name || '');
-            return (
-              <div
-                key={r.id}
-                className={`px-4 py-3 flex flex-wrap gap-x-4 gap-y-1 text-sm ${
-                  r.read_at ? 'opacity-70' : 'bg-emerald-500/[0.04]'
-                }`}
-              >
-                <span className="text-secondary whitespace-nowrap w-20">
-                  {formatTimeAgo(r.created_at)}
+          rows.map((r) => (
+            <div
+              key={r.id}
+              className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1 text-sm bg-emerald-500/[0.04]"
+            >
+              <span className="text-secondary whitespace-nowrap min-w-[7.5rem]">
+                <span className="block text-primary/90 text-xs">
+                  {formatSignupAt(r.created_at)}
                 </span>
-                <span className="text-primary font-medium min-w-[160px]">{email}</span>
-                {username && <span className="text-xs text-cyan-400">@{username}</span>}
-                {name && <span className="text-xs text-secondary">{name}</span>}
-                {!r.read_at && (
-                  <span className="text-[10px] uppercase text-emerald-400 ml-auto">unread</span>
-                )}
-              </div>
-            );
-          })
+                <span className="block text-[10px] opacity-70">{formatTimeAgo(r.created_at)}</span>
+              </span>
+              <span className="text-primary font-medium min-w-[160px]">{r.email ?? '—'}</span>
+              {r.username ? <span className="text-xs text-cyan-400">@{r.username}</span> : null}
+              {r.full_name ? <span className="text-xs text-secondary">{r.full_name}</span> : null}
+              {r.wallet_address ? (
+                <span className="text-[10px] font-mono text-secondary ml-auto">
+                  {shortWallet(r.wallet_address, 6)}
+                </span>
+              ) : (
+                <span className="text-[10px] text-secondary ml-auto">no wallet yet</span>
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>
@@ -2123,6 +2128,26 @@ function BettingPanel({
   );
 }
 
+function formatSignupAt(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const t = Date.parse(dateStr);
+  if (!Number.isFinite(t)) return '—';
+  return new Date(t).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function isRecentSignup(dateStr: string | null | undefined, withinHours = 24): boolean {
+  if (!dateStr) return false;
+  const t = Date.parse(dateStr);
+  if (!Number.isFinite(t)) return false;
+  return Date.now() - t <= withinHours * 60 * 60 * 1000;
+}
+
 function UsersPanel({
   rows,
   openPositions,
@@ -2134,6 +2159,8 @@ function UsersPanel({
 }) {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  /** Default newest — open-first buried brand-new signups under old traders. */
+  const [sortMode, setSortMode] = useState<'newest' | 'open'>('newest');
   const positionsByWallet = useMemo(() => {
     const map = new Map<string, AdminHlDashboard['open_positions']>();
     for (const p of openPositions) {
@@ -2164,6 +2191,11 @@ function UsersPanel({
 
   const sortedRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
+      if (sortMode === 'newest') {
+        const at = Date.parse(a.created_at) || 0;
+        const bt = Date.parse(b.created_at) || 0;
+        return bt - at || (a.email ?? '').localeCompare(b.email ?? '');
+      }
       const aOpen = a.open_positions_count ?? (a.wallet_address
         ? (positionsByWallet.get(a.wallet_address.toLowerCase())?.length ?? 0)
         : 0);
@@ -2172,7 +2204,12 @@ function UsersPanel({
         : 0);
       return bOpen - aOpen || (a.email ?? '').localeCompare(b.email ?? '');
     });
-  }, [filteredRows, positionsByWallet]);
+  }, [filteredRows, positionsByWallet, sortMode]);
+
+  const recentCount = useMemo(
+    () => filteredRows.filter((u) => isRecentSignup(u.created_at)).length,
+    [filteredRows]
+  );
 
   const { pageRows, totalPages, safePage, total } = useMemo(
     () => paginate(sortedRows, page),
@@ -2195,6 +2232,25 @@ function UsersPanel({
             className="px-3 py-2 rounded-lg bg-black/30 border border-border text-sm text-primary"
           />
         </label>
+        <label className="flex flex-col gap-1 text-xs text-secondary">
+          Sort
+          <select
+            value={sortMode}
+            onChange={(e) => {
+              setSortMode(e.target.value as 'newest' | 'open');
+              setPage(0);
+            }}
+            className="px-3 py-2 rounded-lg bg-black/30 border border-border text-sm text-primary"
+          >
+            <option value="newest">Newest signup</option>
+            <option value="open">Open positions first</option>
+          </select>
+        </label>
+        {recentCount > 0 ? (
+          <span className="text-xs px-2 py-2 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            {recentCount} joined &lt;24h
+          </span>
+        ) : null}
         {search.trim() ? (
           <button
             type="button"
@@ -2210,7 +2266,11 @@ function UsersPanel({
       </div>
       <TableShell
         title={`Users (${total}${search.trim() ? ` · filtered from ${rows.length}` : ''})`}
-        subtitle="profiles · closed P/L · fees · open positions"
+        subtitle={
+          sortMode === 'newest'
+            ? 'newest signup first · closed P/L · fees · open positions'
+            : 'open positions first · closed P/L · fees'
+        }
         scrollable
         pagination={{
           page: safePage,
@@ -2251,9 +2311,20 @@ function UsersPanel({
           const winsUntil = u.wins_until_fee ?? Math.max(0, 20 - (u.fee_win_count ?? 0));
           const feeWins = u.fee_win_count ?? 0;
 
+          const fresh = isRecentSignup(u.created_at);
           return (
-            <tr key={u.id} className="border-t border-border text-sm hover:bg-black/[0.03] align-top">
-              <td className="px-4 py-2 text-xs max-w-[160px] truncate">{u.email ?? '—'}</td>
+            <tr
+              key={u.id}
+              className={`border-t border-border text-sm hover:bg-black/[0.03] align-top ${
+                fresh ? 'bg-emerald-500/[0.06]' : ''
+              }`}
+            >
+              <td className="px-4 py-2 text-xs max-w-[160px] truncate">
+                {u.email ?? '—'}
+                {fresh ? (
+                  <span className="ml-1 text-[10px] uppercase text-emerald-400">new</span>
+                ) : null}
+              </td>
               <td className="px-4 py-2 text-xs">{u.username ? `@${u.username}` : '—'}</td>
               <td className="px-4 py-2 text-xs max-w-[120px] truncate">{u.full_name ?? '—'}</td>
               <td className="px-4 py-2 font-mono text-[10px] break-all max-w-[120px]">
@@ -2311,7 +2382,10 @@ function UsersPanel({
                 )}
               </td>
               <td className="px-4 py-2 text-secondary text-xs whitespace-nowrap">
-                {formatTimeAgo(u.created_at)}
+                <div className={fresh ? 'text-emerald-300' : 'text-primary/90'}>
+                  {formatSignupAt(u.created_at)}
+                </div>
+                <div className="text-[10px] opacity-70">{formatTimeAgo(u.created_at)}</div>
               </td>
               <td className="px-4 py-2">
                 {u.wallet_address ? (
