@@ -75,14 +75,10 @@ const AdminLetRunPanel: React.FC = () => {
       <div className="rounded-lg border border-border bg-card-dark p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-primary">Let run (trail off)</h2>
+            <h2 className="text-base font-semibold text-primary">Let run (per position)</h2>
             <p className="text-xs text-secondary mt-1 max-w-xl">
-              Users control Let run per open position in the app. Global below is admin
-              emergency only — leave OFF so profit trail works unless a user toggles Let run ON.
-            </p>
-            <p className="text-xs text-secondary mt-1 max-w-xl">
-              Instant — no Railway. When ON, bot will not auto-close any open perp (manual Close
-              still works). Per-row OFF forces trail back on for that coin only.
+              Profit trail is default. Let run ON only when that wallet+coin is toggled —
+              then no SL/trail for that one position (manual Close only).
             </p>
           </div>
           <button
@@ -96,38 +92,10 @@ const AdminLetRunPanel: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`text-sm font-semibold ${letRunAll ? 'text-emerald-400' : 'text-amber-400'}`}
-          >
-            Global letRunAll: {letRunAll ? 'ON' : 'OFF'}
-          </span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onToggleAll(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold border ${
-              letRunAll
-                ? 'border-emerald-600/60 bg-emerald-900/40 text-emerald-300'
-                : 'border-border text-secondary hover:border-emerald-600/50'
-            }`}
-          >
-            <PauseCircle size={16} />
-            LET RUN ALL ON
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void onToggleAll(false)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded text-sm font-semibold border ${
-              !letRunAll
-                ? 'border-amber-600/60 bg-amber-900/30 text-amber-200'
-                : 'border-border text-secondary hover:border-amber-600/50'
-            }`}
-          >
-            <PlayCircle size={16} />
-            Trail back ON (all)
-          </button>
+        <div className="rounded-lg border border-border/60 bg-black/20 px-3 py-2 text-xs text-secondary">
+          Global letRunAll is <span className="text-primary">{letRunAll ? 'ON in DB' : 'OFF'}</span>{' '}
+          but <strong className="text-primary">ignored by the bot</strong> — only per-row Let run
+          below (or the user app toggle) controls trail vs hold.
         </div>
         {updatedAt ? (
           <p className="text-[11px] text-secondary">Updated {new Date(updatedAt).toLocaleString()}</p>

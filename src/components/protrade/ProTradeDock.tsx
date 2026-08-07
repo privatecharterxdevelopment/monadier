@@ -440,7 +440,6 @@ const ProTradeDock: React.FC<Props> = ({
   );
 
   const [letRunPrefs, setLetRunPrefs] = useState<Record<string, boolean>>({});
-  const [letRunAllPolicy, setLetRunAllPolicy] = useState(false);
   const [letRunBusyCoin, setLetRunBusyCoin] = useState<string | null>(null);
 
   const openCoinsKey = filteredPositions.map((p) => p.coin).join(',');
@@ -448,26 +447,22 @@ const ProTradeDock: React.FC<Props> = ({
   useEffect(() => {
     if (!isBotMode || !walletAddress) {
       setLetRunPrefs({});
-      setLetRunAllPolicy(false);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { prefs, letRunAll } = await fetchHlLetRunPrefs(walletAddress);
+      const { prefs } = await fetchHlLetRunPrefs(walletAddress);
       if (cancelled) return;
       setLetRunPrefs(prefs);
-      setLetRunAllPolicy(letRunAll);
     })();
     return () => {
       cancelled = true;
     };
   }, [isBotMode, walletAddress, openCoinsKey]);
 
+  /** Explicit user ON only — missing/false = profit trail (matches bot resolvePositionLetRun). */
   const effectiveLetRun = (coin: string): boolean => {
-    const pref = letRunPrefs[coin.toUpperCase()];
-    if (pref === true) return true;
-    if (pref === false) return false;
-    return letRunAllPolicy;
+    return letRunPrefs[coin.toUpperCase()] === true;
   };
 
   const toggleLetRun = async (coin: string) => {

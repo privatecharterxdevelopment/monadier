@@ -1,8 +1,12 @@
 /**
  * Per-wallet + per-coin “let run” prefs.
- * true  → never auto-close (manual Close only)
- * false → force trail/TP even when global letRunAll is on
- * missing → profit trail (default). Global letRunAll / coin list are admin overrides only.
+ *
+ * ONLY an explicit user ON for that open position skips profit trail:
+ *   true  → no SL/trail/TP auto-close (manual Close only) for this wallet+coin
+ *   false / missing → profit trail + TP can close
+ *
+ * Global letRunAll / letRunCoins / longLetRun are NOT applied here anymore —
+ * those were forcing every BTC into let-run without a user toggle.
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
@@ -54,14 +58,19 @@ async function loadPrefs(wallet: string): Promise<PrefMap> {
   }
 }
 
-/** Effective let-run for this position (runtime global + per-user override). */
+/**
+ * Effective let-run for this position.
+ * Explicit user ON only — otherwise trail. (Admin global flag reported but ignored.)
+ */
 export async function resolvePositionLetRun(opts: {
   wallet: string;
   coin: string;
   direction: 'LONG' | 'SHORT';
-  /** Ignored when runtime policy exists — kept for call-site compat. */
+  /** Ignored — kept for call-site compat. */
   letRunAll?: boolean;
+  /** Ignored — kept for call-site compat. */
   letRunCoin: boolean;
+  /** Ignored — kept for call-site compat. */
   longLetRun: boolean;
 }): Promise<{ letRun: boolean; source: string; letRunAll: boolean }> {
   const letRunAll = await getRuntimeLetRunAll();
@@ -69,11 +78,6 @@ export async function resolvePositionLetRun(opts: {
   const pref = prefs.get(coinKey(opts.coin));
   if (pref === true) return { letRun: true, source: 'user_on', letRunAll };
   if (pref === false) return { letRun: false, source: 'user_off', letRunAll };
-  if (letRunAll) return { letRun: true, source: 'all', letRunAll };
-  if (opts.letRunCoin) return { letRun: true, source: 'coin', letRunAll };
-  if (opts.direction === 'LONG' && opts.longLetRun) {
-    return { letRun: true, source: 'long', letRunAll };
-  }
   return { letRun: false, source: 'trail', letRunAll };
 }
 
