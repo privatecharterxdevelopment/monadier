@@ -2,7 +2,7 @@
  * Per-wallet + per-coin “let run” prefs.
  * true  → never auto-close (manual Close only)
  * false → force trail/TP even when global letRunAll is on
- * missing → follow global / coin / longLetRun defaults
+ * missing → profit trail (default). Global letRunAll / coin list are admin overrides only.
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';

@@ -77,6 +77,10 @@ const AdminLetRunPanel: React.FC = () => {
           <div>
             <h2 className="text-base font-semibold text-primary">Let run (trail off)</h2>
             <p className="text-xs text-secondary mt-1 max-w-xl">
+              Users control Let run per open position in the app. Global below is admin
+              emergency only — leave OFF so profit trail works unless a user toggles Let run ON.
+            </p>
+            <p className="text-xs text-secondary mt-1 max-w-xl">
               Instant — no Railway. When ON, bot will not auto-close any open perp (manual Close
               still works). Per-row OFF forces trail back on for that coin only.
             </p>

@@ -512,12 +512,12 @@ export const config = {
      */
     longLetRun: process.env.HL_LONG_LET_RUN === 'true',
     /**
-     * ALL open perps: no trail / TP / SL / range-TP / invalidation auto-close.
-     * Forced ON for current book (user 2026-08-04). Per-position toggle can
-     * force trail back on for a single coin. To disable global: set this false
-     * and redeploy (Railway env HL_LET_RUN_ALL=false alone is ignored while forced).
+     * GLOBAL hold-all (admin emergency only). Default OFF.
+     * Normal path: each open position has its own Let-run toggle in the UI
+     * (`hl_position_let_run`). Missing pref → profit trail / TP can close.
+     * Admin can still flip runtime `let_run_all` via /api/hl-let-run.
      */
-    letRunAll: true,
+    letRunAll: process.env.HL_LET_RUN_ALL === 'true',
     /**
      * Bot opens use HL cross (floating) margin so free USDC backs the book —
      * isolated was cutting losers while spot cash sat unused.
@@ -525,13 +525,13 @@ export const config = {
      */
     botCrossMargin: process.env.HL_BOT_CROSS_MARGIN !== 'false',
     /**
-     * Coins that must never get trail / TP / SL auto-close (any side).
-     * User closes manually — “laufen lassen”. Default HYPE + BTC.
-     * Override: HL_LET_RUN_COINS="HYPE,BTC"
+     * Optional hard let-run coin list (any side) — empty by default.
+     * Prefer per-position UI toggle. Override only if needed:
+     * HL_LET_RUN_COINS="HYPE"
      */
     letRunCoins: [
       ...new Set(
-        (process.env.HL_LET_RUN_COINS || 'HYPE,BTC')
+        (process.env.HL_LET_RUN_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
           .filter(Boolean)

@@ -435,7 +435,11 @@ const healthServer = http.createServer(async (req, res) => {
       const body = await readJsonBody();
       const wallet = String(body.wallet ?? '').toLowerCase();
       const coin = String(body.coin ?? '').trim().toUpperCase();
-      const reason = String(body.reason ?? 'manual');
+      // This endpoint is ALWAYS a user/ops close — never a bot auto-exit.
+      // Force reason 'manual' so profitOnlyExits can never block red UI/API closes
+      // (body.reason is kept only as log detail).
+      const reasonNote = String(body.reason ?? '').trim();
+      const reason = 'manual';
 
       if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
         res.writeHead(400, corsHeaders);
@@ -477,7 +481,9 @@ const healthServer = http.createServer(async (req, res) => {
       const result = await hyperliquidTradingService.closeMarketPosition(
         wallet as `0x${string}`,
         coin,
-        reason
+        reason,
+        undefined,
+        reasonNote && reasonNote.toLowerCase() !== 'manual' ? reasonNote : undefined
       );
       if (!result.success) {
         res.writeHead(400, corsHeaders);

@@ -138,10 +138,10 @@ function forgetOpenPositionMonitor(wallet: string): void {
 }
 
 /**
- * User-initiated closes (the manual "Close" button) must ALWAYS execute
+ * User-initiated closes (UI "Close" + POST /api/hl-close) must ALWAYS execute
  * immediately — profitOnlyExits only governs the bot's *automatic* exits.
- * The frontend sends reason 'manual'; keep synonyms robust so a red position
- * can never get stuck open when the user asks to close it.
+ * Frontend sends reason 'manual'. Match exact synonyms + prefixes so an ops
+ * note like `manual_skr_flat` can never re-arm the red-close block.
  */
 const USER_INITIATED_CLOSE_REASONS = new Set([
   'manual',
@@ -150,10 +150,21 @@ const USER_INITIATED_CLOSE_REASONS = new Set([
   'user_close',
   'panic_close',
   'close',
+  'ops_close',
+  'admin_close',
 ]);
 
 function isUserInitiatedClose(reason: string): boolean {
-  return USER_INITIATED_CLOSE_REASONS.has(reason.trim().toLowerCase());
+  const r = reason.trim().toLowerCase();
+  if (!r) return false;
+  if (USER_INITIATED_CLOSE_REASONS.has(r)) return true;
+  // Prefixes: manual_*, user_*, ops_*, admin_* — never treat as bot auto-exit.
+  return (
+    r.startsWith('manual') ||
+    r.startsWith('user_') ||
+    r.startsWith('ops_') ||
+    r.startsWith('admin_')
+  );
 }
 
 /**
