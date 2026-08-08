@@ -249,14 +249,16 @@ const AdminTwitterSocial: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-primary">X / Twitter</h2>
+          <h2 className="text-lg font-semibold text-primary">X / Instagram / Facebook</h2>
           <p className="text-secondary text-sm mt-1 max-w-2xl">
-            AI stats drafts on a schedule, plus an optional daily random win flyer (PNG + caption).
-            Cron runs on bot-service (~1 min). Requires Railway:{' '}
-            <code className="text-xs">X_API_*</code> keys,{' '}
-            <code className="text-xs">BOT_ADMIN_SECRET</code>, and either Auto-post ON here or{' '}
-            <code className="text-xs">X_SOCIAL_AUTO_PUBLISH=true</code>. Approval must be off for
-            fully automatic posts.
+            Full auto win flyers: random trader performance PNG + solid-close caption → X, Instagram,
+            and Facebook Page. Schedule on bot-service (~1 min). Railway:{' '}
+            <code className="text-xs">X_API_*</code>,{' '}
+            <code className="text-xs">META_PAGE_ID</code>,{' '}
+            <code className="text-xs">META_PAGE_ACCESS_TOKEN</code>,{' '}
+            <code className="text-xs">META_IG_USER_ID</code>,{' '}
+            <code className="text-xs">BOT_ADMIN_SECRET</code>. Approval off + Auto-post ON (or{' '}
+            <code className="text-xs">X_SOCIAL_AUTO_PUBLISH=true</code>).
           </p>
         </div>
         <button
@@ -546,7 +548,8 @@ app.hypergain.io
         <div className="text-secondary text-xs space-y-1 border-t border-border pt-3">
           <p className="font-medium text-primary">Railway env (bot-service)</p>
           <code className="block">X_API_KEY · X_API_SECRET · X_ACCESS_TOKEN · X_ACCESS_TOKEN_SECRET</code>
-          <code className="block">BOT_ADMIN_SECRET · OPENAI_API_KEY (optional if template set)</code>
+          <code className="block">META_PAGE_ID · META_PAGE_ACCESS_TOKEN · META_IG_USER_ID</code>
+          <code className="block">BOT_ADMIN_SECRET · X_SOCIAL_AUTO_PUBLISH=true</code>
         </div>
       </div>
 

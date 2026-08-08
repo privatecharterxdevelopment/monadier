@@ -69,6 +69,7 @@ import {
   runTwitterSocialTick,
 } from './services/twitterScheduler';
 import { twitterCredentialsConfigured } from './services/twitterClient';
+import { metaCredentialsConfigured } from './services/metaClient';
 import {
   getPlatformFeeStatus,
   listAccruedFeeTrades,
@@ -1444,6 +1445,7 @@ const healthServer = http.createServer(async (req, res) => {
       JSON.stringify({
         success: true,
         configured: snap.credentialsConfigured,
+        metaConfigured: snap.metaConfigured,
         enabled: Boolean(snap.enabled),
         requireApproval: Boolean(snap.requireApproval ?? true),
         winFlyerEnabled: Boolean(snap.winFlyerEnabled),
@@ -1851,21 +1853,22 @@ async function main(): Promise<void> {
   logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
   logger.info(`- Trade/bet win emails: every 15s`);
   logger.info(`- Betting history sync: every 60s`);
-  logger.info(`- X social tick: every ${Math.round(twitterTickMs / 1000)}s`);
+  logger.info(`- X/IG/FB social tick: every ${Math.round(twitterTickMs / 1000)}s`);
   logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
   void ensureTwitterSettings()
     .then((s) => {
       const snapHint = twitterCredentialsConfigured()
         ? 'X API keys present'
         : 'X API keys MISSING on Railway';
-      logger.info('X social boot', {
+      logger.info('social auto-post boot', {
         enabled: s?.enabled ?? null,
         requireApproval: s?.require_approval ?? null,
         winFlyer: s?.win_flyer_enabled ?? null,
         hours: s?.post_hours_utc ?? null,
         autoPublishForced: process.env.X_SOCIAL_AUTO_PUBLISH || null,
         adminSecret: Boolean(config.botAdminSecret),
-        hint: snapHint,
+        x: snapHint,
+        meta: metaCredentialsConfigured() ? 'Meta Page/IG token present' : 'Meta MISSING',
       });
     })
     .catch(() => undefined);

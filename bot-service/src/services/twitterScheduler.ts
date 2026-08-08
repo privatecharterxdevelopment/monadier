@@ -1,11 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
-import { BRAND_NAME } from '../brand';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { composeBotTweet } from './twitterComposer';
 import { renderWinFlyerPng, type WinFlyerInput } from './tradeShareFlyer';
 import { persistDailyTopFlyer } from './tradeFlyerStorage';
 import { postTweet, twitterCredentialsConfigured, uploadMediaPng } from './twitterClient';
+import {
+  composeSolidCloseCaption,
+  composeSolidCloseCaptionForX,
+  resolveWinRoiPct,
+} from './socialWinCaption';
+import {
+  metaCredentialsConfigured,
+  publishWinFlyerToMeta,
+} from './metaClient';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -53,6 +61,7 @@ type BucketFlyerRow = {
   closed_pnl_usd: number | null;
   wallet_address: string | null;
   is_top_pick: boolean;
+  trade_history_id: string | null;
 };
 
 type WinFlyerSnapshot = {
@@ -67,6 +76,10 @@ type WinFlyerSnapshot = {
   coin?: string;
   side?: 'LONG' | 'SHORT';
   pnlUsd?: number;
+  roiPct?: number | null;
+  facebookPostId?: string | null;
+  instagramMediaId?: string | null;
+  metaErrors?: string[];
 };
 
 function utcSlotKey(d = new Date(), hour?: number): string {
@@ -102,51 +115,40 @@ function buildReferralUrl(code: string): string {
   return `${APP_URL}/?ref=${encodeURIComponent(normalized)}`;
 }
 
-function siteHost(siteUrl?: string | null): string {
-  const raw = (siteUrl || APP_URL).trim() || APP_URL;
-  return raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
-
-/** Fixed hashtags for win-flyer posts — keep short, on-brand. */
-export const WIN_FLYER_HASHTAGS = '#HyperGain #Hyperliquid #Perps';
+/** Fixed hashtags live inside composeSolidCloseCaption (#$COIN #Hyperliquid #HyperGain). */
+export const WIN_FLYER_HASHTAGS = '#Hyperliquid #HyperGain';
 
 /**
- * Flyer caption template (filled at generate time):
- * 🔥 HyperGain win
- * {name · }{COIN} {SIDE} +$12.40
- * app.hypergain.io
- * @HyperGainAi
- * #HyperGain #Hyperliquid #Perps
+ * Win-flyer caption — solid-close format with pair / PnL / ROI.
+ * Prefer X-safe length; IG/FB use the same body.
  */
 export function composeWinFlyerCaption(opts: {
   coin: string;
   side: 'LONG' | 'SHORT';
   pnlUsd: number;
+  roiPct?: number | null;
+  closePrice?: number | null;
+  entryPrice?: number | null;
+  size?: number | null;
+  leverage?: number | null;
   siteUrl?: string | null;
   brandHandle?: string | null;
   displayName?: string;
+  forX?: boolean;
 }): string {
-  const abs = Math.abs(opts.pnlUsd);
-  const body = abs.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const signed = opts.pnlUsd >= 0 ? `+$${body}` : `-$${body}`;
-  const handle = (opts.brandHandle || '@HyperGainAi').trim() || '@HyperGainAi';
-  const site = siteHost(opts.siteUrl);
-  const who = opts.displayName?.trim() ? `${opts.displayName.trim()} · ` : '';
-  const lines = [
-    `🔥 ${BRAND_NAME} win`,
-    `${who}${opts.coin} ${opts.side} ${signed}`,
-    site,
-    handle.startsWith('@') ? handle : `@${handle}`,
-    WIN_FLYER_HASHTAGS,
-  ];
-  let text = lines.join('\n');
-  if (text.length > 280) {
-    text = `🔥 ${opts.coin} ${opts.side} ${signed}\n${site}\n${WIN_FLYER_HASHTAGS}`.slice(0, 280);
-  }
-  return text;
+  const trade = {
+    coin: opts.coin,
+    side: opts.side,
+    pnlUsd: opts.pnlUsd,
+    roiPct: opts.roiPct,
+    closePrice: opts.closePrice,
+    entryPrice: opts.entryPrice,
+    size: opts.size,
+    leverage: opts.leverage,
+  };
+  return opts.forX === false
+    ? composeSolidCloseCaption(trade)
+    : composeSolidCloseCaptionForX(trade);
 }
 
 function envFlag(name: string): boolean | null {
@@ -207,6 +209,7 @@ export async function ensureTwitterSettings(): Promise<TwitterSettings | null> {
           require_approval: !forceAuto,
           posts_per_day: 2,
           post_hours_utc: [10, 18],
+          win_flyer_enabled: true,
           site_url: 'https://hypergain.io',
           updated_at: nowIso,
         },
@@ -222,13 +225,14 @@ export async function ensureTwitterSettings(): Promise<TwitterSettings | null> {
     settings = mapTwitterSettingsRow(data as Record<string, unknown>);
   }
 
-  if (twitterAutoPublishForced() && (!settings.enabled || settings.require_approval)) {
+  if (twitterAutoPublishForced() && (!settings.enabled || settings.require_approval || !settings.win_flyer_enabled)) {
     const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('twitter_settings')
       .update({
         enabled: true,
         require_approval: false,
+        win_flyer_enabled: true,
         updated_at: nowIso,
       })
       .eq('id', 1)
@@ -238,7 +242,7 @@ export async function ensureTwitterSettings(): Promise<TwitterSettings | null> {
       logger.warn('twitter_settings auto-publish force failed', { error: error.message });
     } else if (data) {
       settings = mapTwitterSettingsRow(data as Record<string, unknown>);
-      logger.info('twitter auto-publish forced via X_SOCIAL_AUTO_PUBLISH');
+      logger.info('twitter auto-publish forced — win flyers on, no approval');
     }
   }
 
@@ -322,9 +326,8 @@ async function pickRandomWinningTrade(lookbackHours: number): Promise<{
   }
   const rows = data ?? [];
   if (!rows.length) return null;
-  // Prefer strong winners: random among top 10 by PnL
-  const pool = rows.slice(0, Math.min(10, rows.length));
-  return pool[Math.floor(Math.random() * pool.length)] as (typeof rows)[number];
+  // Random across winners so different traders rotate (not always #1 PnL).
+  return rows[Math.floor(Math.random() * rows.length)] as (typeof rows)[number];
 }
 
 function flyerFromTrade(
@@ -352,19 +355,19 @@ function flyerFromTrade(
   };
 }
 
-/** Prefer archived top picks / best PnL flyers not yet posted to X. */
+/** Prefer archived flyers not yet posted to X — random across the lookback pool. */
 async function pickBucketFlyer(lookbackHours: number): Promise<BucketFlyerRow | null> {
   const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('trade_flyers')
     .select(
-      'id, public_url, storage_path, coin, side, closed_pnl_usd, wallet_address, is_top_pick'
+      'id, public_url, storage_path, coin, side, closed_pnl_usd, wallet_address, is_top_pick, trade_history_id'
     )
     .is('posted_to_x_at', null)
     .gte('created_at', since)
-    .order('is_top_pick', { ascending: false })
-    .order('closed_pnl_usd', { ascending: false })
-    .limit(25);
+    .gt('closed_pnl_usd', 0)
+    .order('created_at', { ascending: false })
+    .limit(40);
 
   if (error) {
     logger.warn('bucket flyer pick failed', { error: error.message });
@@ -372,9 +375,39 @@ async function pickBucketFlyer(lookbackHours: number): Promise<BucketFlyerRow | 
   }
   const rows = (data ?? []) as BucketFlyerRow[];
   if (!rows.length) return null;
-  // Random among top 5 so slots don't always pick the same best
-  const pool = rows.slice(0, Math.min(5, rows.length));
-  return pool[Math.floor(Math.random() * pool.length)] ?? null;
+  return rows[Math.floor(Math.random() * rows.length)] ?? null;
+}
+
+async function tradeDetailsForRoi(tradeHistoryId: string | null | undefined): Promise<{
+  roiPct: number | null;
+  closePrice: number | null;
+  entryPrice: number | null;
+  size: number | null;
+  leverage: number | null;
+} | null> {
+  if (!tradeHistoryId) return null;
+  const { data } = await supabase
+    .from('trade_history')
+    .select('leverage, entry_price, exit_price, entry_amount, profit_loss, direction')
+    .eq('id', tradeHistoryId)
+    .maybeSingle();
+  if (!data) return null;
+  const side = String(data.direction || 'LONG').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG';
+  const closePrice = Number(data.exit_price) || Number(data.entry_price) || null;
+  const entryPrice = Number(data.entry_price) || null;
+  const size = Math.abs(Number(data.entry_amount) || 0) || null;
+  const leverage = data.leverage != null ? Number(data.leverage) : null;
+  const pnlUsd = Number(data.profit_loss) || 0;
+  const roiPct = resolveWinRoiPct({
+    coin: 'X',
+    side,
+    pnlUsd,
+    closePrice,
+    entryPrice,
+    size,
+    leverage,
+  });
+  return { roiPct, closePrice, entryPrice, size, leverage };
 }
 
 async function fetchPngFromUrl(url: string): Promise<Buffer | null> {
@@ -488,12 +521,16 @@ export async function generateWinFlyerDraft(opts?: {
       String(bucket.side || 'LONG').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG';
     const coin = String(bucket.coin || 'TRADE').toUpperCase();
     const pnl = Number(bucket.closed_pnl_usd) || 0;
+    const details = await tradeDetailsForRoi(bucket.trade_history_id);
     const body = composeWinFlyerCaption({
       coin,
       side,
       pnlUsd: pnl,
-      siteUrl: settings.site_url || APP_URL,
-      brandHandle: settings.brand_handle || '@HyperGainAi',
+      roiPct: details?.roiPct,
+      closePrice: details?.closePrice,
+      entryPrice: details?.entryPrice,
+      size: details?.size,
+      leverage: details?.leverage,
     });
     const snapshot: WinFlyerSnapshot = {
       kind: 'win_flyer',
@@ -505,6 +542,8 @@ export async function generateWinFlyerDraft(opts?: {
       coin,
       side,
       pnlUsd: pnl,
+      roiPct: details?.roiPct ?? null,
+      tradeId: bucket.trade_history_id ?? undefined,
     };
 
     const { data: post, error } = await supabase
@@ -555,13 +594,24 @@ export async function generateWinFlyerDraft(opts?: {
 
   const profile = await resolveTraderProfile(String(trade.wallet_address).toLowerCase());
   const flyer = flyerFromTrade(trade, profile);
-  const body = composeWinFlyerCaption({
-    displayName: flyer.displayName,
+  const roiPct = resolveWinRoiPct({
     coin: flyer.coin,
     side: flyer.side,
     pnlUsd: flyer.closedPnlUsd,
-    siteUrl: settings.site_url || APP_URL,
-    brandHandle: settings.brand_handle || '@HyperGainAi',
+    closePrice: flyer.closePrice,
+    entryPrice: flyer.entryPrice,
+    size: flyer.size,
+    leverage: flyer.leverage,
+  });
+  const body = composeWinFlyerCaption({
+    coin: flyer.coin,
+    side: flyer.side,
+    pnlUsd: flyer.closedPnlUsd,
+    roiPct,
+    closePrice: flyer.closePrice,
+    entryPrice: flyer.entryPrice,
+    size: flyer.size,
+    leverage: flyer.leverage,
   });
 
   const snapshot: WinFlyerSnapshot = {
@@ -573,6 +623,7 @@ export async function generateWinFlyerDraft(opts?: {
     coin: flyer.coin,
     side: flyer.side,
     pnlUsd: flyer.closedPnlUsd,
+    roiPct,
   };
 
   const { data: post, error } = await supabase
@@ -641,8 +692,13 @@ function asWinFlyerSnapshot(raw: unknown): WinFlyerSnapshot | null {
 export async function publishTwitterPost(
   postId: string
 ): Promise<{ ok: boolean; twitterId?: string; error?: string }> {
-  if (!twitterCredentialsConfigured()) {
-    return { ok: false, error: 'X API credentials not configured on Railway' };
+  const xReady = twitterCredentialsConfigured();
+  const metaReady = metaCredentialsConfigured();
+  if (!xReady && !metaReady) {
+    return {
+      ok: false,
+      error: 'No social credentials — set X API keys and/or META_PAGE_* on Railway',
+    };
   }
 
   const { data: post, error } = await supabase
@@ -665,11 +721,14 @@ export async function publishTwitterPost(
     .eq('id', postId);
 
   let mediaIds: string[] | undefined;
+  let publicImageUrl: string | null = null;
   const winSnap = asWinFlyerSnapshot(post.stats_snapshot);
+  let png: Buffer | null = null;
+
   if (winSnap) {
     try {
-      let png: Buffer | null = null;
       if (winSnap.origin === 'bucket' && winSnap.publicUrl) {
+        publicImageUrl = winSnap.publicUrl;
         png = await fetchPngFromUrl(winSnap.publicUrl);
       }
       if (!png && winSnap.flyer) {
@@ -688,20 +747,38 @@ export async function publishTwitterPost(
         return { ok: false, error: 'Could not load or render flyer PNG' };
       }
 
-      const up = await uploadMediaPng(png);
-      if (!up.ok || !up.mediaId) {
-        const nowIso = new Date().toISOString();
-        await supabase
-          .from('twitter_posts')
-          .update({
-            status: 'failed',
-            error: up.error ?? 'media upload failed',
-            updated_at: nowIso,
-          })
-          .eq('id', postId);
-        return { ok: false, error: up.error ?? 'media upload failed' };
+      // Meta IG needs a public HTTPS URL — persist render flyers if needed.
+      if (!publicImageUrl && png) {
+        const stored = await persistDailyTopFlyer({
+          png,
+          coin: winSnap.coin || winSnap.flyer?.coin || 'TRADE',
+          side: winSnap.side || winSnap.flyer?.side || 'LONG',
+          closedPnlUsd: winSnap.pnlUsd ?? winSnap.flyer?.closedPnlUsd ?? 0,
+          walletAddress: winSnap.wallet ?? null,
+          tradeHistoryId: winSnap.tradeId ?? null,
+          twitterPostId: postId,
+        });
+        if (stored.ok && stored.publicUrl) {
+          publicImageUrl = stored.publicUrl;
+        }
       }
-      mediaIds = [up.mediaId];
+
+      if (xReady) {
+        const up = await uploadMediaPng(png);
+        if (!up.ok || !up.mediaId) {
+          const nowIso = new Date().toISOString();
+          await supabase
+            .from('twitter_posts')
+            .update({
+              status: 'failed',
+              error: up.error ?? 'media upload failed',
+              updated_at: nowIso,
+            })
+            .eq('id', postId);
+          return { ok: false, error: up.error ?? 'media upload failed' };
+        }
+        mediaIds = [up.mediaId];
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       await supabase
@@ -716,40 +793,94 @@ export async function publishTwitterPost(
     }
   }
 
-  const result = await postTweet(String(post.body), mediaIds);
-  const nowIso = new Date().toISOString();
+  let twitterId: string | undefined;
+  let xError: string | undefined;
+  if (xReady) {
+    const result = await postTweet(String(post.body), mediaIds);
+    if (!result.ok) {
+      xError = result.error ?? 'X post failed';
+    } else {
+      twitterId = result.twitterId;
+    }
+  }
 
-  if (!result.ok) {
+  const metaErrors: string[] = [];
+  let facebookPostId: string | null = null;
+  let instagramMediaId: string | null = null;
+  if (winSnap && publicImageUrl && metaReady) {
+    const caption =
+      winSnap.coin && winSnap.side != null && winSnap.pnlUsd != null
+        ? composeSolidCloseCaption({
+            coin: winSnap.coin,
+            side: winSnap.side,
+            pnlUsd: winSnap.pnlUsd,
+            roiPct: winSnap.roiPct,
+            closePrice: winSnap.flyer?.closePrice,
+            entryPrice: winSnap.flyer?.entryPrice,
+            size: winSnap.flyer?.size,
+            leverage: winSnap.flyer?.leverage,
+          })
+        : String(post.body);
+    const meta = await publishWinFlyerToMeta({
+      imageUrl: publicImageUrl,
+      caption,
+    });
+    if (meta.facebook?.ok) facebookPostId = meta.facebook.postId ?? null;
+    else if (meta.facebook?.error) metaErrors.push(`FB: ${meta.facebook.error}`);
+    if (meta.instagram?.ok) instagramMediaId = meta.instagram.mediaId ?? null;
+    else if (meta.instagram?.error) metaErrors.push(`IG: ${meta.instagram.error}`);
+  } else if (winSnap && metaReady && !publicImageUrl) {
+    metaErrors.push('Meta skipped — no public flyer URL');
+  }
+
+  const nowIso = new Date().toISOString();
+  const anyOk = Boolean(twitterId) || Boolean(facebookPostId) || Boolean(instagramMediaId);
+  if (!anyOk) {
+    const errMsg = xError || metaErrors.join('; ') || 'all platforms failed';
     await supabase
       .from('twitter_posts')
       .update({
         status: 'failed',
-        error: result.error ?? 'post failed',
+        error: errMsg,
         updated_at: nowIso,
       })
       .eq('id', postId);
-    return { ok: false, error: result.error };
+    return { ok: false, error: errMsg };
   }
 
   await supabase
     .from('twitter_posts')
     .update({
       status: 'posted',
-      twitter_id: result.twitterId,
+      twitter_id: twitterId ?? post.twitter_id,
       posted_at: nowIso,
-      error: null,
+      error: [xError, ...metaErrors].filter(Boolean).join('; ') || null,
       updated_at: nowIso,
       stats_snapshot: winSnap
-        ? { ...winSnap, mediaId: mediaIds?.[0] ?? null }
+        ? {
+            ...winSnap,
+            mediaId: mediaIds?.[0] ?? null,
+            publicUrl: publicImageUrl ?? winSnap.publicUrl,
+            facebookPostId,
+            instagramMediaId,
+            metaErrors: metaErrors.length ? metaErrors : undefined,
+          }
         : post.stats_snapshot,
     })
     .eq('id', postId);
 
   if (winSnap?.flyerId) {
-    await supabase
-      .from('trade_flyers')
-      .update({ posted_to_x_at: nowIso, is_top_pick: true })
-      .eq('id', winSnap.flyerId);
+    const flyerPatch: Record<string, unknown> = {
+      posted_to_x_at: twitterId ? nowIso : undefined,
+      is_top_pick: true,
+    };
+    if (facebookPostId) flyerPatch.posted_to_fb_at = nowIso;
+    if (instagramMediaId) flyerPatch.posted_to_ig_at = nowIso;
+    // Strip undefined keys
+    for (const k of Object.keys(flyerPatch)) {
+      if (flyerPatch[k] === undefined) delete flyerPatch[k];
+    }
+    await supabase.from('trade_flyers').update(flyerPatch).eq('id', winSnap.flyerId);
   }
 
   await supabase
@@ -757,13 +888,15 @@ export async function publishTwitterPost(
     .update({ last_posted_at: nowIso, updated_at: nowIso })
     .eq('id', 1);
 
-  logger.info('twitter posted', {
+  logger.info('social win flyer posted', {
     id: postId,
-    twitterId: result.twitterId,
-    media: Boolean(mediaIds?.length),
-    origin: winSnap?.origin,
+    twitterId: twitterId ?? null,
+    facebookPostId,
+    instagramMediaId,
+    xError: xError ?? null,
+    metaErrors,
   });
-  return { ok: true, twitterId: result.twitterId };
+  return { ok: true, twitterId };
 }
 
 /**
@@ -787,7 +920,9 @@ let lastTwitterSkipLogAt = 0;
 export async function runTwitterSocialTick(): Promise<void> {
   const settings = await ensureTwitterSettings();
   const now = new Date();
-  const creds = twitterCredentialsConfigured();
+  const xReady = twitterCredentialsConfigured();
+  const metaReady = metaCredentialsConfigured();
+  const anySocial = xReady || metaReady;
 
   if (!settings) {
     if (now.getTime() - lastTwitterSkipLogAt > 15 * 60_000) {
@@ -813,13 +948,15 @@ export async function runTwitterSocialTick(): Promise<void> {
     // Before first schedule hour today — nothing to generate yet.
   } else {
     for (const hour of dueHours) {
-      if (settings.win_flyer_enabled) {
+      // Full auto = win flyer with performance PNG (stats-only tweets only if flyers off).
+      const useFlyer = settings.win_flyer_enabled || twitterAutoPublishForced();
+      if (useFlyer) {
         const slotKey = utcWinFlyerSlotKey(now, hour);
         const gen = await generateWinFlyerDraft({ slotKey });
-        if (gen.ok && gen.post && !gates.requireApproval && creds) {
+        if (gen.ok && gen.post && !gates.requireApproval && anySocial) {
           await publishTwitterPost(gen.post.id);
-        } else if (gen.ok && gen.post && !creds) {
-          logger.warn('twitter draft ready but X API credentials missing on bot-service');
+        } else if (gen.ok && gen.post && !anySocial) {
+          logger.warn('social draft ready but X/Meta credentials missing on bot-service');
         } else if (gen.ok && gen.post && gates.requireApproval) {
           logger.info('twitter draft waiting for approval', { id: gen.post.id, slotKey });
         } else if (!gen.ok && gen.error) {
@@ -828,9 +965,9 @@ export async function runTwitterSocialTick(): Promise<void> {
       } else {
         const slotKey = utcSlotKey(now, hour);
         const gen = await generateTwitterDraft({ source: 'auto', slotKey });
-        if (gen.ok && gen.post && !gates.requireApproval && creds) {
+        if (gen.ok && gen.post && !gates.requireApproval && xReady) {
           await publishTwitterPost(gen.post.id);
-        } else if (gen.ok && gen.post && !creds) {
+        } else if (gen.ok && gen.post && !xReady) {
           logger.warn('twitter draft ready but X API credentials missing on bot-service');
         } else if (gen.ok && gen.post && gates.requireApproval) {
           logger.info('twitter draft waiting for approval', { id: gen.post.id, slotKey });
@@ -841,11 +978,11 @@ export async function runTwitterSocialTick(): Promise<void> {
     }
   }
 
-  if (!creds) {
+  if (!anySocial) {
     if (now.getTime() - lastTwitterSkipLogAt > 15 * 60_000) {
       lastTwitterSkipLogAt = now.getTime();
       logger.warn(
-        'twitter publish skipped: set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET on Railway'
+        'social publish skipped: set X_API_* and/or META_PAGE_ID + META_PAGE_ACCESS_TOKEN + META_IG_USER_ID on Railway'
       );
     }
     return;
@@ -918,6 +1055,7 @@ export async function runTwitterSocialTick(): Promise<void> {
 
 export async function getTwitterHealthSnapshot(): Promise<{
   credentialsConfigured: boolean;
+  metaConfigured: boolean;
   adminSecretConfigured: boolean;
   autoPublishForced: boolean;
   enabled: boolean | null;
@@ -926,6 +1064,10 @@ export async function getTwitterHealthSnapshot(): Promise<{
   postHoursUtc: number[] | null;
   lastGeneratedAt: string | null;
   lastPostedAt: string | null;
+  lastFailedAt: string | null;
+  lastFailedError: string | null;
+  pendingApproved: number;
+  failedToday: number;
   settingsMissing: boolean;
   currentHourUtc: number;
   dueNow: boolean;
@@ -936,8 +1078,32 @@ export async function getTwitterHealthSnapshot(): Promise<{
     : null;
   const currentHourUtc = new Date().getUTCHours();
   const gates = settings ? effectiveTwitterGates(settings) : null;
+
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const [{ data: lastFail }, { count: pendingApproved }, { count: failedToday }] =
+    await Promise.all([
+      supabase
+        .from('twitter_posts')
+        .select('error, updated_at, created_at')
+        .eq('status', 'failed')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('twitter_posts')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['approved', 'scheduled', 'draft']),
+      supabase
+        .from('twitter_posts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'failed')
+        .gte('created_at', dayStart.toISOString()),
+    ]);
+
   return {
     credentialsConfigured: twitterCredentialsConfigured(),
+    metaConfigured: metaCredentialsConfigured(),
     adminSecretConfigured: Boolean(config.botAdminSecret),
     autoPublishForced: twitterAutoPublishForced(),
     enabled: gates ? gates.enabled : null,
@@ -946,6 +1112,10 @@ export async function getTwitterHealthSnapshot(): Promise<{
     postHoursUtc: hours,
     lastGeneratedAt: settings?.last_generated_at ?? null,
     lastPostedAt: settings?.last_posted_at ?? null,
+    lastFailedAt: lastFail?.updated_at ?? lastFail?.created_at ?? null,
+    lastFailedError: lastFail?.error ?? null,
+    pendingApproved: pendingApproved ?? 0,
+    failedToday: failedToday ?? 0,
     settingsMissing: !settings,
     currentHourUtc,
     dueNow: Boolean(hours && hours.some((h) => h <= currentHourUtc) && gates?.enabled),

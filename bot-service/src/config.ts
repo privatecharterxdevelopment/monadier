@@ -687,6 +687,17 @@ export const config = {
     tickMs: Number(process.env.X_SOCIAL_TICK_MS || 60_000),
   },
 
+  /**
+   * Meta Graph — Instagram feed + Facebook Page photo (same win flyer as X).
+   * Long-lived Page access token with pages_manage_posts + instagram_content_publish.
+   */
+  meta: {
+    pageId: process.env.META_PAGE_ID || '',
+    pageAccessToken: process.env.META_PAGE_ACCESS_TOKEN || '',
+    /** Instagram Business/Creator user id linked to the Page. */
+    igUserId: process.env.META_IG_USER_ID || '',
+  },
+
   /** Protects /api/admin/* from the dashboard (Twitter + ops). */
   botAdminSecret: process.env.BOT_ADMIN_SECRET || '',
 
