@@ -28,14 +28,22 @@ export function fmtTradeUsdSymbol(value: unknown): string {
   return fmtUsdSymbol(value, 3);
 }
 
-/** P/L display — extra decimals for tiny HL closes */
+/** Group integer digits with Swiss apostrophe thousands separators. */
+function withApostropheThousands(intPart: string): string {
+  return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+}
+
+/** P/L display — tiny HL closes keep extra dp; big wins use 2 dp + Swiss ' separators. */
 export function fmtClosedPnl(value: unknown): string {
   const n = toNum(value);
   if (!Number.isFinite(n)) return '—';
-  if (n === 0) return '$0.000';
-  const digits = Math.abs(n) < 0.001 ? 4 : 3;
-  const sign = n > 0 ? '+' : '';
-  return `${sign}${fmtUsdSymbol(n, digits)}`;
+  if (n === 0) return '$0.00';
+  const abs = Math.abs(n);
+  const digits = abs < 0.001 ? 4 : abs < 1 ? 3 : 2;
+  const [intPart, frac = ''] = abs.toFixed(digits).split('.');
+  const grouped = withApostropheThousands(intPart);
+  const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+  return `${sign}$${grouped}.${frac}`;
 }
 
 export function hlFillResultLabel(value: unknown): 'Win' | 'Loss' | 'Breakeven' | null {

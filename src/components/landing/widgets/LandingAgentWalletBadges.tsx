@@ -11,7 +11,6 @@ export const LANDING_WALLET_CHIPS: WalletChip[] = [
   { id: 'metamask', label: 'MetaMask', tone: 'orange', glyph: 'M' },
   { id: 'coinbase', label: 'Coinbase', tone: 'blue', glyph: 'C' },
   { id: 'binance', label: 'Binance', tone: 'yellow', glyph: 'B' },
-  { id: 'phantom', label: 'Phantom', tone: 'indigo', glyph: 'P' },
 ];
 
 const LandingAgentWalletBadges: React.FC = () => (

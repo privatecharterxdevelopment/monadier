@@ -12,16 +12,17 @@ export function detectWalletExtensionConflict(): string | null {
   const hasPhantom = providers.some((p) => p.isPhantom);
 
   if (hasMetaMask && hasPhantom) {
-    return 'MetaMask and Phantom are both active. Disable one browser extension, or pick the wallet explicitly in the connect list.';
+    return 'MetaMask and Phantom are both active. Disable Phantom (or use MetaMask only) — Phantom is not supported for Hyperliquid deposits.';
   }
   return null;
 }
 
+/** Warn when Phantom is the active injected provider (not offered in Connect list). */
 export function phantomEvmHint(): string | null {
   if (typeof window === 'undefined') return null;
   const eth = (window as Window & { ethereum?: { isPhantom?: boolean } }).ethereum;
   if (!eth?.isPhantom) return null;
-  return 'Phantom EVM is supported — use Arbitrum. Solana-only Phantom cannot connect to Monadier.';
+  return 'Phantom is not supported — use MetaMask (Arbitrum + native USDC) for Hyperliquid.';
 }
 
 export function walletConnectRetryHint(): string {

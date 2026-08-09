@@ -188,23 +188,21 @@ export async function renderWinFlyerPng(input: WinFlyerInput): Promise<Buffer> {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
-  const bg2 = ctx.createLinearGradient(0, 0, 0, H);
-  bg2.addColorStop(0, '#f0f1f4');
-  bg2.addColorStop(1, '#c5cad3');
-  ctx.fillStyle = bg2;
+  // Soft field behind the card — keep it pale (was reading too dark on X/IG)
+  ctx.fillStyle = '#f4f5f7';
   ctx.fillRect(0, 0, W, H);
 
   const pad = 40;
   roundRect(ctx, pad, pad, W - pad * 2, H - pad * 2, 28);
-  ctx.fillStyle = '#f7f8fa';
+  ctx.fillStyle = '#fbfbfc';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(20,20,24,0.06)';
+  ctx.strokeStyle = 'rgba(20,20,24,0.05)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
   const ink = '#141418';
-  const mute = '#5c606a';
-  const soft = '#8a8f9a';
+  const mute = '#7a7f8a';
+  const soft = '#9aa0ab';
   const isProfit = input.closedPnlUsd >= 0;
   const accent = isProfit ? '#1a6b45' : '#a61e32';
   const sideColor = input.side === 'LONG' ? '#1a6b45' : '#a61e32';
@@ -325,27 +323,35 @@ export async function renderWinFlyerPng(input: WinFlyerInput): Promise<Buffer> {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
   const referralUrl = qrTargetUrl(referralCode, input.referralUrl);
-  const q = 148;
-  const qx = right - q;
-  const qy = footY + 36;
 
-  roundRect(ctx, qx - 10, qy - 10, q + 20, q + 20, 14);
+  // QR sits fully inside the card: white box on content-right, QR centered with equal pad.
+  const qrSize = 132;
+  const qrBoxPad = 14;
+  const qrBoxSize = qrSize + qrBoxPad * 2;
+  const cardBottom = H - pad;
+  const qrBoxX = Math.round(right - qrBoxSize);
+  const qrBoxY = Math.round(Math.min(footY + 36, cardBottom - 48 - qrBoxSize));
+  const qrX = qrBoxX + qrBoxPad;
+  const qrY = qrBoxY + qrBoxPad;
+
+  roundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 14);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
-  roundRect(ctx, qx - 10, qy - 10, q + 20, q + 20, 14);
+  roundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 14);
   ctx.strokeStyle = 'rgba(20,20,24,0.08)';
   ctx.lineWidth = 1;
   ctx.stroke();
 
   try {
-    const dataUrl = await QRCode.toDataURL(referralUrl, {
-      margin: 2,
-      width: q * 2,
-      color: { dark: '#141418', light: '#ffffff' },
+    const qrBuf = await QRCode.toBuffer(referralUrl, {
+      type: 'png',
+      margin: 0,
+      width: qrSize,
+      color: { dark: '#141418ff', light: '#ffffffff' },
       errorCorrectionLevel: 'M',
     });
-    const qrImg = await loadImage(dataUrl);
-    ctx.drawImage(qrImg, qx, qy, q, q);
+    const qrImg = await loadImage(qrBuf);
+    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
   } catch {
     /* leave white pad */
   }

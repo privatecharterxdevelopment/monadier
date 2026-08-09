@@ -2,13 +2,19 @@
  * After Railway redeploy, in-memory/local trail state may be empty even though the
  * position already ran deep into profit. Reconstruct peak uPnL + favorable extreme
  * from candles so breakeven / peak-floor locks can still arm.
+ *
+ * CRITICAL: only candles at/after open count. Scanning the full history invents a
+ * fake peak above a fresh entry and arms a LONG stop *above* mark (instant sniper).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import type { DynamicTrailRecord } from './dynamicTrailingStop';
-import { estimateRoundTripFeesUsd } from './dynamicTrailingStop';
+import {
+  estimateRoundTripFeesUsd,
+  isTrailStopCrossed,
+} from './dynamicTrailingStop';
 
 async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
   // Prefer Hyperliquid — same venue as the perp, works from Railway (Binance often blocked).
@@ -89,17 +95,28 @@ export async function rehydrateTrailPeakFromCandles(opts: {
       candles = await signalEngine.fetchCandles(symbol, '5m', 500);
     }
     const nowMs = Date.now();
-    // After Railway restart openedAt is often "now" — scan full candle window.
-    // Do NOT filter by openedAt (it is wrong after redeploy); use all fetched bars.
-    if (candles.length === 0) {
-      logger.warn('HL trail peak rehydrate — no candles', { coin: opts.coin, symbol });
+    // Only bars since open (+1m slack for candle bucket). Full-history scan invents
+    // peaks from before entry and arms LONG stops above live mark.
+    const openMs =
+      opts.openedAtMs > 0 && opts.openedAtMs <= nowMs + 60_000
+        ? opts.openedAtMs
+        : nowMs;
+    const sinceMs = openMs - 60_000;
+    const window = candles.filter((c) => Number.isFinite(c.time) && c.time >= sinceMs);
+    if (window.length === 0) {
+      logger.info('HL trail peak rehydrate — no candles since open', {
+        coin: opts.coin,
+        symbol,
+        openMs,
+        totalCandles: candles.length,
+      });
       return existing;
     }
 
     let bestPnl = 0;
     let favorable = opts.entryPrice;
 
-    for (const c of candles) {
+    for (const c of window) {
       if (opts.direction === 'LONG') {
         favorable = Math.max(favorable, c.high);
         const pnl = (c.high - opts.entryPrice) * opts.absSize;
@@ -111,12 +128,22 @@ export async function rehydrateTrailPeakFromCandles(opts: {
       }
     }
 
+    // Never invent a peak beyond the live mark on a cold start — mark is the only
+    // extreme we know this process has actually seen.
+    if (opts.direction === 'LONG') {
+      favorable = Math.min(favorable, Math.max(opts.entryPrice, opts.markPrice));
+      bestPnl = Math.min(bestPnl, Math.max(0, (favorable - opts.entryPrice) * opts.absSize));
+    } else {
+      favorable = Math.max(favorable, Math.min(opts.entryPrice, opts.markPrice));
+      bestPnl = Math.min(bestPnl, Math.max(0, (opts.entryPrice - favorable) * opts.absSize));
+    }
+
     if (bestPnl <= 0) {
-      logger.info('HL trail peak rehydrate — no green extreme in window', {
+      logger.info('HL trail peak rehydrate — no green extreme since open', {
         coin: opts.coin,
         direction: opts.direction,
         entry: opts.entryPrice,
-        candles: candles.length,
+        candles: window.length,
       });
       return existing;
     }
@@ -134,7 +161,7 @@ export async function rehydrateTrailPeakFromCandles(opts: {
           trailArmedAt: null,
           profitSinceAt: null,
           maxRunup: bestPnl,
-          openedAt: opts.openedAtMs || nowMs,
+          openedAt: openMs,
           estimatedFeesUsd: feesUsd,
           lastTrailDistancePx: 0,
           timeInProfitMs: 0,
@@ -142,6 +169,7 @@ export async function rehydrateTrailPeakFromCandles(opts: {
           trailCloseDeferCount: 0,
         };
 
+    rec.entryPrice = opts.entryPrice;
     rec.highestPnlSinceEntry = Math.max(rec.highestPnlSinceEntry, bestPnl);
     rec.maxRunup = Math.max(rec.maxRunup, bestPnl);
     rec.highestPriceSinceEntry =
@@ -150,6 +178,8 @@ export async function rehydrateTrailPeakFromCandles(opts: {
         : Math.min(rec.highestPriceSinceEntry, favorable);
 
     // Restore armed peak-floor stop so a later green bounce can still lock.
+    // Never arm a stop that is already crossed — for LONG that means stop above
+    // mark (trail must sit *below* the run and follow up).
     if (rec.phase === 'idle') {
       const dropFrac = Math.min(
         0.95,
@@ -166,10 +196,25 @@ export async function rehydrateTrailPeakFromCandles(opts: {
         opts.direction === 'LONG' ? opts.entryPrice + beMove : opts.entryPrice - beMove;
       const stop =
         opts.direction === 'LONG' ? Math.max(beStop, floorStop) : Math.min(beStop, floorStop);
-      rec.phase = 'armed';
-      rec.trailArmedAt = nowMs;
-      rec.currentTrailStop = stop;
-      rec.estimatedFeesUsd = feesUsd;
+
+      if (isTrailStopCrossed(opts.direction, opts.markPrice, stop)) {
+        logger.info('HL trail peak rehydrate — peak kept, stop not armed (already crossed)', {
+          coin: opts.coin,
+          direction: opts.direction,
+          stop: stop.toFixed(6),
+          mark: opts.markPrice.toFixed(6),
+          bestPnlUsd: bestPnl.toFixed(4),
+        });
+        rec.phase = 'idle';
+        rec.currentTrailStop = null;
+        rec.trailArmedAt = null;
+        rec.estimatedFeesUsd = feesUsd;
+      } else {
+        rec.phase = 'armed';
+        rec.trailArmedAt = nowMs;
+        rec.currentTrailStop = stop;
+        rec.estimatedFeesUsd = feesUsd;
+      }
     }
 
     logger.info('HL trail peak rehydrated from candles', {
@@ -179,7 +224,8 @@ export async function rehydrateTrailPeakFromCandles(opts: {
       favorablePx: favorable.toFixed(6),
       phase: rec.phase,
       stop: rec.currentTrailStop?.toFixed(6) ?? '—',
-      candles: candles.length,
+      candles: window.length,
+      sinceOpen: true,
     });
     return rec;
   } catch (err) {

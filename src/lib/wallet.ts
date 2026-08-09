@@ -37,6 +37,8 @@ const metadata = {
 
 /** MetaMask — featured first on mobile WalletConnect list. */
 const METAMASK_WALLET_ID = 'c57ca95c075bbc3f4656fe7880bb88e88080e207664';
+/** Phantom — poor Arbitrum/HL UX; hide from Connect list (WalletConnect Explorer id). */
+const PHANTOM_WALLET_ID = 'a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393';
 
 /** Bot + HL funding: Arbitrum One only — avoids wrong-network deposits. */
 const networks = [arbitrum];
@@ -65,6 +67,7 @@ createAppKit({
   enableMobileWalletLink: true,
   enableInjected: true,
   featuredWalletIds: [METAMASK_WALLET_ID],
+  excludeWalletIds: [PHANTOM_WALLET_ID],
   /** Show Arbitrum USDC in AppKit account view (fallback if custom sheet not used). */
   tokens: {
     [`eip155:${HL_ARBITRUM_CHAIN_ID}`]: {

@@ -1,39 +1,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { BRAND_SITE_URL } from './brand';
 import { authCookieStorage } from './authCookieStorage';
+import {
+  DEFAULT_SUPABASE_URL,
+  resolveSupabasePublicEnv,
+} from './supabasePublicDefaults';
 
-function requireEnv(name: string, value: string | undefined, hint?: string): string {
-  if (!value || value.includes('your-') || value.includes('example')) {
-    throw new Error(
-      hint ||
-        `Missing or placeholder ${name}. Copy .env.example to .env.local and set Supabase credentials.`
-    );
-  }
-  return value;
-}
+export { DEFAULT_SUPABASE_URL } from './supabasePublicDefaults';
 
 let client: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
   if (client) return client;
 
-  let url = import.meta.env.VITE_SUPABASE_URL;
-  let anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!url || url.includes('your-')) {
-    url = DEFAULT_SUPABASE_URL;
-    if (import.meta.env.DEV) {
-      console.warn('VITE_SUPABASE_URL missing — using HyperGain Supabase URL');
-    }
-  }
-
-  if (!anonKey || anonKey.includes('your-')) {
-    requireEnv(
-      'VITE_SUPABASE_ANON_KEY',
-      anonKey,
-      'Copy .env.example to .env.local and set the anon key (Supabase → Settings → API).'
-    );
-  }
+  const { url, anonKey } = resolveSupabasePublicEnv();
 
   client = createClient(url, anonKey, {
     auth: {
@@ -109,6 +89,3 @@ export const AUTH_PRODUCTION_ORIGINS = [
   'https://hypergain.io',
   'https://app.hypergain.io',
 ] as const;
-
-/** Production Supabase project. Used when env is missing in local preview. */
-export const DEFAULT_SUPABASE_URL = 'https://gbgafseabgqinnvlfslc.supabase.co';

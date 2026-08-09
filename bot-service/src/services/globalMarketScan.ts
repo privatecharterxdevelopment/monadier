@@ -231,7 +231,7 @@ async function scanStandardCoinDirection(
   relaxed: boolean,
   wantedDirection: 'LONG' | 'SHORT'
 ): Promise<GlobalSignalCandidate | null> {
-  // LONG only BTC/ETH/SOL/AVAX — skip LONG analysis for memes/alts (VVV etc.).
+  // LONG only BTC/ETH/SOL — skip LONG analysis for memes/alts (VVV etc.).
   // ROOT: bear_market allowLongOpens=false → never analyze LONG at all.
   if (wantedDirection === 'LONG') {
     if (!config.hyperliquid.directionProfile.allowLongOpens) {

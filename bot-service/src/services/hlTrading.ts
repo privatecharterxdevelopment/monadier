@@ -91,6 +91,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
   estimateRoundTripFeesUsd,
+  isTrailStopCrossed,
   markFromPosition,
   profitClearsFeeGate,
   type DynamicTrailRecord,
@@ -349,6 +350,16 @@ function mergeFavorableExtreme(
 function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
   const prev = getDynamicTrailRecord(lockKey);
   let next = rec;
+  // New fill / re-open on same coin — never merge peaks across different entries.
+  if (
+    prev &&
+    prev.entryPrice > 0 &&
+    rec.entryPrice > 0 &&
+    Math.abs(prev.entryPrice - rec.entryPrice) / rec.entryPrice > 0.0005
+  ) {
+    setDynamicTrailRecord(lockKey, rec);
+    return;
+  }
   if (prev && prev.highestPnlSinceEntry > rec.highestPnlSinceEntry) {
     // Never let a cold/empty tick wipe a reconstructed or lived peak.
     next = {
@@ -371,6 +382,36 @@ function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
 
 const trailRehydrateAttempted = new Set<string>();
 
+/**
+ * Fake candle-rehydrate (or stale prior position) can arm a LONG stop *above*
+ * live mark with a peak the wallet never printed this open. Drop it so the
+ * trail can rebuild under the run.
+ */
+function isInvertedOrStaleTrail(opts: {
+  direction: 'LONG' | 'SHORT';
+  entryPrice: number;
+  markPrice: number;
+  openedAtMs: number;
+  record: DynamicTrailRecord;
+}): boolean {
+  const rec = opts.record;
+  if (rec.entryPrice > 0 && opts.entryPrice > 0) {
+    const drift = Math.abs(rec.entryPrice - opts.entryPrice) / opts.entryPrice;
+    if (drift > 0.0005) return true;
+  }
+  if (rec.currentTrailStop == null || rec.phase === 'idle') return false;
+  if (!isTrailStopCrossed(opts.direction, opts.markPrice, rec.currentTrailStop)) {
+    return false;
+  }
+  // Armed within ~3m of open with stop already breached → invented peak, not a lived trail.
+  const armedAt = rec.trailArmedAt ?? 0;
+  const openedAt = rec.openedAt || opts.openedAtMs;
+  if (armedAt > 0 && openedAt > 0 && armedAt - openedAt < 180_000) {
+    return true;
+  }
+  return false;
+}
+
 /** Load trail + candle-rehydrate peak after redeploy wipe so profit SL still arms. */
 async function loadTrailRecordWithRehydrate(opts: {
   lockKey: string;
@@ -382,7 +423,28 @@ async function loadTrailRecordWithRehydrate(opts: {
   notionalUsd: number;
   openedAtMs: number;
 }): Promise<DynamicTrailRecord | null> {
-  const existing = loadTrailRecord(opts.lockKey);
+  let existing = loadTrailRecord(opts.lockKey);
+  if (
+    existing &&
+    isInvertedOrStaleTrail({
+      direction: opts.direction,
+      entryPrice: opts.entryPrice,
+      markPrice: opts.markPrice,
+      openedAtMs: opts.openedAtMs,
+      record: existing,
+    })
+  ) {
+    logger.warn('HL trail wiped — inverted/stale stop (fake rehydrate or re-open)', {
+      coin: opts.coin,
+      entry: opts.entryPrice,
+      mark: opts.markPrice,
+      stop: existing.currentTrailStop,
+      peakPnl: existing.highestPnlSinceEntry,
+    });
+    deleteDynamicTrailRecord(opts.lockKey);
+    trailRehydrateAttempted.delete(opts.lockKey);
+    existing = null;
+  }
   if (
     existing &&
     (existing.phase !== 'idle' || existing.highestPnlSinceEntry > 0)
@@ -1185,7 +1247,7 @@ export class HyperliquidTradingService {
         );
       }
 
-      // LONG only BTC/ETH/SOL/AVAX — VVV and other memes are SHORT-only.
+      // LONG only BTC/ETH/SOL — VVV and other memes are SHORT-only.
       if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
       }
@@ -3522,6 +3584,14 @@ export class HyperliquidTradingService {
 
       // Manual opens must stay on the trail loop even if auto-trade is off.
       rememberOpenPositionMonitor(opts.userAddress);
+
+      // Fresh open/add — drop any stale trail for this wallet+coin (prior close
+      // or fake candle-rehydrate) and start the hold clock clean.
+      if (!opts.reduceOnly) {
+        const lockKey = positionKey(opts.userAddress, coin);
+        clearTrailState(lockKey);
+        hlPositionOpenedAt.set(lockKey, Date.now());
+      }
 
       if (opts.botManaged) {
         await recordHlBotOpenMarker({

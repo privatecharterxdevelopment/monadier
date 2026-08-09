@@ -9,7 +9,7 @@ type Props = {
   compact?: boolean;
 };
 
-/** One-tap switch to Arbitrum One — required for Hyperliquid deposits (MetaMask, Phantom, etc.). */
+/** One-tap switch to Arbitrum One — required for Hyperliquid deposits (MetaMask, etc.). */
 const ProTradeHlNetworkSwitch: React.FC<Props> = ({ compact = false }) => {
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();

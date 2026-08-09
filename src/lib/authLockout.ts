@@ -1,4 +1,4 @@
-import { DEFAULT_SUPABASE_URL } from './supabaseClient';
+import { resolveSupabasePublicEnv } from './supabasePublicDefaults';
 
 const FN = 'auth-lockout';
 
@@ -7,15 +7,14 @@ async function callLockout(body: Record<string, unknown>): Promise<{
   blockedUntil?: string | null;
   error?: string;
 }> {
-  const base = (
-    (import.meta.env.VITE_SUPABASE_URL as string | undefined) || DEFAULT_SUPABASE_URL
-  ).replace(/\/$/, '');
+  const { url, anonKey } = resolveSupabasePublicEnv();
+  const base = url.replace(/\/$/, '');
   try {
     const res = await fetch(`${base}/functions/v1/${FN}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        apikey: anonKey,
       },
       body: JSON.stringify(body),
     });

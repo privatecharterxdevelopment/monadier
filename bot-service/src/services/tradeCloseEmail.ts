@@ -65,13 +65,17 @@ function resolveRoiPct(row: PendingRow): number | null {
 }
 
 /**
- * Same precision as in-app trading history / notification bell (`fmtClosedPnl`):
- * 3 decimals normally, 4 when |pnl| < 0.001 — never round small HL closes to 2 dp.
+ * Exact realized win in USD for emails.
+ * Tiny HL scratches keep 3–4 dp; normal/big wins use 2 dp with Swiss ' thousands separators
+ * (e.g. +$31'762.55, +$123'334'234.50).
  */
 function fmtExactWinUsd(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '$0.000';
-  const digits = Math.abs(n) < 0.001 ? 4 : 3;
-  return `+$${n.toFixed(digits)}`;
+  if (!Number.isFinite(n) || n <= 0) return '$0.00';
+  const abs = Math.abs(n);
+  const digits = abs < 0.001 ? 4 : abs < 1 ? 3 : 2;
+  const [intPart, frac = ''] = abs.toFixed(digits).split('.');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  return `+$${grouped}.${frac}`;
 }
 
 function emailBrandHeaderHtml(): string {

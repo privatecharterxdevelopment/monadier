@@ -2,7 +2,7 @@ import { HL_ARBITRUM_CHAIN_ID } from './hyperliquid/bridge';
 
 type SwitchChain = (args: { chainId: number }) => Promise<unknown>;
 
-/** Prompt MetaMask / Phantom / etc. to switch to Arbitrum One for Hyperliquid funding. */
+/** Prompt MetaMask / Rabby / etc. to switch to Arbitrum One for Hyperliquid funding. */
 export async function ensureHlWalletChain(
   chainId: number | undefined,
   switchChainAsync: SwitchChain | undefined
