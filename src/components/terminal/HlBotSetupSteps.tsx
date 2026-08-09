@@ -22,7 +22,7 @@ const STEPS = [
   {
     n: 2,
     title: 'Deposit USDC',
-    body: `Only native USDC on Arbitrum One (not BNB or other chains). Deposit in Monadier — min $${MIN_HL_BOT_USD} for the bot.`,
+    body: `Only native USDC on Arbitrum One (not BNB or other chains). Deposit in HyperGain — min $${MIN_HL_BOT_USD} for the bot.`,
   },
   {
     n: 3,

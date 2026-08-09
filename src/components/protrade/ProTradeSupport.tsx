@@ -1,167 +1,420 @@
-import React, { useState } from 'react';
-import { CheckCircle, Clock, Headphones, Loader2, Send } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Bot,
+  ChevronDown,
+  CircleDollarSign,
+  Clock,
+  Headphones,
+  Layers,
+  Loader2,
+  MessageCircle,
+  Search,
+  Send,
+  Ticket,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitSupportMessage } from '../../lib/supportMessage';
+import {
+  fetchMyOpenSupportRequest,
+  fetchSupportMessages,
+  sendSupportChatReply,
+  subscribeSupportMessages,
+  type SupportMessageRow,
+} from '../../lib/supportChat';
+import type { SupportRequestRow } from '../../lib/adminSupportRequests';
+import type { LandingFaqItem } from '../../lib/supportFaq';
 
 type Props = {
   onRequireSignIn?: (reason: string) => void;
 };
 
+type FaqTab = 'all' | 'platform' | 'bot' | 'betting' | 'vault';
+
+const TOPIC_CARDS: {
+  id: Exclude<FaqTab, 'all'>;
+  Icon: React.ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
+}[] = [
+  { id: 'platform', Icon: Layers },
+  { id: 'bot', Icon: Bot },
+  { id: 'betting', Icon: Ticket },
+  { id: 'vault', Icon: CircleDollarSign },
+];
+
 const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, profile } = useAuth();
+  const [topic, setTopic] = useState<FaqTab>('all');
+  const [query, setQuery] = useState('');
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
+
+  const [ticket, setTicket] = useState<SupportRequestRow | null>(null);
+  const [messages, setMessages] = useState<SupportMessageRow[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+  const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [sending, setSending] = useState(false);
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
   const displayEmail = profile?.email || user?.email || '—';
   const displayName = profile?.full_name || profile?.username || '—';
-  const userId = user?.id ?? '—';
-  const shortId = userId !== '—' ? `${userId.slice(0, 8)}…` : '—';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const faqs = useMemo(() => {
+    const items = t('landing.faq.items', { returnObjects: true });
+    return Array.isArray(items) ? (items as LandingFaqItem[]) : [];
+  }, [t, i18n.language]);
+
+  const topicCounts = useMemo(() => {
+    const counts: Record<Exclude<FaqTab, 'all'>, number> = {
+      platform: 0,
+      bot: 0,
+      betting: 0,
+      vault: 0,
+    };
+    for (const item of faqs) {
+      if (item.tab in counts) {
+        counts[item.tab as Exclude<FaqTab, 'all'>] += 1;
+      }
+    }
+    return counts;
+  }, [faqs]);
+
+  const filteredFaqs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return faqs.filter((f) => {
+      if (topic !== 'all' && f.tab !== topic) return false;
+      if (!q) return true;
+      return f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q);
+    });
+  }, [faqs, topic, query]);
+
+  const scrollThread = useCallback(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  const loadChat = useCallback(async () => {
+    if (!user) {
+      setTicket(null);
+      setMessages([]);
+      return;
+    }
+    setChatLoading(true);
+    setError(null);
+    const open = await fetchMyOpenSupportRequest();
+    if (open.error?.includes('support_requests') || open.error?.includes('relation')) {
+      setError(open.error);
+      setTicket(null);
+      setMessages([]);
+      setChatLoading(false);
+      return;
+    }
+    setTicket(open.row);
+    if (open.row) {
+      const msgs = await fetchSupportMessages(open.row.id);
+      if (msgs.error && !msgs.error.includes('support_messages')) {
+        setError(msgs.error);
+      }
+      setMessages(msgs.rows);
+    } else {
+      setMessages([]);
+    }
+    setChatLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    void loadChat();
+  }, [loadChat]);
+
+  useEffect(() => {
+    if (!ticket?.id) return;
+    const unsub = subscribeSupportMessages(ticket.id, (row) => {
+      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+    });
+    return unsub;
+  }, [ticket?.id]);
+
+  useEffect(() => {
+    scrollThread();
+  }, [messages, scrollThread]);
+
+  const handleStartOrSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      onRequireSignIn?.(t('auth.signInToSupport'));
+      return;
+    }
+
+    const text = draft.trim();
     setError(null);
     setSending(true);
 
-    const result = await submitSupportMessage({ subject, message });
-    setSending(false);
+    if (ticket) {
+      const result = await sendSupportChatReply(ticket.id, text, 'user');
+      setSending(false);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      if (result.row) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === result.row!.id) ? prev : [...prev, result.row!]
+        );
+      }
+      setDraft('');
+      return;
+    }
 
+    const subj =
+      subject.trim() ||
+      t('app.support.chatDefaultSubject', { defaultValue: 'Live chat' });
+    const result = await submitSupportMessage({
+      subject: subj,
+      message: text,
+      channel: 'chat',
+    });
+    setSending(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-
-    setSuccess(true);
+    setDraft('');
     setSubject('');
-    setMessage('');
+    await loadChat();
   };
 
-  if (!user) {
-    return (
-      <div className="hl-meta-canvas hl-support-page">
-        <section className="hl-studio-card hl-support-studio-card hl-support-gate-card">
-          <header className="hl-studio-card__head">
-            <Headphones size={18} aria-hidden />
-            <span>{t('app.support.title')}</span>
-          </header>
-          <div className="hl-studio-card__body hl-studio-card__body--center">
-            <p className="hl-support-lead">
-              {t('app.support.guestLead')}
-            </p>
-            <button
-              type="button"
-              className="hl-support-primary"
-              onClick={() => onRequireSignIn?.(t('auth.signInToSupport'))}
-            >
-              {t('app.support.signInForHelp')}
-            </button>
-            <p className="hl-support-note">
-              {t('app.support.securityNote')}
-            </p>
-          </div>
-        </section>
-      </div>
-    );
-  }
+  const topicLabel = (tab: FaqTab) =>
+    tab === 'all' ? t('landing.faq.tabs.all') : t(`landing.faq.tabs.${tab}`);
 
   return (
-    <div className="hl-meta-canvas hl-support-page">
-      <section className="hl-studio-card hl-support-studio-card">
-        <form className="hl-support-form" onSubmit={handleSubmit}>
-          <header className="hl-studio-card__head">
-            <Headphones size={18} aria-hidden />
-            <span>{t('app.support.title')}</span>
-          </header>
-
-          <div className="hl-support-user">
-            <p className="hl-support-user-label">{t('app.support.sendingAs')}</p>
-            <p className="hl-support-user-value">
-              {displayName} · {displayEmail}
-            </p>
-            <p className="hl-support-user-meta">
-              {t('app.support.userId')} <code>{shortId}</code>
-              {profile?.username ? <> · @{profile.username}</> : null}
-            </p>
+    <div className="hl-meta-canvas hl-support-page hl-help-center">
+      <header className="hl-help-center__hero">
+        <div className="hl-help-center__hero-top">
+          <div className="hl-help-center__hero-icon" aria-hidden>
+            <Headphones size={22} />
           </div>
-
-          <label className="hl-support-label" htmlFor="hl-support-subject">
-            {t('app.support.subject')}
-          </label>
-          <input
-            id="hl-support-subject"
-            type="text"
-            className="hl-support-input"
-            placeholder={t('app.support.subjectPlaceholder')}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            maxLength={120}
-            disabled={sending || success}
-            required
-          />
-
-          <label className="hl-support-label" htmlFor="hl-support-message">
-            {t('app.support.message')}
-          </label>
-          <textarea
-            id="hl-support-message"
-            className="hl-support-textarea"
-            placeholder={t('app.support.messagePlaceholder')}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            maxLength={5000}
-            rows={5}
-            disabled={sending || success}
-            required
-          />
-
-          {error ? (
-            <p className="hl-support-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          {success ? (
-            <p className="hl-support-success" role="status">
-              {t('app.support.messageSent', { email: displayEmail })}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            className="hl-support-primary"
-            disabled={sending || success || !subject.trim() || !message.trim()}
-          >
-            {sending ? (
-              <>
-                <Loader2 size={16} className="hl-spin" aria-hidden />
-                {t('app.support.sending')}
-              </>
-            ) : success ? (
-              <>
-                <CheckCircle size={16} aria-hidden />
-                {t('app.support.sent')}
-              </>
-            ) : (
-              <>
-                <Send size={16} aria-hidden />
-                {t('app.support.sendMessage')}
-              </>
-            )}
-          </button>
-        </form>
-
-        <div className="hl-support-hours">
-          <Clock size={16} aria-hidden />
-          <div>
-            <strong>{t('app.support.supportHours')}</strong>
-            <p>{t('app.support.supportHoursDetail')}</p>
+          <div className="hl-help-center__hero-copy">
+            <h1 className="hl-help-center__title">{t('app.support.helpTitle')}</h1>
+            <p className="hl-help-center__lead">{t('app.support.helpLead')}</p>
           </div>
         </div>
-      </section>
+        <label className="hl-help-center__search">
+          <Search size={16} aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('app.support.searchPlaceholder')}
+            aria-label={t('app.support.searchPlaceholder')}
+          />
+        </label>
+      </header>
+
+      <div className="hl-help-center__topics" role="list">
+        <button
+          type="button"
+          role="listitem"
+          className={`hl-help-topic-card${topic === 'all' ? ' hl-help-topic-card--on' : ''}`}
+          onClick={() => {
+            setTopic('all');
+            setOpenFaq(null);
+          }}
+        >
+          <span className="hl-help-topic-card__icon" aria-hidden>
+            <Layers size={18} />
+          </span>
+          <span className="hl-help-topic-card__body">
+            <strong>{topicLabel('all')}</strong>
+            <span>{t('app.support.articleCount', { count: faqs.length })}</span>
+          </span>
+        </button>
+        {TOPIC_CARDS.map(({ id, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="listitem"
+            className={`hl-help-topic-card${topic === id ? ' hl-help-topic-card--on' : ''}`}
+            onClick={() => {
+              setTopic(id);
+              setOpenFaq(null);
+            }}
+          >
+            <span className="hl-help-topic-card__icon" aria-hidden>
+              <Icon size={18} />
+            </span>
+            <span className="hl-help-topic-card__body">
+              <strong>{topicLabel(id)}</strong>
+              <span>{t('app.support.articleCount', { count: topicCounts[id] })}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="hl-help-center__grid">
+        <section className="hl-help-articles" aria-labelledby="hl-help-articles-title">
+          <header className="hl-help-articles__head">
+            <h2 id="hl-help-articles-title">{t('app.support.articlesTitle')}</h2>
+            <p>
+              {topic === 'all'
+                ? t('app.support.articlesAll')
+                : t('app.support.articlesInTopic', { topic: topicLabel(topic) })}
+            </p>
+          </header>
+          <div className="hl-help-articles__list" role="region" aria-live="polite">
+            {filteredFaqs.length === 0 ? (
+              <p className="hl-help-articles__empty">{t('landing.faq.searchEmpty')}</p>
+            ) : (
+              filteredFaqs.map((item) => {
+                const open = openFaq === item.q;
+                return (
+                  <article
+                    key={item.q}
+                    className={`hl-help-faq${open ? ' hl-help-faq--open' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="hl-help-faq__q"
+                      aria-expanded={open}
+                      onClick={() => setOpenFaq(open ? null : item.q)}
+                    >
+                      <span>
+                        <span className="hl-help-faq__tag">{topicLabel(item.tab as FaqTab)}</span>
+                        {item.q}
+                      </span>
+                      <ChevronDown size={16} aria-hidden />
+                    </button>
+                    {open ? <p className="hl-help-faq__a">{item.a}</p> : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <aside className="hl-help-chat" aria-labelledby="hl-help-chat-title">
+          <header className="hl-help-chat__head">
+            <MessageCircle size={18} aria-hidden />
+            <div>
+              <h2 id="hl-help-chat-title">{t('app.support.liveChatTitle')}</h2>
+              <p>
+                {ticket
+                  ? t('app.support.liveChatActive', { subject: ticket.subject })
+                  : t('app.support.liveChatLead')}
+              </p>
+            </div>
+          </header>
+
+          {!user ? (
+            <div className="hl-help-chat__gate">
+              <p className="hl-support-lead">{t('app.support.guestLead')}</p>
+              <button
+                type="button"
+                className="hl-support-primary"
+                onClick={() => onRequireSignIn?.(t('auth.signInToSupport'))}
+              >
+                {t('app.support.signInForHelp')}
+              </button>
+              <p className="hl-support-note">{t('app.support.securityNote')}</p>
+            </div>
+          ) : (
+            <>
+              <div className="hl-help-chat__meta">
+                <p className="hl-support-user-label">{t('app.support.sendingAs')}</p>
+                <p className="hl-support-user-value">
+                  {displayName} · {displayEmail}
+                </p>
+              </div>
+
+              <div className="hl-help-chat__thread" ref={threadRef}>
+                {chatLoading ? (
+                  <p className="hl-help-chat__empty">
+                    <Loader2 size={16} className="hl-spin" aria-hidden />
+                    {t('app.support.chatLoading')}
+                  </p>
+                ) : messages.length === 0 ? (
+                  <p className="hl-help-chat__empty">{t('app.support.chatEmpty')}</p>
+                ) : (
+                  messages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`hl-help-chat__bubble hl-help-chat__bubble--${
+                        m.sender_role === 'admin' ? 'admin' : 'user'
+                      }`}
+                    >
+                      <span className="hl-help-chat__bubble-role">
+                        {m.sender_role === 'admin'
+                          ? t('app.support.roleSupport')
+                          : t('app.support.roleYou')}
+                      </span>
+                      <p>{m.body}</p>
+                      <time dateTime={m.created_at}>
+                        {new Date(m.created_at).toLocaleString()}
+                      </time>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form className="hl-help-chat__composer" onSubmit={(e) => void handleStartOrSend(e)}>
+                {!ticket ? (
+                  <input
+                    type="text"
+                    className="hl-support-input"
+                    placeholder={t('app.support.subjectPlaceholder')}
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    maxLength={120}
+                    disabled={sending}
+                    aria-label={t('app.support.subject')}
+                  />
+                ) : null}
+                <textarea
+                  className="hl-support-textarea hl-help-chat__input"
+                  placeholder={t('app.support.chatPlaceholder')}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  maxLength={5000}
+                  rows={3}
+                  disabled={sending}
+                  required
+                />
+                {error ? (
+                  <p className="hl-support-error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <button
+                  type="submit"
+                  className="hl-support-primary"
+                  disabled={sending || draft.trim().length < (ticket ? 1 : 10)}
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 size={16} className="hl-spin" aria-hidden />
+                      {t('app.support.sending')}
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} aria-hidden />
+                      {ticket ? t('app.support.sendReply') : t('app.support.startChat')}
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="hl-support-hours">
+                <Clock size={16} aria-hidden />
+                <div>
+                  <strong>{t('app.support.supportHours')}</strong>
+                  <p>{t('app.support.supportHoursDetail')}</p>
+                </div>
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   );
 };

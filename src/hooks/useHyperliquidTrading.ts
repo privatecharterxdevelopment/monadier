@@ -289,7 +289,7 @@ export function useHyperliquidTrading() {
           throw new Error('Link your wallet on the Bot tab to close this position.');
         }
 
-        // Monadier HL agent — one-time approve at Start bot, no MetaMask per close.
+        // HyperGain HL agent — one-time approve at Start bot, no MetaMask per close.
         await closeHlPositionViaAgent({
           walletAddress: wallet,
           coin: opts.coin,

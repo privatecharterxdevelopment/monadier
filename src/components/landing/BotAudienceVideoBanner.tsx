@@ -29,44 +29,42 @@ const BotAudienceVideoBanner: React.FC = () => {
 
   return (
     <section
-      className="landing-gmx-gutter landing-bot-audience-section"
+      className="landing-bot-audience-section landing-bot-audience-section--bleed"
       aria-labelledby="bot-audience-title"
     >
-      <div className="landing-gmx-shell landing-bot-audience-shell">
-        <motion.div {...fadeUp} className="landing-bot-audience-frame">
-          <video
-            className="landing-bot-audience-video"
-            src={BOT_AUDIENCE_VIDEO_BANNER.videoSrc}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            aria-hidden
-          />
-          <div className="landing-bot-audience-overlay">
-            <h2 id="bot-audience-title" className="landing-bot-audience-title">
-              <span className="landing-bot-audience-title-rotate" aria-live="polite">
-                <span className="landing-bot-audience-title-sizer" aria-hidden>
-                  {sizer}
-                </span>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={line}
-                    className="landing-bot-audience-title-line"
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -16 }}
-                    transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    {line}
-                  </motion.span>
-                </AnimatePresence>
+      <motion.div {...fadeUp} className="landing-bot-audience-frame">
+        <video
+          className="landing-bot-audience-video"
+          src={BOT_AUDIENCE_VIDEO_BANNER.videoSrc}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          aria-hidden
+        />
+        <div className="landing-bot-audience-overlay">
+          <h2 id="bot-audience-title" className="landing-bot-audience-title">
+            <span className="landing-bot-audience-title-rotate" aria-live="polite">
+              <span className="landing-bot-audience-title-sizer" aria-hidden>
+                {sizer}
               </span>
-            </h2>
-          </div>
-        </motion.div>
-      </div>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={line}
+                  className="landing-bot-audience-title-line"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {line}
+                </motion.span>
+              </AnimatePresence>
+            </span>
+          </h2>
+        </div>
+      </motion.div>
     </section>
   );
 };

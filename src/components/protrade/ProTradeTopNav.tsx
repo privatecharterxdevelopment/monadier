@@ -8,7 +8,6 @@ import {
   Medal,
   Menu,
   MessagesSquare,
-  Newspaper,
   Ticket,
   X,
 } from 'lucide-react';
@@ -36,7 +35,6 @@ export type ProTradeSection =
   | 'bot'
   | 'sportsbets'
   | 'portfolio'
-  | 'news'
   | 'community'
   | 'support'
   | 'profile'
@@ -58,14 +56,16 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { id: 'perps', labelKey: 'app.nav.perps', enabled: true, Icon: CandlestickChart },
+  /* Perps parked — bot-first product; keep id for deep links / code paths */
+  { id: 'perps', labelKey: 'app.nav.perps', enabled: false, Icon: CandlestickChart },
   { id: 'bot', labelKey: 'app.nav.bot', enabled: true, Icon: Bot },
   { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true, Icon: Ticket },
   { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true, Icon: Briefcase },
-  { id: 'news', labelKey: 'app.nav.news', enabled: true, Icon: Newspaper },
   { id: 'community', labelKey: 'app.nav.community', enabled: false, Icon: MessagesSquare },
   { id: 'leaderboard', labelKey: 'app.nav.leaderboard', enabled: true, Icon: Medal },
 ];
+
+const VISIBLE_NAV = NAV.filter((item) => item.enabled);
 
 type Props = {
   section: ProTradeSection;
@@ -77,6 +77,7 @@ type Props = {
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
   onOpenAffiliate?: () => void;
   onRequireSignIn?: (reason: string) => void;
+  onOpenRegister?: () => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
   walletAddress?: string;
   walletConnected?: boolean;
@@ -92,6 +93,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   onOpenProfile,
   onOpenAffiliate,
   onRequireSignIn,
+  onOpenRegister,
   onViewNotificationHistory,
   walletAddress,
   walletConnected = false,
@@ -104,7 +106,8 @@ const ProTradeTopNav: React.FC<Props> = ({
   const { usdcBalance, usdcLoading } = useArbitrumWalletUsdc(
     isConnected ? address : undefined
   );
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  /* Must match CSS that hides .hl-topnav-links at max-width: 900px */
+  const isMobile = useMediaQuery('(max-width: 900px)');
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -162,18 +165,16 @@ const ProTradeTopNav: React.FC<Props> = ({
             if (inApp) window.location.assign(inApp);
           }}
         >
-          <Logo size="sm" theme={isLight ? 'light' : 'dark'} linked={false} />
+          <Logo size="sm" variant="app" theme={isLight ? 'light' : 'dark'} linked={false} />
         </a>
         <nav className="hl-topnav-links" aria-label={t('app.nav.sections')}>
-          {NAV.map(({ id, labelKey, enabled }) => (
+          {VISIBLE_NAV.map(({ id, labelKey, enabled }) => (
             <button
               key={id}
               type="button"
               className={`hl-topnav-link ${section === id ? 'hl-topnav-link--active' : ''}${id === 'bot' && section === 'bot' ? ' hl-topnav-link--bot' : ''}`}
               onClick={() => pickNavSection(id, enabled)}
-              disabled={!enabled}
               aria-current={section === id ? 'page' : undefined}
-              style={enabled ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
             >
               {t(labelKey)}
               {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
@@ -211,6 +212,7 @@ const ProTradeTopNav: React.FC<Props> = ({
           onOpenProfile={onOpenProfile}
           onOpenAffiliate={onOpenAffiliate}
           onRequireSignIn={onRequireSignIn}
+          onOpenRegister={onOpenRegister}
         />
         {!isMobile ? (
           <button
@@ -263,12 +265,11 @@ const ProTradeTopNav: React.FC<Props> = ({
               </button>
             </div>
             <nav className="hl-mobile-nav-links">
-              {NAV.map(({ id, labelKey, enabled, Icon }) => (
+              {VISIBLE_NAV.map(({ id, labelKey, enabled, Icon }) => (
                 <button
                   key={id}
                   type="button"
                   className={`hl-mobile-nav-link ${section === id ? 'hl-mobile-nav-link--on' : ''}${id === 'bot' ? ' hl-mobile-nav-link--bot' : ''}`}
-                  disabled={!enabled}
                   onClick={() => pickSection(id, enabled)}
                 >
                   <span className="hl-mobile-nav-link-main">

@@ -16,7 +16,7 @@ const fadeUp = (delay = 0) => ({
 const STEPS = [
   {
     title: 'Connect wallet',
-    text: 'Sign in with your wallet on Arbitrum One. Monadier only needs Arbitrum — USDC deposits route to Hyperliquid.',
+    text: 'Sign in with your wallet on Arbitrum One. HyperGain only needs Arbitrum — USDC deposits route to Hyperliquid.',
     visual: <MktWalletVisual />,
   },
   {

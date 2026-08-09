@@ -35,6 +35,7 @@ supabase/.env
 !public/**/*.jpeg
 !public/**/*.jpg
 !src/assets/landing/dashboard-preview.png
+!src/assets/landing/dashboard-preview-dark.png
 .vercel
 supabase/.temp/
 bot-service-source-review.zip

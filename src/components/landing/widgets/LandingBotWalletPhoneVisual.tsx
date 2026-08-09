@@ -8,7 +8,7 @@ const LandingBotWalletPhoneVisual: React.FC = () => (
       <div className="landing-bot-wallet-phone-notch" />
       <div className="landing-bot-wallet-phone-screen">
         <div className="landing-bot-wallet-phone-brand">
-          <Logo size="md" theme="dark" linked={false} />
+          <Logo size="md" variant="image" theme="dark" linked={false} />
         </div>
       </div>
     </div>

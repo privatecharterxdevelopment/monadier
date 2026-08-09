@@ -1,6 +1,6 @@
 import { FALLBACK_SITE_ORIGIN } from './seo/site';
 
-/** Monadier production Reown project — public client id (also set VITE_REOWN_PROJECT_ID on Vercel). */
+/** HyperGain production Reown project — public client id (also set VITE_REOWN_PROJECT_ID on Vercel). */
 export const MONADIER_REOWN_PROJECT_ID = 'a400be46a00abfb25444dbc63bd2a6f4';
 
 export function isMobileBrowser(): boolean {

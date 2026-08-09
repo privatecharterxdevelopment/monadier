@@ -1,19 +1,17 @@
-/** Shared marketing nav — labels via i18n keys in `nav.*`.
- * Ordered to match desired Google sitelinks (plus Open App CTA in the bar).
+/** Shared marketing nav — labels via i18n keys in `nav.*` / `common.*`.
+ * Ordered to match AL header + Google sitelink candidates (see lib/seo/sitelinks.ts).
  */
 export const LANDING_NAV_LINKS = [
-  { to: '/trading-bot', labelKey: 'nav.aiTradingBot' },
-  { to: '/ai-sports-betting', labelKey: 'nav.aiSportsBetting' },
-  { to: '/how-it-works', labelKey: 'nav.howItWorks' },
-  { to: '/pricing', labelKey: 'nav.pricing' },
+  { to: '/support', labelKey: 'common.helpCenter' },
+  { to: '/leaderboard', labelKey: 'common.leaderboard' },
+  { to: '/how-it-works', labelKey: 'common.howItWorks' },
 ] as const;
 
 export const LANDING_FOOTER_LINKS = [
   { to: '/trading-bot', labelKey: 'nav.aiTradingBot' },
-  { to: '/ai-sports-betting', labelKey: 'nav.aiSportsBetting' },
   { to: '/how-it-works', labelKey: 'nav.howItWorks' },
-  { to: '/pricing', labelKey: 'nav.pricing' },
+  { to: '/leaderboard', labelKey: 'common.leaderboard' },
+  { to: '/support', labelKey: 'footer.support' },
   { to: '/terms', labelKey: 'footer.terms' },
   { to: '/privacy', labelKey: 'footer.privacy' },
-  { to: '/support', labelKey: 'footer.support' },
 ] as const;

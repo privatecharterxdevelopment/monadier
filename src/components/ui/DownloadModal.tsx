@@ -11,8 +11,8 @@ const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
   const handleDownloadMac = () => {
     // Create a temporary link and trigger download
     const link = document.createElement('a');
-    link.href = '/downloads/Monadier_1.0.0_aarch64.dmg';
-    link.download = 'Monadier_1.0.0_aarch64.dmg';
+    link.href = '/downloads/HyperGain_1.0.0_aarch64.dmg';
+    link.download = 'HyperGain_1.0.0_aarch64.dmg';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -52,7 +52,7 @@ const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-primary">Download Desktop App</h2>
-                    <p className="text-sm text-secondary">Monadier Trading Bot</p>
+                    <p className="text-sm text-secondary">HyperGain Trading Bot</p>
                   </div>
                 </div>
                 <button

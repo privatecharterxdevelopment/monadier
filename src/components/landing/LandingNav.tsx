@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ArrowUpRight } from 'lucide-react';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
@@ -10,24 +11,26 @@ import { useAuth } from '../../contexts/AuthContext';
 import { displayHandle } from '../../lib/username';
 import { goToOpenApp } from '../../lib/appUrls';
 import { LANDING_NAV_LINKS } from '../../lib/landingNavLinks';
+import OfficialXLink from './OfficialXLink';
+import LandingThemeToggle from './LandingThemeToggle';
+import { useLandingThemeOptional } from '../../contexts/LandingThemeContext';
 
 type LandingNavProps = {
+  /** Override; defaults to active landing theme */
   variant?: 'dark' | 'light';
-  /** GMX-style wide bar + Open app CTA */
-  layout?: 'pill' | 'gmx';
+  /** gmx = glass pill; minimal = slim home; alpha = AlphaLedger flat header inside frame */
+  layout?: 'pill' | 'gmx' | 'minimal' | 'alpha';
 };
 
-const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx }) => {
+const LandingNavAuth: React.FC<{ light: boolean }> = ({ light }) => {
   const { t } = useTranslation();
   const { isAuthenticated, profile, user, sessionReady } = useAuth();
   const displayName = displayHandle(profile, user?.email);
   const signedIn = sessionReady && isAuthenticated && user;
 
-  const signInClass = gmx
-    ? 'text-[13px] font-medium text-[#0a0a0a] hover:text-[#71717a]'
-    : `text-[13px] font-medium transition-colors ${
-        light ? 'text-[#0a0a0a] hover:text-[#71717a]' : 'text-zinc-500 hover:text-primary'
-      }`;
+  const signInClass = `text-[13px] font-medium transition-colors ${
+    light ? 'text-[#0a0a0a] hover:text-[#71717a]' : 'text-zinc-400 hover:text-zinc-100'
+  }`;
 
   if (signedIn) {
     return (
@@ -50,11 +53,56 @@ const LandingNavAuth: React.FC<{ light: boolean; gmx: boolean }> = ({ light, gmx
   );
 };
 
-const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pill' }) => {
+const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => {
   const { t } = useTranslation();
-  const light = variant === 'light';
-  const gmx = layout === 'gmx';
+  const theme = useLandingThemeOptional();
+  const resolved = variant ?? theme ?? 'light';
+  const light = resolved === 'light';
+  const alpha = layout === 'alpha';
+  const gmx = layout === 'gmx' || layout === 'minimal';
+  const minimal = layout === 'minimal';
   const langVariant = light ? 'landing-light' : 'landing-dark';
+  const linkClass = `text-[13px] font-medium tracking-normal transition-colors ${
+    light ? 'text-[#0a0a0a] hover:text-[#71717a]' : 'text-zinc-400 hover:text-zinc-100'
+  }`;
+
+  if (alpha) {
+    return (
+      <header className="landing-al-header">
+        <nav className="landing-al-nav" aria-label="Primary">
+          <div className="landing-al-nav-left">
+            <Logo size="md" variant="image" theme={light ? 'light' : 'dark'} className="landing-al-logo" />
+          </div>
+
+          <div className="landing-al-nav-center hidden sm:flex">
+            <Link to="/support" className={`landing-al-nav-link ${linkClass}`}>
+              {t('common.helpCenter')}
+            </Link>
+            <Link to="/leaderboard" className={`landing-al-nav-link ${linkClass}`}>
+              {t('common.leaderboard')}
+            </Link>
+            <Link to="/how-it-works" className={`landing-al-nav-link ${linkClass}`}>
+              {t('common.howItWorks')}
+            </Link>
+          </div>
+
+          <div className="landing-al-nav-right">
+            <LandingThemeToggle />
+            <LanguageSwitcher variant={langVariant} className="landing-al-lang" />
+            <OpenAppLink className="hidden sm:inline-flex landing-al-nav-cta">
+              <span>{t('common.launchApp')}</span>
+              <span className="landing-al-nav-cta-icon" aria-hidden>
+                <ArrowUpRight size={12} strokeWidth={2.5} />
+              </span>
+            </OpenAppLink>
+            <div className={light ? 'sm:hidden [&_button]:text-[#0a0a0a]' : 'sm:hidden [&_button]:text-zinc-400'}>
+              <MobileMenu variant={resolved} mode="minimal" />
+            </div>
+          </div>
+        </nav>
+      </header>
+    );
+  }
 
   return (
     <header
@@ -67,58 +115,78 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant = 'light', layout = 'pi
       <nav
         className={`mx-auto flex items-center justify-between gap-2 h-12 md:h-14 ${
           gmx
-            ? 'landing-gmx-nav-bar max-w-[1200px] pl-3 pr-1.5 sm:pl-5 sm:pr-2 md:pl-6 md:pr-3 rounded-2xl glass-pill-light'
+            ? `landing-gmx-nav-bar max-w-[1200px] pl-3 pr-1.5 sm:pl-5 sm:pr-2 md:pl-6 md:pr-3 rounded-2xl ${
+                light ? 'glass-pill-light' : 'glass-pill landing-gmx-nav-bar--dark'
+              }`
             : `max-w-4xl pl-4 pr-1.5 md:pl-5 md:pr-2 rounded-full ${light ? 'glass-pill-light' : 'glass-pill'}`
         }`}
       >
-        <Logo size="sm" theme={light ? 'light' : 'dark'} />
+        <Logo size="sm" variant="image" theme={light ? 'light' : 'dark'} />
 
-        <div className="hidden md:flex items-center gap-7">
-          {LANDING_NAV_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`text-[13px] font-medium tracking-normal transition-colors ${
-                light
-                  ? 'text-[#0a0a0a] hover:text-[#71717a]'
-                  : 'text-zinc-500 hover:text-zinc-100'
-              }`}
-            >
-              {t(link.labelKey)}
-            </Link>
-          ))}
-        </div>
+        {!minimal ? (
+          <div className="hidden md:flex items-center gap-7">
+            {LANDING_NAV_LINKS.map((link) => (
+              <Link key={link.to} to={link.to} className={linkClass}>
+                {t(link.labelKey)}
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1" aria-hidden />
+        )}
 
         <div className="flex items-center gap-1 md:gap-2">
-          <LanguageSwitcher variant={langVariant} />
-          {gmx ? (
+          {minimal ? (
             <>
-              <LandingNavAuth light={light} gmx />
-              <OpenAppLink className="hidden md:inline-flex landing-gmx-nav-open">
-                <span className="md:hidden">{t('common.app')}</span>
-                <span className="hidden md:inline">{t('common.openApp')}</span>
+              <LandingThemeToggle />
+              <Link to="/support" className={`hidden sm:inline-flex px-2 py-1.5 ${linkClass}`}>
+                {t('common.helpCenter')}
+              </Link>
+              <Link to="/leaderboard" className={`hidden sm:inline-flex px-2 py-1.5 ${linkClass}`}>
+                {t('common.leaderboard')}
+              </Link>
+              <OpenAppLink className="hidden sm:inline-flex landing-gmx-nav-open">
+                {t('common.launchApp')}
               </OpenAppLink>
+              <div className={light ? 'sm:hidden [&_button]:text-[#0a0a0a]' : 'sm:hidden [&_button]:text-zinc-400'}>
+                <MobileMenu variant={resolved} mode="minimal" />
+              </div>
             </>
           ) : (
             <>
-              <LandingNavAuth light={light} gmx={false} />
-              <OpenAppLink className="inline-flex md:inline-flex">
-                <span
-                  className={`inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[12px] md:text-[13px] font-semibold transition-colors ${
-                    light
-                      ? 'text-[#0a0a0a] border border-[#c5c5cb] bg-white/50 hover:bg-white/80'
-                      : 'bg-white text-[#08080a] hover:bg-zinc-100'
-                  }`}
-                >
-                  <span className="md:hidden">{t('common.app')}</span>
-                  <span className="hidden md:inline">{t('common.openApp')}</span>
-                </span>
-              </OpenAppLink>
+              <OfficialXLink className="landing-nav-x" />
+              <LandingThemeToggle />
+              <LanguageSwitcher variant={langVariant} />
+              {layout === 'gmx' ? (
+                <>
+                  <LandingNavAuth light={light} />
+                  <OpenAppLink className="hidden md:inline-flex landing-gmx-nav-open">
+                    <span className="md:hidden">{t('common.app')}</span>
+                    <span className="hidden md:inline">{t('common.openApp')}</span>
+                  </OpenAppLink>
+                </>
+              ) : (
+                <>
+                  <LandingNavAuth light={light} />
+                  <OpenAppLink className="inline-flex md:inline-flex">
+                    <span
+                      className={`inline-flex items-center px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[12px] md:text-[13px] font-semibold transition-colors ${
+                        light
+                          ? 'text-[#0a0a0a] border border-[#c5c5cb] bg-white/50 hover:bg-white/80'
+                          : 'bg-white text-[#08080a] hover:bg-zinc-100'
+                      }`}
+                    >
+                      <span className="md:hidden">{t('common.app')}</span>
+                      <span className="hidden md:inline">{t('common.openApp')}</span>
+                    </span>
+                  </OpenAppLink>
+                </>
+              )}
+              <div className={light ? 'md:hidden [&_button]:text-[#0a0a0a]' : 'md:hidden [&_button]:text-zinc-400'}>
+                <MobileMenu variant={resolved} />
+              </div>
             </>
           )}
-          <div className={light ? 'md:hidden [&_button]:text-[#0a0a0a]' : 'md:hidden [&_button]:text-zinc-400'}>
-            <MobileMenu variant={variant} />
-          </div>
         </div>
       </nav>
     </header>

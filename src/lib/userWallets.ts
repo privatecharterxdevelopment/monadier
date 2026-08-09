@@ -138,7 +138,7 @@ export async function linkWalletToUserSafe(
     return {
       ok: false,
       code: 'owned_by_other',
-      error: 'This wallet is already linked to another Monadier account.',
+      error: 'This wallet is already linked to another HyperGain account.',
     };
   }
 
@@ -171,7 +171,7 @@ export async function linkWalletToUserSafe(
       return {
         ok: false,
         code: 'owned_by_other',
-        error: 'This wallet is already linked to another Monadier account.',
+        error: 'This wallet is already linked to another HyperGain account.',
       };
     }
     return { ok: false, code: 'db_error', error: error.message };

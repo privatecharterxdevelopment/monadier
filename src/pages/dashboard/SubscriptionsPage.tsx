@@ -762,7 +762,7 @@ const SubscriptionsPage: React.FC = () => {
                     <p className="text-blue-400 font-medium mb-1">How to use your license</p>
                     <ol className="text-secondary text-sm space-y-1 list-decimal list-inside">
                       <li>Open MetaTrader 5</li>
-                      <li>Add the Monadier EA to your chart</li>
+                      <li>Add the HyperGain EA to your chart</li>
                       <li>Enter your license key in the EA settings</li>
                       <li>Start automated trading</li>
                     </ol>

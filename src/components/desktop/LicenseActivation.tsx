@@ -86,7 +86,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
             <Check className="w-12 h-12 text-green-400" />
           </div>
           <h2 className="text-2xl font-semibold text-primary mb-2">License Activated!</h2>
-          <p className="text-secondary">Starting Monadier Trading Bot...</p>
+          <p className="text-secondary">Starting HyperGain Trading Bot...</p>
         </motion.div>
       </div>
     );
@@ -101,7 +101,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
       >
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
-            <Logo size="lg" />
+            <Logo size="lg" variant="app" />
           </div>
           <h1 className="text-2xl font-semibold text-primary mb-2">Activate Desktop License</h1>
           <p className="text-secondary">

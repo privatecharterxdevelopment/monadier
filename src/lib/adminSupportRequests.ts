@@ -11,6 +11,7 @@ export type SupportRequestRow = {
   user_full_name: string | null;
   user_username: string | null;
   wallet_address: string | null;
+  channel?: 'form' | 'chat' | string | null;
   status: SupportRequestStatus;
   created_at: string;
   resolved_at: string | null;

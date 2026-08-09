@@ -17,8 +17,8 @@ const fadeUp = (delay = 0) => ({
 
 /** Wallet + risk banners — bot page feature rows. */
 const BotLandingFeatureBanners: React.FC = () => (
-  <section className="landing-agent-features landing-bot-feature-banners" aria-label="Bot setup highlights">
-    <div className="landing-gmx-gutter landing-gmx-shell">
+  <section className="landing-agent-features landing-bot-feature-banners landing-gmx-gutter" aria-label="Bot setup highlights">
+    <div className="landing-gmx-shell">
       <div className="landing-agent-split-pair landing-agent-split-pair--wallet">
         <motion.article
           {...fadeUp(0)}

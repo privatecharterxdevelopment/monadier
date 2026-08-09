@@ -24,6 +24,7 @@ type Props = {
   onOpenProfile?: (tab?: ProTradeProfileTab) => void;
   onOpenAffiliate?: () => void;
   onRequireSignIn?: (reason: string) => void;
+  onOpenRegister?: () => void;
 };
 
 const ProTradeAccountMenu: React.FC<Props> = ({
@@ -31,6 +32,7 @@ const ProTradeAccountMenu: React.FC<Props> = ({
   onOpenProfile,
   onOpenAffiliate,
   onRequireSignIn,
+  onOpenRegister,
 }) => {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
@@ -133,14 +135,17 @@ const ProTradeAccountMenu: React.FC<Props> = ({
             >
               {t('common.signIn')}
             </button>
-            <a
-              href="/register"
+            <button
+              type="button"
               className="hl-account-guest-secondary"
               role="menuitem"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                onOpenRegister?.();
+              }}
             >
               {t('common.createAccount')}
-            </a>
+            </button>
           </div>
         </>
       ) : null}

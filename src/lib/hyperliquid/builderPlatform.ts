@@ -17,15 +17,15 @@ export type HlBuilderPlatformStatus = {
 
 const INTERNAL_PLATFORM_OPS = [
   /platform success fee setup is pending/i,
-  /Monadier platform fee is not active/i,
+  /(?:HyperGain|Monadier) platform fee is not active/i,
   /platform fees are not active/i,
   /builder has insufficient balance/i,
   /builder wallet/i,
-  /Monadier builder wallet/i,
+  /(?:HyperGain|Monadier) builder wallet/i,
   /platform_wallet_underfunded/i,
   /Hyperliquid requires \$100/i,
-  /deposit \$100\+ USDC to the Monadier/i,
-  /on Monadier'?s side/i,
+  /deposit \$100\+ USDC to the (?:HyperGain|Monadier)/i,
+  /on (?:HyperGain|Monadier)'?s side/i,
   /success fee setup is pending/i,
   /activating soon/i,
 ];
@@ -66,7 +66,7 @@ export function sanitizeUserFacingError(message: string): string {
   return t;
 }
 
-/** Hyperliquid requires the Monadier builder wallet to hold ≥100 USDC on HL perps. */
+/** Hyperliquid requires the HyperGain builder wallet to hold ≥100 USDC on HL perps. */
 export async function fetchHlBuilderPlatformStatus(): Promise<HlBuilderPlatformStatus> {
   const config = getHlBuilderConfig();
   const fallback: HlBuilderPlatformStatus = {
@@ -128,7 +128,7 @@ export function isBuilderPlatformError(message: string): boolean {
   return /builder has insufficient balance/i.test(message);
 }
 
-/** @deprecated Never shown to users — internal Monadier ops only. */
+/** @deprecated Never shown to users — internal HyperGain ops only. */
 export function formatBuilderPlatformError(_status?: HlBuilderPlatformStatus): string {
   return '';
 }

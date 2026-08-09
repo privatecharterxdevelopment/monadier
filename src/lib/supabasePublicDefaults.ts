@@ -1,4 +1,4 @@
-/** Public HyperGain/Monadier Supabase defaults (anon key is publishable by design). */
+/** Public HyperGain/HyperGain Supabase defaults (anon key is publishable by design). */
 export const DEFAULT_SUPABASE_URL = 'https://gbgafseabgqinnvlfslc.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiZ2Fmc2VhYmdxaW5udmxmc2xjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyOTIxNTksImV4cCI6MjA2MTg2ODE1OX0.G4fy9Oyy5BWsWjRh3zU2L0MIjpE4tdl87Iog_n9uoLw';

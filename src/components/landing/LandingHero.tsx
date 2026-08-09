@@ -52,7 +52,7 @@ const LandingHero: React.FC = () => {
             <Bot size={16} className="text-zinc-300" strokeWidth={1.75} />
           </div>
           <p className="text-left text-[13px] text-zinc-400 tracking-normal flex-1 min-w-0">
-            <span className="text-zinc-200 font-medium">Monadier vault</span>
+            <span className="text-zinc-200 font-medium">HyperGain vault</span>
             <span className="text-zinc-600"> · </span>
             Hyperliquid · Cross margin
           </p>

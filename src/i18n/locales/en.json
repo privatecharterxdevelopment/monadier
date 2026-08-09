@@ -29,11 +29,18 @@
     "signIn": "Sign in",
     "signOut": "Sign out",
     "openApp": "Open app",
+    "launchApp": "Launch app",
     "app": "App",
     "startBot": "Start bot",
     "connect": "Connect",
     "restoring": "Restoring…",
     "support": "Support",
+    "helpCenter": "Help center",
+    "register": "Register",
+    "contact": "Contact",
+    "community": "Community",
+    "leaderboard": "Leaderboard",
+    "howItWorks": "How it works",
     "affiliate": "Affiliate",
     "download": "Download",
     "trade": "Trade",
@@ -49,22 +56,99 @@
     "terms": "Terms",
     "privacy": "Privacy",
     "support": "Support",
+    "faqs": "FAQs",
     "about": "About",
     "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · administration@hypergain.io"
   },
+  "contact": {
+    "eyebrow": "Contact",
+    "title": "Contact & about",
+    "lead": "Questions, feedback, or partnership — reach the team behind HyperGain.",
+    "philosophyTitle": "Philosophy",
+    "philosophy": "Automation should be accessible — not locked behind a trading desk. You keep your wallet and keys; we provide the software that trades Hyperliquid perps for you 24/7. Markets move fast and losses are real. No guaranteed returns.",
+    "whoTitle": "Who’s behind it",
+    "who": "{{brand}} was founded and built by Lorenzo Vanza in Zug, Switzerland. Small team, clear ownership — software that runs for people, not a pitch deck.",
+    "location": "Zug, Switzerland",
+    "reachTitle": "Get in touch",
+    "reach": "Email us anytime. For product help, the Help center has the fastest answers.",
+    "fullAbout": "Full about page"
+  },
   "landing": {
     "hero": {
-      "lineDarkTop": "Trade from your Wallet",
+      "lineDarkTop": "Full auto trading bot",
       "rotateLines": [
-        "on AI autopilot",
         "on Hyperliquid",
         "with automated perps",
-        "on verified sports on-chain",
-        "with hedge-fund signals",
-        "with deep HL liquidity",
-        "across 200+ markets"
+        "across 200+ markets",
+        "24/7 on your HL account"
       ],
       "disclaimer": "HyperGain enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. No promised or guaranteed returns — past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
+    },
+    "macbook": {
+      "title": "Your trading dashboard",
+      "lead": "Charts, bot controls, funding, and history — one workspace on Hyperliquid.",
+      "alt": "HyperGain dashboard with live charts, automated bot panel, and trade history"
+    },
+    "alpha": {
+      "watchFilm": "Watch the film",
+      "usersLabel": "users actively bot trading",
+      "title": "Full auto trading bot",
+      "lead": "AI-automated perpetuals trading on your Hyperliquid account.",
+      "leadSub": "Non-custodial — your USDC stays on HL; the bot trades 24/7, you keep the keys.",
+      "scrollDown": "Scroll down"
+    },
+    "socialProof": {
+      "aria": "Trusted by traders",
+      "before": "Trusted by ",
+      "after": " traders",
+      "afterWorldwide": " traders worldwide"
+    },
+    "features": {
+      "title": "Built for Hyperliquid",
+      "lead": "Automation, perps, and on-chain markets — one non-custodial account.",
+      "cards": {
+        "how": {
+          "title": "How it works",
+          "text": "Connect wallet, bridge USDC to Hyperliquid, approve the agent once, then start the bot."
+        },
+        "bot": {
+          "title": "Bot trading",
+          "text": "AI scans 200+ HL perps 24/7 — opens, trails winners, and cuts losers while you stay non-custodial."
+        },
+        "betting": {
+          "title": "Sports betting",
+          "text": "HIP-4 outcome markets on Hyperliquid — live odds, wallet-signed bets, transparent settlement."
+        },
+        "perps": {
+          "title": "Pro perps",
+          "text": "Trade the same HL liquidity the bot uses — charts, depth, and execution in one terminal."
+        }
+      }
+    },
+    "howStrip": {
+      "title": "How it works",
+      "lead": "Four steps from wallet to live bot on Hyperliquid.",
+      "learnMore": "Learn more",
+      "startApp": "Start app",
+      "stepLabel": "Step {{n}}",
+      "steps": {
+        "connect": {
+          "title": "Connect wallet",
+          "text": "Sign in and link MetaMask or WalletConnect."
+        },
+        "bridge": {
+          "title": "Bridge to Hyperliquid",
+          "text": "Deposit from Arbitrum into your Hyperliquid account."
+        },
+        "usdc": {
+          "title": "USDC on Arbitrum",
+          "text": "Fund with native USDC on Arbitrum One — required for HL."
+        },
+        "bot": {
+          "title": "Start bot",
+          "text": "Approve the trading agent once, then press Start bot."
+        }
+      }
     },
     "carousel": {
       "titleStart": "Start",
@@ -96,28 +180,20 @@
       }
     },
     "sleepEarnings": {
-      "appName": "HyperGain",
-      "title": "AI agent that trades for you",
-      "description": "Markets never sleep — and neither does the bot while it is enabled. HyperGain automates execution on your Hyperliquid account. Discipline and risk limits are yours to set; returns are not guaranteed.",
-      "notificationTitle": "{{pair}} position closed in profit",
-      "amount": "+${{amount}}",
-      "minutesAgo_one": "{{count}}m ago",
-      "minutesAgo_other": "{{count}}m ago",
-      "pillsAria": "Bot benefits",
+      "title": "Full transparent leaderboard on-chain",
+      "description": "Live Hyperliquid bot closes — wins and losses — with masked wallets, pair, side, PnL, date and time. Past results do not guarantee future performance.",
+      "pillsAria": "Bot highlights",
       "registerCta": "Register for free",
       "pills": {
-        "adjust": "Adjust to your needs",
-        "run247": "71.4% avg. winrate",
-        "wealth": "Fully on Blockchain",
-        "payOnPerf": "Pay only when the bot performs"
+        "run247": "71.4% avg. winrate"
       }
     },
     "agentSections": {
       "aria": "HyperGain bot features",
       "calc": {
-        "eyebrow": "Bot ROI",
-        "title": "Estimate your monthly edge",
-        "desc": "Plug in your Hyperliquid USDC balance and leverage — see illustrative profit per win, risk per loss, monthly multiple, and win rate before you start the bot."
+        "eyebrow": "Live leaderboard",
+        "title": "Latest bot closes",
+        "desc": "Live Hyperliquid bot results — wins and losses — with wallet, pair, side, PnL, date and time. Updates as trades close."
       },
       "toolkit": {
         "aria": "HyperGain bot market analyzer",
@@ -196,6 +272,14 @@
         "winsCopy": "{{wins}} of {{total}} trades successful",
         "winsSub": "~{{min}}–{{max}} trades/day · {{winRate}} win rate · illustrative only",
         "footnote": "Not financial advice. Small balances typically target ~2–3× per month, not 10×. Results vary."
+      },
+      "lb": {
+        "aria": "Live bot leaderboard",
+        "live": "Live",
+        "subtitle": "Wins & losses",
+        "loading": "Loading closes…",
+        "empty": "No recent closes yet.",
+        "footnote": "Public closed trades only (masked wallets). Past results do not guarantee future performance. Not financial advice."
       },
       "markets": {
         "volume24h": "24h volume",
@@ -289,6 +373,14 @@
     "faq": {
       "titleDark": "Frequently asked ",
       "titleGrey": "questions",
+      "viewAll": "View all FAQs",
+      "searchPlaceholder": "Search FAQs…",
+      "searchEmpty": "No questions match your search.",
+      "page": {
+        "eyebrow": "FAQs",
+        "title": "Frequently asked questions",
+        "lead": "Everything about HyperGain, the Hyperliquid bot, deposits, fees, and sports betting — search or browse all answers."
+      },
       "tabs": {
         "all": "All",
         "platform": "Platform",
@@ -420,14 +512,109 @@
       "titleGrey": "FAQ",
       "pageTitle": "Frequently asked questions",
       "lead": "HIP-4 outcome markets on Hyperliquid — wallet-signed, on-chain odds, and transparent settlement."
+    },
+    "legal": {
+      "ariaLabel": "Legal disclosures",
+      "operator": [
+        "Trading on {{brand}} connects your wallet to your own Hyperliquid account. Orders are placed on Hyperliquid perpetual and outcome markets using your USDC margin — this is live trading with real financial instruments, not a simulated or demo evaluation program.",
+        "{{brand}} was founded, created, and developed by Lorenzo Vanza. The website {{domain}} provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. Full operational and legal responsibility is currently carried privately by Lorenzo Vanza, who acknowledges that he is presently overwhelmed by the product. Official X/Twitter (only): @{{xHandle}}. {{brand}} is NOT on Telegram — any Telegram account, group, bot, or DM claiming to represent {{brand}} is a scam. Any other social account is not official. For legal or compliance inquiries, contact {{email}}."
+      ],
+      "blocks": [
+        {
+          "id": "legal-disclosure",
+          "heading": "Legal disclosure",
+          "paragraphs": [
+            "{{brand}} provides software that may automate entries and exits on Hyperliquid based on configured settings and market signals. The service is designed to assist with execution and monitoring — it does not constitute a guarantee of profitability or risk-free trading."
+          ]
+        },
+        {
+          "id": "no-promised-returns",
+          "heading": "No promised or guaranteed returns",
+          "paragraphs": [
+            "Nothing on {{domain}}, in the app, in marketing materials, or in support communications constitutes a promise, projection, or guarantee of profit, yield, or any specific trading outcome. Crypto and leveraged derivatives are speculative. You may lose some or all of your margin. Examples, win rates, backtests, and past bot performance are illustrative only and are not indicative of future results.",
+            "Returns vary by market conditions, leverage, fees, slippage, latency, and user settings. Automated systems can misread markets, fail during volatility, or stop operating due to technical issues. You alone bear the financial risk of every trade."
+          ]
+        },
+        {
+          "id": "country-responsibility",
+          "heading": "Country-specific responsibility",
+          "paragraphs": [
+            "You are solely responsible for determining whether your use of HyperGain, Hyperliquid, crypto derivatives, automated trading bots, sports outcome markets, or related services is permitted in your country or region of residence, citizenship, or access.",
+            "Residents of India and other jurisdictions with specific crypto, derivatives, or gambling tax and reporting rules must comply with their local laws — including income tax, GST, TDS, or equivalent obligations. HyperGain does not provide tax advice and does not file returns on your behalf.",
+            "If automated trading, leveraged crypto, or prediction markets are restricted or prohibited where you live, you must not use the service. Accessing HyperGain via VPN, proxy, or location masking to circumvent restrictions is prohibited (see Terms of Service). We accept no liability for unlawful use."
+          ]
+        },
+        {
+          "id": "vpn-policy",
+          "heading": "VPN & location masking",
+          "paragraphs": [
+            "Use of VPNs, proxies, Tor, or similar tools to access {{brand}} while concealing your true location is against our policies when done to bypass geographic restrictions, compliance controls, or account enforcement.",
+            "{{brand}} does not accept liability for losses, account actions, regulatory exposure, or tax consequences arising from VPN or proxy use. We may detect circumvention attempts and suspend or permanently terminate accounts without refund of accrued platform fees or unused software access."
+          ]
+        },
+        {
+          "id": "no-custody",
+          "heading": "No client fund custody",
+          "paragraphs": [
+            "{{brand}} is not a broker, dealer, exchange, custodian, bank, or investment adviser. We do not accept, hold, or manage client deposits. Your USDC remains on your Hyperliquid account in your name. Deposits and withdrawals require your wallet signature; the approved trading agent may place orders but cannot withdraw funds without you."
+          ]
+        },
+        {
+          "id": "live-trading",
+          "heading": "Live trading — real risk",
+          "paragraphs": [
+            "Unlike paper or evaluation accounts, {{brand}} automates real positions on Hyperliquid. You can lose part or all of your margin. Leverage amplifies gains and losses. Only use capital you can afford to lose and ensure crypto derivatives are permitted where you live."
+          ]
+        },
+        {
+          "id": "not-advice",
+          "heading": "Not investment advice",
+          "paragraphs": [
+            "All content, signals, dashboards, and tools are provided for informational and software-access purposes only. Nothing on this site is investment, tax, or legal advice, or a solicitation to buy or sell any financial product, cryptocurrency, or derivative. Consult independent advisers before trading."
+          ]
+        },
+        {
+          "id": "performance",
+          "heading": "Performance disclosure",
+          "paragraphs": [
+            "Past performance, win rates, backtests, or examples shown in marketing or the app are not indicative of future results. Automated strategies can fail during volatile, illiquid, or news-driven conditions. Hypothetical or simulated results have inherent limitations and may not reflect actual trading costs, slippage, or latency."
+          ]
+        },
+        {
+          "id": "jurisdiction",
+          "heading": "Jurisdictional restrictions",
+          "paragraphs": [
+            "You must be at least 18 years old and legally permitted to use crypto derivatives in your jurisdiction. {{brand}} does not target users where such services are prohibited. It is your responsibility to comply with local laws, sanctions, and tax obligations. Access may be restricted or terminated where required by law."
+          ]
+        },
+        {
+          "id": "risk",
+          "heading": "Risk warning",
+          "paragraphs": [
+            "Trading perpetual futures, leveraged crypto, and on-chain outcome markets involves substantial risk of loss. Markets can gap, liquidate positions, or become temporarily unavailable. Smart-contract, bridge, wallet, and third-party protocol risks apply. Hyperliquid is a separate platform governed by its own terms."
+          ]
+        },
+        {
+          "id": "fees",
+          "heading": "Fees & refunds",
+          "paragraphs": [
+            "Hyperliquid protocol and network fees apply to each trade. HyperGain may charge success-based platform fees on profitable closes, builder fees, or other charges as disclosed in the app. Unpaid accrued platform fees may block new bot opens and in-app Hyperliquid withdrawals until settled. See Terms of Service for the current fee schedule and enforcement rules."
+          ]
+        }
+      ],
+      "tagline": "Not a bank deposit · Not FDIC or government insured · No guaranteed returns · You may lose all invested capital"
+    },
+    "volume": {
+      "label": "Daily trading volume managed by HG Bot",
+      "live": "Live"
     }
   },
   "marketing": {
     "howItWorks": {
       "eyebrow": "Product",
       "title": "How it works",
-      "lead": "Deposit native USDC on Arbitrum, approve the bot once — then our strategy runs 24/7 on Hyperliquid.",
-      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
+      "lead": "Deposit USDC. Approve once. Bot trades 24/7 on Hyperliquid.",
+      "sub": "",
       "custody": {
         "through": "Through Hyperliquid",
         "points": [
@@ -435,63 +622,92 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds stay on Hyperliquid. Agent can trade — never withdraw."
       },
       "arbitrum": {
-        "title": "USDC on Arbitrum One — required",
-        "text": "To fund the bot you need native USDC on Arbitrum One in your wallet. Hyperliquid does not accept BNB, ETH mainnet, or USDC from other chains.",
-        "minHl": "Min. $5 deposit on HL · $20+ to run the bot",
-        "gas": "Keep a little ETH on Arbitrum for deposit gas.",
-        "doNotUse": "Do not use"
+        "title": "Fund with USDC on Arbitrum",
+        "text": "Native USDC on Arbitrum One only.",
+        "minHl": "Min. $5 · $20+ to run",
+        "gas": "Keep a little ETH on Arbitrum for gas.",
+        "doNotUse": "Do not use",
+        "minDepositValue": "$5",
+        "minDepositLabel": "Minimum deposit",
+        "startBotValue": "$20",
+        "startBotLabel": "To start the bot"
       },
-      "stepsTitle": "Setup in four steps",
-      "stepsSub": "One-time setup in the HyperGain app.",
+      "stepsTitle": "Setup",
+      "stepsSub": "Four steps. One time.",
       "steps": [
         {
           "title": "Connect wallet",
-          "text": "Sign in and link MetaMask or WalletConnect on Arbitrum."
+          "text": "MetaMask or WalletConnect on Arbitrum."
         },
         {
           "title": "Deposit USDC",
-          "text": "From the Funds tab, send native USDC from your Arbitrum wallet to your Hyperliquid account."
+          "text": "Send native USDC to your Hyperliquid account."
         },
         {
-          "title": "Approve agent & start bot",
-          "text": "One signature allows the bot to trade — not withdraw. Press Start bot."
+          "title": "Start bot",
+          "text": "Approve agent to trade — not withdraw. Hit Start."
         },
         {
           "title": "Withdraw anytime",
-          "text": "P/L stays on HL until you withdraw USDC back to your Arbitrum wallet."
+          "text": "You sign every withdrawal yourself."
         }
       ],
-      "fundsTitle": "How your funds are stored",
-      "fundsSub": "Not a pooled vault — your Hyperliquid account in your name. Never held by HyperGain.",
+      "fundsTitle": "Your money",
+      "fundsSub": "On Hyperliquid. In your name. Never with us.",
       "funds": [
         {
           "title": "Login vs wallet",
-          "text": "Email/Google = HyperGain dashboard. MetaMask = signs deposits and withdrawals."
+          "text": "Email for the app. Wallet for money moves."
         },
         {
-          "title": "On Hyperliquid — not with us",
-          "text": "USDC stays on your Hyperliquid account. No API keys to us, no custody smart contract, no funds on our infrastructure. Agent approval lets the bot trade only — never withdraw."
+          "title": "On Hyperliquid",
+          "text": "USDC stays on your HL account — not ours."
         },
         {
           "title": "When trades close",
-          "text": "P/L credits your HL balance, not MetaMask automatically."
+          "text": "P/L credits your HL balance."
         },
         {
           "title": "Withdraw",
-          "text": "Funds tab → Withdraw. You sign every withdrawal yourself."
+          "text": "Funds tab → Withdraw. You sign it."
         }
       ],
-      "risksTitle": "Risks to know",
+      "risksTitle": "Risks",
       "risks": [
-        "Hyperliquid and bot operational risk",
+        "Protocol and bot operational risk",
         "Crypto volatility and leverage",
         "Only deposit what you can afford to lose"
       ],
       "ctaSecondary": "Pricing & fees",
-      "disclaimer": "This is not financial advice. Your capital is at risk."
+      "disclaimer": "Not financial advice. Capital at risk.",
+      "settingsTitle": "You control",
+      "settingsSub": "Set once in Bot trade. Save applies to new opens.",
+      "settings": [
+        {
+          "title": "Leverage",
+          "text": "Up to 40× — clamped per market."
+        },
+        {
+          "title": "Risk per trade",
+          "text": "1–100% of HL balance as margin."
+        },
+        {
+          "title": "Open slots",
+          "text": "2 or 3 positions at once."
+        },
+        {
+          "title": "Stop loss",
+          "text": "Off, or 5–50% on margin."
+        },
+        {
+          "title": "Win rate gate",
+          "text": "Pause opens if win rate drops."
+        }
+      ],
+      "settingsNote": ""
     },
     "support": {
       "eyebrow": "Support",
@@ -501,15 +717,16 @@
       "contactEmailTitle": "Email support",
       "contactEmailText": "Send us a message and we will get back to you within 24 hours.",
       "contactHoursTitle": "Support hours",
-      "contactHoursText": "Monday – Sunday, 09:00 – 20:00 CET. The trading bot itself runs 24/7 on our infrastructure.",
+      "contactHoursText": "Every day, 24/7. The trading bot runs around the clock on our infrastructure — reach us anytime.",
       "faqTitle": "Frequently asked questions",
       "faqSub": "Quick answers about setup, safety, and fees.",
       "faqExtra": {
         "q": "How fast is support?",
-        "a": "Email administration@hypergain.io — we aim to reply within 24 hours, Monday–Sunday 09:00–20:00 CET."
+        "a": "Use the Send email button on this page — we aim to reply within 24 hours. Support and the trading bot are available every day, 24/7."
       },
       "ctaContact": "Contact support",
-      "disclaimer": "For account security, never share your seed phrase or private keys with anyone — including support."
+      "disclaimer": "For account security, never share your seed phrase or private keys with anyone — including support.",
+      "contactEmailCta": "Send email"
     }
   },
   "auth": {
@@ -648,10 +865,29 @@
     },
     "support": {
       "title": "Support",
-      "guestLead": "Sign in to contact our team. Support is available for registered users only.",
+      "helpTitle": "Help Center",
+      "helpLead": "Search answers by topic, open an article, or start a live chat — we see your account profile with every conversation.",
+      "topicsTitle": "Topics & FAQs",
+      "searchPlaceholder": "Search help articles…",
+      "articleCount": "{{count}} articles",
+      "articlesTitle": "Help articles",
+      "articlesAll": "All topics — browse or search.",
+      "articlesInTopic": "Showing articles in {{topic}}.",
+      "liveChatTitle": "Live support chat",
+      "liveChatLead": "Logged-in users can message us in real time. We typically reply during support hours.",
+      "liveChatActive": "Open conversation · {{subject}}",
+      "chatDefaultSubject": "Live chat",
+      "chatLoading": "Loading chat…",
+      "chatEmpty": "No messages yet. Describe your issue to start a live chat.",
+      "chatPlaceholder": "Type your message…",
+      "startChat": "Start live chat",
+      "sendReply": "Send reply",
+      "roleYou": "You",
+      "roleSupport": "Support",
+      "guestLead": "Sign in to start a live chat with our team. Support chat is available for registered users only.",
       "signInForHelp": "Sign in to get help",
       "securityNote": "Never share your seed phrase or private keys — not even with support.",
-      "sendingAs": "Sending as",
+      "sendingAs": "Chatting as",
       "userId": "User ID:",
       "subject": "Subject",
       "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
@@ -662,7 +898,7 @@
       "sent": "Sent",
       "sendMessage": "Send message",
       "supportHours": "Support hours",
-      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h"
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · live chat when the team is online"
     },
     "community": {
       "title": "Community · Help Center",

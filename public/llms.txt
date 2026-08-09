@@ -1,44 +1,39 @@
 # HyperGain
 
-> Full auto Hyperliquid trading bot — non-custodial, 24/7 automated perpetuals execution across 200+ markets.
+> Full auto Hyperliquid trading bot — non-custodial, 24/7 automated perpetuals across 200+ markets.
 
-HyperGain is automated trading software for Hyperliquid. Users deposit USDC on their own Hyperliquid account, approve a trading agent once, and run a full auto trading bot that scans markets 24/7. HyperGain never holds private keys or custodies funds.
+HyperGain is automated trading software for Hyperliquid. Users deposit native USDC on Arbitrum One to their own Hyperliquid account (min. $5 on HL; $20+ to run the bot), approve a trading agent once, and run a full auto bot that scans markets 24/7. HyperGain never holds private keys or custodies funds. Returns are not guaranteed.
 
-## Primary pages (Google sitelink candidates)
+## Primary indexed pages
 
-- Home: https://hypergain.io/
-- AI Trading Bot: https://hypergain.io/trading-bot
-- AI Sports Betting: https://hypergain.io/ai-sports-betting
-- Perps Trading (app): https://app.hypergain.io/?section=perps
-- How it works: https://hypergain.io/how-it-works
-- Pricing: https://hypergain.io/pricing
-- Open App: https://app.hypergain.io/
-
-## Other pages
-
-- Leaderboard: https://hypergain.io/leaderboard
-- Technology: https://hypergain.io/technology
-- Support & FAQ: https://hypergain.io/support
+- Home: https://www.hypergain.io/
+- Trading bot: https://www.hypergain.io/trading-bot
+- How it works: https://www.hypergain.io/how-it-works
+- Leaderboard: https://www.hypergain.io/leaderboard
+- Help center: https://www.hypergain.io/support
+- Open app: https://app.hypergain.io/
 
 ## Product summary
 
-- **Product**: Full auto Hyperliquid trading bot + perps terminal + AI auto betting
+- **Product**: Full auto Hyperliquid trading bot + perps terminal
 - **Custody**: Non-custodial — USDC stays on the user's Hyperliquid account
-- **Minimum deposit**: $20 USDC on Hyperliquid (deposits via Arbitrum One native USDC)
+- **Funding**: Native USDC on Arbitrum One only (not BNB, BSC, or other chains)
+- **Minimum**: $5 HL deposit · $20+ USDC to start the bot
 - **Markets**: 200+ Hyperliquid perpetual pairs
 - **Automation**: 24/7 server-side bot; user starts/stops via dashboard
-- **Fees**: Transparent platform fees on winning closes / place bets; Hyperliquid trading fees apply
+- **Fees**: No monthly subscription; Hyperliquid fees apply; Platform Success Fee may apply on qualifying profitable closes (see Terms)
 
 ## Keywords
 
-hyperliquid bot, AI trading bot, AI auto betting, hyperliquid perps, full auto trading bot, non-custodial hyperliquid bot
+hyperliquid bot, hyperliquid trading bot, full auto trading bot, non-custodial hyperliquid bot, hyperliquid perpetuals bot
 
 ## Contact
 
-- Email: support@hypergain.io
-- Website: https://hypergain.io
+- Email: administration@hypergain.io
+- Website: https://www.hypergain.io
+- X: https://x.com/HyperGainAi
 
 ## Legal
 
-- Terms: https://hypergain.io/terms
-- Privacy: https://hypergain.io/privacy
+- Terms: https://www.hypergain.io/terms
+- Privacy: https://www.hypergain.io/privacy

@@ -66,7 +66,7 @@ export async function approveHlBuilderFeeRequired(
     const msg = err instanceof Error ? err.message : String(err);
     if (isBuilderPlatformError(msg)) {
       throw new Error(
-        'Platform fee could not be approved — Monadier builder wallet may still be funding. Try again shortly.'
+        'Platform fee could not be approved — HyperGain builder wallet may still be funding. Try again shortly.'
       );
     }
     throw err;

@@ -12,6 +12,7 @@ import {
   isPasswordRecoveryPending,
   markPasswordRecoveryPending,
 } from '../lib/passwordRecovery';
+import MarketingSeo from '../components/seo/MarketingSeo';
 
 const ResetPasswordPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -126,6 +127,7 @@ const ResetPasswordPage: React.FC = () => {
   if (isValidSession === null) {
     return (
       <div className="auth-page flex items-center justify-center">
+        <MarketingSeo path="/reset-password" />
         <Loader2 className="w-8 h-8 text-accent animate-spin" />
       </div>
     );
@@ -135,6 +137,7 @@ const ResetPasswordPage: React.FC = () => {
   if (!isValidSession) {
     return (
       <div className="auth-page">
+        <MarketingSeo path="/reset-password" />
         <div className="container-custom py-6">
           <Logo size="md" theme="light" />
         </div>
@@ -169,6 +172,7 @@ const ResetPasswordPage: React.FC = () => {
 
   return (
     <div className="auth-page">
+      <MarketingSeo path="/reset-password" />
       <div className="container-custom py-6">
         <Logo size="md" theme="light" />
       </div>

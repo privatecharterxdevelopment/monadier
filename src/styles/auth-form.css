@@ -193,19 +193,25 @@
   margin-top: 4px;
 }
 
-.auth-shared-form .hl-register-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 10px;
+.auth-shared-form .hl-register-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.auth-shared-form .hl-register-span-2 {
-  grid-column: 1 / -1;
+.auth-shared-form .hl-register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-shared-form .hl-register-field .term-profile-label {
+  margin: 0;
 }
 
 .auth-shared-form .hl-register-hint {
-  margin: -2px 0 4px;
-  font-size: 10px;
+  margin: 0;
+  font-size: 11px;
   color: #71717a;
   line-height: 1.35;
 }
@@ -329,12 +335,6 @@
 .auth-shared-form .hl-auth-confirm-resend:hover:not(:disabled) {
   border-color: #107663;
   color: #107663;
-}
-
-@media (max-width: 560px) {
-  .auth-shared-form .hl-register-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Fixed toast for /register (marketing) — mobile + desktop */

@@ -42,28 +42,30 @@
     "openMenu": "เปิดเมนู",
     "toggleMenu": "สลับเมนู",
     "getStarted": "เริ่มต้น",
-    "openAppProfile": "เปิดแอป, {{name}}"
+    "openAppProfile": "เปิดแอป, {{name}}",
+    "launchApp": "เปิดแอป",
+    "helpCenter": "ศูนย์ช่วยเหลือ",
+    "leaderboard": "ลีดเดอร์บอร์ด",
+    "howItWorks": "วิธีใช้งาน"
   },
   "footer": {
     "terms": "ข้อกำหนด",
     "privacy": "ความเป็นส่วนตัว",
     "support": "สนับสนุน",
     "about": "เกี่ยวกับ",
-    "copyright": "© {{year}} Monadier · Hyperliquid automated trading · administration@hypergain.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · administration@hypergain.io",
+    "faqs": "คำถามที่พบบ่อย"
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "เทรดจาก Wallet ของคุณ",
+      "lineDarkTop": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
       "rotateLines": [
-        "ด้วย AI อัตโนมัติ",
         "บน Hyperliquid",
-        "ด้วย perps อัตโนมัติ",
-        "กีฬาที่ยืนยันบน-chain",
-        "สัญญาณ hedge fund",
-        "สภาพคล่อง HL ลึก",
-        "200+ ตลาด"
+        "ด้วยเพิร์พอัตโนมัติ",
+        "ครอบคลุม 200+ ตลาด",
+        "24/7 บนบัญชี HL ของคุณ"
       ],
-      "disclaimer": "Monadier enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. Past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
+      "disclaimer": "HyperGain เปิดให้เทรดเพอร์เพตชวลอัตโนมัติด้วย AI บนบัญชี Hyperliquid ของคุณ USDC ของคุณอยู่บน Hyperliquid ตลอดเวลา — เราไม่คุมเงิน ไม่เก็บ private key และเข้าถึงกระเป๋าหรือถอนเงินไม่ได้ เรามอบเฉพาะเทคโนโลยีและการทำงานอัตโนมัติ การเทรดคริปโตแบบใช้เลเวอเรจมีความเสี่ยงขาดทุนสูง AI และระบบอัตโนมัติอาจอ่านตลาดผิด ไม่มีการรับประกันผลตอบแทน ผลในอดีตไม่รับประกันอนาคต ไม่ใช่คำแนะนำทางการเงิน การลงทุน ภาษี หรือกฎหมาย"
     },
     "carousel": {
       "titleStart": "เริ่ม",
@@ -74,7 +76,7 @@
         "พรุ่งนี้",
         "เมื่อไหร่ก็ได้"
       ],
-      "description": "Monadier รวมบอทเทรดอัตโนมัติ การเทรด perps มืออาชีพ การเดิมพันกีฬา และตลาดทำนายบน Hyperliquid — บัญชีเดียว อินเทอร์เฟซเดียว USDC ของคุณอยู่บน Hyperliquid ตลอดเวลา",
+      "description": "HyperGain รวมบอทเทรดอัตโนมัติ การเทรด perps มืออาชีพ การเดิมพันกีฬา และตลาดทำนายบน Hyperliquid — บัญชีเดียว อินเทอร์เฟซเดียว USDC ของคุณอยู่บน Hyperliquid ตลอดเวลา",
       "cards": {
         "bot": {
           "title": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
@@ -113,7 +115,10 @@
         "title": "เดิมพันกีฬาและตลาดทำนาย",
         "desc": "ตลาด HIP-4 บน Hyperliquid — มหภาค คริpto และกีฬาสด",
         "cta": "เปิดเดิมพัน"
-      }
+      },
+      "title": "ทุกอย่าง",
+      "titleMuted": "ในบัญชีเดียว",
+      "sub": "ขับเคลื่อนด้วยเฟรมเวิร์กของ Hyperliquid"
     },
     "pitch": {
       "cta": "เริ่มบอท",
@@ -319,13 +324,272 @@
           "q": "การชำระเงินแบบโปร่งใสทำงานอย่างไร?",
           "a": "ตลาด resolve ตามผลที่ verified พозишนและยอดมองเห็นบน Hyperliquid — ไม่มี ledger bookmaker ที่ไม่โปร่งใส"
         }
-      ]
+      ],
+      "viewAll": "ดูคำถามทั้งหมด",
+      "searchPlaceholder": "ค้นหาคำถามที่พบบ่อย…",
+      "searchEmpty": "ไม่พบคำถามที่ตรงกัน",
+      "page": {
+        "eyebrow": "คำถามที่พบบ่อย",
+        "title": "คำถามที่พบบ่อย",
+        "lead": "ทุกอย่างเกี่ยวกับ HyperGain บอท Hyperliquid การฝาก ค่าธรรมเนียม และการเดิมพันกีฬา — ค้นหาหรือเรียกดูคำตอบทั้งหมด"
+      }
     },
     "bettingFaq": {
       "titleDark": "เดิมพัน ",
       "titleGrey": "FAQ",
       "pageTitle": "คำถามที่พบบ่อย",
       "lead": "ตลาด outcome HIP-4 บน Hyperliquid — ลงนามด้วย wallet อัตราต่อรอง on-chain และการชำระเงินโปร่งใส"
+    },
+    "macbook": {
+      "title": "แดชบอร์ดการเทรดของคุณ",
+      "lead": "ชาร์ต ควบคุมบอท เงินทุน และประวัติ — พื้นที่ทำงานเดียวบน Hyperliquid",
+      "alt": "แดชบอร์ด HyperGain พร้อมชาร์ตสด แผงบอทอัตโนมัติ และประวัติการเทรด"
+    },
+    "alpha": {
+      "watchFilm": "ดูภาพยนตร์",
+      "usersLabel": "ผู้ใช้กำลังเทรดด้วยบอท",
+      "title": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
+      "lead": "เทรดเพอร์เพตชวลอัตโนมัติด้วย AI บนบัญชี Hyperliquid ของคุณ",
+      "leadSub": "ไม่คุมเงิน — USDC อยู่บน HL บอทเทรด 24/7 คุณเก็บกุญแจเอง",
+      "scrollDown": "เลื่อนลง"
+    },
+    "socialProof": {
+      "aria": "ได้รับความไว้วางใจจากนักเทรด",
+      "before": "ได้รับความไว้วางใจจาก ",
+      "after": " นักเทรด",
+      "afterWorldwide": " นักเทรดทั่วโลก"
+    },
+    "features": {
+      "title": "สร้างเพื่อ Hyperliquid",
+      "lead": "อัตโนมัติ เพิร์พ และตลาดออนเชน — บัญชีที่ไม่คุมเงินบัญชีเดียว",
+      "cards": {
+        "how": {
+          "title": "วิธีใช้งาน",
+          "text": "เชื่อมวอลเล็ต บริดจ์ USDC ไป Hyperliquid อนุมัติเอเจนต์ครั้งเดียว แล้วเริ่มบอท"
+        },
+        "bot": {
+          "title": "เทรดด้วยบอท",
+          "text": "AI สแกน 200+ HL perps ตลอด 24 ชม. — เปิด ออกล็อคกำไร และตัดขาดทุน โดยคุณยังไม่คุมเงิน"
+        },
+        "betting": {
+          "title": "เดิมพันกีฬา",
+          "text": "ตลาดผลลัพธ์ HIP-4 บน Hyperliquid — อัตราต่อรองสด เซ็นด้วยวอลเล็ต ชำระผลโปร่งใส"
+        },
+        "perps": {
+          "title": "เพิร์พระดับโปร",
+          "text": "เทรดสภาพคล่อง HL เดียวกับที่บอทใช้ — ชาร์ต ความลึก และการส่งคำสั่งในเทอร์มินัลเดียว"
+        }
+      }
+    },
+    "howStrip": {
+      "title": "วิธีใช้งาน",
+      "lead": "สี่ขั้นตอนจากวอลเล็ตสู่บอทสดบน Hyperliquid",
+      "learnMore": "เรียนรู้เพิ่ม",
+      "startApp": "เปิดแอป",
+      "stepLabel": "ขั้นตอน {{n}}",
+      "steps": {
+        "connect": {
+          "title": "เชื่อมวอลเล็ต",
+          "text": "เข้าสู่ระบบและลิงก์ MetaMask หรือ WalletConnect"
+        },
+        "bridge": {
+          "title": "บริดจ์ไป Hyperliquid",
+          "text": "ฝากจาก Arbitrum เข้าบัญชี Hyperliquid ของคุณ"
+        },
+        "usdc": {
+          "title": "USDC บน Arbitrum",
+          "text": "เติมด้วย USDC พื้นเมืองบน Arbitrum One — จำเป็นสำหรับ HL"
+        },
+        "bot": {
+          "title": "เริ่มบอท",
+          "text": "อนุมัติเอเจนต์เทรดครั้งเดียว แล้วกด Start bot"
+        }
+      }
+    },
+    "sleepEarnings": {
+      "title": "ลีดเดอร์บอร์ดออนเชนโปร่งใสเต็มรูปแบบ",
+      "description": "การปิดออเดอร์บอท Hyperliquid แบบสด — ทั้งกำไรและขาดทุน — พร้อมวอลเล็ตที่ปิดบัง คู่ ฝั่ง PnL วันที่และเวลา ผลในอดีตไม่รับประกันอนาคต",
+      "pillsAria": "ไฮไลต์บอท",
+      "registerCta": "สมัครฟรี",
+      "pills": {
+        "run247": "อัตราชนะเฉลี่ย 71.4%"
+      }
+    },
+    "agentSections": {
+      "aria": "ฟีเจอร์บอท HyperGain",
+      "calc": {
+        "eyebrow": "ลีดเดอร์บอร์ดสด",
+        "title": "การปิดออเดอร์บอทล่าสุด",
+        "desc": "ผลบอท Hyperliquid แบบสด — กำไรและขาดทุน — พร้อมวอลเล็ต คู่ ฝั่ง PnL วันที่และเวลา อัปเดตเมื่อปิดออเดอร์"
+      },
+      "toolkit": {
+        "aria": "ตัววิเคราะห์ตลาดบอท HyperGain",
+        "eyebrow": "เกตกว่า 14 ก่อนเปิด",
+        "title": "เกตการเทรดกว่า 14 ก่อนเปิด",
+        "desc": "มาโครบีตา ปั๊มชอร์ต ไบแอส 4h/24h และอื่นๆ — ไปป์ไลน์หลายเกตเดียวกับเทอร์มินัลสดก่อนเปิด HL perp",
+        "portfolioDesc": "เพิร์พ Hyperliquid ยอดสปอต และโพสิชันเดิมพันในพอร์ตเดียว",
+        "newsDesc": "หัวข้อมาโครและคริปโตสำหรับนักเทรด — ในพื้นที่ Pro Trade",
+        "openCta": "เปิด {{section}} ในแอป"
+      },
+      "winrate": {
+        "eyebrow": "เชื่อมต่อคลิกเดียว",
+        "title": "ลิงก์วอลเล็ตที่คุณใช้อยู่แล้ว",
+        "desc": "MetaMask, Coinbase Wallet, Binance Web3, WalletConnect และอื่นๆ — เชื่อมบน Arbitrum และเติม Hyperliquid โดยไม่ต้องออกจาก HyperGain",
+        "boxAria": "การเชื่อมต่อวอลเล็ตที่รองรับ",
+        "boxLabel": "วอลเล็ตที่รองรับ",
+        "boxCaption": "Arbitrum One · USDC พื้นเมือง · WalletConnect & injected"
+      }
+    },
+    "widgets": {
+      "title": "ทุกอย่างในบัญชีเดียว",
+      "sub": "ขับเคลื่อนด้วยเฟรมเวิร์กของ Hyperliquid",
+      "bot": {
+        "title": "เทรดด้วย AI",
+        "desc": "สแกน MTF กว่า 200 HL perps บอทเปิด ติดตามกำไร และตัดขาดทุน 24/7"
+      },
+      "perps": {
+        "title": "เทรดแท่งเทียน",
+        "desc": "ชาร์ตโปร ความลึก และการส่งคำสั่งบนสภาพคล่อง HL เดียวกับบอท"
+      },
+      "sports": {
+        "title": "เดิมพันกีฬา",
+        "desc": "ตลาดผลลัพธ์ HIP-4 — ฟุตบอลสด ฟุตบอลโลก และการชำระผลออนเชน"
+      },
+      "predictions": {
+        "title": "ตลาดทำนาย",
+        "desc": "ตลาดมาโคร คริปโต และอีเวนต์ — อัตรา Yes/No โปร่งใสบน Hyperliquid"
+      },
+      "calc": {
+        "eyebrow": "ROI บอท",
+        "title": "ประมาณการกำไร",
+        "stakeLabel": "ยอด USDC บน Hyperliquid",
+        "leverage": "เลเวอเรจ",
+        "monthlyProfit": "กำไรต่อเดือน (โดยประมาณ)",
+        "endBalance": "ยอดคงเหลือ (โดยประมาณ)",
+        "tradesDay": "ออเดอร์/วัน",
+        "returnMult": "ตัวคูณรายเดือน",
+        "perWin": "ต่อออเดอร์ที่ชนะ",
+        "perLoss": "ความเสี่ยงต่อขาดทุน",
+        "weeklyTrades": "ออเดอร์/สัปดาห์",
+        "slots": "สล็อตสูงสุด",
+        "winsCopy": "สำเร็จ {{wins}} จาก {{total}} ออเดอร์",
+        "winsSub": "~{{min}}–{{max}} ออเดอร์/วัน · อัตราชนะ {{winRate}} · เพื่อประกอบเท่านั้น",
+        "footnote": "ไม่ใช่คำแนะนำทางการเงิน ยอดเล็กมักเป้าประมาณ 2–3× ต่อเดือน ไม่ใช่ 10× ผลลัพธ์ต่างกัน"
+      },
+      "lb": {
+        "aria": "ลีดเดอร์บอร์ดบอทสด",
+        "live": "สด",
+        "subtitle": "ชนะและแพ้",
+        "loading": "กำลังโหลดการปิดออเดอร์…",
+        "empty": "ยังไม่มีการปิดออเดอร์ล่าสุด",
+        "footnote": "เฉพาะออเดอร์ที่ปิดแล้วแบบสาธารณะ (วอลเล็ตปิดบัง) ผลในอดีตไม่รับประกันอนาคต ไม่ใช่คำแนะนำทางการเงิน"
+      },
+      "markets": {
+        "volume24h": "ปริมาณ 24 ชม.",
+        "change24h": "เปลี่ยนแปลง 24 ชม.",
+        "impliedWin": "โอกาสชนะโดยนัย",
+        "marketOdds": "อัตราต่อรองตลาด",
+        "decimalOdds": "อัตราต่อรอง",
+        "payoutStake": "จ่ายเมื่อเดิมพัน $25",
+        "stake": "เดิมพัน",
+        "sportsBet": "เดิมพันกีฬา",
+        "toWin": "ที่จะชนะ"
+      }
+    },
+    "legal": {
+      "ariaLabel": "การเปิดเผยทางกฎหมาย",
+      "operator": [
+        "การเทรดบน {{brand}} จะเชื่อมวอลเล็ตของคุณกับบัญชี Hyperliquid ของคุณเอง คำสั่งซื้อขายจะถูกส่งบนตลาดเพอร์เพตชวลและตลาดผลลัพธ์ของ Hyperliquid โดยใช้มาร์จิ้น USDC ของคุณ — นี่คือการเทรดจริงด้วยเครื่องมือการเงินจริง ไม่ใช่โปรแกรมจำลองหรือประเมินผลแบบเดโม",
+        "{{brand}} ก่อตั้ง สร้าง และพัฒนาโดย Lorenzo Vanza เว็บไซต์ {{domain}} ให้เข้าถึงเครื่องมือเทรดอัตโนมัติ แดชบอร์ด และตลาดผลลัพธ์กีฬาบน Hyperliquid (ถ้ามี) ความรับผิดชอบด้านการดำเนินงานและกฎหมายทั้งหมดปัจจุบันอยู่กับ Lorenzo Vanza ส่วนตัว ซึ่งยอมรับว่าขณะนี้ผลิตภัณฑ์ทำให้เขาทำงานหนักเกินไป X/Twitter ทางการ (เท่านั้น): @{{xHandle}} {{brand}} ไม่อยู่บน Telegram — บัญชี กลุ่ม บอท หรือ DM ใดบน Telegram ที่อ้างว่าเป็น {{brand}} คือการหลอกลวง บัญชีโซเชียลอื่นไม่เป็นทางการ สอบถามด้านกฎหมายหรือการปฏิบัติตามกฎได้ที่ {{email}}"
+      ],
+      "blocks": [
+        {
+          "id": "legal-disclosure",
+          "heading": "การเปิดเผยทางกฎหมาย",
+          "paragraphs": [
+            "{{brand}} ให้ซอฟต์แวร์ที่อาจเข้าและออกตำแหน่งบน Hyperliquid โดยอัตโนมัติตามการตั้งค่าและสัญญาณตลาด บริการนี้มีไว้ช่วยการดำเนินการและการติดตาม — ไม่ใช่การรับประกันกำไรหรือการเทรดที่ปราศจากความเสี่ยง"
+          ]
+        },
+        {
+          "id": "no-promised-returns",
+          "heading": "ไม่มีผลตอบแทนที่สัญญาหรือรับประกัน",
+          "paragraphs": [
+            "ไม่มีสิ่งใดบน {{domain}} ในแอป ในสื่อการตลาด หรือในการสื่อสารซัพพอร์ต ที่เป็นการสัญญา การคาดการณ์ หรือการรับประกันกำไร ผลตอบแทน หรือผลลัพธ์การเทรดใด ๆ คริปโตและอนุพันธ์แบบใช้เลเวอเรจเป็นการเก็งกำไร คุณอาจสูญเสียมาร์จิ้นบางส่วนหรือทั้งหมด ตัวอย่าง อัตราชนะ แบ็กเทสต์ และผลงานบอทในอดีตเป็นเพียงการอธิบายและไม่บ่งชี้ผลในอนาคต",
+            "ผลตอบแทนขึ้นกับสภาพตลาด เลเวอเรจ ค่าธรรมเนียม สลิปเพจ ความหน่วง และการตั้งค่าผู้ใช้ ระบบอัตโนมัติอาจอ่านตลาดผิด ล้มเหลวในช่วงผันผวน หรือหยุดทำงานจากปัญหาทางเทคนิค คุณเป็นผู้รับความเสี่ยงทางการเงินของทุกดีลเพียงผู้เดียว"
+          ]
+        },
+        {
+          "id": "country-responsibility",
+          "heading": "ความรับผิดชอบตามประเทศ",
+          "paragraphs": [
+            "คุณมีหน้าที่แต่เพียงผู้เดียวในการตัดสินว่าการใช้ HyperGain, Hyperliquid, อนุพันธ์คริปโต บอทเทรดอัตโนมัติ ตลาดผลลัพธ์กีฬา หรือบริการที่เกี่ยวข้อง ได้รับอนุญาตในประเทศ/ภูมิภาคที่คุณอาศัย มีสัญชาติ หรือเข้าถึงหรือไม่",
+            "ผู้อยู่อาศัยในอินเดียและเขตอำนาจที่มีกฎภาษีและการรายงานเฉพาะสำหรับคริปโต อนุพันธ์ หรือการพนัน ต้องปฏิบัติตามกฎหมายท้องถิ่น — รวมถึงภาษีเงินได้ GST TDS หรือภาระเทียบเท่า HyperGain ไม่ให้คำแนะนำด้านภาษีและไม่ยื่นแบบแทนคุณ",
+            "หากการเทรดอัตโนมัติ คริปโตแบบเลเวอเรจ หรือตลาดทำนายถูกจำกัดหรือห้ามในที่ที่คุณอยู่ คุณต้องไม่ใช้บริการ การเข้าถึง HyperGain ผ่าน VPN พร็อกซี หรือการปกปิดตำแหน่งเพื่อเลี่ยงข้อจำกัดเป็นสิ่งต้องห้าม (ดูข้อกำหนดการใช้บริการ) เราไม่รับผิดต่อการใช้งานที่ผิดกฎหมาย"
+          ]
+        },
+        {
+          "id": "vpn-policy",
+          "heading": "VPN และการปกปิดตำแหน่ง",
+          "paragraphs": [
+            "การใช้ VPN พร็อกซี Tor หรือเครื่องมือคล้ายกันเพื่อเข้าถึง {{brand}} โดยซ่อนตำแหน่งจริงของคุณ ขัดต่อนโยบายของเราเมื่อทำเพื่อเลี่ยงข้อจำกัดทางภูมิศาสตร์ การควบคุมการปฏิบัติตามกฎ หรือการบังคับใช้บัญชี",
+            "{{brand}} ไม่รับผิดต่อความสูญเสีย การดำเนินการบัญชี ความเสี่ยงด้านกำกับดูแล หรือผลทางภาษีที่เกิดจากการใช้ VPN หรือพร็อกซี เราอาจตรวจพบการเลี่ยงและระงับหรือยุติบัญชีถาวรโดยไม่คืนค่าธรรมเนียมแพลตฟอร์มที่ค้างหรือสิทธิ์เข้าถึงซอฟต์แวร์ที่ยังไม่ได้ใช้"
+          ]
+        },
+        {
+          "id": "no-custody",
+          "heading": "ไม่เก็บรักษาเงินลูกค้า",
+          "paragraphs": [
+            "{{brand}} ไม่ใช่นายหน้า ผู้ค้า ตลาดแลกเปลี่ยน ผู้เก็บรักษา ธนาคาร หรือที่ปรึกษาการลงทุน เราไม่รับ ถือ หรือจัดการเงินฝากของลูกค้า USDC ของคุณยังอยู่บนบัญชี Hyperliquid ในชื่อของคุณ การฝาก/ถอนต้องใช้ลายเซ็นวอลเล็ต เอเจนต์เทรดที่อนุมัติอาจส่งคำสั่งได้แต่ถอนเงินโดยไม่มีคุณไม่ได้"
+          ]
+        },
+        {
+          "id": "live-trading",
+          "heading": "เทรดจริง — ความเสี่ยงจริง",
+          "paragraphs": [
+            "ต่างจากบัญชีกระดาษหรือบัญชีประเมิน {{brand}} ทำให้ตำแหน่งจริงบน Hyperliquid เป็นอัตโนมัติ คุณอาจสูญเสียมาร์จิ้นบางส่วนหรือทั้งหมด เลเวอเรจขยายทั้งกำไรและขาดทุน ใช้เฉพาะเงินทุนที่เสียได้ และตรวจสอบว่าอนุพันธ์คริปโตได้รับอนุญาตในที่ที่คุณอยู่"
+          ]
+        },
+        {
+          "id": "not-advice",
+          "heading": "ไม่ใช่คำแนะนำการลงทุน",
+          "paragraphs": [
+            "เนื้อหา สัญญาณ แดชบอร์ด และเครื่องมือทั้งหมดมีไว้เพื่อข้อมูลและการเข้าถึงซอฟต์แวร์เท่านั้น ไม่มีสิ่งใดบนไซต์นี้ที่เป็นคำแนะนำการลงทุน ภาษี หรือกฎหมาย หรือการชักชวนให้ซื้อหรือขายผลิตภัณฑ์การเงิน คริปโตเคอร์เรนซี หรืออนุพันธ์ ปรึกษาที่ปรึกษาอิสระก่อนเทรด"
+          ]
+        },
+        {
+          "id": "performance",
+          "heading": "การเปิดเผยผลงาน",
+          "paragraphs": [
+            "ผลงานในอดีต อัตราชนะ แบ็กเทสต์ หรือตัวอย่างในสื่อการตลาดหรือแอป ไม่บ่งชี้ผลในอนาคต กลยุทธ์อัตโนมัติอาจล้มเหลวในสภาวะผันผวน สภาพคล่องต่ำ หรือขับเคลื่อนด้วยข่าว ผลสมมติหรือจำลองมีข้อจำกัดโดยธรรมชาติและอาจไม่สะท้อนต้นทุนการเทรดจริง สลิปเพจ หรือความหน่วง"
+          ]
+        },
+        {
+          "id": "jurisdiction",
+          "heading": "ข้อจำกัดตามเขตอำนาจ",
+          "paragraphs": [
+            "คุณต้องมีอายุอย่างน้อย 18 ปี และได้รับอนุญาตตามกฎหมายให้ใช้อนุพันธ์คริปโตในเขตอำนาจของคุณ {{brand}} ไม่ได้มุ่งเป้าผู้ใช้ในที่ที่บริการดังกล่าวถูกห้าม การปฏิบัติตามกฎหมายท้องถิ่น มาตรการคว่ำบาตร และภาระภาษีเป็นความรับผิดชอบของคุณ การเข้าถึงอาจถูกจำกัดหรือยุติตามที่กฎหมายกำหนด"
+          ]
+        },
+        {
+          "id": "risk",
+          "heading": "คำเตือนความเสี่ยง",
+          "paragraphs": [
+            "การเทรดฟิวเจอร์สเพอร์เพตชวล คริปโตแบบเลเวอเรจ และตลาดผลลัพธ์บนเชน มีความเสี่ยงขาดทุนสูง ตลาดอาจเกิดช่องว่าง บังคับปิดสถานะ หรือใช้งานไม่ได้ชั่วคราว มีความเสี่ยงจากสมาร์ทคอนแทรกต์ สะพาน วอลเล็ต และโปรโตคอลบุคคลที่สาม Hyperliquid เป็นแพลตฟอร์มแยกต่างหากภายใต้ข้อกำหนดของตนเอง"
+          ]
+        },
+        {
+          "id": "fees",
+          "heading": "ค่าธรรมเนียมและการคืนเงิน",
+          "paragraphs": [
+            "ค่าธรรมเนียมโปรโตคอลและเครือข่ายของ Hyperliquid ใช้กับทุกดีล HyperGain อาจเรียกค่าธรรมเนียมแพลตฟอร์มตามความสำเร็จเมื่อปิดทำกำไร ค่า builder หรือค่าอื่นตามที่เปิดเผยในแอป ค่าธรรมเนียมแพลตฟอร์มค้างชำระอาจบล็อกการเปิดบอทใหม่และการถอน Hyperliquid ในแอปจนกว่าจะชำระ ดูตารางค่าธรรมเนียมและการบังคับใช้ในข้อกำหนดการใช้บริการ"
+          ]
+        }
+      ],
+      "tagline": "ไม่ใช่เงินฝากธนาคาร · ไม่มีประกัน FDIC หรือรัฐบาล · ไม่รับประกันผลตอบแทน · คุณอาจสูญเสียเงินลงทุนทั้งหมด"
+    },
+    "volume": {
+      "label": "ปริมาณเทรดรายวันที่จัดการโดย HG Bot",
+      "live": "สด"
     }
   },
   "marketing": {
@@ -339,10 +603,14 @@
         "text": "เพื่อรันบอทคุณต้องมี USDC แบบ native บน Arbitrum One ใน wallet Hyperliquid ไม่รับ BNB ETH mainnet หรือ USDC จาก chain อื่น",
         "minHl": "ฝากขั้นต่ำ $5 บน HL · $20+ สำหรับบอท",
         "gas": "เก็บ ETH เล็กน้อยบน Arbitrum สำหรับ gas ฝากเงิน",
-        "doNotUse": "ห้ามใช้"
+        "doNotUse": "ห้ามใช้",
+        "minDepositValue": "$5",
+        "minDepositLabel": "ฝากขั้นต่ำบน Hyperliquid",
+        "startBotValue": "$20",
+        "startBotLabel": "เพื่อเริ่มบอท"
       },
       "stepsTitle": "ตั้งค่า 4 ขั้นตอน",
-      "stepsSub": "ตั้งค่าครั้งเดียวในแอป Monadier",
+      "stepsSub": "ตั้งค่าครั้งเดียวในแอป HyperGain",
       "steps": [
         {
           "title": "เชื่อม wallet",
@@ -366,7 +634,7 @@
       "funds": [
         {
           "title": "Login vs wallet",
-          "text": "อีเมล/Google = แดชบอร์ด Monadier MetaMask = ลงนามฝากถอน"
+          "text": "อีเมล/Google = แดชบอร์ด HyperGain MetaMask = ลงนามฝากถอน"
         },
         {
           "title": "บัญชี HL ของคุณ",
@@ -397,25 +665,51 @@
           "Non custodial"
         ],
         "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
-      }
+      },
+      "settingsTitle": "การตั้งค่าบอทในแอป",
+      "settingsSub": "ใน Bot trade คุณตั้งเลเวอเรจ ความเสี่ยง สล็อต สต็อปลอส และเกตอัตราชนะ — เหมือนในแอป HyperGain การบันทึกใช้กับการเปิดใหม่",
+      "settings": [
+        {
+          "title": "เลเวอเรจ (Leverage)",
+          "text": "ระดับเกียร์ของแต่ละโพสิชันบน Hyperliquid (สไลเดอร์สูงสุด 40×) HL จำกัดตามสินทรัพย์ — เช่น BTC สูงสุด 40× บนสไลเดอร์ บอทจะ clamp ตามเพดานตลาดตอนเปิด เลเวอเรจสูงทำให้ราคาขยับเล็กน้อยก็อาจถูกบังคับปิดได้ (ราว ~2.3% ที่ 40×)"
+        },
+        {
+          "title": "ความเสี่ยงต่อดีล (Risk per trade)",
+          "text": "สัดส่วนยอด HL ที่ใช้เป็นมาร์จิ้นต่อดีล — ไม่ใช่เลเวอเรจ พรีเซ็ต 1%–100% แอปแสดงมาร์จิ้นโดยประมาณต่อสล็อตและมูลค่าสมมติ (มาร์จิ้น × เลเวอเรจ) ตัวอย่าง: ความเสี่ยง 90% กับ 2 สล็อตจะแบ่งมาร์จิ้นไปทั้งสองโพสิชัน"
+        },
+        {
+          "title": "สล็อตเปิดดีล (Open trade slots)",
+          "text": "จำนวนโพสิชันบอทที่เปิดพร้อมกันได้ (2 หรือ 3) ความเสี่ยง% ถูกแบ่งตามสล็อต (½ เมื่อ 2, ⅓ เมื่อ 3) ใช้ยอด HL ทั้งหมด เว้นแต่ตั้งงบ AI betting ไว้ เปลี่ยนสล็อตและบันทึกได้แม้บอทกำลังรัน"
+        },
+        {
+          "title": "สต็อปลอส (Stop loss)",
+          "text": "ขาดทุนสูงสุดบนมาร์จิ้นขณะโพสิชันติดลบ Off (บอทตัดสิน) = ตามกำไรเมื่อเขียวเท่านั้น — ไม่ปิดอัตโนมัติตอนแดง หรือเลือก 5–50%/กำหนดเอง แล้วบอทจะปิดที่ขาดทุนมาร์จิ้นนั้น"
+        },
+        {
+          "title": "เกตอัตราชนะ (Win rate gate)",
+          "text": "ทางเลือก: หยุดเปิดดีลใหม่หากอัตราชนะล่าสุดต่ำกว่าเกณฑ์ Off = บอทเปิดได้ไม่ว่าอัตราชนะล่าสุดจะเป็นอย่างไร"
+        }
+      ],
+      "settingsNote": "บันทึกการตั้งค่าจะเก็บความเสี่ยง เลเวอเรจ สต็อปลอส สล็อต และเกตอัตราชนะ เริ่ม/หยุดเทรดที่แท็บ Bot ขณะบอทรันยังเปลี่ยนสล็อตและบันทึกได้ — หยุดบอทก่อนแก้เลเวอเรจ ความเสี่ยง หรือสต็อปลอส"
     },
     "support": {
       "eyebrow": "สนับสนุน",
       "title": "ความช่วยเหลือและติดต่อ",
-      "lead": "มีคำถามเกี่ยวกับบัญชี HL บอทเทรด หรือบัญชี Monadier? ติดต่อเราหรือดูคำตอบด้านล่าง",
+      "lead": "มีคำถามเกี่ยวกับบัญชี HL บอทเทรด หรือบัญชี HyperGain? ติดต่อเราหรือดูคำตอบด้านล่าง",
       "sub": "ปัญหาเทรดเร่งด่วน แนบที่อยู่ wallet และภาพหน้าจอจาก dashboard",
       "contactEmailTitle": "อีเมลสนับสนุน",
       "contactEmailText": "ส่งข้อความถึงเรา — เรามุ่งตอบภายใน 24 ชั่วโมง",
       "contactHoursTitle": "เวลาสนับสนุน",
-      "contactHoursText": "จันทร์ – อาทิตย์ 09:00 – 20:00 CET บอทเทรดทำงาน 24/7 บนโครงสร้างของเรา",
+      "contactHoursText": "ทุกวัน ตลอด 24/7 บอทเทรดทำงานตลอดเวลาบนโครงสร้างของเรา — ติดต่อเราได้ทุกเมื่อ",
       "faqTitle": "คำถามที่พบบ่อย",
       "faqSub": "คำตอบสั้นๆ เรื่องการตั้งค่า ความปลอดภัย และค่าธรรมเนียม",
       "faqExtra": {
-        "q": "สนับสนุนเร็วแค่ไหน?",
-        "a": "อีเมล administration@hypergain.io — เป้าหมายตอบภายใน 24 ชม. จ–อา 09:00–20:00 CET"
+        "q": "ซัพพอร์ตตอบเร็วแค่ไหน?",
+        "a": "กดปุ่มส่งอีเมลในหน้านี้ — เป้าหมายตอบภายใน 24 ชม. ซัพพอร์ตและบอทพร้อมทุกวัน 24/7"
       },
       "ctaContact": "ติดต่อฝ่ายสนับสนุน",
-      "disclaimer": "เพื่อความปลอดภัย อย่าแชร์ seed phrase หรือ private key กับใคร — รวมถึง support"
+      "disclaimer": "เพื่อความปลอดภัย อย่าแชร์ seed phrase หรือ private key กับใคร — รวมถึง support",
+      "contactEmailCta": "ส่งอีเมล"
     }
   },
   "auth": {
@@ -433,7 +727,7 @@
     "demoDashboard": "Open demo dashboard (local dev)",
     "signInFailed": "เข้าสู่ระบบไม่สำเร็จ",
     "googleSignInFailed": "เข้าสู่ระบบ Google ไม่สำเร็จ",
-    "signInToAccount": "เข้าสู่ระบบบัญชี Monadier ของคุณ",
+    "signInToAccount": "เข้าสู่ระบบบัญชี HyperGain ของคุณ",
     "signInToProfile": "เข้าสู่ระบบเพื่อเปิดโปรไฟล์และการตั้งค่าบอท",
     "signInToAffiliate": "เข้าสู่ระบบเพื่อดูแดชบอร์ดพันธมิตร",
     "signInToSupport": "เข้าสู่ระบบเพื่อติดต่อฝ่ายสนับสนุน",
@@ -465,19 +759,19 @@
       "referralNotificationTitle": "Referral linked",
       "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your Monadier account for bot trading and Pro Trade.",
+      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
       "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
-      "visualKicker": "Monadier Pro Trade",
-      "visualTitle": "Monadier bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and Monadier bot — one trading workspace.",
+      "visualKicker": "HyperGain Pro Trade",
+      "visualTitle": "HyperGain bot + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
       "fullNameLabel": "Full name",
       "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
-      "kicker": "Monadier",
+      "kicker": "HyperGain",
       "title": "Welcome back",
       "close": "Close",
       "continueGoogle": "Continue with Google",
@@ -499,7 +793,7 @@
       "sections": "ส่วนเทรดโปร"
     },
     "account": {
-      "title": "บัญชี Monadier ของคุณ",
+      "title": "บัญชี HyperGain ของคุณ",
       "guestDesc": "เข้าสู่ระบบเพื่อบันทึกการตั้งค่าบอท โปรไฟล์ และประวัติการเทรด",
       "profileSettings": "โปรไฟล์และการตั้งค่า",
       "profileSettingsFallback": "โปรไฟล์และการตั้งค่าบอท",
@@ -558,7 +852,13 @@
       "sent": "Sent",
       "sendMessage": "Send message",
       "supportHours": "Support hours",
-      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h"
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h",
+      "searchPlaceholder": "ค้นหาบทความช่วยเหลือ…",
+      "articleCount": "{{count}} บทความ",
+      "articlesTitle": "บทความช่วยเหลือ",
+      "articlesAll": "ทุกหัวข้อ — เรียกดูหรือค้นหา",
+      "articlesInTopic": "แสดงบทความใน {{topic}}",
+      "helpLead": "ค้นหาคำตอบตามหัวข้อ เปิดบทความ หรือเริ่มแชทสด — เราเห็นโปรไฟล์บัญชีของคุณในทุกการสนทนา"
     }
   },
   "bot": {
@@ -718,7 +1018,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the Monadier bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "หมวดเดิมพัน",
     "marketsAria": "ตลาดเดิมพัน",

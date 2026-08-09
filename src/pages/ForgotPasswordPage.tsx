@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Logo from '../components/ui/Logo';
 import { resetPassword } from '../lib/supabase';
+import MarketingSeo from '../components/seo/MarketingSeo';
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -35,6 +36,7 @@ const ForgotPasswordPage: React.FC = () => {
 
   return (
     <div className="auth-page">
+      <MarketingSeo path="/forgot-password" />
       <div className="container-custom py-6">
         <Logo size="md" theme="light" />
       </div>

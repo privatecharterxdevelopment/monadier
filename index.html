@@ -2,6 +2,20 @@
 <html lang="en" class="notranslate" translate="no">
   <head>
     <meta charset="UTF-8" />
+    <!-- Apply stored landing theme before first paint (prevents white flash on load / nav) -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('landing-theme');
+          if (t !== 'dark' && t !== 'light') t = 'light';
+          document.documentElement.dataset.landingTheme = t;
+          document.documentElement.style.colorScheme = t;
+          if (t === 'dark') {
+            document.documentElement.style.backgroundColor = '#000000';
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
@@ -15,10 +29,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HyperGain" />
     <meta name="theme-color" content="#e8e8ec" />
+    <script>
+      (function () {
+        try {
+          if (document.documentElement.dataset.landingTheme === 'dark') {
+            var m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.setAttribute('content', '#000000');
+          }
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- SEO Meta Tags (fallback for crawlers — per-route tags via react-helmet-async) -->
-    <meta name="description" content="HyperGain is a full auto Hyperliquid trading bot. Non-custodial USDC on HL, 200+ perpetual markets, 24/7 automated execution — live charts and bot controls in one terminal." />
-    <meta name="keywords" content="hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial HL trading, HyperGain" />
+    <meta name="description" content="HyperGain is a full auto Hyperliquid trading bot. Deposit native USDC on Arbitrum, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial. No guaranteed returns." />
+    <meta name="keywords" content="hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial trading bot, HyperGain" />
     <meta name="author" content="HyperGain" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
 
@@ -27,7 +51,7 @@
     <meta property="og:url" content="https://www.hypergain.io/" />
     <meta property="og:site_name" content="HyperGain" />
     <meta property="og:title" content="HyperGain | Hyperliquid Trading Bot — Full Auto 24/7" />
-    <meta property="og:description" content="Full auto Hyperliquid trading bot. Non-custodial USDC on HL, 24/7 execution across 200+ perpetual markets." />
+    <meta property="og:description" content="Full auto Hyperliquid trading bot. Native USDC on Arbitrum, non-custodial agent, 24/7 across 200+ perps. No guaranteed returns." />
     <meta property="og:image" content="https://www.hypergain.io/og-image-v2.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -36,7 +60,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="HyperGain | Hyperliquid Trading Bot — Full Auto 24/7" />
-    <meta name="twitter:description" content="Full auto Hyperliquid trading bot. Non-custodial, 24/7 automated execution across 200+ HL markets." />
+    <meta name="twitter:description" content="Full auto Hyperliquid trading bot. Non-custodial, 24/7 across 200+ HL markets. No guaranteed returns." />
     <meta name="twitter:image" content="https://www.hypergain.io/og-image-v2.png" />
 
     <script type="application/ld+json">
@@ -47,7 +71,7 @@
       "url": "https://www.hypergain.io/",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web",
-      "description": "Full auto Hyperliquid trading bot with non-custodial USDC on HL, live charts, and 24/7 automated execution across 200+ perpetual markets.",
+      "description": "Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perpetual markets. No guaranteed returns.",
       "offers": {
         "@type": "Offer",
         "price": "0",

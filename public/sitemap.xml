@@ -1,69 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Keep in sync with getSitemapEntries() in src/lib/seo/pages.ts — primary pages only -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.hypergain.io/</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.hypergain.io/trading-bot</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.hypergain.io/ai-sports-betting</loc>
-    <lastmod>2026-07-21</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.95</priority>
-  </url>
-  <url>
     <loc>https://www.hypergain.io/how-it-works</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.85</priority>
-  </url>
-  <url>
-    <loc>https://www.hypergain.io/pricing</loc>
-    <lastmod>2026-07-21</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.85</priority>
-  </url>
-  <url>
-    <loc>https://app.hypergain.io/</loc>
-    <lastmod>2026-07-21</lastmod>
-    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.hypergain.io/leaderboard</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.75</priority>
-  </url>
-  <url>
-    <loc>https://www.hypergain.io/technology</loc>
-    <lastmod>2026-07-21</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.85</priority>
   </url>
   <url>
     <loc>https://www.hypergain.io/support</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.hypergain.io/terms</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.2</priority>
   </url>
   <url>
     <loc>https://www.hypergain.io/privacy</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-08-10</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.2</priority>
   </url>
 </urlset>

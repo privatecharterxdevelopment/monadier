@@ -72,7 +72,7 @@ const LandingProductPreview: React.FC = () => {
                     <span />
                     <span />
                   </div>
-                  <div className="landing-gmx-preview-url">app.monadier.io</div>
+                  <div className="landing-gmx-preview-url">app.hypergain.io</div>
                 </div>
                 <div
                   className="landing-gmx-preview-screen"
@@ -82,7 +82,7 @@ const LandingProductPreview: React.FC = () => {
                 >
                   <img
                     src={dashboardPreview}
-                    alt="Monadier Hyperliquid trading terminal with live BTC chart, automated bot panel, and trade history"
+                    alt="HyperGain Hyperliquid trading terminal with live BTC chart, automated bot panel, and trade history"
                     className="landing-gmx-preview-img"
                     width={DASHBOARD_PREVIEW_WIDTH}
                     height={DASHBOARD_PREVIEW_HEIGHT}

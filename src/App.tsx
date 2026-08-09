@@ -23,6 +23,9 @@ import SportsBettingPage from './pages/SportsBettingPage';
 import ForexPage from './pages/ForexPage';
 import TechnologyPage from './pages/TechnologyPage';
 import SupportPage from './pages/SupportPage';
+import FaqsPage from './pages/FaqsPage';
+import ContactPage from './pages/ContactPage';
+import AboutPage from './pages/AboutPage';
 import PricingPage from './pages/PricingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -49,7 +52,7 @@ function App() {
     return (
       <div className="flex items-center justify-center min-h-screen auth-page">
         <div className="animate-pulse">
-          <Logo />
+          <Logo variant="app" />
         </div>
       </div>
     );
@@ -110,6 +113,22 @@ function App() {
           <Route path="/support" element={
             <PageTransition>
               <SupportPage />
+            </PageTransition>
+          } />
+          <Route path="/faqs" element={
+            <PageTransition>
+              <FaqsPage />
+            </PageTransition>
+          } />
+          <Route path="/faq" element={<Navigate to="/faqs" replace />} />
+          <Route path="/contact" element={
+            <PageTransition>
+              <ContactPage />
+            </PageTransition>
+          } />
+          <Route path="/about" element={
+            <PageTransition>
+              <AboutPage />
             </PageTransition>
           } />
           <Route path="/pricing" element={

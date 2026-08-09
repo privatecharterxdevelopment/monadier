@@ -3271,7 +3271,7 @@ const TradingBotPage: React.FC<TradingBotPageProps> = ({
                         </div>
                         <div className="flex justify-between text-secondary">
                           <span className="flex items-center gap-1">
-                            Monadier fee
+                            HyperGain fee
                             <span className="text-muted text-[10px]">(none)</span>
                           </span>
                           <span className="text-secondary">$0.00</span>

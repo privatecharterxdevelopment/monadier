@@ -55,7 +55,7 @@ export function mapBotPublicLeaderboardRow(row: RpcRow): BotPublicTradeRow | nul
 }
 
 async function fetchViaRpc(
-  sort: 'top' | 'recent',
+  sort: 'top' | 'recent' | 'recent_all',
   limit: number
 ): Promise<BotPublicTradeRow[]> {
   const { data, error } = await supabase.rpc('get_public_bot_leaderboard', {
@@ -74,7 +74,7 @@ async function fetchViaRpc(
 }
 
 async function fetchViaBotApi(
-  sort: 'top' | 'recent',
+  sort: 'top' | 'recent' | 'recent_all',
   limit: number
 ): Promise<BotPublicTradeRow[]> {
   const res = await fetchBotApi(
@@ -90,7 +90,10 @@ async function fetchViaBotApi(
     .filter((row): row is BotPublicTradeRow => row != null);
 }
 
-async function fetchLeaderboard(sort: 'top' | 'recent', limit: number): Promise<BotPublicTradeRow[]> {
+async function fetchLeaderboard(
+  sort: 'top' | 'recent' | 'recent_all',
+  limit: number
+): Promise<BotPublicTradeRow[]> {
   try {
     return await fetchViaBotApi(sort, limit);
   } catch (err) {
@@ -107,4 +110,9 @@ export async function fetchBotPublicLeaderboard(limit = 10): Promise<BotPublicTr
 /** Recent profitable closes — live activity strip. */
 export async function fetchBotPublicLiveWins(limit = 8): Promise<BotPublicTradeRow[]> {
   return fetchLeaderboard('recent', limit);
+}
+
+/** Latest closes including losses — landing / live feed. */
+export async function fetchBotPublicRecentCloses(limit = 12): Promise<BotPublicTradeRow[]> {
+  return fetchLeaderboard('recent_all', limit);
 }

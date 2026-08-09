@@ -36,11 +36,11 @@ const BettingBuilderFeeModal: React.FC<Props> = ({
         </button>
       </div>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-        Monadier charges {buyFeeLabel} when you place a bet and {cashoutFeeLabel} when you cash out.
+        HyperGain charges {buyFeeLabel} when you place a bet and {cashoutFeeLabel} when you cash out.
         Separate from Hyperliquid trading fees.
       </p>
       <p className="hl-entry-hint" style={{ marginBottom: 12 }}>
-        One-time approval (max {maxApprovalRate}). You sign with your wallet — Monadier never gets
+        One-time approval (max {maxApprovalRate}). You sign with your wallet — HyperGain never gets
         access to your funds.
       </p>
       {error ? <p className="hl-entry-err">{error}</p> : null}

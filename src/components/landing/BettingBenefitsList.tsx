@@ -12,7 +12,7 @@ const fadeUp = (delay = 0) => ({
 const BettingBenefitsList: React.FC = () => (
   <motion.section {...fadeUp(0)} className="landing-betting-benefits" aria-labelledby="betting-benefits-title">
     <h2 id="betting-benefits-title" className="landing-betting-benefits-title">
-      Why bet on Hyperliquid with Monadier
+      Why bet on Hyperliquid with HyperGain
     </h2>
     <p className="landing-betting-benefits-lead">
       On-chain sports betting and prediction markets — non-custodial, transparent odds, one platform

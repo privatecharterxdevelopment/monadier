@@ -210,75 +210,85 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       {error ? <p className="hl-signin-error">{error}</p> : null}
 
       <form className="hl-register-form" onSubmit={(e) => void handleSubmit(e)} noValidate>
-        <div className="hl-register-grid">
-          <label className="term-profile-label" htmlFor={`${idPrefix}-name`}>
-            {t('auth.register.fullNameLabel')}
-          </label>
-          <input
-            id={`${idPrefix}-name`}
-            className="term-profile-input"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder={t('auth.register.fullNamePlaceholder')}
-            required
-          />
+        <div className="hl-register-fields">
+          <div className="hl-register-field">
+            <label className="term-profile-label" htmlFor={`${idPrefix}-name`}>
+              {t('auth.register.fullNameLabel')}
+            </label>
+            <input
+              id={`${idPrefix}-name`}
+              className="term-profile-input"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t('auth.register.fullNamePlaceholder')}
+              required
+            />
+          </div>
 
-          <label className="term-profile-label" htmlFor={`${idPrefix}-username`}>
-            {t('auth.register.username')}
-          </label>
-          <input
-            id={`${idPrefix}-username`}
-            className="term-profile-input"
-            value={username}
-            onChange={(e) =>
-              setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
-            }
-            placeholder={t('auth.register.usernamePlaceholder')}
-            minLength={3}
-            maxLength={20}
-            required
-          />
-          <p className="hl-register-hint hl-register-span-2">{t('auth.register.usernameHint')}</p>
+          <div className="hl-register-field">
+            <label className="term-profile-label" htmlFor={`${idPrefix}-username`}>
+              {t('auth.register.username')}
+            </label>
+            <input
+              id={`${idPrefix}-username`}
+              className="term-profile-input"
+              value={username}
+              onChange={(e) =>
+                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+              }
+              placeholder={t('auth.register.usernamePlaceholder')}
+              minLength={3}
+              maxLength={20}
+              required
+            />
+            <p className="hl-register-hint">{t('auth.register.usernameHint')}</p>
+          </div>
 
-          <label className="term-profile-label" htmlFor={`${idPrefix}-email`}>
-            {t('auth.email')}
-          </label>
-          <input
-            id={`${idPrefix}-email`}
-            className="term-profile-input"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t('auth.emailPlaceholder')}
-            required
-          />
+          <div className="hl-register-field">
+            <label className="term-profile-label" htmlFor={`${idPrefix}-email`}>
+              {t('auth.email')}
+            </label>
+            <input
+              id={`${idPrefix}-email`}
+              className="term-profile-input"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('auth.emailPlaceholder')}
+              required
+            />
+          </div>
 
-          <label className="term-profile-label" htmlFor={`${idPrefix}-password`}>
-            {t('auth.password')}
-          </label>
-          <AuthPasswordField
-            id={`${idPrefix}-password`}
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+          <div className="hl-register-field">
+            <label className="term-profile-label" htmlFor={`${idPrefix}-password`}>
+              {t('auth.password')}
+            </label>
+            <AuthPasswordField
+              id={`${idPrefix}-password`}
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </div>
 
-          <label className="term-profile-label hl-register-span-2" htmlFor={`${idPrefix}-country`}>
-            {t('auth.register.country')}
-          </label>
-          <input
-            id={`${idPrefix}-country`}
-            className="term-profile-input hl-register-span-2"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            placeholder={t('auth.register.countryPlaceholder')}
-            required
-          />
+          <div className="hl-register-field">
+            <label className="term-profile-label" htmlFor={`${idPrefix}-country`}>
+              {t('auth.register.country')}
+            </label>
+            <input
+              id={`${idPrefix}-country`}
+              className="term-profile-input"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder={t('auth.register.countryPlaceholder')}
+              required
+            />
+          </div>
 
-          <label className="hl-register-terms hl-register-span-2" htmlFor={`${idPrefix}-terms`}>
+          <label className="hl-register-terms" htmlFor={`${idPrefix}-terms`}>
             <input
               id={`${idPrefix}-terms`}
               type="checkbox"
@@ -301,7 +311,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
           <button
             type="submit"
-            className="term-modal-primary hl-signin-submit hl-register-span-2"
+            className="term-modal-primary hl-signin-submit"
             disabled={isLoading || googleLoading}
           >
             {isLoading ? <Loader2 size={14} className="animate-spin" /> : t('auth.register.createAccount')}

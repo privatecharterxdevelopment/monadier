@@ -47,7 +47,7 @@ export async function findActiveHlAgent(
   );
 }
 
-/** Any active Monadier-named HL extra agent — survives bot-API outages on stop/start. */
+/** Any active HyperGain-named HL extra agent — survives bot-API outages on stop/start. */
 export async function findActiveMonadierHlAgent(wallet: string): Promise<HlExtraAgent | null> {
   const agents = await fetchHlExtraAgents(wallet);
   return (
@@ -85,9 +85,9 @@ function formatHlAgentApproveError(err: unknown, agents: HlExtraAgent[]): string
   const msg = err instanceof Error ? err.message : String(err);
   if (!/extra agent already used|agent already/i.test(msg)) return msg;
   if (agents.length >= 4) {
-    return 'Hyperliquid allows up to 4 API wallets. Revoke an unused key at app.hyperliquid.xyz → More → API, then try again in Monadier.';
+    return 'Hyperliquid allows up to 4 API wallets. Revoke an unused key at app.hyperliquid.xyz → More → API, then try again in HyperGain.';
   }
-  return 'This API wallet slot is already in use on Hyperliquid. Open app.hyperliquid.xyz → More → API, revoke an old Monadier or unused key, then approve again.';
+  return 'This API wallet slot is already in use on Hyperliquid. Open app.hyperliquid.xyz → More → API, revoke an old HyperGain or unused key, then approve again.';
 }
 
 export type HlAgentAddressResponse = {
@@ -195,10 +195,10 @@ export async function saveHlAgentApproval(params: {
   }
 
   if (/not authenticated/i.test(error.message)) {
-    throw new Error('Sign in to Monadier before approving the trading agent.');
+    throw new Error('Sign in to HyperGain before approving the trading agent.');
   }
   if (/linked to another/i.test(error.message)) {
-    throw new Error('This wallet is linked to another Monadier account.');
+    throw new Error('This wallet is linked to another HyperGain account.');
   }
   if (/agent not approved|not found on chain/i.test(error.message)) {
     approvalSaveAttempted.add(saveKey);
@@ -315,7 +315,7 @@ export async function resolveHlAgentApproval(
   return db;
 }
 
-/** On-chain agent check — bot API optional; Monadier extraAgents on HL are source of truth. */
+/** On-chain agent check — bot API optional; HyperGain extraAgents on HL are source of truth. */
 export async function checkHlBotAgentApproved(
   walletAddress: string
 ): Promise<{ approved: boolean; expiresAt: string | null; loaded: boolean }> {

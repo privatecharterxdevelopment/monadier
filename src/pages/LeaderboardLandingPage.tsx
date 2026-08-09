@@ -1,65 +1,45 @@
-import React, { useEffect } from 'react';
-import { ArrowRight } from 'lucide-react';
-import LandingNav from '../components/landing/LandingNav';
-import LandingFooter from '../components/landing/LandingFooter';
+import React from 'react';
+import LandingPageShell from '../components/landing/LandingPageShell';
 import CookieConsent from '../components/ui/CookieConsent';
 import LeaderboardLiveTable from '../components/landing/LeaderboardLiveTable';
 import MarketingSeo from '../components/seo/MarketingSeo';
 import { LEADERBOARD_PAGE, LEADERBOARD_PAGE_FAQS } from '../lib/seo/leaderboardContent';
-import { goToOpenApp } from '../lib/appUrls';
+import { useLandingTheme } from '../contexts/LandingThemeContext';
 
+/** Simple framed leaderboard — live verified bot wins, nothing else. */
 const LeaderboardLandingPage: React.FC = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  const { theme } = useLandingTheme();
 
   return (
-    <div className="landing-gmx landing-leaderboard-page-root">
+    <div className={`landing-gmx landing-gmx--home landing-gmx--al landing-gmx--${theme}`}>
       <MarketingSeo path="/leaderboard" faqs={[...LEADERBOARD_PAGE_FAQS]} />
-      <LandingNav variant="light" layout="gmx" />
+      <LandingPageShell>
+        <main className="landing-gmx-page-main landing-gmx-page-main--framed landing-gmx-page-main--inner landing-gmx-gutter landing-lb-page-main">
+          <div className="landing-gmx-shell landing-lb-page-shell">
+            <div className="landing-lb-simple">
+              <header className="landing-lb-simple-head">
+                <h1 className="landing-lb-simple-title">{LEADERBOARD_PAGE.title}</h1>
+                <p className="landing-lb-simple-lead">
+                  Real Hyperliquid bot closes — masked wallets here, full addresses on HypurrScan.
+                </p>
+              </header>
 
-      <main className="landing-leaderboard-page landing-gmx-gutter">
-        <div className="landing-gmx-shell landing-leaderboard-page-shell">
-          <div className="landing-leaderboard-page-grid">
-            <header className="landing-leaderboard-page-head">
-              <p className="landing-leaderboard-page-eyebrow">{LEADERBOARD_PAGE.eyebrow}</p>
-              <h1 className="landing-leaderboard-page-title">{LEADERBOARD_PAGE.title}</h1>
-              <p className="landing-leaderboard-page-tagline">{LEADERBOARD_PAGE.tagline}</p>
-            </header>
-
-            <aside className="landing-leaderboard-page-aside landing-glass-card">
-              <p className="landing-leaderboard-page-desc">{LEADERBOARD_PAGE.description}</p>
-              <ul className="landing-leaderboard-page-points">
-                <li>Non-custodial — your keys, your Hyperliquid wallet</li>
-                <li>Masked wallets here; verify full address on HypurrScan</li>
-                <li>Fees only on profitable bot closes</li>
-              </ul>
-              <button
-                type="button"
-                className="landing-gmx-btn-primary landing-leaderboard-page-cta"
-                onClick={() => goToOpenApp('?section=bot', false)}
-              >
-                Start bot
-                <ArrowRight size={16} aria-hidden />
-              </button>
-            </aside>
-
-            <div className="landing-leaderboard-page-table-panel landing-glass-card">
-              <div className="landing-leaderboard-page-table-head">
-                <span className="landing-leaderboard-page-live-dot" aria-hidden />
-                <span>{LEADERBOARD_PAGE.tableMeta}</span>
+              <div className="landing-lb-simple-panel">
+                <div className="landing-lb-simple-meta">
+                  <span className="landing-leaderboard-page-live-dot" aria-hidden />
+                  <span>{LEADERBOARD_PAGE.tableMeta}</span>
+                </div>
+                <LeaderboardLiveTable
+                  limit={20}
+                  emptyMessage={LEADERBOARD_PAGE.tableEmpty}
+                  loadingMessage={LEADERBOARD_PAGE.tableLoading}
+                  className="landing-lb-simple-table"
+                />
               </div>
-              <LeaderboardLiveTable
-                limit={15}
-                emptyMessage={LEADERBOARD_PAGE.tableEmpty}
-                loadingMessage={LEADERBOARD_PAGE.tableLoading}
-              />
             </div>
           </div>
-        </div>
-      </main>
-
-      <LandingFooter />
+        </main>
+      </LandingPageShell>
       <CookieConsent />
     </div>
   );

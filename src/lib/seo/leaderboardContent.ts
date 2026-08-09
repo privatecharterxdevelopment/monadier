@@ -12,13 +12,11 @@ export const LEADERBOARD_PAGE = {
 
 export const LEADERBOARD_PAGE_FAQS = [
   {
-    question: 'Is the leaderboard real?',
-    answer:
-      'Yes. Rows come from closed Hyperliquid bot trades recorded in our system. Wallet labels are masked; full addresses are public on HypurrScan where you can verify fills and P/L.',
+    q: 'Is the leaderboard real?',
+    a: 'Yes. Rows come from closed Hyperliquid bot trades recorded in our system. Wallet labels are masked; full addresses are public on HypurrScan where you can verify fills and P/L. Past results do not predict future performance.',
   },
   {
-    question: 'When do platform fees apply?',
-    answer:
-      'Only on successful bot closes — not on deposits, losses, or manual trades. You keep trading until fees are due; pay on Arbitrum USDC when prompted.',
+    q: 'When do platform fees apply?',
+    a: 'Only on successful bot closes — not on deposits, losses, or manual trades. You keep trading until fees are due; pay on Arbitrum USDC when prompted. See Terms of Service for current fee terms.',
   },
 ] as const;

@@ -10,7 +10,7 @@ import {
 } from '../lib/walletAuthGate';
 import { useAuth } from '../contexts/AuthContext';
 
-/** Route connected wallets to Monadier USDC sheet; AppKit Connect only when disconnected or switching. */
+/** Route connected wallets to HyperGain USDC sheet; AppKit Connect only when disconnected or switching. */
 export function wrapMonadierAppKitOpen(rawOpen: AppKitOpenFn): AppKitOpenFn {
   return (options) => {
     if (typeof window === 'undefined') {

@@ -289,7 +289,7 @@ const ForexPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               { step: '01', title: 'Purchase', description: 'Choose your plan and complete payment' },
-              { step: '02', title: 'Download', description: 'Get MT5 and the Monadier EA bot file' },
+              { step: '02', title: 'Download', description: 'Get MT5 and the HyperGain EA bot file' },
               { step: '03', title: 'Install', description: 'Add the EA to your MT5 Experts folder' },
               { step: '04', title: 'Activate', description: 'Enter your license key and start trading' }
             ].map((item, index) => (
@@ -326,7 +326,7 @@ const ForexPage: React.FC = () => {
                 Ready to Automate Your Forex Trading?
               </h2>
               <p className="text-secondary text-lg mb-8 max-w-2xl mx-auto">
-                Join thousands of traders using Monadier MT5 bot for consistent, automated forex trading.
+                Join thousands of traders using HyperGain MT5 bot for consistent, automated forex trading.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/register?plan=forex-lifetime">

@@ -4,8 +4,6 @@ import {
   BRAND_APP_URL,
   BRAND_DOMAIN,
   BRAND_NAME,
-  OFFICIAL_TELEGRAM_HANDLE,
-  OFFICIAL_TELEGRAM_URL,
   OFFICIAL_X_HANDLE,
   OFFICIAL_X_URL,
   SUPPORT_EMAIL,
@@ -62,18 +60,10 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
             <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
               @{OFFICIAL_X_HANDLE}
             </a>
-            . The sole official Telegram is{' '}
-            <a
-              href={OFFICIAL_TELEGRAM_URL}
-              className="legal-doc-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              @{OFFICIAL_TELEGRAM_HANDLE}
-            </a>{' '}
-            ({OFFICIAL_TELEGRAM_URL}). Any other social account, group, bot, or DM claiming to
-            represent {BRAND_NAME} is not official. Do not send funds, seed phrases, private keys, or
-            credentials via unofficial channels.
+            . {BRAND_NAME} is <strong>not</strong> on Telegram — any Telegram account, group, bot, or
+            DM claiming to represent {BRAND_NAME} is a scam. Any other social account, group, bot, or
+            DM claiming to represent {BRAND_NAME} is not official. Do not send funds, seed phrases,
+            private keys, or credentials via unofficial channels.
           </>
         )}
       </>
@@ -825,16 +815,9 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
         )}
         {p(
           <>
-            Official Telegram (only):{' '}
-            <a
-              href={OFFICIAL_TELEGRAM_URL}
-              className="legal-doc-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              @{OFFICIAL_TELEGRAM_HANDLE}
-            </a>{' '}
-            — {OFFICIAL_TELEGRAM_URL}. No other Telegram account, group, or DM is authorised.
+            Telegram: {BRAND_NAME} has <strong>no</strong> official Telegram account, channel, group,
+            or DM. Any Telegram presence claiming to be {BRAND_NAME} is unauthorised and should be
+            treated as a scam.
           </>
         )}
         {p(

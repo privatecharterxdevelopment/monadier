@@ -143,6 +143,8 @@ const MARKETING_EXACT_PATHS = [
   '/ai-sports-betting',
   '/technology',
   '/support',
+  '/faqs',
+  '/faq',
   '/pricing',
   '/terms',
   '/privacy',
@@ -180,7 +182,14 @@ export function getAbsoluteAppUrl(search = ''): string {
 
 /** Navigate to Pro Trade (hard navigation — reliable from marketing CTAs). */
 export function goToOpenApp(search = '', replace = false): void {
-  const q = !search ? '' : search.startsWith('?') ? search : `?${search}`;
+  const raw = !search ? '' : search.startsWith('?') ? search.slice(1) : search;
+  const params = new URLSearchParams(raw);
+  /* Bot-first app entry — remap / omit perps */
+  const section = params.get('section');
+  if (!section || section === 'perps' || section === 'news' || section === 'swap') {
+    params.set('section', 'bot');
+  }
+  const q = `?${params.toString()}`;
   const appBase = configuredAppBase();
 
   // Marketing www/apex → app subdomain when split is enabled.
@@ -259,17 +268,17 @@ export function mapLegacyPathToProTrade(pathname: string, search = ''): string {
   const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
 
-  const build = (section?: string) => {
+  const build = (section = 'bot') => {
     const next = new URLSearchParams(params);
-    if (section) next.set('section', section);
+    next.set('section', section);
     const q = next.toString();
     const base = getOpenAppPath();
-    return q ? `${base}?${q}` : base;
+    return q ? `${base}?${q}` : `${base}?section=bot`;
   };
 
   if (path === '/dashboard2' || path.startsWith('/dashboard2/')) {
     if (path.includes('/profile')) return build('profile');
-    return build();
+    return build('bot');
   }
 
   if (path === '/dashboard/monitor' || path.startsWith('/dashboard/monitor/')) {
@@ -405,6 +414,16 @@ export function getRegisterUrl(returnToApp = true): string {
   const base = getMarketingUrl('/register');
   if (!returnToApp) return base;
   return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
+}
+
+/** Navigate to Pro Trade and open the in-app register modal (same RegisterForm as Pro Trade). */
+export function goToOpenAppRegister(replace = false): void {
+  goToOpenApp('?auth=register', replace);
+}
+
+/** Navigate to Pro Trade and open the in-app sign-in modal. */
+export function goToOpenAppSignIn(replace = false): void {
+  goToOpenApp('?auth=signin', replace);
 }
 
 const LANDING_VIEW_INTENT_KEY = 'monadier:view-landing';

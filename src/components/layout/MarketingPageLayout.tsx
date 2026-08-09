@@ -1,54 +1,48 @@
 import React from 'react';
-import LandingNav from '../landing/LandingNav';
-import LandingFooter from '../landing/LandingFooter';
 import CookieConsent from '../ui/CookieConsent';
 import MarketingSeo from '../seo/MarketingSeo';
 import MarketingPageBottomCta from '../marketing/MarketingPageBottomCta';
+import LandingPageShell from '../landing/LandingPageShell';
+import { useLandingTheme } from '../../contexts/LandingThemeContext';
 
 type Props = {
   children: React.ReactNode;
-  /** Narrower content column (auth-style pages) */
+  /** Narrower content column (auth-style pages) — still uses shared AL column */
   narrow?: boolean;
   /** Center page title block */
   centered?: boolean;
   /** Full-width inner pages (How it works, Pricing, etc.) */
   inner?: boolean;
-  /** Legal prose — slightly narrower than nav/header (1200px) */
+  /** Legal prose pages */
   legal?: boolean;
 };
 
-/** Public marketing pages — same nav bar and top spacing as GMX landing */
+/** Public marketing pages — same AlphaLedger frame + content width as the home landing. */
 const MarketingPageLayout: React.FC<Props> = ({ children, narrow, centered, inner, legal }) => {
+  const { theme } = useLandingTheme();
+
   return (
-    <div className="landing-gmx min-h-[100dvh] min-h-[100svh]">
+    <div className={`landing-gmx landing-gmx--home landing-gmx--al landing-gmx--${theme}`}>
       <MarketingSeo />
-      <LandingNav variant="light" layout="gmx" />
-      <main
-        className={[
-          'landing-gmx-page-main',
-          'landing-gmx-gutter',
-          inner ? 'landing-gmx-page-main--inner' : '',
-          legal ? 'landing-gmx-page-main--legal' : '',
-          narrow ? 'landing-gmx-page-main--narrow' : '',
-          centered ? 'landing-gmx-page-main--centered' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+      <LandingPageShell
+        afterContent={!legal && !narrow ? <MarketingPageBottomCta /> : null}
       >
-        <div
-          className={
-            narrow
-              ? 'landing-gmx-shell landing-gmx-shell--narrow'
-              : legal
-                ? 'landing-gmx-shell landing-gmx-shell--legal'
-                : 'landing-gmx-shell'
-          }
+        <main
+          className={[
+            'landing-gmx-page-main',
+            'landing-gmx-page-main--framed',
+            'landing-gmx-gutter',
+            inner ? 'landing-gmx-page-main--inner' : '',
+            legal ? 'landing-gmx-page-main--legal' : '',
+            narrow ? 'landing-gmx-page-main--narrow' : '',
+            centered ? 'landing-gmx-page-main--centered' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
-          {children}
-        </div>
-      </main>
-      {!legal && !narrow ? <MarketingPageBottomCta /> : null}
-      <LandingFooter />
+          <div className="landing-gmx-shell">{children}</div>
+        </main>
+      </LandingPageShell>
       <CookieConsent />
     </div>
   );

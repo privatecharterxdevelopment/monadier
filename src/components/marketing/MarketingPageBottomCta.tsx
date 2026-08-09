@@ -8,7 +8,7 @@ export const MARKETING_PAGE_BOTTOM_DISCLAIMER =
 
 const MarketingPageBottomCta: React.FC = () => (
   <section className="landing-gmx-gutter landing-bot-page-cta-section">
-    <div className="landing-gmx-shell landing-bot-page-cta-shell">
+    <div className="landing-gmx-shell">
       <div className="landing-bot-page-cta-row">
         <button
           type="button"

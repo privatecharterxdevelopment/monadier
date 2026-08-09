@@ -74,10 +74,10 @@ const Dashboard2Sidebar: React.FC<Props> = ({
       <div className="term-side-logo">
         {isExternalAppUrl(getMarketingUrl(LANDING_PATH)) ? (
           <a href={getMarketingUrl(LANDING_PATH)} className="term-side-logo-link" aria-label={`${BRAND_NAME} home`}>
-            <Logo size="sm" theme="light" />
+            <Logo size="sm" variant="app" theme="light" />
           </a>
         ) : (
-          <Logo size="sm" theme="light" />
+          <Logo size="sm" variant="app" theme="light" />
         )}
       </div>
 

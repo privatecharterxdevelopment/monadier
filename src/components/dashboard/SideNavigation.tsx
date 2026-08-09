@@ -99,7 +99,7 @@ const SideNavigation: React.FC = () => {
     <>
       {/* DESKTOP SIDEBAR - Hidden on mobile, visible on md+ */}
       <div className="dashboard-sidebar h-screen fixed left-0 top-0 w-20 border-r hidden md:flex flex-col items-center py-8">
-        <Logo size="sm" iconOnly theme="light" />
+        <Logo size="sm" variant="app" iconOnly theme="light" />
 
         <nav className="mt-16 flex-grow">
           <ul className="space-y-6">

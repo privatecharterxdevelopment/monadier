@@ -1,27 +1,9 @@
-/** Curated portrait photos for landing social proof — crop-friendly Unsplash sources. */
+/** Local AI-generated trader portraits for landing social proof. */
 export const TRUSTED_TRADER_AVATARS = [
-  {
-    name: 'Alex',
-    src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=128&h=128&q=80',
-  },
-  {
-    name: 'Jordan',
-    src: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&h=128&q=80',
-  },
-  {
-    name: 'Sam',
-    src: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=128&h=128&q=80',
-  },
-  {
-    name: 'Riley',
-    src: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=128&h=128&q=80',
-  },
-  {
-    name: 'Taylor',
-    src: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=128&h=128&q=80',
-  },
-  {
-    name: 'Morgan',
-    src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
-  },
+  { name: 'Alex', src: '/images/landing/traders/trader-01.png' },
+  { name: 'Jordan', src: '/images/landing/traders/trader-02.png' },
+  { name: 'Sam', src: '/images/landing/traders/trader-03.png' },
+  { name: 'Riley', src: '/images/landing/traders/trader-04.png' },
+  { name: 'Taylor', src: '/images/landing/traders/trader-05.png' },
+  { name: 'Morgan', src: '/images/landing/traders/trader-06.png' },
 ] as const;

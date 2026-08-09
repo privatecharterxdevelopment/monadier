@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, type LucideIcon } from 'lucide-react';
+import { ArrowRight, ShieldAlert, type LucideIcon } from 'lucide-react';
 import MarketingPageLayout from '../layout/MarketingPageLayout';
 import OpenAppLink from '../layout/OpenAppLink';
 
@@ -132,8 +132,11 @@ export const MarketingStatCard: React.FC<{ value: string; label: string }> = ({
 type ArbitrumCalloutProps = {
   title: string;
   text: string;
-  minHl: string;
   gas: string;
+  minDepositValue: string;
+  minDepositLabel: string;
+  startBotValue: string;
+  startBotLabel: string;
   doNotUseLabel: string;
   doNotUseItems: readonly string[];
 };
@@ -141,12 +144,15 @@ type ArbitrumCalloutProps = {
 export const MarketingArbitrumCallout: React.FC<ArbitrumCalloutProps> = ({
   title,
   text,
-  minHl,
   gas,
+  minDepositValue,
+  minDepositLabel,
+  startBotValue,
+  startBotLabel,
   doNotUseLabel,
   doNotUseItems,
 }) => (
-  <article className="mkt-arbitrum-callout landing-glass-card">
+  <article className="mkt-arbitrum-callout">
     <div className="mkt-arbitrum-callout-brand" aria-hidden>
       <img src={ARBITRUM_LOGO} alt="" className="mkt-arbitrum-callout-logo" loading="lazy" decoding="async" />
       <img src={USDC_LOGO} alt="" className="mkt-arbitrum-callout-logo mkt-arbitrum-callout-logo--usdc" loading="lazy" decoding="async" />
@@ -154,16 +160,33 @@ export const MarketingArbitrumCallout: React.FC<ArbitrumCalloutProps> = ({
     <div className="mkt-arbitrum-callout-body">
       <h2 className="mkt-arbitrum-callout-title">{title}</h2>
       <p className="mkt-arbitrum-callout-text">{text}</p>
-      <p className="mkt-arbitrum-callout-meta">{minHl}</p>
+      <div
+        className="mkt-arbitrum-stats-card"
+        role="group"
+        aria-label={`${minDepositLabel}; ${startBotLabel}`}
+      >
+        <div className="mkt-arbitrum-stat">
+          <p className="mkt-arbitrum-stat-value">{minDepositValue}</p>
+          <p className="mkt-arbitrum-stat-label">{minDepositLabel}</p>
+        </div>
+        <div className="mkt-arbitrum-stat-divider" aria-hidden />
+        <div className="mkt-arbitrum-stat">
+          <p className="mkt-arbitrum-stat-value">{startBotValue}</p>
+          <p className="mkt-arbitrum-stat-label">{startBotLabel}</p>
+        </div>
+      </div>
       <p className="mkt-arbitrum-callout-meta">{gas}</p>
-      <div className="mkt-arbitrum-callout-dont">
-        <p className="mkt-arbitrum-callout-dont-label">{doNotUseLabel}</p>
+      <aside className="mkt-arbitrum-dont-card" aria-label={doNotUseLabel}>
+        <div className="mkt-arbitrum-dont-card-head">
+          <ShieldAlert size={20} strokeWidth={1.75} aria-hidden />
+          <p className="mkt-arbitrum-callout-dont-label">{doNotUseLabel}</p>
+        </div>
         <ul>
           {doNotUseItems.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-      </div>
+      </aside>
     </div>
   </article>
 );
@@ -179,7 +202,7 @@ export const MarketingCustodyCallout: React.FC<CustodyCalloutProps> = ({
   points,
   text,
 }) => (
-  <aside className="mkt-custody-callout landing-glass-card" aria-label={throughLabel}>
+  <aside className="mkt-custody-callout" aria-label={throughLabel}>
     <p className="mkt-custody-callout-through">{throughLabel}</p>
     <ul className="mkt-custody-callout-points">
       {points.map((point) => (
@@ -195,7 +218,7 @@ export const MarketingCustodyCallout: React.FC<CustodyCalloutProps> = ({
 type CompactStep = { title: string; text: string };
 
 export const MarketingCompactSteps: React.FC<{ steps: CompactStep[] }> = ({ steps }) => (
-  <ol className="mkt-compact-steps landing-glass-card">
+  <ol className="mkt-compact-steps">
     {steps.map((step, i) => (
       <li key={step.title} className="mkt-compact-step">
         <span className="mkt-compact-step-num" aria-hidden>
@@ -215,7 +238,7 @@ type FundListItem = { title: string; text: string; icon: LucideIcon };
 export const MarketingFundsList: React.FC<{ items: FundListItem[] }> = ({ items }) => (
   <ul className="mkt-funds-list">
     {items.map(({ title, text, icon: Icon }) => (
-      <li key={title} className="mkt-funds-list-item landing-glass-card">
+      <li key={title} className="mkt-funds-list-item">
         <div className="mkt-card-icon" aria-hidden>
           <Icon size={18} strokeWidth={1.75} />
         </div>

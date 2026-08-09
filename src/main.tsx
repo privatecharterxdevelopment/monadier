@@ -6,9 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import { LandingThemeProvider } from './contexts/LandingThemeContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { Web3Provider } from './contexts/Web3Context';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { applyLandingThemeToDocument, readStoredLandingTheme } from './lib/landingTheme';
 import { config } from './lib/wallet';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getEnvSetupIssue } from './lib/envCheck';
@@ -29,6 +31,8 @@ if (!rootEl) {
   throw new Error('#root element not found');
 }
 
+applyLandingThemeToDocument(readStoredLandingTheme());
+
 const envIssue = getEnvSetupIssue();
 
 createRoot(rootEl).render(
@@ -41,20 +45,22 @@ createRoot(rootEl).render(
         <QueryClientProvider client={queryClient}>
           <HelmetProvider>
             <BrowserRouter>
-              <AuthProvider>
-                <SubscriptionProvider>
-                  <NotificationProvider>
-                    <Web3Provider>
-                      <WalletSessionBridge />
-                      <MobileWalletConnectSheet />
-                      <AuthOAuthCapture />
-                      <ReferralCapture />
-                      <AuthWalletReset />
-                      <App />
-                    </Web3Provider>
-                  </NotificationProvider>
-                </SubscriptionProvider>
-              </AuthProvider>
+              <LandingThemeProvider>
+                <AuthProvider>
+                  <SubscriptionProvider>
+                    <NotificationProvider>
+                      <Web3Provider>
+                        <WalletSessionBridge />
+                        <MobileWalletConnectSheet />
+                        <AuthOAuthCapture />
+                        <ReferralCapture />
+                        <AuthWalletReset />
+                        <App />
+                      </Web3Provider>
+                    </NotificationProvider>
+                  </SubscriptionProvider>
+                </AuthProvider>
+              </LandingThemeProvider>
             </BrowserRouter>
           </HelmetProvider>
         </QueryClientProvider>

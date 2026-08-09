@@ -26,7 +26,7 @@ const HlBotSetupGuideModal: React.FC<Props> = ({
 }) => (
   <TerminalModalFrame
     title="How the bot works"
-    subtitle="Native USDC on Arbitrum only · same wallet as Hyperliquid · all steps in Monadier."
+    subtitle="Native USDC on Arbitrum only · same wallet as Hyperliquid · all steps in HyperGain."
     icon={<Info size={18} />}
     onClose={onClose}
   >

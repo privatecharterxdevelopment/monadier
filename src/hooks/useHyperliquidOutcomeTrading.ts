@@ -121,7 +121,7 @@ export function useHyperliquidOutcomeTrading() {
 
           if (!builder) {
             throw new Error(
-              'Approve Monadier betting fees first — one-time wallet signature (0.5% buy / 2.5% cash out).'
+              'Approve HyperGain betting fees first — one-time wallet signature (0.5% buy / 2.5% cash out).'
             );
           }
         }

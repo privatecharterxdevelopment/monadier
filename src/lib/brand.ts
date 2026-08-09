@@ -13,6 +13,4 @@ export const SUPPORT_EMAIL = 'administration@hypergain.io';
 export const OFFICIAL_X_HANDLE = 'HyperGainAi';
 export const OFFICIAL_X_URL = `https://x.com/${OFFICIAL_X_HANDLE}`;
 
-/** Sole official Telegram — any other channel or DM is unauthorized. */
-export const OFFICIAL_TELEGRAM_HANDLE = 'HyperGainAi';
-export const OFFICIAL_TELEGRAM_URL = `https://t.me/${OFFICIAL_TELEGRAM_HANDLE}`;
+/* No official Telegram — do not add t.me links or handles. */

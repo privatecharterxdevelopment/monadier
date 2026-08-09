@@ -185,7 +185,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
             <p>
               {opensBlocked
                 ? 'Withdrawal unlocked — bot can open new trades again.'
-                : 'Withdrawal unlocked in Monadier.'}
+                : 'Withdrawal unlocked in HyperGain.'}
             </p>
           </div>
         </div>
@@ -224,7 +224,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
           {opensBlocked
             ? 'Pay outstanding fees to restart the bot.'
             : withdrawBlocked
-              ? `Pay ${fmtUsdSymbol(accruedUsd)} now to unlock withdrawals in Monadier. Bot trading continues until ${winsBeforeBlock} wins.`
+              ? `Pay ${fmtUsdSymbol(accruedUsd)} now to unlock withdrawals in HyperGain. Bot trading continues until ${winsBeforeBlock} wins.`
               : '10% success fee on winning closes — pay accrued fees here anytime.'}
         </p>
 

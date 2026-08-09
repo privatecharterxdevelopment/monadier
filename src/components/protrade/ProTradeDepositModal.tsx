@@ -619,7 +619,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
                         </button>{' '}
                       </>
                     ) : null}
-                    Pay on-chain to unlock withdrawal in Monadier.
+                    Pay on-chain to unlock withdrawal in HyperGain.
                   </p>
                 ) : null}
                 <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>

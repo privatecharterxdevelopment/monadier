@@ -141,7 +141,7 @@ const DownloadsPage: React.FC = () => {
               </div>
             </div>
             <p className="text-secondary text-sm mb-4">
-              Download the official MetaTrader 5 platform to run the Monadier trading bot. Available for Windows, macOS, iOS, and Android.
+              Download the official MetaTrader 5 platform to run the HyperGain trading bot. Available for Windows, macOS, iOS, and Android.
             </p>
           </div>
           <div className="p-6 space-y-3">
@@ -197,7 +197,7 @@ const DownloadsPage: React.FC = () => {
                 <FileCode className="w-6 h-6 text-purple-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-primary">Monadier MT5 Bot</h3>
+                <h3 className="text-lg font-semibold text-primary">HyperGain MT5 Bot</h3>
                 <p className="text-secondary text-sm">Expert Advisor (EA)</p>
               </div>
               {!hasValidSubscription && (
@@ -223,7 +223,7 @@ const DownloadsPage: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     <Download className="w-5 h-5 text-purple-400" />
-                    <span className="text-primary font-medium">Download Monadier_EA.ex5</span>
+                    <span className="text-primary font-medium">Download HyperGain_EA.ex5</span>
                   </div>
                   <span className="text-purple-400 text-sm">v1.0.0</span>
                 </button>

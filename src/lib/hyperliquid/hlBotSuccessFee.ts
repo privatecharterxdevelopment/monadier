@@ -46,7 +46,7 @@ export function hlBotSuccessFeeApprovalHint(): string {
 
 export function hlBotSuccessFeeApprovalDescription(): string {
   if (!hlBotSuccessFeeEnabled()) {
-    return 'No Monadier success fee on bot closes. Standard Hyperliquid trading and funding fees apply. Optional builder approval is only needed if platform fees are enabled.';
+    return 'No HyperGain success fee on bot closes. Standard Hyperliquid trading and funding fees apply. Optional builder approval is only needed if platform fees are enabled.';
   }
-  return `Optional builder fee on Hyperliquid perp notional (capped at 0.1% by HL). Monadier never gets withdrawal access — approve once in your wallet.`;
+  return `Optional builder fee on Hyperliquid perp notional (capped at 0.1% by HL). HyperGain never gets withdrawal access — approve once in your wallet.`;
 }

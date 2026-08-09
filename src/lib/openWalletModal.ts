@@ -47,7 +47,7 @@ export function openMonadierWalletModal(
 
   const conflict = detectWalletExtensionConflict();
   if (conflict && typeof console !== 'undefined') {
-    console.warn('[Monadier wallet]', conflict, walletConnectRetryHint());
+    console.warn('[HyperGain wallet]', conflict, walletConnectRetryHint());
   }
 
   const openConnect = () => open({ view: 'Connect' });

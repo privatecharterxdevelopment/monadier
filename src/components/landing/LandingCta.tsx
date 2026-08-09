@@ -62,7 +62,7 @@ const LandingCta: React.FC = () => {
                 transition={{ delay: 0.05 }}
                 className="text-[13px] font-medium text-[#0a0a0a] whitespace-nowrap"
               >
-                Monadier · Hyperliquid
+                HyperGain · Hyperliquid
               </motion.span>
               <motion.span
                 initial={{ opacity: 0 }}
@@ -78,7 +78,7 @@ const LandingCta: React.FC = () => {
                 transition={{ delay: 0.12 }}
                 className="text-[13px] text-[#71717a] whitespace-nowrap"
               >
-                Monadier bot
+                HyperGain bot
               </motion.span>
               <motion.span
                 initial={{ opacity: 0 }}

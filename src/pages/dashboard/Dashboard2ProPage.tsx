@@ -29,7 +29,6 @@ import ProTradeTransferModal from '../../components/protrade/ProTradeTransferMod
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
-import ProTradeNews from '../../components/protrade/ProTradeNews';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
 import ProTradeLeaderboard from '../../components/protrade/ProTradeLeaderboard';
 import { BettingUiProvider, useBettingUi } from '../../contexts/BettingUiContext';
@@ -99,13 +98,18 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { wallet: hlActiveWallet, walletMismatch } = useHlActiveWallet();
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
-    if (initialSection === 'bot') return 'bot';
-    if (initialSection === 'news') return 'news';
-    if (initialSection === 'community') return 'bot';
+    if (initialSection === 'bot' || initialSection === 'community') return 'bot';
+    if (initialSection === 'perps' || initialSection === 'news' || initialSection === 'swap') {
+      return 'bot';
+    }
     if (initialSection === 'leaderboard') return 'leaderboard';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     if (initialSection === 'support') return 'support';
-    return 'perps';
+    if (initialSection === 'portfolio') return 'portfolio';
+    if (initialSection === 'affiliate') return 'affiliate';
+    if (initialSection === 'profile' || initialSection === 'history') return 'profile';
+    /* Default: Bot Trade */
+    return 'bot';
   });
   const [perpCoin, setPerpCoin] = useState(DEFAULT_PRO_COIN);
   const [interval, setInterval] = useState<HlInterval>(DEFAULT_PRO_INTERVAL);
@@ -411,6 +415,25 @@ const Dashboard2ProPageContent: React.FC = () => {
     setAuthModal('signin');
   }, []);
 
+  /** Landing / deep link: /app?auth=register|signin → same Pro Trade auth modal (shared RegisterForm). */
+  useEffect(() => {
+    if (!sessionReady) return;
+    const auth = searchParams.get('auth');
+    if (auth !== 'register' && auth !== 'signin' && auth !== 'login') return;
+
+    const params = new URLSearchParams(searchParams);
+    params.delete('auth');
+    setSearchParams(params, { replace: true });
+
+    if (user) return;
+    if (auth === 'register') {
+      setSignInReason(undefined);
+      setAuthModal('register');
+    } else {
+      setAuthModal('signin');
+    }
+  }, [sessionReady, user, searchParams, setSearchParams]);
+
   useEffect(() => {
     if (!authModal) return undefined;
     const prev = document.body.style.overflow;
@@ -453,8 +476,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (next === 'affiliate') {
       if (!requireAuth('Sign in to view your affiliate dashboard.')) return;
     }
-    // Community parked for now — keep code, hide from live users.
-    const target: ProTradeSection = next === 'community' ? 'bot' : next;
+    // Community + Perps parked — keep code, hide from live users.
+    const target: ProTradeSection =
+      next === 'community' || next === 'perps' ? 'bot' : next;
     setSection(target);
     setFundsModal(null);
     if (target === 'bot') {
@@ -464,7 +488,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       target === 'bot' ||
       target === 'sportsbets' ||
       target === 'support' ||
-      target === 'news' ||
       target === 'leaderboard' ||
       target === 'affiliate'
     ) {
@@ -493,16 +516,20 @@ const Dashboard2ProPageContent: React.FC = () => {
         setSection('sportsbets');
       } else if (urlSection === 'support') {
         setSection('support');
-      } else if (urlSection === 'community') {
+      } else if (
+        urlSection === 'community' ||
+        urlSection === 'news' ||
+        urlSection === 'swap' ||
+        urlSection === 'perps' ||
+        !urlSection
+      ) {
         setSection('bot');
-      } else if (urlSection === 'news') {
-        setSection('news');
       } else if (urlSection === 'leaderboard') {
         setSection('leaderboard');
       } else if (urlSection === 'affiliate') {
         setSection('affiliate');
-      } else if (urlSection === 'swap') {
-        setSection('perps');
+      } else if (urlSection === 'portfolio') {
+        setSection('portfolio');
       }
       return;
     }
@@ -518,16 +545,20 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('sportsbets');
     } else if (urlSection === 'support') {
       setSection('support');
-    } else if (urlSection === 'community') {
+    } else if (
+      urlSection === 'community' ||
+      urlSection === 'news' ||
+      urlSection === 'swap' ||
+      urlSection === 'perps' ||
+      !urlSection
+    ) {
       setSection('bot');
-    } else if (urlSection === 'news') {
-      setSection('news');
     } else if (urlSection === 'leaderboard') {
       setSection('leaderboard');
     } else if (urlSection === 'affiliate') {
       setSection('affiliate');
-    } else if (urlSection === 'swap') {
-      setSection('perps');
+    } else if (urlSection === 'portfolio') {
+      setSection('portfolio');
     }
   }, [searchParams, sessionReady, user]);
 
@@ -535,9 +566,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (!sessionReady || user) return;
     if (section !== 'profile') return;
 
-    setSection('perps');
+    setSection('bot');
     const params = new URLSearchParams(searchParams);
-    params.delete('section');
+    params.set('section', 'bot');
     params.delete('tab');
     setSearchParams(params, { replace: true });
   }, [sessionReady, user, section, searchParams, setSearchParams]);
@@ -838,6 +869,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         onOpenAffiliate={openAffiliate}
         onOpenProfile={openProfile}
         onRequireSignIn={promptSignIn}
+        onOpenRegister={switchToRegister}
         onViewNotificationHistory={openNotificationHistory}
         walletAddress={address ?? undefined}
         walletConnected={isConnected}
@@ -891,36 +923,12 @@ const Dashboard2ProPageContent: React.FC = () => {
           walletAddress={(hlActiveWallet ?? address)?.toLowerCase()}
           onNavigatePerps={(coin) => {
             selectChartCoin(coin);
-            setSection('perps');
+            setSection('bot');
           }}
           onNavigateBetting={() => setSection('sportsbets')}
           onNavigateAffiliate={openAffiliate}
           onRequireSignIn={promptSignIn}
         />
-        </div>
-      ) : null}
-      {section === 'news' ? (
-        <div className="hl-terminal hl-terminal--news">
-          <ProTradeNews
-            walletAddress={address ?? undefined}
-            onTradeCrypto={(coin) => {
-              selectChartCoin(coin);
-              handleSectionChange('perps');
-            }}
-            onTradeSports={(outcomeId, eventName) => {
-              if (outcomeId != null && Number.isFinite(outcomeId)) {
-                setFocusBettingOutcomeId(outcomeId);
-              }
-              handleSectionChange('sportsbets');
-              setToast({
-                message: eventName
-                  ? `Opened ${eventName} in Betting`
-                  : 'Opened matched event in Betting',
-                variant: 'info',
-              });
-              window.setTimeout(() => setToast(null), 4000);
-            }}
-          />
         </div>
       ) : null}
       {section === 'affiliate' ? (

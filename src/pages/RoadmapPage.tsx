@@ -42,7 +42,7 @@ const ROADMAP = [
     icon: Gift,
     title: 'Referral links & USDC rewards',
     milestone: '250 registered users',
-    text: 'Personal referral links go live — invite traders and earn USDC rewards when referred users fund and trade through Monadier.',
+    text: 'Personal referral links go live — invite traders and earn USDC rewards when referred users fund and trade through HyperGain.',
   },
   {
     status: 'upcoming' as const,
@@ -56,7 +56,7 @@ const ROADMAP = [
     icon: ShieldCheck,
     title: 'CertiK smart contract audit',
     milestone: '500 active users',
-    text: 'Third-party audit of the Monadier vault smart contracts by CertiK before scaling to a larger active user base.',
+    text: 'Third-party audit of the HyperGain vault smart contracts by CertiK before scaling to a larger active user base.',
   },
   {
     status: 'upcoming' as const,
@@ -79,7 +79,7 @@ const RoadmapPage: React.FC = () => {
     <MarketingInnerPage>
       <MarketingPageHero
         eyebrow="Product"
-        title="Monadier roadmap"
+        title="HyperGain roadmap"
         lead="What we are building next — tied to real user milestones and operational maturity."
         sub="Timelines shift with market conditions and user growth; order reflects current intent."
       />
@@ -130,9 +130,9 @@ const RoadmapPage: React.FC = () => {
       <div className="mkt-roadmap-warning landing-glass-card">
         <h2 className="mkt-roadmap-warning-title">Support &amp; scams</h2>
         <p>
-          Monadier customer support is <strong>email only</strong>. We do not offer Discord,
+          HyperGain customer support is <strong>email only</strong>. We do not offer Discord,
           Telegram, or social-media support channels. Accounts on X, Instagram, Facebook, or
-          elsewhere claiming to be Monadier are <strong>most likely scams</strong> — never send
+          elsewhere claiming to be HyperGain are <strong>most likely scams</strong> — never send
           funds or seed phrases to anyone contacting you there.
         </p>
         <p>

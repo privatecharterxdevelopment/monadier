@@ -41,8 +41,10 @@ function formatExpiryLabel(expiry: string): string {
   const month = MONTHS[Number(m[2]) - 1];
   if (!month) return '';
   const day = Number(m[3]);
-  const time =
-    m[4] != null && m[5] != null ? ` ${m[4]}:${m[5]} UTC` : '';
+  // Midnight (00:00) — show date only. "00:00 UTC" was reading as "0.00UTC" on cards.
+  const hasTime = m[4] != null && m[5] != null;
+  const isMidnight = hasTime && m[4] === '00' && m[5] === '00';
+  const time = hasTime && !isMidnight ? ` ${m[4]}:${m[5]} UTC` : '';
   return `${day} ${month}${time}`;
 }
 

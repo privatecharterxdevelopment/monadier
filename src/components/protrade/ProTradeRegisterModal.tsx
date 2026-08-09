@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTermAuthToast } from '../terminal/TermAuthToast';
 import RegisterForm from '../auth/RegisterForm';
-import registerVisual from '../../assets/landing/hypergain-trading-candles.jpeg';
 
 type Props = {
   open: boolean;
@@ -54,35 +53,20 @@ const ProTradeRegisterModal: React.FC<Props> = ({
         <X size={16} />
       </button>
 
-      <div className="hl-auth-modal-split">
-        <div className="hl-auth-modal-form">
-          <h2 id="hl-register-title" className="hl-auth-modal-title">
-            {t('auth.register.modalTitle')}
-          </h2>
-          <p className="hl-auth-modal-sub">{t('auth.register.modalSub')}</p>
-          <RegisterForm
-            idPrefix="modal-reg"
-            onSwitchToSignIn={onSwitchToSignIn}
-            onToast={showToast}
-            onSessionCreated={() => {
-              showToast(t('auth.register.accountCreatedWelcome'), 3000);
-              onClose();
-            }}
-          />
-        </div>
-
-        <aside className="hl-auth-modal-visual" aria-hidden>
-          <img
-            src={registerVisual}
-            alt=""
-            className="hl-auth-modal-visual-img"
-          />
-          <div className="hl-auth-modal-visual-overlay">
-            <p className="hl-auth-visual-kicker">{t('auth.register.visualKicker')}</p>
-            <h3 className="hl-auth-visual-title">{t('auth.register.visualTitle')}</h3>
-            <p className="hl-auth-visual-copy">{t('auth.register.visualCopy')}</p>
-          </div>
-        </aside>
+      <div className="hl-auth-modal-form">
+        <h2 id="hl-register-title" className="hl-auth-modal-title">
+          {t('auth.register.modalTitle')}
+        </h2>
+        <p className="hl-auth-modal-sub">{t('auth.register.modalSub')}</p>
+        <RegisterForm
+          idPrefix="modal-reg"
+          onSwitchToSignIn={onSwitchToSignIn}
+          onToast={showToast}
+          onSessionCreated={() => {
+            showToast(t('auth.register.accountCreatedWelcome'), 3000);
+            onClose();
+          }}
+        />
       </div>
     </div>
   );

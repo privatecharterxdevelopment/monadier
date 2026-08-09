@@ -61,7 +61,7 @@ const MinimalLanding: React.FC = () => {
 
         <footer className="shrink-0 pb-5 text-center">
           <p className="text-[10px] text-[#a1a1aa] tracking-[0.2em] uppercase">
-            © {new Date().getFullYear()} Monadier
+            © {new Date().getFullYear()} HyperGain
           </p>
         </footer>
       </div>

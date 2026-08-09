@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# Auth and app utility paths — not primary SEO targets
+# Auth, verification, admin — not for search
 Disallow: /login
 Disallow: /register
 Disallow: /auth/
@@ -10,5 +10,11 @@ Disallow: /reset-password
 Disallow: /kyc
 Disallow: /admin
 Disallow: /28858885
+Disallow: /dashboard
+Disallow: /dashboard2
+Disallow: /app
+
+# Secondary marketing URLs are noindex via meta (see src/lib/seo/pages.ts).
+# Do not Disallow them — crawlers need to see the noindex directive.
 
 Sitemap: https://www.hypergain.io/sitemap.xml

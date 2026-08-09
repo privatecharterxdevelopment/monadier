@@ -376,7 +376,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (/linked to another/i.test(msg)) {
       return `This wallet is linked to another ${BRAND_NAME} account. Sign in with that account or use a different wallet.`;
     }
-    if (/builder has insufficient balance|Monadier platform fee is not active/i.test(msg)) {
+    if (/builder has insufficient balance|HyperGain platform fee is not active/i.test(msg)) {
       return '';
     }
     if (/409|duplicate key|user_wallets/i.test(msg)) {
@@ -769,7 +769,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   type="button"
                   className="term-btn-sm term-btn-sm--primary w-full justify-center"
                   onClick={() =>
-                    onRequireSignIn?.('Sign in to Monadier, then press Start bot.')
+                    onRequireSignIn?.('Sign in to HyperGain, then press Start bot.')
                   }
                 >
                   {t('tradePanel.signIn')}

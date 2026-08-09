@@ -44,7 +44,7 @@ const BotVideoHero: React.FC = () => (
             </div>
             <div className="landing-betting-hero-meta">
               <p className="landing-betting-hero-lead">
-                Deposit USDC on Hyperliquid, approve the agent once, and let Monadier scan every HL
+                Deposit USDC on Hyperliquid, approve the agent once, and let HyperGain scan every HL
                 perpetual 24/7 — non-custodial, server-side automation.
               </p>
               <a

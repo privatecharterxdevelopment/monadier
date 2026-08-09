@@ -42,28 +42,30 @@
     "openMenu": "打开菜单",
     "toggleMenu": "切换菜单",
     "getStarted": "开始使用",
-    "openAppProfile": "打开应用，{{name}}"
+    "openAppProfile": "打开应用，{{name}}",
+    "launchApp": "启动应用",
+    "helpCenter": "帮助中心",
+    "leaderboard": "排行榜",
+    "howItWorks": "工作原理"
   },
   "footer": {
     "terms": "条款",
     "privacy": "隐私",
     "support": "支持",
     "about": "关于",
-    "copyright": "© {{year}} Monadier · Hyperliquid 自动交易 · administration@hypergain.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid 自动交易 · administration@hypergain.io",
+    "faqs": "常见问题"
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "从钱包交易",
+      "lineDarkTop": "全自动交易机器人",
       "rotateLines": [
-        "AI 自动驾驶",
-        "在 Hyperliquid",
+        "在 Hyperliquid 上",
         "自动化永续合约",
-        "链上验证体育市场",
-        "对冲基金信号",
-        "深度 HL 流动性",
-        "200+ 市场"
+        "覆盖 200+ 市场",
+        "24/7 在你的 HL 账户"
       ],
-      "disclaimer": "Monadier enables AI-automated perpetuals trading from your Hyperliquid account. Your USDC remains on Hyperliquid at all times — we are non-custodial, never hold your private keys, and cannot access your wallet or withdraw funds; we supply the trading technology and automation only. Leveraged crypto trading carries substantial risk of loss; AI and automated systems can misread markets and make mistakes. Past performance does not guarantee future results. Not financial, investment, tax, or legal advice."
+      "disclaimer": "HyperGain 让你通过 Hyperliquid 账户进行 AI 自动化永续交易。你的 USDC 始终留在 Hyperliquid——我们非托管，从不持有私钥，无法访问你的钱包或提现；我们仅提供交易技术与自动化。杠杆加密交易有重大亏损风险；AI 与自动化系统可能误判市场。无承诺或保证收益——过往表现不代表未来结果。不构成金融、投资、税务或法律建议。"
     },
     "carousel": {
       "titleStart": "开始",
@@ -74,7 +76,7 @@
         "明天",
         "随时"
       ],
-      "description": "Monadier 在 Hyperliquid 上整合自动机器人交易、专业永续执行、体育投注和预测市场 — 一个账户，一个界面。让 AI 机器人 24/7 扫描 200+ 市场并管理仓位，使用实时图表和深度交易，或开启体育、加密货币和宏观事件的链上结果市场。您的 USDC 始终留在 Hyperliquid；我们只提供自动化和交易工具。",
+      "description": "HyperGain 在 Hyperliquid 上整合自动机器人交易、专业永续执行、体育投注和预测市场 — 一个账户，一个界面。让 AI 机器人 24/7 扫描 200+ 市场并管理仓位，使用实时图表和深度交易，或开启体育、加密货币和宏观事件的链上结果市场。您的 USDC 始终留在 Hyperliquid；我们只提供自动化和交易工具。",
       "cards": {
         "bot": {
           "title": "全自动机器人交易",
@@ -113,7 +115,10 @@
         "title": "体育和预测市场投注",
         "desc": "Hyperliquid 上的 HIP-4 结果市场 — 宏观、加密货币和链上结算的体育赛事。",
         "cta": "打开投注"
-      }
+      },
+      "title": "一切功能",
+      "titleMuted": "一个账户搞定",
+      "sub": "由 Hyperliquid 框架驱动。"
     },
     "pitch": {
       "cta": "启动机器人",
@@ -319,13 +324,272 @@
           "q": "透明结算如何运作？",
           "a": "市场按验证结果结算。仓位和余额在 Hyperliquid 上可见——无不透明的博彩账本。"
         }
-      ]
+      ],
+      "viewAll": "查看全部常见问题",
+      "searchPlaceholder": "搜索常见问题…",
+      "searchEmpty": "没有匹配的问题。",
+      "page": {
+        "eyebrow": "常见问题",
+        "title": "常见问题",
+        "lead": "关于 HyperGain、Hyperliquid 机器人、充值、费用与体育投注的全部解答——搜索或浏览。"
+      }
     },
     "bettingFaq": {
       "titleDark": "投注 ",
       "titleGrey": "FAQ",
       "pageTitle": "常见问题",
       "lead": "Hyperliquid 上的 HIP-4 结果市场 — 钱包签名、链上赔率和透明结算。"
+    },
+    "macbook": {
+      "title": "你的交易仪表盘",
+      "lead": "图表、机器人控制、资金与历史——Hyperliquid 上的统一工作区。",
+      "alt": "HyperGain 仪表盘：实时图表、自动机器人面板与交易历史"
+    },
+    "alpha": {
+      "watchFilm": "观看影片",
+      "usersLabel": "位用户正在使用机器人交易",
+      "title": "全自动交易机器人",
+      "lead": "在你的 Hyperliquid 账户上进行 AI 自动化永续交易。",
+      "leadSub": "非托管——USDC 留在 HL；机器人 24/7 交易，密钥由你保管。",
+      "scrollDown": "向下滚动"
+    },
+    "socialProof": {
+      "aria": "交易者信赖",
+      "before": "已有 ",
+      "after": " 位交易者信赖",
+      "afterWorldwide": " 位交易者在全球信赖"
+    },
+    "features": {
+      "title": "为 Hyperliquid 而生",
+      "lead": "自动化、永续与链上市场——一个非托管账户。",
+      "cards": {
+        "how": {
+          "title": "工作原理",
+          "text": "连接钱包，将 USDC 桥接到 Hyperliquid，批准代理一次，然后启动机器人。"
+        },
+        "bot": {
+          "title": "机器人交易",
+          "text": "AI 全天候扫描 200+ HL 永续——开仓、跟踪盈利、截断亏损，全程非托管。"
+        },
+        "betting": {
+          "title": "体育投注",
+          "text": "Hyperliquid 上的 HIP-4 结果市场——实时赔率、钱包签名投注、透明结算。"
+        },
+        "perps": {
+          "title": "专业永续",
+          "text": "交易机器人所用的同一 HL 流动性——图表、深度与执行集于一个终端。"
+        }
+      }
+    },
+    "howStrip": {
+      "title": "工作原理",
+      "lead": "从钱包到 Hyperliquid 实时机器人的四个步骤。",
+      "learnMore": "了解更多",
+      "startApp": "启动应用",
+      "stepLabel": "步骤 {{n}}",
+      "steps": {
+        "connect": {
+          "title": "连接钱包",
+          "text": "登录并关联 MetaMask 或 WalletConnect。"
+        },
+        "bridge": {
+          "title": "桥接到 Hyperliquid",
+          "text": "从 Arbitrum 充值到你的 Hyperliquid 账户。"
+        },
+        "usdc": {
+          "title": "Arbitrum 上的 USDC",
+          "text": "使用 Arbitrum One 原生 USDC 注资——HL 所需。"
+        },
+        "bot": {
+          "title": "启动机器人",
+          "text": "批准交易代理一次，然后点击启动机器人。"
+        }
+      }
+    },
+    "sleepEarnings": {
+      "title": "全透明链上排行榜",
+      "description": "实时 Hyperliquid 机器人平仓——盈亏皆有——含脱敏钱包、交易对、方向、PnL、日期与时间。过往结果不保证未来表现。",
+      "pillsAria": "机器人亮点",
+      "registerCta": "免费注册",
+      "pills": {
+        "run247": "平均胜率 71.4%"
+      }
+    },
+    "agentSections": {
+      "aria": "HyperGain 机器人功能",
+      "calc": {
+        "eyebrow": "实时排行榜",
+        "title": "最新机器人平仓",
+        "desc": "实时 Hyperliquid 机器人结果——盈亏——含钱包、交易对、方向、PnL、日期与时间。随交易平仓更新。"
+      },
+      "toolkit": {
+        "aria": "HyperGain 机器人市场分析器",
+        "eyebrow": "14+ 开仓前门控",
+        "title": "开仓前 14+ 交易门控",
+        "desc": "宏观 Beta、拉升做空、4h/24h 偏向、新拉升、位置等——与实时终端相同的多门控流水线，才会开仓。",
+        "portfolioDesc": "Hyperliquid 永续、现货余额与投注仓位集于一个投资组合视图。",
+        "newsDesc": "为活跃交易者筛选的宏观与加密头条——在 Pro Trade 工作区内。",
+        "openCta": "在应用中打开{{section}}"
+      },
+      "winrate": {
+        "eyebrow": "一键连接",
+        "title": "连接你已在用的钱包",
+        "desc": "MetaMask、Coinbase Wallet、Binance Web3、WalletConnect 等——在 Arbitrum 连接并为 Hyperliquid 注资，无需离开 HyperGain。",
+        "boxAria": "支持的钱包连接",
+        "boxLabel": "支持的钱包",
+        "boxCaption": "Arbitrum One · 原生 USDC · WalletConnect 与注入式"
+      }
+    },
+    "widgets": {
+      "title": "一切功能，一个账户",
+      "sub": "由 Hyperliquid 框架驱动。",
+      "bot": {
+        "title": "用 AI 交易",
+        "desc": "跨 200+ Hyperliquid 永续的多周期扫描。机器人 24/7 开仓、跟踪盈利并截断亏损。"
+      },
+      "perps": {
+        "title": "交易 K 线",
+        "desc": "专业图表、深度与执行——与机器人相同的 HL 流动性。"
+      },
+      "sports": {
+        "title": "体育投注",
+        "desc": "HIP-4 结果市场——实时足球、世界杯与链上结算。"
+      },
+      "predictions": {
+        "title": "预测市场",
+        "desc": "宏观、加密与事件市场——Hyperliquid 上透明的是/否赔率。"
+      },
+      "calc": {
+        "eyebrow": "机器人 ROI",
+        "title": "预估收益",
+        "stakeLabel": "Hyperliquid 上的 USDC 余额",
+        "leverage": "杠杆",
+        "monthlyProfit": "预估月利润",
+        "endBalance": "预估余额",
+        "tradesDay": "每日交易",
+        "returnMult": "月倍数",
+        "perWin": "每笔盈利交易",
+        "perLoss": "每笔亏损风险",
+        "weeklyTrades": "每周交易",
+        "slots": "最大仓位槽",
+        "winsCopy": "{{total}} 笔中 {{wins}} 笔成功",
+        "winsSub": "约 {{min}}–{{max}} 笔/天 · {{winRate}} 胜率 · 仅供示意",
+        "footnote": "非金融建议。小资金通常目标约每月 2–3×，而非 10×。结果因人而异。"
+      },
+      "lb": {
+        "aria": "实时机器人排行榜",
+        "live": "实时",
+        "subtitle": "盈与亏",
+        "loading": "正在加载平仓…",
+        "empty": "暂无最近平仓。",
+        "footnote": "仅公开已平仓交易（脱敏钱包）。过往结果不保证未来表现。非金融建议。"
+      },
+      "markets": {
+        "volume24h": "24h 成交量",
+        "change24h": "24h 涨跌",
+        "impliedWin": "隐含胜率",
+        "marketOdds": "市场赔率",
+        "decimalOdds": "赔率",
+        "payoutStake": "投注 $25 派彩",
+        "stake": "投注额",
+        "sportsBet": "体育投注",
+        "toWin": "可赢"
+      }
+    },
+    "legal": {
+      "ariaLabel": "法律披露",
+      "operator": [
+        "通过 {{brand}} 交易会将你的钱包连接到你自己的 Hyperliquid 账户。订单使用你的 USDC 保证金在 Hyperliquid 永续与结果市场上成交——这是真实金融工具的实盘交易，而非模拟或演示评估计划。",
+        "{{brand}} 由 Lorenzo Vanza 创立、创建并开发。网站 {{domain}} 提供自动化交易工具、仪表盘以及 Hyperliquid 上可选的体育结果市场。目前全部运营与法律责任由 Lorenzo Vanza 私人承担，他承认目前产品压力很大。官方 X/Twitter（仅此）：@{{xHandle}}。{{brand}} 不在 Telegram 上——任何声称代表 {{brand}} 的 Telegram 账号、群组、机器人或私信均为骗局。其他社交账号均非官方。法律或合规咨询请联系 {{email}}。"
+      ],
+      "blocks": [
+        {
+          "id": "legal-disclosure",
+          "heading": "法律披露",
+          "paragraphs": [
+            "{{brand}} 提供可根据设定与市场信号在 Hyperliquid 上自动进出场的软件。该服务旨在协助执行与监控——并不构成盈利保证或无风险交易。"
+          ]
+        },
+        {
+          "id": "no-promised-returns",
+          "heading": "无承诺或保证收益",
+          "paragraphs": [
+            "{{domain}}、应用、营销材料或客服沟通中的任何内容均不构成对利润、收益或特定交易结果的承诺、预测或保证。加密与杠杆衍生品具有投机性。你可能损失部分或全部保证金。示例、胜率、回测与过往机器人表现仅供说明，不代表未来结果。",
+            "收益受市场状况、杠杆、费用、滑点、延迟与用户设置影响。自动化系统可能误判市场、在波动中失效，或因技术问题停止运行。每笔交易的财务风险均由你自行承担。"
+          ]
+        },
+        {
+          "id": "country-responsibility",
+          "heading": "国家/地区责任",
+          "paragraphs": [
+            "你须自行判断在居住地、国籍或访问地使用 HyperGain、Hyperliquid、加密衍生品、自动交易机器人、体育结果市场或相关服务是否被允许。",
+            "印度及其他对加密、衍生品或博彩有特定税务与申报要求的司法辖区居民，须遵守当地法律——包括所得税、GST、TDS 或同等义务。HyperGain 不提供税务建议，也不会代你申报。",
+            "若你所在地限制或禁止自动交易、杠杆加密或预测市场，则不得使用本服务。通过 VPN、代理或位置伪装绕过限制访问 HyperGain 被禁止（见服务条款）。我们对非法使用不承担任何责任。"
+          ]
+        },
+        {
+          "id": "vpn-policy",
+          "heading": "VPN 与位置伪装",
+          "paragraphs": [
+            "使用 VPN、代理、Tor 或类似工具访问 {{brand}} 并隐藏真实位置，若意在规避地理限制、合规控制或账户执行，则违反我们的政策。",
+            "{{brand}} 不对因 VPN 或代理使用导致的损失、账户处理、监管风险或税务后果承担责任。我们可能检测规避行为，并暂停或永久终止账户，且不退还已产生的平台费用或未使用的软件访问权限。"
+          ]
+        },
+        {
+          "id": "no-custody",
+          "heading": "不托管客户资金",
+          "paragraphs": [
+            "{{brand}} 不是经纪商、交易商、交易所、托管方、银行或投资顾问。我们不接受、持有或管理客户存款。你的 USDC 仍留在你名下的 Hyperliquid 账户中。存取款需你的钱包签名；已批准的交易代理可下单，但未经你授权不能提现。"
+          ]
+        },
+        {
+          "id": "live-trading",
+          "heading": "实盘交易——真实风险",
+          "paragraphs": [
+            "与模拟或评估账户不同，{{brand}} 在 Hyperliquid 上自动化真实仓位。你可能损失部分或全部保证金。杠杆放大收益与亏损。仅使用你能承受损失的资金，并确认所在地允许加密衍生品。"
+          ]
+        },
+        {
+          "id": "not-advice",
+          "heading": "非投资建议",
+          "paragraphs": [
+            "所有内容、信号、仪表盘与工具仅供信息与软件访问之用途。本站任何内容均不构成投资、税务或法律建议，亦不构成买卖任何金融产品、加密货币或衍生品的招揽。交易前请咨询独立顾问。"
+          ]
+        },
+        {
+          "id": "performance",
+          "heading": "业绩披露",
+          "paragraphs": [
+            "营销或应用中展示的过往表现、胜率、回测或示例不代表未来结果。自动化策略可能在剧烈波动、流动性不足或消息驱动行情中失效。假设或模拟结果有固有局限，可能无法反映真实交易成本、滑点或延迟。"
+          ]
+        },
+        {
+          "id": "jurisdiction",
+          "heading": "司法管辖限制",
+          "paragraphs": [
+            "你必须年满 18 岁，且在所在司法辖区合法获准使用加密衍生品。{{brand}} 不以禁止此类服务的地区用户为目标。遵守当地法律、制裁与税务义务是你的责任。法律要求时，访问可能被限制或终止。"
+          ]
+        },
+        {
+          "id": "risk",
+          "heading": "风险警示",
+          "paragraphs": [
+            "交易永续合约、杠杆加密与链上结果市场涉及重大亏损风险。市场可能跳空、强平仓位或暂时不可用。智能合约、跨链桥、钱包与第三方协议风险均适用。Hyperliquid 为独立平台，受其自身条款约束。"
+          ]
+        },
+        {
+          "id": "fees",
+          "heading": "费用与退款",
+          "paragraphs": [
+            "每笔交易均适用 Hyperliquid 协议与网络费用。HyperGain 可能对盈利平仓收取基于成功的平台费、builder 费或应用中披露的其他费用。未结清的累计平台费可能阻止新的机器人开仓与应用内 Hyperliquid 提现，直至结清。现行费率与执行规则见服务条款。"
+          ]
+        }
+      ],
+      "tagline": "非银行存款 · 非 FDIC 或政府保险 · 无保证收益 · 你可能损失全部投入资金"
+    },
+    "volume": {
+      "label": "由 HG Bot 管理的日交易量",
+      "live": "实时"
     }
   },
   "marketing": {
@@ -339,10 +603,14 @@
         "text": "运行机器人需要在钱包中有 Arbitrum One 上的原生 USDC。Hyperliquid 不接受 BNB、ETH 主网或其他链上的 USDC。",
         "minHl": "HL 最低 $5 存款 · 机器人需 $20+",
         "gas": "在 Arbitrum 上保留少量 ETH 用于存款 gas。",
-        "doNotUse": "请勿使用"
+        "doNotUse": "请勿使用",
+        "minDepositValue": "$5",
+        "minDepositLabel": "Hyperliquid 最低入金",
+        "startBotValue": "$20",
+        "startBotLabel": "启动机器人所需"
       },
       "stepsTitle": "四步设置",
-      "stepsSub": "在 Monadier 应用中一次性完成。",
+      "stepsSub": "在 HyperGain 应用中一次性完成。",
       "steps": [
         {
           "title": "连接钱包",
@@ -366,7 +634,7 @@
       "funds": [
         {
           "title": "登录 vs 钱包",
-          "text": "邮箱/Google = Monadier 仪表板。MetaMask = 签署存取款。"
+          "text": "邮箱/Google = HyperGain 仪表板。MetaMask = 签署存取款。"
         },
         {
           "title": "您的 HL 账户",
@@ -397,25 +665,51 @@
           "Non custodial"
         ],
         "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
-      }
+      },
+      "settingsTitle": "应用内的机器人设置",
+      "settingsSub": "在 Bot trade 中设置杠杆、风险、仓位槽、止损与胜率门槛——与 HyperGain 应用中相同。保存后作用于新开仓。",
+      "settings": [
+        {
+          "title": "杠杆（Leverage）",
+          "text": "每笔仓位在 Hyperliquid 上的杠杆倍数（滑块最高 40×）。HL 按资产设上限——例如 BTC 滑块最高 40×；开仓时机器人会钳制到该市场上限。高杠杆下很小的逆向波动即可强平（约 40× 时 ~2.3%）。"
+        },
+        {
+          "title": "每笔风险（Risk per trade）",
+          "text": "使用 Hyperliquid 余额作为保证金的比例——不是杠杆。预设 1%–100%。应用会显示每槽预估保证金与名义价值（保证金 × 杠杆）。例如：90% 风险 + 2 个槽会把保证金分到两个持仓。"
+        },
+        {
+          "title": "同时开仓槽（Open trade slots）",
+          "text": "机器人可同时持有的仓位数（2 或 3）。风险%按槽均分（2 槽各 ½，3 槽各 ⅓）。默认用全部 HL 余额，除非你设置了 AI 投注预算。机器人运行中仍可改槽并保存。"
+        },
+        {
+          "title": "止损（Stop loss）",
+          "text": "仓位亏损时保证金上的最大损失。关闭（机器人决定）= 仅在盈利时利润追踪——亏损时不自动平仓。或选 5–50%/自定义%，机器人在该保证金亏损处平仓。"
+        },
+        {
+          "title": "胜率门槛（Win rate gate）",
+          "text": "可选：若近期胜率低于你的阈值则暂停新开仓。关闭 = 无论近期胜率如何都可开仓。"
+        }
+      ],
+      "settingsNote": "保存设置会存储风险、杠杆、止损、槽位与胜率门槛。在 Bot 标签页启动/停止交易。机器人运行中仍可改槽并保存——要改杠杆、风险或止损请先停止机器人。"
     },
     "support": {
       "eyebrow": "支持",
       "title": "帮助与联系",
-      "lead": "关于 Hyperliquid 账户、交易机器人或 Monadier 账户的问题？联系我们或浏览下方常见问题。",
+      "lead": "关于 Hyperliquid 账户、交易机器人或 HyperGain 账户的问题？联系我们或浏览下方常见问题。",
       "sub": "紧急交易问题请附上钱包地址和仪表盘截图。",
       "contactEmailTitle": "邮件支持",
       "contactEmailText": "给我们发邮件，我们通常会在 24 小时内回复。",
       "contactHoursTitle": "支持时间",
-      "contactHoursText": "周一至周日 09:00–20:00（中欧时间）。交易机器人本身 24/7 在我们的服务器上运行。",
+      "contactHoursText": "每天 24/7。交易机器人在我们的基础设施上全天候运行 — 随时联系我们。",
       "faqTitle": "常见问题",
       "faqSub": "关于设置、安全和费用的快速解答。",
       "faqExtra": {
-        "q": "支持响应有多快？",
-        "a": "发送邮件至 administration@hypergain.io — 我们力争 24 小时内回复，周一至周日 09:00–20:00 CET。"
+        "q": "客服有多快？",
+        "a": "使用本页的「发送邮件」按钮 — 我们力争 24 小时内回复。客服与机器人每天 24/7 可用。"
       },
       "ctaContact": "联系支持",
-      "disclaimer": "为了账户安全，切勿与任何人分享助记词或私钥 — 包括支持人员。"
+      "disclaimer": "为了账户安全，切勿与任何人分享助记词或私钥 — 包括支持人员。",
+      "contactEmailCta": "发送邮件"
     }
   },
   "auth": {
@@ -433,7 +727,7 @@
     "demoDashboard": "打开演示仪表板（本地开发）",
     "signInFailed": "登录失败",
     "googleSignInFailed": "Google 登录失败",
-    "signInToAccount": "登录您的 Monadier 账户。",
+    "signInToAccount": "登录您的 HyperGain 账户。",
     "signInToProfile": "登录以打开个人资料和机器人设置。",
     "signInToAffiliate": "登录以查看联盟仪表板。",
     "signInToSupport": "登录以联系支持。",
@@ -465,19 +759,19 @@
       "referralNotificationTitle": "Referral linked",
       "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your Monadier account for bot trading and Pro Trade.",
+      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
       "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
-      "visualKicker": "Monadier Pro Trade",
-      "visualTitle": "Monadier bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and Monadier bot — one trading workspace.",
+      "visualKicker": "HyperGain Pro Trade",
+      "visualTitle": "HyperGain bot + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
       "fullNameLabel": "Full name",
       "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
-      "kicker": "Monadier",
+      "kicker": "HyperGain",
       "title": "Welcome back",
       "close": "Close",
       "continueGoogle": "Continue with Google",
@@ -499,7 +793,7 @@
       "sections": "专业交易板块"
     },
     "account": {
-      "title": "您的 Monadier 账户",
+      "title": "您的 HyperGain 账户",
       "guestDesc": "登录以保存机器人设置、个人资料和交易历史。",
       "profileSettings": "个人资料和设置",
       "profileSettingsFallback": "个人资料和机器人设置",
@@ -558,7 +852,13 @@
       "sent": "Sent",
       "sendMessage": "Send message",
       "supportHours": "Support hours",
-      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h"
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h",
+      "searchPlaceholder": "搜索帮助文章…",
+      "articleCount": "{{count}} 篇文章",
+      "articlesTitle": "帮助文章",
+      "articlesAll": "全部主题 — 浏览或搜索。",
+      "articlesInTopic": "显示 {{topic}} 中的文章。",
+      "helpLead": "按主题搜索答案、打开文章，或开始实时聊天 — 每次对话我们都能看到你的账户资料。"
     }
   },
   "bot": {
@@ -718,7 +1018,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the Monadier bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "投注分类",
     "marketsAria": "投注市场",

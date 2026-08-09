@@ -10,6 +10,23 @@
   --studio-gradient: linear-gradient(180deg, #efeff2 0%, #e4e4e8 50%, #e0e0e6 100%);
 }
 
+html[data-landing-theme='dark'] {
+  --studio-bg: #000000;
+  --studio-gradient: none;
+}
+
+/* Outside @layer so it beats Tailwind `bg-background` on <body> during route fades */
+html[data-landing-theme='dark'],
+html[data-landing-theme='dark'] body,
+html[data-landing-theme='dark'] #root {
+  background-color: #000000 !important;
+  background-image: none !important;
+}
+
+html[data-landing-theme='dark'] body {
+  color: #f4f4f5;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -22,6 +39,12 @@
     background-attachment: fixed;
   }
 
+  html[data-landing-theme='dark'] {
+    color-scheme: dark;
+    background-color: #000000;
+    background-image: none;
+  }
+
   body {
     @apply font-sans min-h-screen tracking-normal antialiased;
     color: #0a0a0a;
@@ -30,6 +53,10 @@
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  #root {
+    min-height: 100%;
   }
 
   h1, h2, h3, h4, h5, h6 {

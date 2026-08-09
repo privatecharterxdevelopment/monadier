@@ -317,7 +317,7 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
   if (rpcError.message.includes('linked to another')) {
     return {
       data: null,
-      error: new Error('This wallet is already linked to another Monadier account.'),
+      error: new Error('This wallet is already linked to another HyperGain account.'),
     };
   }
 
@@ -349,7 +349,7 @@ export const linkWalletToUser = async (userId: string, walletAddress: string, la
       }
       return {
         data: null,
-        error: new Error('This wallet is already linked to another Monadier account.'),
+        error: new Error('This wallet is already linked to another HyperGain account.'),
       };
     }
     return { data, error };

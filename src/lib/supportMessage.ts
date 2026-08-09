@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 export type SubmitSupportMessageInput = {
   subject: string;
   message: string;
+  channel?: 'form' | 'chat';
 };
 
 async function readInvokeErrorMessage(error: unknown): Promise<string> {
@@ -28,9 +29,10 @@ async function readInvokeErrorMessage(error: unknown): Promise<string> {
 
 export async function submitSupportMessage(
   input: SubmitSupportMessageInput
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; ticketId: string | null } | { ok: false; error: string }> {
   const subject = input.subject.trim();
   const message = input.message.trim();
+  const channel = input.channel === 'chat' ? 'chat' : 'form';
 
   if (subject.length < 3) {
     return { ok: false, error: 'Subject must be at least 3 characters.' };
@@ -40,7 +42,7 @@ export async function submitSupportMessage(
   }
 
   const { data, error } = await supabase.functions.invoke('send-support-message', {
-    body: { subject, message },
+    body: { subject, message, channel },
   });
 
   if (error) {
@@ -51,5 +53,8 @@ export async function submitSupportMessage(
     return { ok: false, error: String(data.error) };
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    ticketId: typeof data?.ticketId === 'string' ? data.ticketId : null,
+  };
 }

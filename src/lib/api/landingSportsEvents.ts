@@ -73,16 +73,15 @@ let fetchedAt = 0;
 let betMarketsFetchedAt = 0;
 
 function pickLandingBetQuestions(questions: HlOutcomeQuestion[], limit: number): HlOutcomeQuestion[] {
-  const { featured, others } = splitFeaturedBettingQuestions(questions);
+  // Landing cards: sports only — no crypto "Recurring Named Outcome" fillers.
+  const sports = questions.filter((q) => resolveBettingCategory(q) === 'sports');
+  const pool = sports.length > 0 ? sports : questions.filter((q) => resolveBettingCategory(q) !== 'crypto');
+
+  const { featured, others } = splitFeaturedBettingQuestions(pool);
   const merged: HlOutcomeQuestion[] = [];
   const seen = new Set<number>();
 
-  const ordered = [...featured, ...others, ...orderQuestionsForAllView(questions)].sort((a, b) => {
-    const sportsA = resolveBettingCategory(a) === 'sports' ? 0 : 1;
-    const sportsB = resolveBettingCategory(b) === 'sports' ? 0 : 1;
-    if (sportsA !== sportsB) return sportsA - sportsB;
-    return 0;
-  });
+  const ordered = [...featured, ...others, ...orderQuestionsForAllView(pool)];
 
   for (const q of ordered) {
     if (seen.has(q.questionId)) continue;
@@ -158,7 +157,13 @@ function formatLandingBetCardDisplay(
     };
   }
 
-  const cleaned = rawTitle.replace(/^[^:]+:\s*/, '').trim() || rawTitle;
+  const cleanedRaw = rawTitle.replace(/^[^:]+:\s*/, '').trim() || rawTitle;
+  // Strip placeholder kickoffs / midnight UTC that render as "0.00UTC" on cards.
+  const cleaned = cleanedRaw
+    .replace(/\b0?0[:.]00\s*UTC\b/gi, '')
+    .replace(/\s*[·|,—-]\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim() || cleanedRaw;
   const cardTitle = cleaned.length > 48 ? `${cleaned.slice(0, 46).trim()}…` : cleaned;
 
   return {
@@ -281,7 +286,7 @@ export async function fetchLandingPredictionStats(): Promise<LandingPredictionSt
 
 /** Live HIP-4 markets with odds + $25 payout preview (same catalog as betting dashboard). */
 export async function fetchLandingBetMarkets(
-  limit = 8,
+  limit = 4,
   stakeUsd = LANDING_BET_STAKE_USD
 ): Promise<LandingBetMarket[]> {
   if (cachedBetMarkets && Date.now() - betMarketsFetchedAt < EVENTS_TTL_MS) {

@@ -7,12 +7,12 @@ export const BETTING_KEYWORDS =
 
 export const BETTING_FAQS: BettingFaq[] = [
   {
-    q: 'What is Hyperliquid sports betting on Monadier?',
-    a: 'Monadier lets you bet on sports and event outcome markets listed as Hyperliquid HIP-4 contracts. Odds update on-chain, orders are wallet-signed, and your USDC stays on your Hyperliquid account.',
+    q: 'What is Hyperliquid sports betting on HyperGain?',
+    a: 'HyperGain lets you bet on sports and event outcome markets listed as Hyperliquid HIP-4 contracts. Odds update on-chain, orders are wallet-signed, and your USDC stays on your Hyperliquid account.',
   },
   {
-    q: 'Is crypto sports betting on Monadier non-custodial?',
-    a: 'Yes. Your USDC remains on your Hyperliquid account. Monadier never holds private keys — you sign bets and manage funds through your wallet.',
+    q: 'Is crypto sports betting on HyperGain non-custodial?',
+    a: 'Yes. Your USDC remains on your Hyperliquid account. HyperGain never holds private keys — you sign bets and manage funds through your wallet.',
   },
   {
     q: 'What sports can I bet on?',
@@ -24,11 +24,11 @@ export const BETTING_FAQS: BettingFaq[] = [
   },
   {
     q: 'How fast is on-chain betting execution?',
-    a: 'Orders route to Hyperliquid outcome markets with wallet-signed execution. Open positions, cash out, and track P/L in the Monadier app.',
+    a: 'Orders route to Hyperliquid outcome markets with wallet-signed execution. Open positions, cash out, and track P/L in the HyperGain app.',
   },
   {
     q: 'Do I need a separate account for sports betting?',
-    a: 'No — the same Hyperliquid account and USDC balance powers sports betting and the Monadier trading bot in one terminal.',
+    a: 'No — the same Hyperliquid account and USDC balance powers sports betting and the HyperGain trading bot in one terminal.',
   },
   {
     q: 'Are betting odds transparent?',
@@ -36,7 +36,7 @@ export const BETTING_FAQS: BettingFaq[] = [
   },
   {
     q: 'Can I use the trading bot and sports betting together?',
-    a: 'Yes. Monadier combines automated Hyperliquid perpetuals trading and on-chain sports markets in one platform with one HL account.',
+    a: 'Yes. HyperGain combines automated Hyperliquid perpetuals trading and on-chain sports markets in one platform with one HL account.',
   },
 ];
 
@@ -47,7 +47,7 @@ export const BETTING_BENEFITS = [
   },
   {
     title: 'Wallet-signed bets',
-    text: 'Every order is signed by your wallet. Monadier never custodies your USDC or keys.',
+    text: 'Every order is signed by your wallet. HyperGain never custodies your USDC or keys.',
   },
   {
     title: 'Cash out early',
@@ -55,6 +55,6 @@ export const BETTING_BENEFITS = [
   },
   {
     title: 'One HL account',
-    text: 'Same USDC balance for sports markets and the Monadier trading bot terminal.',
+    text: 'Same USDC balance for sports markets and the HyperGain trading bot terminal.',
   },
 ] as const;

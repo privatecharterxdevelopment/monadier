@@ -121,7 +121,7 @@ const DashboardSidebar: React.FC = () => {
       <aside className="dashboard-sidebar hidden md:flex md:w-[260px] md:shrink-0 md:flex-col md:fixed md:inset-y-0 md:left-0 md:z-40 md:border-r md:border-[#c5c5cb] md:bg-white/55 md:backdrop-blur-xl">
         <div className="flex h-full flex-col px-4 py-6">
           <div className="mb-8 px-1">
-            <Logo size="sm" theme="light" />
+            <Logo size="sm" variant="app" theme="light" />
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto">

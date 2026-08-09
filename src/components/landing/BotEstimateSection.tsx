@@ -40,9 +40,9 @@ const FEATURES = [
 
 const QUICK_FACTS = [
   { label: 'Min. balance', value: '$20 USDC' },
-  { label: 'Monadier fee', value: 'None on closes' },
+  { label: 'HyperGain fee', value: 'None on closes' },
   { label: 'Platform fee', value: 'No subscription' },
-  { label: 'Arbitrum gas', value: 'Covered by Monadier' },
+  { label: 'Arbitrum gas', value: 'Covered by HyperGain' },
 ] as const;
 
 const BotEstimateSection: React.FC = () => (

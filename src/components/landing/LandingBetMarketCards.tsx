@@ -35,7 +35,7 @@ type Props = {
 };
 
 const LandingBetMarketCards: React.FC<Props> = ({
-  limit = 8,
+  limit = 4,
   title = null,
   subtitle = null,
   layout = 'page',
@@ -84,6 +84,8 @@ const LandingBetMarketCards: React.FC<Props> = ({
           flushTop ? ' landing-bet-cards-section--flush' : ''
         }`;
 
+  if (!loading && markets.length === 0) return null;
+
   return (
     <section
       className={sectionClass}
@@ -114,12 +116,6 @@ const LandingBetMarketCards: React.FC<Props> = ({
               />
             ))}
           </div>
-        ) : null}
-
-        {!loading && markets.length === 0 ? (
-          <p className="landing-bet-cards-empty">
-            Markets loading from Hyperliquid — open the app to browse live odds.
-          </p>
         ) : null}
 
         {markets.length > 0 ? (

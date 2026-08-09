@@ -57,6 +57,12 @@ import {
   type SupportRequestRow,
 } from '../../lib/adminSupportRequests';
 import {
+  fetchSupportMessages,
+  sendSupportChatReply,
+  subscribeSupportMessages,
+  type SupportMessageRow,
+} from '../../lib/supportChat';
+import {
   fetchAdminCommunityReports,
   hideCommunityComment,
   hideCommunityPost,
@@ -673,6 +679,10 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<SupportMessageRow[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [reply, setReply] = useState('');
+  const [replyBusy, setReplyBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -690,6 +700,31 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
   useEffect(() => {
     void load();
   }, [load, refreshAt]);
+
+  const loadMessages = useCallback(async (requestId: string) => {
+    setMessagesLoading(true);
+    const result = await fetchSupportMessages(requestId);
+    if (result.error) {
+      setLoadError(result.error);
+      setMessages([]);
+    } else {
+      setMessages(result.rows);
+    }
+    setMessagesLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!expandedId) {
+      setMessages([]);
+      setReply('');
+      return;
+    }
+    void loadMessages(expandedId);
+    const unsub = subscribeSupportMessages(expandedId, (row) => {
+      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+    });
+    return unsub;
+  }, [expandedId, loadMessages]);
 
   const openCount = rows.filter((r) => r.status === 'open').length;
 
@@ -715,17 +750,36 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
     setBusyId(null);
   };
 
+  const handleReply = async (requestId: string) => {
+    const text = reply.trim();
+    if (!text) return;
+    setReplyBusy(true);
+    const result = await sendSupportChatReply(requestId, text, 'admin');
+    setReplyBusy(false);
+    if (result.error) {
+      setLoadError(result.error);
+      return;
+    }
+    if (result.row) {
+      setMessages((prev) =>
+        prev.some((m) => m.id === result.row!.id) ? prev : [...prev, result.row!]
+      );
+    }
+    setReply('');
+    await load();
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card-dark p-5">
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <MessageCircle size={20} className="text-cyan-400" />
-        <h3 className="font-semibold text-primary">Support requests</h3>
+        <h3 className="font-semibold text-primary">Live support chat</h3>
         <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400">
           {filter === 'open' ? `${openCount} open` : `${rows.length} shown`}
         </span>
       </div>
       <p className="text-xs text-secondary mb-3">
-        Messages from the in-app support form — each ticket is linked to the user profile.
+        In-app Help Center chat — open a ticket to see the thread and full user profile.
       </p>
 
       <div className="flex gap-2 mb-3">
@@ -756,18 +810,18 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
       {loadError ? (
         <p className="text-xs text-amber-400 mb-2" role="alert">
           {loadError}
-          {loadError.includes('support_requests') ? (
-            <span> — run Supabase migration for support_requests.</span>
+          {loadError.includes('support_') ? (
+            <span> — run Supabase migration for support live chat.</span>
           ) : null}
         </p>
       ) : null}
 
-      <div className="max-h-[340px] overflow-y-auto divide-y divide-border -mx-1">
+      <div className="max-h-[520px] overflow-y-auto divide-y divide-border -mx-1">
         {loading ? (
           <p className="text-sm text-secondary py-6 text-center">Loading…</p>
         ) : rows.length === 0 ? (
           <p className="text-sm text-secondary py-6 text-center">
-            {filter === 'open' ? 'No open support requests.' : 'No support requests yet.'}
+            {filter === 'open' ? 'No open support chats.' : 'No support chats yet.'}
           </p>
         ) : (
           rows.map((row) => {
@@ -787,15 +841,7 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
                     <p className="font-medium text-primary">{row.subject}</p>
                     <p className="text-xs text-secondary mt-0.5">
                       {userLabel}
-                      {row.user_full_name && row.user_email ? ` · ${row.user_full_name}` : ''}
-                    </p>
-                    {row.wallet_address ? (
-                      <p className="text-[10px] font-mono text-secondary/80 mt-0.5 break-all">
-                        {row.wallet_address}
-                      </p>
-                    ) : null}
-                    <p className="text-[10px] text-secondary/70 mt-0.5 font-mono">
-                      user {shortWallet(row.user_id, 8)}
+                      {row.channel ? ` · ${row.channel}` : ''}
                     </p>
                   </div>
                   <span
@@ -813,14 +859,90 @@ function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
                   className="text-xs text-cyan-400 mt-1 hover:underline"
                   onClick={() => setExpandedId(expanded ? null : row.id)}
                 >
-                  {expanded ? 'Hide message' : 'Show message'}
+                  {expanded ? 'Hide chat' : 'Open chat + profile'}
                 </button>
-                {expanded ? (
-                  <p className="mt-2 text-xs text-primary/90 whitespace-pre-wrap rounded-lg bg-black/20 p-2 border border-border">
-                    {row.message}
-                  </p>
-                ) : (
+                {!expanded ? (
                   <p className="mt-1 text-xs text-secondary line-clamp-2">{row.message}</p>
+                ) : (
+                  <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(200px,0.8fr)]">
+                    <div className="rounded-lg border border-border bg-black/20 p-2">
+                      <div className="max-h-[240px] overflow-y-auto space-y-2 mb-2">
+                        {messagesLoading ? (
+                          <p className="text-xs text-secondary py-4 text-center">Loading thread…</p>
+                        ) : messages.length === 0 ? (
+                          <p className="text-xs text-secondary whitespace-pre-wrap">{row.message}</p>
+                        ) : (
+                          messages.map((m) => (
+                            <div
+                              key={m.id}
+                              className={`rounded-md px-2 py-1.5 text-xs ${
+                                m.sender_role === 'admin'
+                                  ? 'bg-cyan-500/10 border border-cyan-500/20'
+                                  : 'bg-black/25 border border-border'
+                              }`}
+                            >
+                              <p className="text-[10px] uppercase tracking-wide text-secondary mb-0.5">
+                                {m.sender_role === 'admin' ? 'Support' : 'User'} ·{' '}
+                                {formatTimeAgo(m.created_at)}
+                              </p>
+                              <p className="text-primary/90 whitespace-pre-wrap">{m.body}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={reply}
+                          onChange={(e) => setReply(e.target.value)}
+                          placeholder="Reply in live chat…"
+                          className="flex-1 text-xs rounded-md border border-border bg-black/30 px-2 py-1.5 text-primary"
+                          disabled={replyBusy}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              void handleReply(row.id);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={replyBusy || !reply.trim()}
+                          className="text-xs px-2.5 py-1 rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 disabled:opacity-50"
+                          onClick={() => void handleReply(row.id)}
+                        >
+                          {replyBusy ? '…' : 'Send'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-black/20 p-2 text-xs space-y-1.5">
+                      <p className="font-semibold text-primary">User profile</p>
+                      <p className="text-secondary">
+                        Name:{' '}
+                        <span className="text-primary">{row.user_full_name || '—'}</span>
+                      </p>
+                      <p className="text-secondary">
+                        Email:{' '}
+                        <span className="text-primary break-all">{row.user_email || '—'}</span>
+                      </p>
+                      <p className="text-secondary">
+                        Username:{' '}
+                        <span className="text-primary">
+                          {row.user_username ? `@${row.user_username}` : '—'}
+                        </span>
+                      </p>
+                      <p className="text-secondary">
+                        Wallet:{' '}
+                        <span className="text-primary font-mono break-all">
+                          {row.wallet_address || '—'}
+                        </span>
+                      </p>
+                      <p className="text-secondary">
+                        User ID:{' '}
+                        <span className="text-primary font-mono break-all">{row.user_id}</span>
+                      </p>
+                    </div>
+                  </div>
                 )}
                 <div className="mt-2 flex gap-2">
                   {row.status === 'open' ? (

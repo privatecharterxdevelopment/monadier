@@ -3,8 +3,6 @@ import {
   BRAND_APP_URL,
   BRAND_DOMAIN,
   BRAND_NAME,
-  OFFICIAL_TELEGRAM_HANDLE,
-  OFFICIAL_TELEGRAM_URL,
   OFFICIAL_X_HANDLE,
   OFFICIAL_X_URL,
   SUPPORT_EMAIL,
@@ -44,18 +42,10 @@ const officialChannelsEn = () => (
     <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
       @{OFFICIAL_X_HANDLE}
     </a>
-    . The sole official Telegram channel is{' '}
-    <a
-      href={OFFICIAL_TELEGRAM_URL}
-      className="legal-doc-link"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      @{OFFICIAL_TELEGRAM_HANDLE}
-    </a>{' '}
-    ({OFFICIAL_TELEGRAM_URL}). Any other X, Telegram, Discord, WhatsApp, Instagram, Facebook, or
-    similar account, group, bot, or direct message claiming to represent {BRAND_NAME} is{' '}
-    <strong>not</strong> official. Do not send funds, seed phrases, private keys, or account
+    . {BRAND_NAME} is <strong>not</strong> on Telegram — any Telegram account, group, bot, or DM
+    claiming to represent {BRAND_NAME} is a scam. Any other X, Discord, WhatsApp, Instagram,
+    Facebook, or similar account, group, bot, or direct message claiming to represent {BRAND_NAME}{' '}
+    is <strong>not</strong> official. Do not send funds, seed phrases, private keys, or account
     credentials to anyone contacting you on unofficial channels.
   </>
 );
@@ -66,19 +56,12 @@ const officialChannelsDe = () => (
     <a href={OFFICIAL_X_URL} className="legal-doc-link" target="_blank" rel="noopener noreferrer">
       @{OFFICIAL_X_HANDLE}
     </a>
-    . Der einzige offizielle Telegram-Kanal ist{' '}
-    <a
-      href={OFFICIAL_TELEGRAM_URL}
-      className="legal-doc-link"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      @{OFFICIAL_TELEGRAM_HANDLE}
-    </a>{' '}
-    ({OFFICIAL_TELEGRAM_URL}). Jeder andere X-, Telegram-, Discord-, WhatsApp-, Instagram-,
-    Facebook- oder ähnliche Account, Gruppe, Bot oder Direktnachricht, die vorgibt, {BRAND_NAME} zu
-    vertreten, ist <strong>nicht</strong> offiziell. Sende keine Gelder, Seed-Phrasen, Private Keys
-    oder Zugangsdaten an Personen auf inoffiziellen Kanälen.
+    . {BRAND_NAME} ist <strong>nicht</strong> auf Telegram — jeder Telegram-Account, jede Gruppe,
+    jeder Bot oder jede DM, die vorgibt, {BRAND_NAME} zu vertreten, ist ein Betrug. Jeder andere
+    X-, Discord-, WhatsApp-, Instagram-, Facebook- oder ähnliche Account, Gruppe, Bot oder
+    Direktnachricht, die vorgibt, {BRAND_NAME} zu vertreten, ist <strong>nicht</strong> offiziell.
+    Sende keine Gelder, Seed-Phrasen, Private Keys oder Zugangsdaten an Personen auf inoffiziellen
+    Kanälen.
   </>
 );
 

@@ -21,7 +21,7 @@ const CardPage: React.FC = () => {
               <span className="text-sm text-secondary">Coming Soon</span>
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-medium leading-[1.1] mb-8 tracking-tight">
-              +DebitCard <span className="text-secondary">by Monadier</span>
+              +DebitCard <span className="text-secondary">by HyperGain</span>
             </h1>
             <p className="text-lg md:text-xl text-secondary mb-12 max-w-2xl mx-auto leading-relaxed">
               Control your spending and track your income wherever you go. A premium debit card powered by Stripe, designed for the modern trader.

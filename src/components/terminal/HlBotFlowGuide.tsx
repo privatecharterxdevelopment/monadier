@@ -8,7 +8,7 @@ const STEPS = [
   },
   {
     title: 'Deposit USDC',
-    body: `Only native USDC on Arbitrum One (not BNB, not other chains). Deposit from the Funds tab in Monadier — min. $${MIN_HL_BOT_USD} for the bot.`,
+    body: `Only native USDC on Arbitrum One (not BNB, not other chains). Deposit from the Funds tab in HyperGain — min. $${MIN_HL_BOT_USD} for the bot.`,
   },
   {
     title: 'Approve agent',
@@ -16,7 +16,7 @@ const STEPS = [
   },
   {
     title: 'Start bot',
-    body: 'Monadier scans all HL markets 24/7, opens the best setup, closes at TP/SL, then finds the next.',
+    body: 'HyperGain scans all HL markets 24/7, opens the best setup, closes at TP/SL, then finds the next.',
   },
 ] as const;
 

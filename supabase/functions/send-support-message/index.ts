@@ -87,6 +87,7 @@ serve(async (req: Request) => {
     const body = await req.json();
     const subject = String(body?.subject ?? '').trim();
     const message = String(body?.message ?? '').trim();
+    const channel = body?.channel === 'chat' ? 'chat' : 'form';
 
     if (subject.length < 3 || subject.length > MAX_SUBJECT) {
       return new Response(JSON.stringify({ error: 'Subject must be 3–120 characters' }), {
@@ -114,80 +115,126 @@ serve(async (req: Request) => {
     const username = profile?.username || '';
     const walletAddress = profile?.wallet_address || '';
 
-    const { data: ticket, error: insertErr } = await supabase
+    // Resume an open ticket instead of opening duplicates (live chat).
+    const { data: existingOpen } = await supabase
       .from('support_requests')
-      .insert({
-        user_id: user.id,
-        subject,
-        message,
-        user_email: userEmail,
-        user_full_name: fullName || null,
-        user_username: username || null,
-        wallet_address: walletAddress || null,
-        status: 'open',
-      })
       .select('id')
-      .single();
+      .eq('user_id', user.id)
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (insertErr) {
-      console.error('[send-support-message] DB insert error:', insertErr);
-      return new Response(
-        JSON.stringify({
-          error: insertErr.message?.includes('relation')
-            ? 'Support inbox not ready — contact administration@hypergain.io'
-            : 'Failed to save support request',
-        }),
-        {
+    let ticketId: string | null = existingOpen?.id ?? null;
+    const isNewTicket = !ticketId;
+
+    if (ticketId) {
+      const { error: msgErr } = await supabase.from('support_messages').insert({
+        request_id: ticketId,
+        sender_id: user.id,
+        sender_role: 'user',
+        body: message,
+      });
+      if (msgErr) {
+        console.error('[send-support-message] message insert error:', msgErr);
+        return new Response(JSON.stringify({ error: 'Failed to send message' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      const { data: ticket, error: insertErr } = await supabase
+        .from('support_requests')
+        .insert({
+          user_id: user.id,
+          subject,
+          message,
+          user_email: userEmail,
+          user_full_name: fullName || null,
+          user_username: username || null,
+          wallet_address: walletAddress || null,
+          status: 'open',
+          channel,
+        })
+        .select('id')
+        .single();
+
+      if (insertErr) {
+        console.error('[send-support-message] DB insert error:', insertErr);
+        return new Response(
+          JSON.stringify({
+            error: insertErr.message?.includes('relation')
+              ? 'Support inbox not ready — contact administration@hypergain.io'
+              : 'Failed to save support request',
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      ticketId = ticket?.id ?? null;
+
+      if (ticketId) {
+        const { error: msgErr } = await supabase.from('support_messages').insert({
+          request_id: ticketId,
+          sender_id: user.id,
+          sender_role: 'user',
+          body: message,
+        });
+        if (msgErr) {
+          console.error('[send-support-message] first message insert error:', msgErr);
         }
-      );
+      }
     }
 
     let emailSent = false;
-    if (!RESEND_API_KEY) {
-      console.error('[send-support-message] RESEND_API_KEY missing — ticket saved only');
-    } else {
-      const mailSubject = `[${BRAND_NAME}] ${subject}`;
-      const html = supportEmailHtml({
-        subject,
-        message,
-        userId: user.id,
-        email: userEmail,
-        fullName,
-        username,
-        walletAddress,
-      });
-
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
-            from: FROM_ADDRESS,
-            to: SUPPORT_INBOX,
-            reply_to: userEmail,
-            subject: mailSubject,
-            html,
-          }),
+    if (isNewTicket) {
+      if (!RESEND_API_KEY) {
+        console.error('[send-support-message] RESEND_API_KEY missing — ticket saved only');
+      } else {
+        const mailSubject = `[${BRAND_NAME}] ${subject}`;
+        const html = supportEmailHtml({
+          subject,
+          message,
+          userId: user.id,
+          email: userEmail,
+          fullName,
+          username,
+          walletAddress,
         });
-        const data = await res.json();
-        if (!res.ok) {
-          console.error('[send-support-message] Resend error:', data);
-        } else {
-          emailSent = true;
+
+        try {
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: FROM_ADDRESS,
+              to: SUPPORT_INBOX,
+              reply_to: userEmail,
+              subject: mailSubject,
+              html,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.error('[send-support-message] Resend error:', data);
+          } else {
+            emailSent = true;
+          }
+        } catch (mailErr) {
+          console.error('[send-support-message] Resend fetch failed:', mailErr);
         }
-      } catch (mailErr) {
-        console.error('[send-support-message] Resend fetch failed:', mailErr);
       }
     }
 
     // Ticket is source of truth for Admin Monitor — never fail the user after save.
     return new Response(
-      JSON.stringify({ ok: true, ticketId: ticket?.id, emailSent }),
+      JSON.stringify({ ok: true, ticketId, emailSent }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

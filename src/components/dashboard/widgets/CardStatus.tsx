@@ -19,7 +19,7 @@ const CardStatus: React.FC<CardStatusProps> = ({
   
   return (
     <Card className="p-6">
-      <h3 className="text-secondary font-medium text-sm mb-4">Monadier Card</h3>
+      <h3 className="text-secondary font-medium text-sm mb-4">HyperGain Card</h3>
       
       <div className="relative h-44 w-full rounded-xl overflow-hidden mb-6">
         <div 

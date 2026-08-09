@@ -28,7 +28,7 @@ export function ogImageUrl(path = '/og-image-v2.png'): string {
 }
 
 /** Build-time absolute OG image for index.html parity / helmet fallbacks.
- *  v2 filename busts WhatsApp/Telegram/iMessage caches of the old Monadier art. */
+ *  v2 filename busts WhatsApp/Telegram/iMessage caches of the old HyperGain art. */
 export const OG_IMAGE = `${BRAND_SITE_URL}/og-image-v2.png`;
 
 export { SUPPORT_EMAIL };

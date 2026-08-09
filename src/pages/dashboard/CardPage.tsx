@@ -68,7 +68,7 @@ const CardPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="font-display text-2xl mb-6">Your Monadier Card</h2>
+          <h2 className="font-display text-2xl mb-6">Your HyperGain Card</h2>
           
           <div className="relative h-56 w-full rounded-xl overflow-hidden mb-8">
             <div 

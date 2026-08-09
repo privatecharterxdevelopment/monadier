@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import LandingNav from '../components/landing/LandingNav';
-import LandingFooter from '../components/landing/LandingFooter';
+import React from 'react';
+import LandingPageShell from '../components/landing/LandingPageShell';
 import BettingVideoHero from '../components/landing/BettingVideoHero';
 import LandingBetMarketCards from '../components/landing/LandingBetMarketCards';
 import BettingBenefitsList from '../components/landing/BettingBenefitsList';
@@ -19,6 +18,7 @@ import {
 } from '../components/landing/SportsBettingHowItWorksVisuals';
 import MarketingSeo from '../components/seo/MarketingSeo';
 import { BETTING_FAQS } from '../lib/seo/bettingContent';
+import { useLandingTheme } from '../contexts/LandingThemeContext';
 
 const steps = [
   {
@@ -39,49 +39,48 @@ const steps = [
 ];
 
 const SportsBettingPage: React.FC = () => {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  const { theme } = useLandingTheme();
 
   return (
-    <div className="landing-gmx">
+    <div className={`landing-gmx landing-gmx--home landing-gmx--al landing-gmx--${theme}`}>
       <MarketingSeo path="/ai-sports-betting" faqs={BETTING_FAQS} />
-      <LandingNav variant="light" layout="gmx" />
+      <LandingPageShell afterContent={<MarketingPageBottomCta />}>
+        <BettingVideoHero />
 
-      <BettingVideoHero />
+        <LandingBetMarketCards
+          limit={4}
+          layout="page"
+          flushTop
+          ariaLabel="Live Hyperliquid betting markets"
+        />
 
-      <LandingBetMarketCards limit={8} layout="page" flushTop ariaLabel="Live Hyperliquid betting markets" />
+        <main className="landing-gmx-page-main landing-gmx-page-main--framed landing-gmx-page-main--inner landing-gmx-gutter">
+          <div className="landing-gmx-shell">
+            <div className="mkt-page">
+              <BettingBenefitsList />
 
-      <main className="landing-gmx-page-main landing-gmx-page-main--inner landing-gmx-gutter">
-        <div className="landing-gmx-shell">
-          <div className="mkt-page">
-            <BettingBenefitsList />
+              <MarketingSectionHeading
+                title="How sports betting works"
+                sub="Three steps from wallet to your first on-chain sports bet."
+              />
 
-            <MarketingSectionHeading
-              title="How sports betting works"
-              sub="Three steps from wallet to your first on-chain sports bet."
-            />
-
-            <MarketingPageGrid columns={3}>
-              {steps.map((step, i) => (
-                <MarketingFeatureCard
-                  key={step.title}
-                  index={i}
-                  title={step.title}
-                  text={step.text}
-                  visual={step.visual}
-                />
-              ))}
-            </MarketingPageGrid>
+              <MarketingPageGrid columns={3}>
+                {steps.map((step, i) => (
+                  <MarketingFeatureCard
+                    key={step.title}
+                    index={i}
+                    title={step.title}
+                    text={step.text}
+                    visual={step.visual}
+                  />
+                ))}
+              </MarketingPageGrid>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      <BettingFaqSection />
-
-      <MarketingPageBottomCta />
-
-      <LandingFooter />
+        <BettingFaqSection />
+      </LandingPageShell>
       <CookieConsent />
     </div>
   );

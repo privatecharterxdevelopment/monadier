@@ -1,3 +1,4 @@
+import { OFFICIAL_X_URL } from '../brand';
 import { OG_IMAGE, SITE_NAME, SITE_ORIGIN, SUPPORT_EMAIL } from './site';
 import { GOOGLE_SITELINKS, sitelinkUrl } from './sitelinks';
 
@@ -10,8 +11,8 @@ export function organizationSchema() {
     logo: OG_IMAGE,
     email: SUPPORT_EMAIL,
     description:
-      'Non-custodial Hyperliquid trading bot — full auto 24/7 perpetuals execution across 200+ markets.',
-    sameAs: [] as string[],
+      'Non-custodial Hyperliquid trading bot — full auto 24/7 perpetuals execution across 200+ markets. No guaranteed returns.',
+    sameAs: [OFFICIAL_X_URL],
   };
 }
 
@@ -23,7 +24,7 @@ export function webSiteSchema() {
     name: SITE_NAME,
     url: SITE_ORIGIN,
     description:
-      'Full auto Hyperliquid trading bot with non-custodial USDC on HL, live charts, and 24/7 automated execution.',
+      'Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perps.',
     publisher: {
       '@type': 'Organization',
       name: SITE_NAME,
@@ -62,7 +63,7 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
     url: opts?.path ? `${SITE_ORIGIN}${opts.path}` : SITE_ORIGIN,
     description:
       opts?.description ??
-      'Full auto Hyperliquid trading bot. Non-custodial USDC on HL, 200+ perpetual markets, 24/7 automated execution.',
+      'Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 across 200+ perps. No guaranteed returns.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -73,9 +74,9 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
     featureList: [
       'Full auto Hyperliquid trading bot',
       'Non-custodial Hyperliquid account trading',
+      'Native USDC on Arbitrum One deposits',
       '200+ Hyperliquid perpetual markets',
       '24/7 automated execution',
-      'Live chart terminal',
       'Configurable risk management',
     ],
   };

@@ -111,7 +111,7 @@ export function LegalAcceptanceProvider({ children }: { children: React.ReactNod
               Before you trade
             </h2>
             <p className="hl-modal-sub">
-              Monadier is non-custodial trading software on Hyperliquid. Confirm you have read and
+              HyperGain is non-custodial trading software on Hyperliquid. Confirm you have read and
               agree to our legal documents before placing trades or starting the bot.
             </p>
             <label className="hl-legal-check">

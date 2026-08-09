@@ -341,7 +341,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
                   <th>Volume</th>
                   <th>Trades</th>
                   <th>Profit</th>
-                  <th>Monadier fees</th>
+                  <th>HyperGain fees</th>
                   <th>Your earnings</th>
                   <th>Status</th>
                 </tr>
@@ -386,7 +386,7 @@ const ProTradeAffiliate: React.FC<Props> = ({ onRequireSignIn }) => {
                   <th>Date</th>
                   <th>Trade</th>
                   <th>Profit</th>
-                  <th>Monadier fee</th>
+                  <th>HyperGain fee</th>
                   <th>Your share</th>
                   <th>Payout</th>
                 </tr>
