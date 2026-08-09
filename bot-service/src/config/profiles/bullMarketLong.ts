@@ -10,12 +10,13 @@ import {
  * BULL MARKET — LONG-first regime.
  *
  * LONG analysis: 15m + 1h (+ optional 4h at runtime).
- * SHORT analysis: 1m + 5m + 15m + 1h (counter-trend / peak / zone-flip still allowed).
+ * SHORT still allowed, but counter-trend-strict: high conf, 1h DOWN,
+ * zone-flip LONG→SHORT only at real upper-range fades (see entryLocation + hlTrading).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary: LONG on 15m/1h/(4h), SHORT on 1m/5m/15m/1h. Entry 15m long / 5m short.',
+    'LONG-primary; SHORT only as strict counter-trend (high conf, 1h DOWN, no lazy zone fades).',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -33,8 +34,13 @@ export const BULL_MARKET: HlDirectionProfile = {
   enableHtfSr: true,
   enableLlmConfirm: true,
   allowLongOpens: true,
-  /** Counter-trend / peak / zone shorts allowed in bull. */
+  /** Shorts allowed — but stricter than bear primary (see short rules + zone-flip gates). */
   allowShortOpens: true,
   long: { ...PRIMARY_RULES },
-  short: COUNTER_TREND_RULES('DOWN'),
+  short: {
+    ...COUNTER_TREND_RULES('DOWN'),
+    /** Was 80 — bull fades need clearer conviction. */
+    minConfidence: 85,
+    minTrendAlignment: 75,
+  },
 };

@@ -480,6 +480,8 @@ export async function validateEntryLocation(opts: {
 
   // Symmetric: resistance rejection when scan arrived LONG → SHORT (top of range).
   // Disabled under LONG-only bull (allowShortOpens=false).
+  // LONG-primary (bull): stricter — upper-range only, more rejection proof, longer confirm.
+  // Lazy mid-range "resistance" fades caused BTC SHORT into bull buildup (2026-08-09).
   if (
     config.hyperliquid.zoneFlipEnabled &&
     config.hyperliquid.directionProfile.allowShortOpens &&
@@ -487,15 +489,24 @@ export async function validateEntryLocation(opts: {
     !classic.ok &&
     sr.nearResistance &&
     !sr.confirmedBreakoutUp &&
-    sr.resistanceZone != null &&
-    zoneReversalConfirmed(revCandles, sr.resistanceZone, 4)
+    sr.resistanceZone != null
   ) {
-    return {
-      ok: true,
-      reason: `Resistance-zone rejection → flip LONG→SHORT ($${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)})`,
-      analysis: sr,
-      flipTo: 'SHORT',
-    };
+    const longPrimary = config.hyperliquid.directionProfile.primaryDirection === 'LONG';
+    const confirmBars = longPrimary ? 6 : 4;
+    const minRangePos = longPrimary ? 0.75 : 0;
+    const minResRejections = longPrimary ? 5 : 2;
+    if (
+      sr.pricePosition >= minRangePos &&
+      sr.resistanceRejections >= minResRejections &&
+      zoneReversalConfirmed(revCandles, sr.resistanceZone, confirmBars)
+    ) {
+      return {
+        ok: true,
+        reason: `Resistance-zone rejection → flip LONG→SHORT ($${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)})`,
+        analysis: sr,
+        flipTo: 'SHORT',
+      };
+    }
   }
 
   return classic;

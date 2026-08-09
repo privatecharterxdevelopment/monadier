@@ -117,7 +117,8 @@ export type HlDirectionProfile = {
   allowLongOpens: boolean;
   /**
    * When false, SHORTs are dead at the source (scan / open / zone-flip→SHORT /
-   * peak-short / force-open). bull_market = false — no shorts in a long bull run.
+   * peak-short / force-open). Prefer keeping true in bull and raising short
+   * counter-trend bars + zone-flip strictness instead of a hard ban.
    */
   allowShortOpens: boolean;
   long: HlDirectionRules;

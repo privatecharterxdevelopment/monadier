@@ -1666,10 +1666,42 @@ export class HyperliquidTradingService {
             'SHORT disabled at source'
           );
         }
-        opts.pick.direction = flipped;
-        if (flipped === 'SHORT') {
-          opts.pick.peakLiquidityGrab = true;
+
+        // LONG-primary: zone-fade SHORT must clear counter-trend bar — no lazy shorts into bull.
+        if (
+          flipped === 'SHORT' &&
+          config.hyperliquid.directionProfile.primaryDirection === 'LONG'
+        ) {
+          const h1 = String(opts.pick.h1Trend || '').toUpperCase();
+          const conf = Number(opts.pick.confidence) || 0;
+          const shortMin = config.hyperliquid.directionProfile.short.minConfidence;
+          const rangePos = locationGate.analysis.pricePosition;
+          if (h1 === 'UP') {
+            return rejectOpen(
+              'sr_zone_flip',
+              `LONG→SHORT blocked in ${config.hyperliquid.directionProfile.name} — 1h still UP (fade needs 1h DOWN/SIDEWAYS + strict zone)`,
+              'no short flip vs 1h UP'
+            );
+          }
+          if (conf < shortMin) {
+            return rejectOpen(
+              'sr_zone_flip',
+              `LONG→SHORT blocked — confidence ${conf}% < ${shortMin}% counter-trend bar in ${config.hyperliquid.directionProfile.name}`,
+              'short flip conf too low'
+            );
+          }
+          if (rangePos < 0.75) {
+            return rejectOpen(
+              'sr_zone_flip',
+              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥75% resistance fade)`,
+              'short flip not at range top'
+            );
+          }
         }
+
+        opts.pick.direction = flipped;
+        // Do NOT stamp peakLiquidityGrab on every zone SHORT — that bypassed pump/apex honesty.
+        // Real peak shorts still arrive with peakLiquidityGrab from the peak resolver.
         logger.info('HL open direction flipped by S/R zone', {
           user: opts.userAddress.slice(0, 10),
           coin,
@@ -1714,6 +1746,14 @@ export class HyperliquidTradingService {
               resistance: locationGate.analysis.resistance,
               rejections: locationGate.analysis.resistanceRejections,
             }
+          );
+        }
+        // Contradictory second flip (e.g. SHORT then support wants LONG) → abort, don't force open.
+        if (locationGate.flipTo && locationGate.flipTo !== flipped) {
+          return rejectOpen(
+            'sr_zone_flip',
+            `Zone unstable after ${zoneFlipFrom}→${flipped}: location now wants ${locationGate.flipTo} — no open`,
+            'contradictory zone flip'
           );
         }
         (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
