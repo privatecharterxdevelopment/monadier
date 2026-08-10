@@ -10,6 +10,7 @@ import {
   DollarSign,
   ExternalLink,
   Flag,
+  Headphones,
   MessageCircle,
   PauseCircle,
   RefreshCw,
@@ -49,19 +50,8 @@ import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
 import AdminForceOpenPanel from '../../components/admin/AdminForceOpenPanel';
 import AdminLetRunPanel from '../../components/admin/AdminLetRunPanel';
+import AdminSupportInbox from '../../components/admin/AdminSupportInbox';
 import { BotTradeDiagnosisPanel } from '../../components/admin/BotTradeDiagnosisPanel';
-import {
-  fetchAdminSupportRequests,
-  resolveSupportRequest,
-  reopenSupportRequest,
-  type SupportRequestRow,
-} from '../../lib/adminSupportRequests';
-import {
-  fetchSupportMessages,
-  sendSupportChatReply,
-  subscribeSupportMessages,
-  type SupportMessageRow,
-} from '../../lib/supportChat';
 import {
   fetchAdminCommunityReports,
   hideCommunityComment,
@@ -76,6 +66,7 @@ import {
 
 type Section =
   | 'overview'
+  | 'chats'
   | 'bots'
   | 'positions'
   | 'trades'
@@ -91,6 +82,7 @@ type Section =
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
+  { id: 'chats', label: 'Chats', icon: <Headphones size={16} /> },
   { id: 'bots', label: 'HL bots', icon: <Bot size={16} /> },
   { id: 'letrun', label: 'Let run', icon: <PauseCircle size={16} /> },
   { id: 'forceopen', label: 'Force open', icon: <Crosshair size={16} /> },
@@ -300,8 +292,16 @@ const AdminMonitorPage: React.FC = () => {
       </nav>
 
       {section === 'overview' && stats && (
-        <OverviewPanel stats={stats} live={live} events={mergedEvents} refreshAt={lastRefresh} />
+        <OverviewPanel
+          stats={stats}
+          live={live}
+          events={mergedEvents}
+          refreshAt={lastRefresh}
+          onOpenChats={() => setSection('chats')}
+        />
       )}
+
+      {section === 'chats' && <AdminSupportInbox refreshAt={lastRefresh} />}
 
       {section === 'bots' && dash && (
         <BotsPanel bots={dash.active_bots} runnableCount={dash.stats.hl_bots_runnable} />
@@ -362,6 +362,7 @@ function OverviewPanel({
   live,
   events,
   refreshAt,
+  onOpenChats,
 }: {
   stats: NonNullable<AdminHlDashboard['stats']>;
   live: AdminLiveContext | null;
@@ -376,6 +377,7 @@ function OverviewPanel({
     emailSent: boolean;
   }[];
   refreshAt: Date;
+  onOpenChats: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -413,7 +415,11 @@ function OverviewPanel({
           activeBots={stats.hl_bots_runnable ?? stats.hl_bots_active}
           toggleOn={stats.hl_bots_toggle_on}
         />
-        <SupportRequestsCard refreshAt={refreshAt} />
+        <AdminSupportInbox
+          variant="overview"
+          refreshAt={refreshAt}
+          onOpenInbox={onOpenChats}
+        />
       </div>
 
       <CommunityReportsCard refreshAt={refreshAt} />
@@ -666,308 +672,6 @@ function NewSignupsCard({ refreshAt }: { refreshAt: Date }) {
               )}
             </div>
           ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SupportRequestsCard({ refreshAt }: { refreshAt: Date }) {
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
-  const [rows, setRows] = useState<SupportRequestRow[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<SupportMessageRow[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [reply, setReply] = useState('');
-  const [replyBusy, setReplyBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    const result = await fetchAdminSupportRequests({ status: filter, limit: 50 });
-    if (result.error) {
-      setLoadError(result.error);
-      setRows([]);
-    } else {
-      setRows(result.rows);
-    }
-    setLoading(false);
-  }, [filter]);
-
-  useEffect(() => {
-    void load();
-  }, [load, refreshAt]);
-
-  const loadMessages = useCallback(async (requestId: string) => {
-    setMessagesLoading(true);
-    const result = await fetchSupportMessages(requestId);
-    if (result.error) {
-      setLoadError(result.error);
-      setMessages([]);
-    } else {
-      setMessages(result.rows);
-    }
-    setMessagesLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!expandedId) {
-      setMessages([]);
-      setReply('');
-      return;
-    }
-    void loadMessages(expandedId);
-    const unsub = subscribeSupportMessages(expandedId, (row) => {
-      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
-    });
-    return unsub;
-  }, [expandedId, loadMessages]);
-
-  const openCount = rows.filter((r) => r.status === 'open').length;
-
-  const handleResolve = async (id: string) => {
-    setBusyId(id);
-    const result = await resolveSupportRequest(id);
-    if (!result.ok) {
-      setLoadError(result.error ?? 'Could not resolve');
-    } else {
-      await load();
-    }
-    setBusyId(null);
-  };
-
-  const handleReopen = async (id: string) => {
-    setBusyId(id);
-    const result = await reopenSupportRequest(id);
-    if (!result.ok) {
-      setLoadError(result.error ?? 'Could not reopen');
-    } else {
-      await load();
-    }
-    setBusyId(null);
-  };
-
-  const handleReply = async (requestId: string) => {
-    const text = reply.trim();
-    if (!text) return;
-    setReplyBusy(true);
-    const result = await sendSupportChatReply(requestId, text, 'admin');
-    setReplyBusy(false);
-    if (result.error) {
-      setLoadError(result.error);
-      return;
-    }
-    if (result.row) {
-      setMessages((prev) =>
-        prev.some((m) => m.id === result.row!.id) ? prev : [...prev, result.row!]
-      );
-    }
-    setReply('');
-    await load();
-  };
-
-  return (
-    <div className="rounded-xl border border-border bg-card-dark p-5">
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <MessageCircle size={20} className="text-cyan-400" />
-        <h3 className="font-semibold text-primary">Live support chat</h3>
-        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400">
-          {filter === 'open' ? `${openCount} open` : `${rows.length} shown`}
-        </span>
-      </div>
-      <p className="text-xs text-secondary mb-3">
-        In-app Help Center chat — open a ticket to see the thread and full user profile.
-      </p>
-
-      <div className="flex gap-2 mb-3">
-        <button
-          type="button"
-          className={`text-xs px-2.5 py-1 rounded-md border ${
-            filter === 'open'
-              ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10'
-              : 'border-border text-secondary'
-          }`}
-          onClick={() => setFilter('open')}
-        >
-          Open
-        </button>
-        <button
-          type="button"
-          className={`text-xs px-2.5 py-1 rounded-md border ${
-            filter === 'all'
-              ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10'
-              : 'border-border text-secondary'
-          }`}
-          onClick={() => setFilter('all')}
-        >
-          All
-        </button>
-      </div>
-
-      {loadError ? (
-        <p className="text-xs text-amber-400 mb-2" role="alert">
-          {loadError}
-          {loadError.includes('support_') ? (
-            <span> — run Supabase migration for support live chat.</span>
-          ) : null}
-        </p>
-      ) : null}
-
-      <div className="max-h-[520px] overflow-y-auto divide-y divide-border -mx-1">
-        {loading ? (
-          <p className="text-sm text-secondary py-6 text-center">Loading…</p>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-secondary py-6 text-center">
-            {filter === 'open' ? 'No open support chats.' : 'No support chats yet.'}
-          </p>
-        ) : (
-          rows.map((row) => {
-            const expanded = expandedId === row.id;
-            const userLabel =
-              row.user_email ||
-              row.user_username ||
-              row.user_full_name ||
-              shortWallet(row.wallet_address ?? '', 6);
-            return (
-              <div key={row.id} className="py-3 px-1 text-sm">
-                <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                  <span className="text-secondary text-xs whitespace-nowrap w-16 shrink-0">
-                    {formatTimeAgo(row.created_at)}
-                  </span>
-                  <div className="flex-1 min-w-[180px]">
-                    <p className="font-medium text-primary">{row.subject}</p>
-                    <p className="text-xs text-secondary mt-0.5">
-                      {userLabel}
-                      {row.channel ? ` · ${row.channel}` : ''}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
-                      row.status === 'open'
-                        ? 'bg-amber-500/15 text-amber-400'
-                        : 'bg-green-500/15 text-green-400'
-                    }`}
-                  >
-                    {row.status}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="text-xs text-cyan-400 mt-1 hover:underline"
-                  onClick={() => setExpandedId(expanded ? null : row.id)}
-                >
-                  {expanded ? 'Hide chat' : 'Open chat + profile'}
-                </button>
-                {!expanded ? (
-                  <p className="mt-1 text-xs text-secondary line-clamp-2">{row.message}</p>
-                ) : (
-                  <div className="mt-2 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(200px,0.8fr)]">
-                    <div className="rounded-lg border border-border bg-black/20 p-2">
-                      <div className="max-h-[240px] overflow-y-auto space-y-2 mb-2">
-                        {messagesLoading ? (
-                          <p className="text-xs text-secondary py-4 text-center">Loading thread…</p>
-                        ) : messages.length === 0 ? (
-                          <p className="text-xs text-secondary whitespace-pre-wrap">{row.message}</p>
-                        ) : (
-                          messages.map((m) => (
-                            <div
-                              key={m.id}
-                              className={`rounded-md px-2 py-1.5 text-xs ${
-                                m.sender_role === 'admin'
-                                  ? 'bg-cyan-500/10 border border-cyan-500/20'
-                                  : 'bg-black/25 border border-border'
-                              }`}
-                            >
-                              <p className="text-[10px] uppercase tracking-wide text-secondary mb-0.5">
-                                {m.sender_role === 'admin' ? 'Support' : 'User'} ·{' '}
-                                {formatTimeAgo(m.created_at)}
-                              </p>
-                              <p className="text-primary/90 whitespace-pre-wrap">{m.body}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={reply}
-                          onChange={(e) => setReply(e.target.value)}
-                          placeholder="Reply in live chat…"
-                          className="flex-1 text-xs rounded-md border border-border bg-black/30 px-2 py-1.5 text-primary"
-                          disabled={replyBusy}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              void handleReply(row.id);
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          disabled={replyBusy || !reply.trim()}
-                          className="text-xs px-2.5 py-1 rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 disabled:opacity-50"
-                          onClick={() => void handleReply(row.id)}
-                        >
-                          {replyBusy ? '…' : 'Send'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border bg-black/20 p-2 text-xs space-y-1.5">
-                      <p className="font-semibold text-primary">User profile</p>
-                      <p className="text-secondary">
-                        Name:{' '}
-                        <span className="text-primary">{row.user_full_name || '—'}</span>
-                      </p>
-                      <p className="text-secondary">
-                        Email:{' '}
-                        <span className="text-primary break-all">{row.user_email || '—'}</span>
-                      </p>
-                      <p className="text-secondary">
-                        Username:{' '}
-                        <span className="text-primary">
-                          {row.user_username ? `@${row.user_username}` : '—'}
-                        </span>
-                      </p>
-                      <p className="text-secondary">
-                        Wallet:{' '}
-                        <span className="text-primary font-mono break-all">
-                          {row.wallet_address || '—'}
-                        </span>
-                      </p>
-                      <p className="text-secondary">
-                        User ID:{' '}
-                        <span className="text-primary font-mono break-all">{row.user_id}</span>
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <div className="mt-2 flex gap-2">
-                  {row.status === 'open' ? (
-                    <button
-                      type="button"
-                      disabled={busyId === row.id}
-                      className="text-xs px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 border border-green-500/30 disabled:opacity-50"
-                      onClick={() => void handleResolve(row.id)}
-                    >
-                      {busyId === row.id ? '…' : 'Mark resolved'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={busyId === row.id}
-                      className="text-xs px-2.5 py-1 rounded-md border border-border text-secondary disabled:opacity-50"
-                      onClick={() => void handleReopen(row.id)}
-                    >
-                      Reopen
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })
         )}
       </div>
     </div>

@@ -24,6 +24,7 @@ import {
 } from '../../lib/supportChat';
 import type { SupportRequestRow } from '../../lib/adminSupportRequests';
 import type { LandingFaqItem } from '../../lib/supportFaq';
+import SupportBrandBubble from './SupportBrandBubble';
 
 type Props = {
   onRequireSignIn?: (reason: string) => void;
@@ -56,6 +57,8 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const knownMsgIdsRef = useRef<Set<string>>(new Set());
+  const [animateIds, setAnimateIds] = useState<Set<string>>(() => new Set());
 
   const displayEmail = profile?.email || user?.email || '—';
   const displayName = profile?.full_name || profile?.username || '—';
@@ -117,8 +120,12 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
       if (msgs.error && !msgs.error.includes('support_messages')) {
         setError(msgs.error);
       }
+      knownMsgIdsRef.current = new Set(msgs.rows.map((m) => m.id));
+      setAnimateIds(new Set());
       setMessages(msgs.rows);
     } else {
+      knownMsgIdsRef.current = new Set();
+      setAnimateIds(new Set());
       setMessages([]);
     }
     setChatLoading(false);
@@ -131,14 +138,23 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
   useEffect(() => {
     if (!ticket?.id) return;
     const unsub = subscribeSupportMessages(ticket.id, (row) => {
-      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === row.id)) return prev;
+        if (row.sender_role === 'admin' && !knownMsgIdsRef.current.has(row.id)) {
+          knownMsgIdsRef.current.add(row.id);
+          setAnimateIds((ids) => new Set(ids).add(row.id));
+        } else {
+          knownMsgIdsRef.current.add(row.id);
+        }
+        return [...prev, row];
+      });
     });
     return unsub;
   }, [ticket?.id]);
 
   useEffect(() => {
     scrollThread();
-  }, [messages, scrollThread]);
+  }, [messages, animateIds, scrollThread]);
 
   const handleStartOrSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +175,7 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
         return;
       }
       if (result.row) {
+        knownMsgIdsRef.current.add(result.row.id);
         setMessages((prev) =>
           prev.some((m) => m.id === result.row!.id) ? prev : [...prev, result.row!]
         );
@@ -336,24 +353,27 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
                 ) : messages.length === 0 ? (
                   <p className="hl-help-chat__empty">{t('app.support.chatEmpty')}</p>
                 ) : (
-                  messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`hl-help-chat__bubble hl-help-chat__bubble--${
-                        m.sender_role === 'admin' ? 'admin' : 'user'
-                      }`}
-                    >
-                      <span className="hl-help-chat__bubble-role">
-                        {m.sender_role === 'admin'
-                          ? t('app.support.roleSupport')
-                          : t('app.support.roleYou')}
-                      </span>
-                      <p>{m.body}</p>
-                      <time dateTime={m.created_at}>
-                        {new Date(m.created_at).toLocaleString()}
-                      </time>
-                    </div>
-                  ))
+                  messages.map((m) =>
+                    m.sender_role === 'admin' ? (
+                      <SupportBrandBubble
+                        key={m.id}
+                        body={m.body}
+                        createdAt={m.created_at}
+                        roleLabel={t('app.support.roleSupport')}
+                        animate={animateIds.has(m.id)}
+                      />
+                    ) : (
+                      <div key={m.id} className="hl-help-chat__msg hl-help-chat__msg--user">
+                        <div className="hl-help-chat__bubble hl-help-chat__bubble--user">
+                          <span className="hl-help-chat__bubble-role">{t('app.support.roleYou')}</span>
+                          <p>{m.body}</p>
+                          <time dateTime={m.created_at}>
+                            {new Date(m.created_at).toLocaleString()}
+                          </time>
+                        </div>
+                      </div>
+                    )
+                  )
                 )}
               </div>
 

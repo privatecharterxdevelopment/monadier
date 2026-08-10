@@ -116,3 +116,24 @@ export function subscribeSupportMessages(
     void supabase.removeChannel(channel);
   };
 }
+
+/** Admin inbox: reload list when any ticket or message changes. */
+export function subscribeSupportInbox(onChange: () => void): () => void {
+  const channel = supabase
+    .channel('support-inbox-live')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'support_requests' },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'support_messages' },
+      () => onChange()
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}

@@ -16,7 +16,7 @@ import {
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary; SHORT only as strict counter-trend (high conf, 1h DOWN, no lazy zone fades).',
+    'LONG-primary; SHORT allowed on strong MTF dumps (continuation OK — not only R-fades).',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -26,21 +26,25 @@ export const BULL_MARKET: HlDirectionProfile = {
   preOpenTimeframeLong: '15m',
   preOpenTimeframeShort: '1m',
   preOpenCandleCount: 8,
-  preOpenMinVolumeRatio: 0.5,
-  maxVolumeRank: 60,
+  /** Was 0.5 — quiet-hour majors (0.17–0.37×) were starving every SHORT. */
+  preOpenMinVolumeRatio: 0.18,
+  /** Was 60 — liquid mid-caps at rank 62 got killed for no reason. */
+  maxVolumeRank: 100,
   minDayVolumeUsd: 0,
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
   enableLlmConfirm: true,
   allowLongOpens: true,
-  /** Shorts allowed — but stricter than bear primary (see short rules + zone-flip gates). */
   allowShortOpens: true,
   long: { ...PRIMARY_RULES },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    /** Was 80 — bull fades need clearer conviction. */
-    minConfidence: 85,
-    minTrendAlignment: 75,
+    minConfidence: 70,
+    minDirectionalTfs: 2,
+    minTrendAlignment: 60,
+    /** Strong MTF SHORT skips volume-fade / perp sell-low secondaries. */
+    relaxSecondaryGates: true,
+    trustMtfScan: true,
   },
 };

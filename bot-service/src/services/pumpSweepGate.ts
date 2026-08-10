@@ -56,24 +56,33 @@ function gateForDirection(
     return { ok: true, reason: `Pump sweep OK — ${coin} ${a.phase.replace(/_/g, ' ')}` };
   }
 
-  if (a.phase === 'at_sweep_low' || a.phase === 'near_turnaround') {
+  // SHORT: allow continuation into sweep lows (MTF dump). Only block the
+  // bounce/turnaround zone where shorts get squeezed — not the flush itself.
+  if (a.phase === 'near_turnaround') {
     return {
       ok: false,
       reason:
-        `SHORT blocked — ${coin} at sweep low / turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — do not sell the dip` +
-        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago) · avg low $${a.avgSwingLow.toFixed(2)}`,
+        `SHORT blocked — ${coin} at turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — wait for bounce-fade` +
+        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago)`,
+    };
+  }
+  if (a.phase === 'at_sweep_low') {
+    return {
+      ok: true,
+      reason: `Pump sweep OK — ${coin} continuation flush at sweep low $${a.sweepLow.toFixed(2)}`,
     };
   }
   // Hole that let ETH short the floor: post_dump_bounce with low position fell through to allow.
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.4) {
+  // Only block the earliest bounce scrapes; mid-range post-dump is a valid fade.
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.18) {
     return {
       ok: false,
       reason:
-        `SHORT blocked — ${coin} still near sweep low after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
-        `sweep $${a.sweepLow.toFixed(2)}) — wait for rally toward ~$${a.turnaroundEstimate.toFixed(2)} before fade`,
+        `SHORT blocked — ${coin} still scraping sweep low after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
+        `sweep $${a.sweepLow.toFixed(2)}) — wait for a real bounce before fade`,
     };
   }
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.4) {
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.18) {
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} post-dump rally fade zone (${(a.positionInSweep * 100).toFixed(0)}% of range)`,

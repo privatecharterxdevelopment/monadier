@@ -16,6 +16,8 @@ import {
  * LONG  = allowlist BTC/ETH/SOL via longAllowlist (allowLongOpens=true).
  *         PUMP/VVV/WLD hard-excluded. Other memes SHORT-only if not excluded.
  *         Entry: LONG at support / lower range, not at R.
+ * SHORT = PRIMARY_RULES; entry_location allows continuation (not only R-fades).
+ *         pump_sweep allows flush at sweep low; turnaround bounce still blocked.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
  * leaving mid-caps tradable — $250M was BTC/ETH-only and starved opens.

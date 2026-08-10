@@ -307,7 +307,7 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is the only valid "short the lows" path.
+  // Breakdown through the floor is always valid continuation.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -316,11 +316,9 @@ export function evaluateEntryLocation(
     };
   }
 
-  // HARD — never short the floor / lower half of the S–R box.
-  // nearSupport alone misses when bot S-mid sits below the chart S↑ the user sees
-  // (ARB Open S on S↑ while pos looked "mid"). Block entire lower half.
-  const lowerHalf = Math.max(cfg.rangeBottomBlock, 0.5);
-  if (analysis.nearSupport || analysis.pricePosition <= lowerHalf) {
+  // Only block when truly hugging support (bounce risk) — NOT the whole lower half.
+  // Old lowerHalf=0.5 banned every dump SHORT that MTF already confirmed.
+  if (analysis.nearSupport) {
     const zone =
       analysis.supportZone != null
         ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
@@ -328,11 +326,11 @@ export function evaluateEntryLocation(
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — at/near support / lower range ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤ ${(lowerHalf * 100).toFixed(0)}%); need R-fade or confirmed breakdown`,
+      reason: `SHORT blocked — hugging support ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}%); need breakdown or R-fade`,
     };
   }
 
-  // SHORT only as a resistance-zone trade (fade / sell the ceiling).
+  // Resistance-zone fade.
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
@@ -345,10 +343,19 @@ export function evaluateEntryLocation(
     };
   }
 
+  // Continuation / mid-range short OK when not at support.
+  if (analysis.pricePosition > cfg.rangeBottomBlock) {
+    return {
+      ok: true,
+      analysis,
+      reason: `Continuation short — pos ${(analysis.pricePosition * 100).toFixed(0)}% (clear of support)`,
+    };
+  }
+
   return {
     ok: false,
     analysis,
-    reason: `SHORT blocked — not in/near resistance (need R-zone fade or confirmed breakdown; mid-range short disabled)`,
+    reason: `SHORT blocked — at range floor ${(analysis.pricePosition * 100).toFixed(0)}% without breakdown`,
   };
 }
 
