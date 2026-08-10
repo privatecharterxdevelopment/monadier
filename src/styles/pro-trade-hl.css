@@ -14890,6 +14890,10 @@
   min-height: 0;
 }
 
+.hl-leaderboard-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .hl-leaderboard-panel {
   margin: 0;
   padding: 0;
@@ -15105,6 +15109,11 @@
   font-weight: 700;
   color: #4ade80;
   background: color-mix(in srgb, #4ade80 14%, transparent);
+}
+
+.hl-leaderboard-live-badge--inline {
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .hl-terminal--leaderboard,

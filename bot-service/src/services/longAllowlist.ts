@@ -1,6 +1,6 @@
 /**
  * LONG allowlist — BTC/ETH/SOL. Other memes/alts = SHORT-only.
- * AVA normalizes to AVAX (still hard-excluded via excludedCoins).
+ * AVA normalizes to AVAX.
  */
 import { config } from '../config';
 

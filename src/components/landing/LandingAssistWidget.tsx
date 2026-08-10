@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X } from 'lucide-react';
-import { goToOpenAppRegister } from '../../lib/appUrls';
+import { goToOpenApp, goToOpenAppRegister } from '../../lib/appUrls';
 import {
   LANDING_ASSIST_WELCOME,
   answerLandingAssist,
@@ -138,7 +138,7 @@ const LandingAssistWidget: React.FC = () => {
         <button
           type="button"
           className="landing-assist-cta landing-assist-cta--primary"
-          onClick={() => goToOpenAppRegister(false)}
+          onClick={() => goToOpenApp()}
         >
           Try for free
         </button>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import {
   fetchBotPublicLeaderboard,
   fetchBotPublicLiveWins,
+  fetchBotPublicRecentCloses,
   type BotPublicTradeRow,
 } from '../lib/api/botPublicLeaderboard';
 
@@ -108,6 +109,62 @@ export function useBotPublicLiveWins(limit = 12, refreshMs = DEFAULT_REFRESH_MS)
       cancelled = true;
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [load, refreshMs]);
+
+  return { rows, loading, reload: load };
+}
+
+/** Latest bot closes including losses — single app leaderboard table. */
+export function useBotPublicRecentCloses(limit = 40, refreshMs = DEFAULT_REFRESH_MS) {
+  const [rows, setRows] = useState<BotPublicTradeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const next = await fetchBotPublicRecentCloses(limit);
+    setRows(next);
+    setLoading(false);
+  }, [limit]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      await load();
+      if (cancelled) return;
+    };
+
+    void run();
+    const id = window.setInterval(() => void load(), refreshMs);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    const channel = supabase
+      .channel('public-bot-leaderboard-recent-all')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'trade_history' },
+        () => {
+          void load();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'trade_history' },
+        () => {
+          void load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      void supabase.removeChannel(channel);
     };
   }, [load, refreshMs]);
 

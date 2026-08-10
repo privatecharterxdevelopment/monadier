@@ -127,7 +127,7 @@ export const config = {
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
-     * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD/AVAX user-banned.
+     * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD user-banned.
      * Add more via HL_EXCLUDED_COINS="FOO,BAR" (merged with hard bans).
      */
     excludedCoins: [
@@ -138,7 +138,6 @@ export const config = {
         'PUMP',
         'VVV',
         'WLD',
-        'AVAX',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
@@ -148,7 +147,7 @@ export const config = {
     /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
      * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL"
-     * (PUMP/VVV/WLD/AVAX are hard-excluded — not tradable even if listed here.)
+     * (PUMP/VVV/WLD are hard-excluded — not tradable even if listed here.)
      */
     longOnlyCoins: [
       ...new Set(
