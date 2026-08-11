@@ -28,7 +28,7 @@ const ROADMAP = [
     icon: Building2,
     title: 'Company incorporation',
     milestone: '100 registered users',
-    text: 'Formal company setup in Switzerland once we reach 100 users — clearer contracts, invoicing, and long-term operations.',
+    text: 'Formal company setup in Hong Kong once we reach 100 users — clearer contracts, invoicing, and long-term operations.',
   },
   {
     status: 'upcoming' as const,

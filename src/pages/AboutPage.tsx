@@ -27,7 +27,7 @@ const AboutPage: React.FC = () => {
                 eyebrow="Company"
                 title={`About ${BRAND_NAME}`}
                 lead={`Non-custodial Hyperliquid automation you control from your own wallet — software tools only, no promised returns.`}
-                sub="Built in Zug. Simple to run. Designed so the bot works while you live your life."
+                sub="Built in Hong Kong. Simple to run. Designed so the bot works while you live your life."
                 aside={<MktTeamVisual />}
               />
 
@@ -81,7 +81,7 @@ const AboutPage: React.FC = () => {
                         Founder of {BRAND_NAME} · Head of Development
                       </p>
                       <p className="mkt-about-team-bio">
-                        Based in Zug, Switzerland — building in crypto for years. Before{' '}
+                        Based in Hong Kong — building in crypto for years. Before{' '}
                         {BRAND_NAME}, Lorenzo founded PrivateCharterX, a Web3 luxury travel platform
                         with its own AI at the core: jets, charters, and itineraries that feel
                         personal instead of complicated. Same idea here — useful software that runs
@@ -108,7 +108,7 @@ const AboutPage: React.FC = () => {
                       <p className="mkt-about-team-bio">
                         Additional team members will be introduced over time. If you want to help
                         more people ship non-custodial Hyperliquid automation — and you like
-                        shipping with a small team in Zug — get in touch.
+                        shipping with a small team in Hong Kong — get in touch.
                       </p>
                       <a href={APPLY_MAILTO} className="mkt-cta-primary mkt-about-team-apply">
                         Apply to join us

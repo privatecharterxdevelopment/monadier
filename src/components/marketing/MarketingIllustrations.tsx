@@ -164,7 +164,7 @@ export const MktTeamVisual: React.FC = () => (
         />
       ))}
     </div>
-    <p className="mkt-illus-team-label">Built in Zug · Growing the team</p>
+    <p className="mkt-illus-team-label">Built in Hong Kong · Growing the team</p>
   </div>
 );
 
