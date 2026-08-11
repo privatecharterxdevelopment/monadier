@@ -124,7 +124,7 @@ export async function settleAccruedFees(
   const settledTradeIds: string[] = [];
   for (const row of accrued ?? []) {
     const fee = Number(row.success_fee_usd) || 0;
-    if (fee <= 0 || remaining + 1e-9 < fee) continue;
+    if (fee <= 0 || remaining + 0.01 < fee) continue;
     const { error: updErr } = await supabase
       .from('hl_fee_ledger')
       .update({
@@ -169,7 +169,7 @@ export async function settleAccruedFees(
     for (const row of tradeRows ?? []) {
       if (settledTradeIds.includes(String(row.id))) continue;
       const fee = Number(row.platform_success_fee) || 0;
-      if (fee <= 0 || tradeRemaining + 1e-9 < fee) continue;
+      if (fee <= 0 || tradeRemaining + 0.01 < fee) continue;
       extraIds.push(String(row.id));
       tradeRemaining -= fee;
       settledUsd += fee;
