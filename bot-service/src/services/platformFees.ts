@@ -110,7 +110,7 @@ export async function settleAccruedFees(
   const { data: accrued, error } = await supabase
     .from('hl_fee_ledger')
     .select('id, success_fee_usd, trade_history_id')
-    .eq('wallet_address', wallet)
+    .ilike('wallet_address', wallet)
     .eq('status', 'accrued')
     .order('created_at', { ascending: true });
 
@@ -129,11 +129,17 @@ export async function settleAccruedFees(
       .from('hl_fee_ledger')
       .update({
         status: 'settled',
-        payment_ref: paymentRef ?? null,
+        settlement_ref: paymentRef ?? null,
         settled_at: new Date().toISOString(),
       })
       .eq('id', row.id);
-    if (updErr) continue;
+    if (updErr) {
+      logger.warn('settleAccruedFees ledger update failed', {
+        id: row.id,
+        error: updErr.message,
+      });
+      continue;
+    }
     remaining -= fee;
     settledUsd += fee;
     const tradeId = (row as { trade_history_id?: string | null }).trade_history_id;
@@ -145,16 +151,53 @@ export async function settleAccruedFees(
       .from('trade_history')
       .update({ platform_fee_status: 'settled' })
       .in('id', settledTradeIds);
-  } else if (settledUsd > 0) {
-    // Fallback when ledger rows lack trade_history_id
-    await supabase
-      .from('trade_history')
-      .update({ platform_fee_status: 'settled' })
-      .eq('wallet_address', wallet)
-      .eq('platform_fee_status', 'accrued');
   }
 
-  return { ok: settledUsd > 0 || amountUsd > 0, settledUsd };
+  // Fallback: fees may exist on trade_history without ledger rows (or ledger update failed).
+  if (settledUsd + 0.01 < amountUsd) {
+    const { data: tradeRows } = await supabase
+      .from('trade_history')
+      .select('id, platform_success_fee')
+      .ilike('wallet_address', wallet)
+      .eq('execution_venue', 'hyperliquid')
+      .eq('platform_fee_status', 'accrued')
+      .gt('platform_success_fee', 0)
+      .order('closed_at', { ascending: true });
+
+    let tradeRemaining = amountUsd - settledUsd;
+    const extraIds: string[] = [];
+    for (const row of tradeRows ?? []) {
+      if (settledTradeIds.includes(String(row.id))) continue;
+      const fee = Number(row.platform_success_fee) || 0;
+      if (fee <= 0 || tradeRemaining + 1e-9 < fee) continue;
+      extraIds.push(String(row.id));
+      tradeRemaining -= fee;
+      settledUsd += fee;
+    }
+    if (extraIds.length > 0) {
+      await supabase
+        .from('trade_history')
+        .update({ platform_fee_status: 'settled' })
+        .in('id', extraIds);
+    }
+  }
+
+  if (paymentRef && settledUsd > 0) {
+    await supabase.from('platform_fee_payments').insert({
+      wallet_address: wallet,
+      amount_usd: settledUsd,
+      payment_ref: paymentRef,
+    });
+  }
+
+  logger.info('settleAccruedFees done', {
+    wallet: wallet.slice(0, 10),
+    amountUsd,
+    settledUsd,
+    paymentRef: paymentRef?.slice(0, 24),
+  });
+
+  return { ok: settledUsd > 0, settledUsd };
 }
 
 export async function recordProfitableClose(_opts: {
