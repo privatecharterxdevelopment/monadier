@@ -25,14 +25,14 @@ export function isAdminEmail(email: string | undefined | null): boolean {
   return getAdminEmails().includes(email.toLowerCase());
 }
 
-/** Wallets with unlimited bot access — no platform fees or fee gates (keep in sync with platform_fee_waivers). */
+/** Wallets with unlimited bot access — no platform fees (Lorenzo only). */
 export const FEE_EXEMPT_WALLETS = [
   '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
 ] as const;
 
-/** Emails that never pay platform / trading / betting fees. */
+/** Emails that never pay platform fees — Lorenzo only. Everyone else pays. */
 export const FEE_EXEMPT_EMAILS = [
-  'claudio.steyskal@icloud.com',
+  'lorenzo.vanza@hotmail.com',
 ] as const;
 
 export function isFeeExemptWallet(wallet: string | undefined | null): boolean {
@@ -47,10 +47,10 @@ export function isFeeExemptEmail(email: string | undefined | null): boolean {
   return FEE_EXEMPT_EMAILS.some((a) => a === e);
 }
 
-/** Admin email, exempt email, or exempt wallet — skip all platform fee UI, gates, and bot blockers. */
+/** Lorenzo only — all other users pay platform fees (admins included except Lorenzo). */
 export function isFeeExemptUser(
   email: string | undefined | null,
   wallet?: string | undefined | null
 ): boolean {
-  return isAdminEmail(email) || isFeeExemptEmail(email) || isFeeExemptWallet(wallet);
+  return isFeeExemptEmail(email) || isFeeExemptWallet(wallet);
 }

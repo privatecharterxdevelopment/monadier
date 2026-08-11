@@ -4,13 +4,13 @@ import { logger } from '../utils/logger';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
-/** Keep in sync with src/lib/admin.ts FEE_EXEMPT_WALLETS + platform_fee_waivers migration. */
+/** Keep in sync with src/lib/admin.ts — Lorenzo only. */
 const BUILTIN_FEE_EXEMPT_WALLETS = new Set([
   '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
 ]);
 
-/** Keep in sync with src/lib/admin.ts FEE_EXEMPT_EMAILS. */
-const BUILTIN_FEE_EXEMPT_EMAILS = new Set(['claudio.steyskal@icloud.com']);
+/** Keep in sync with src/lib/admin.ts FEE_EXEMPT_EMAILS — Lorenzo only. */
+const BUILTIN_FEE_EXEMPT_EMAILS = new Set(['lorenzo.vanza@hotmail.com']);
 
 const waiverCache = new Map<string, boolean>();
 let cacheLoadedAt = 0;
