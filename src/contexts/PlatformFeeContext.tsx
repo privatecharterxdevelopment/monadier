@@ -73,7 +73,7 @@ export const PlatformFeeProvider: React.FC<{
   }, [feeExempt]);
 
   const handlePaymentSuccess = useCallback(() => {
-    showToast('Fees paid — withdraw unlocked, win counter reset', 3200);
+    showToast('Fees paid — win counter reset', 3200);
     void refreshFees();
   }, [showToast, refreshFees]);
 
