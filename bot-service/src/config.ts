@@ -1,16 +1,14 @@
 import dotenv from 'dotenv';
-import {
-  MONADIER_VAULT_V11_ADDRESS,
-  MONADIER_VAULT_V11_TREASURY_ADDRESS,
-} from './monadierVault';
+import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
 import { getLiveDirectionProfile } from './services/liveDirectionProfile';
 
 dotenv.config();
 
+/** Admin / builder fee receiver (Monadier builder fee wallet). NOT the old vault treasury. */
+export const PLATFORM_FEE_RECEIVER_ADDRESS =
+  '0x1fbc2a0ab6a8fa5f6b9645392433483b25a8cd84' as const;
+
 // Only genuine secrets are required — no safe in-repo default exists for these.
-// TREASURY_ADDRESS is intentionally NOT here: it's a public, canonical constant
-// (MONADIER_VAULT_V11_TREASURY_ADDRESS) and defaults below, so a missing/removed
-// Railway var can never again crash-loop the whole bot at startup.
 const requiredEnvVars = [
   'BOT_PRIVATE_KEY',
   'SUPABASE_URL',
@@ -23,6 +21,24 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+function resolvePlatformFeeReceiver(): `0x${string}` {
+  const legacyVaultTreasury = '0x64d79e57640a8d4a56ad1d08c932b5ccf0b263a9';
+  const candidates = [
+    process.env.PLATFORM_FEE_TREASURY_ADDRESS,
+    process.env.HL_BUILDER_ADDRESS,
+    process.env.TREASURY_ADDRESS,
+    PLATFORM_FEE_RECEIVER_ADDRESS,
+  ];
+  for (const raw of candidates) {
+    const v = raw?.trim().toLowerCase();
+    if (!v || !/^0x[a-f0-9]{40}$/.test(v)) continue;
+    // Never route success fees to the old vault treasury.
+    if (v === legacyVaultTreasury) continue;
+    return v as `0x${string}`;
+  }
+  return PLATFORM_FEE_RECEIVER_ADDRESS;
+}
+
 export const config = {
   // Bot wallet
   botPrivateKey: process.env.BOT_PRIVATE_KEY as `0x${string}`,
@@ -31,9 +47,9 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY!,
 
-  // Treasury — defaults to canonical V11 treasury when the env var is absent.
-  treasuryAddress: (process.env.TREASURY_ADDRESS ||
-    MONADIER_VAULT_V11_TREASURY_ADDRESS) as `0x${string}`,
+  // Platform success-fee USDC receiver (Arbitrum) = admin builder wallet.
+  // Prefer PLATFORM_FEE_TREASURY_ADDRESS / HL_BUILDER_ADDRESS — never the old vault treasury.
+  treasuryAddress: resolvePlatformFeeReceiver(),
 
   // ============================================
   // ARBITRUM ONLY - V11 GMX VAULT (RECONCILE FIX)
@@ -664,7 +680,7 @@ export const config = {
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
-      process.env.TREASURY_ADDRESS) as `0x${string}`,
+      PLATFORM_FEE_RECEIVER_ADDRESS) as `0x${string}`,
     builderFeePerp: Number(process.env.HL_BUILDER_FEE_PERP || 30),
     /** Flat builder on bot opens — 0 = fee only on profitable closes (auto success fee). */
     openBuilderFeePerp: Number(process.env.HL_OPEN_BUILDER_FEE_PERP || 0),

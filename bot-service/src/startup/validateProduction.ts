@@ -1,10 +1,10 @@
 import { privateKeyToAccount } from 'viem/accounts';
-import { config } from '../config';
+import { config, PLATFORM_FEE_RECEIVER_ADDRESS } from '../config';
 import { logger } from '../utils/logger';
-import { MONADIER_VAULT_V11_TREASURY_ADDRESS } from '../monadierVault';
 import { fetchHlBuilderPlatformReady } from '../services/hlBuilder';
 
 const EXPECTED_BOT_ADDRESS = process.env.EXPECTED_BOT_ADDRESS as `0x${string}` | undefined;
+const LEGACY_VAULT_TREASURY = '0x64d79e57640a8d4a56ad1d08c932b5ccf0b263a9';
 
 /**
  * Fail fast on misconfiguration before any trading loop runs.
@@ -19,11 +19,17 @@ export async function validateProductionEnvironment(): Promise<void> {
     );
   }
 
-  const envTreasuryLower = config.treasuryAddress.toLowerCase();
-  if (envTreasuryLower !== MONADIER_VAULT_V11_TREASURY_ADDRESS.toLowerCase()) {
-    logger.warn('TREASURY_ADDRESS differs from canonical Monadier treasury', {
-      env: config.treasuryAddress,
-      canonical: MONADIER_VAULT_V11_TREASURY_ADDRESS,
+  const feeReceiver = config.treasuryAddress.toLowerCase();
+  if (feeReceiver === LEGACY_VAULT_TREASURY) {
+    throw new Error(
+      `Platform fee receiver is still the legacy vault treasury ${LEGACY_VAULT_TREASURY}. ` +
+        `Set PLATFORM_FEE_TREASURY_ADDRESS=${PLATFORM_FEE_RECEIVER_ADDRESS} (admin builder wallet).`
+    );
+  }
+  if (feeReceiver !== PLATFORM_FEE_RECEIVER_ADDRESS.toLowerCase()) {
+    logger.warn('Platform fee receiver differs from canonical admin builder wallet', {
+      feeReceiver: config.treasuryAddress,
+      canonical: PLATFORM_FEE_RECEIVER_ADDRESS,
     });
   }
 

@@ -8,7 +8,11 @@ export const MONADIER_VAULT_V11_ADDRESS =
 export const MONADIER_VAULT_V11_BOT_ADDRESS =
   '0xF7072A1067194648f309A215250004abe177531a' as const;
 
-/** Treasury — deposit fee (0.1%), platform fees, win fees (next vault deploy routes deposit fee here). */
+/**
+ * Legacy V11 vault on-chain treasury (contract history only).
+ * Do NOT use for bot success-fee USDC — fees go to PLATFORM_FEE_RECEIVER /
+ * HL_BUILDER_ADDRESS (0x1fBc… admin builder wallet).
+ */
 export const MONADIER_VAULT_V11_TREASURY_ADDRESS =
   '0x64d79e57640A8d4A56Ad1d08c932B5CCF0B263a9' as const;
 
