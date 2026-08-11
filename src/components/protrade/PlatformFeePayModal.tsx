@@ -55,7 +55,14 @@ const PlatformFeePayModal: React.FC<Props> = ({
   const [arbitrumUsdc, setArbitrumUsdc] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
-  const treasury = treasuryAddress?.trim().toLowerCase();
+  const treasuryDisplay = (() => {
+    const raw = treasuryAddress?.trim();
+    if (!raw || !/^0x[a-fA-F0-9]{40}$/.test(raw)) return '';
+    const canonical = '0x1fBc2A0Ab6a8fA5F6B9645392433483b25a8Cd84';
+    if (raw.toLowerCase() === canonical.toLowerCase()) return canonical;
+    return raw;
+  })();
+  const treasury = treasuryDisplay.toLowerCase();
   const payer = payerWallet?.trim().toLowerCase() as `0x${string}` | undefined;
 
   const winTrades = useMemo(
@@ -233,7 +240,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
 
         {treasuryReady ? (
           <p className="hl-fee-modal-hint hl-fee-modal-hint--mono">
-            To: {treasury.slice(0, 10)}…{treasury.slice(-8)}
+            To (Arbitrum USDC): {treasuryDisplay}
           </p>
         ) : null}
 

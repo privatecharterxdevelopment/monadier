@@ -1,12 +1,13 @@
 import dotenv from 'dotenv';
+import { getAddress } from 'viem';
 import { MONADIER_VAULT_V11_ADDRESS } from './monadierVault';
 import { getLiveDirectionProfile } from './services/liveDirectionProfile';
 
 dotenv.config();
 
-/** Admin / builder fee receiver (Monadier builder fee wallet). NOT the old vault treasury. */
+/** Admin / builder fee receiver — EIP-55 checksum must stay exact. */
 export const PLATFORM_FEE_RECEIVER_ADDRESS =
-  '0x1fbc2a0ab6a8fa5f6b9645392433483b25a8cd84' as const;
+  '0x1fBc2A0Ab6a8fA5F6B9645392433483b25a8Cd84' as const;
 
 // Only genuine secrets are required — no safe in-repo default exists for these.
 const requiredEnvVars = [
@@ -30,11 +31,19 @@ function resolvePlatformFeeReceiver(): `0x${string}` {
     PLATFORM_FEE_RECEIVER_ADDRESS,
   ];
   for (const raw of candidates) {
-    const v = raw?.trim().toLowerCase();
-    if (!v || !/^0x[a-f0-9]{40}$/.test(v)) continue;
+    const trimmed = raw?.trim();
+    if (!trimmed || !/^0x[a-fA-F0-9]{40}$/.test(trimmed)) continue;
+    const lower = trimmed.toLowerCase();
     // Never route success fees to the old vault treasury.
-    if (v === legacyVaultTreasury) continue;
-    return v as `0x${string}`;
+    if (lower === legacyVaultTreasury) continue;
+    if (lower === PLATFORM_FEE_RECEIVER_ADDRESS.toLowerCase()) {
+      return PLATFORM_FEE_RECEIVER_ADDRESS;
+    }
+    try {
+      return getAddress(trimmed) as `0x${string}`;
+    } catch {
+      continue;
+    }
   }
   return PLATFORM_FEE_RECEIVER_ADDRESS;
 }

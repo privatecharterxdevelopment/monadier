@@ -19,11 +19,14 @@ export type HlBuilderConfig = {
   bettingMaxApprovalRate: string;
 };
 
-const DEFAULT_TREASURY = HL_PLATFORM_DEFAULT_BUILDER.toLowerCase() as `0x${string}`;
+const DEFAULT_TREASURY = HL_PLATFORM_DEFAULT_BUILDER;
 
 function parseAddress(raw: string | undefined): `0x${string}` | null {
-  const v = raw?.trim().toLowerCase();
-  if (!v || !/^0x[a-f0-9]{40}$/.test(v)) return null;
+  const v = raw?.trim();
+  if (!v || !/^0x[a-fA-F0-9]{40}$/.test(v)) return null;
+  if (v.toLowerCase() === HL_PLATFORM_DEFAULT_BUILDER.toLowerCase()) {
+    return HL_PLATFORM_DEFAULT_BUILDER;
+  }
   return v as `0x${string}`;
 }
 
