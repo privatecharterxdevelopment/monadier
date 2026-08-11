@@ -22,6 +22,11 @@ export type BtcRegimeSnapshot = {
 const CACHE_MS = Number(process.env.HL_BTC_REGIME_CACHE_MS || 60_000);
 /** Consecutive opposite readings required before flipping (anti-whipsaw). */
 const FLIP_CONFIRM = Math.max(1, Number(process.env.HL_BTC_REGIME_FLIP_CONFIRM || 2));
+/** Extra confirms when leaving bull → bear (stay bull through chop). */
+const FLIP_CONFIRM_LEAVE_BULL = Math.max(
+  FLIP_CONFIRM,
+  Number(process.env.HL_BTC_REGIME_FLIP_LEAVE_BULL || 4)
+);
 
 let cached: BtcRegimeSnapshot | null = null;
 let cachedAt = 0;
@@ -49,7 +54,13 @@ function scoreBtc(opts: {
   if (opts.change7dPct > 2) bullScore += 2;
   else if (opts.change7dPct < -2) bullScore -= 2;
 
-  const regime: HlDirectionProfileName = bullScore >= 0 ? 'bull_market' : 'bear_market';
+  // Asymmetric while still in a bull run: mild red days / score -1..-3 must NOT
+  // flip to bear_market (that arms Jun-26 primary SHORT and shorts the dip).
+  // Need a hard break: deep score AND weekly still red.
+  const bearFloor = Number(process.env.HL_BTC_BEAR_SCORE_FLOOR || -5);
+  const clearBearBreak =
+    bullScore <= bearFloor && opts.change7dPct < Number(process.env.HL_BTC_BEAR_7D_MAX || 0);
+  const regime: HlDirectionProfileName = clearBearBreak ? 'bear_market' : 'bull_market';
   const reason =
     `BTC ${opts.last.toFixed(0)} ` +
     `${above ? '>' : '<'} SMA20-4h ${opts.sma20.toFixed(0)} · ` +
@@ -117,6 +128,14 @@ function applyHysteresis(raw: HlDirectionProfileName): {
   }
   if (pendingHits >= FLIP_CONFIRM) {
     const from = committed;
+    // Leaving bull needs more confirms — shallow dips must not arm Jun-26 primary SHORT.
+    const need =
+      from === 'bull_market' && pending === 'bear_market'
+        ? FLIP_CONFIRM_LEAVE_BULL
+        : FLIP_CONFIRM;
+    if (pendingHits < need) {
+      return { regime: committed, sticky: true };
+    }
     committed = raw;
     pending = null;
     pendingHits = 0;
@@ -137,7 +156,11 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
       regime,
       sticky,
       reason: sticky
-        ? `${raw.reason} (holding ${committed} until ${FLIP_CONFIRM}× confirm)`
+        ? `${raw.reason} (holding ${committed} until ${
+            committed === 'bull_market' && raw.regime === 'bear_market'
+              ? FLIP_CONFIRM_LEAVE_BULL
+              : FLIP_CONFIRM
+          }× confirm)`
         : raw.reason,
       checkedAt: new Date().toISOString(),
     };

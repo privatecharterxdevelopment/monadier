@@ -158,22 +158,17 @@ export async function validatePerpMarketContext(opts: {
         };
       }
     } else {
-      // SHORT: only block extreme washout bottoms — not "anything below mid".
-      // Was mirroring LONG top-third (≤32%) and killed every continuation dump.
-      const minShortRange = Number(process.env.HL_PERP_MIN_SHORT_RANGE || 0.08);
-      const minShort24hRange = Number(process.env.HL_PERP_MIN_SHORT_24H_RANGE || 0.12);
-      const maxShort24hDumpPct = Number(process.env.HL_PERP_MAX_SHORT_24H_DUMP || 4.5);
-      if (ctx.rangePosition <= minShortRange) {
+      if (ctx.rangePosition <= 1 - cfg.maxLongRangePosition) {
         return {
           ok: false,
-          reason: `SHORT blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (extreme low) · ${summary}`,
+          reason: `SHORT blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (sell low) · ${summary}`,
           ctx,
         };
       }
-      if (ctx.change24hPct <= -maxShort24hDumpPct && ctx.rangePosition <= minShort24hRange) {
+      if (ctx.change24hPct <= -cfg.maxLong24hUpPct && ctx.rangePosition <= cfg.maxLong24hRangePosition) {
         return {
           ok: false,
-          reason: `SHORT blocked — ${ctx.coin} already ${ctx.change24hPct.toFixed(2)}% 24h at extreme lows · ${summary}`,
+          reason: `SHORT blocked — ${ctx.coin} already ${ctx.change24hPct.toFixed(2)}% 24h near lows · ${summary}`,
           ctx,
         };
       }

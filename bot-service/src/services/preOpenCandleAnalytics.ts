@@ -204,8 +204,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
     // HTF trend confirms the trade direction → this is a momentum entry, not a chop
     // guess. Skip the mean-reversion guards (net-flat/bearish, buy-low range position,
     // rejections at range high) that would otherwise strangle a strong trending signal.
-    // Active reversal (structure flipping) still blocks below. Volume fade is skipped
-    // when HTF confirms — quiet-hour majors were stuck at 0.17× with full SHORT stacks.
+    // Active reversal (structure flipping) and volume fade still block below.
     const t = (opts.h1Trend ?? '').toUpperCase();
     const trendConfirms =
       (dir === 'LONG' && /UP/.test(t)) || (dir === 'SHORT' && /DOWN/.test(t));
@@ -267,7 +266,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
       }
     }
 
-    if (!trendConfirms && volR < cfg.minVolumeRatio) {
+    if (volR < cfg.minVolumeRatio) {
       const reason = `Open blocked — ${coin} ${dir}: volume fading (recent/base ${volR.toFixed(2)}×)`;
       logger.info('Pre-open candle block', { coin, direction: dir, summary });
       return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });

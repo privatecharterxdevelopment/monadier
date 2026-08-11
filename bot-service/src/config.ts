@@ -345,12 +345,12 @@ export const config = {
       maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.28),
       maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.45),
       /** Block SHORT when 15m/1h already extended down — wait for bounce. */
-      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.55),
-      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.9),
+      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.28),
+      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.45),
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
-      /** SHORT: was 0.32 — continuation dumps live below this. */
-      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.12),
+      /** SHORT rally-fade: price must be in upper X of 1h range unless breakdown. */
+      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
     /**
      * Range-regime exit profile.

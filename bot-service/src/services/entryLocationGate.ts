@@ -307,7 +307,29 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is always valid continuation.
+  // Bull run (LONG-primary): ONLY early resistance fades — never late dump /
+  // breakdown shorts into the floor (that is dumb reverse garbage).
+  if (config.hyperliquid.directionProfile.primaryDirection === 'LONG') {
+    const bullTop = Math.max(cfg.rangeTopBlock, 0.78);
+    if (analysis.nearResistance || analysis.pricePosition >= bullTop) {
+      const zone =
+        analysis.resistanceZone != null
+          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+          : fmtLevel(analysis.resistance);
+      return {
+        ok: true,
+        analysis,
+        reason: `Bull R-fade short — early resistance ${(analysis.pricePosition * 100).toFixed(0)}% · ${zone}`,
+      };
+    }
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked in bull — need early R-fade (≥${(bullTop * 100).toFixed(0)}% / near R); no late dump reverse (pos ${(analysis.pricePosition * 100).toFixed(0)}%)`,
+    };
+  }
+
+  // Bear / SHORT-primary: breakdown OK; never short the floor / lower half without it.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -316,9 +338,11 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Only block when truly hugging support (bounce risk) — NOT the whole lower half.
-  // Old lowerHalf=0.5 banned every dump SHORT that MTF already confirmed.
-  if (analysis.nearSupport) {
+  // HARD — never short the floor / lower half of the S–R box.
+  // nearSupport alone misses when bot S-mid sits below the chart S↑ the user sees
+  // (ARB Open S on S↑ while pos looked "mid"). Block entire lower half.
+  const lowerHalf = Math.max(cfg.rangeBottomBlock, 0.5);
+  if (analysis.nearSupport || analysis.pricePosition <= lowerHalf) {
     const zone =
       analysis.supportZone != null
         ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
@@ -326,11 +350,11 @@ export function evaluateEntryLocation(
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — hugging support ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}%); need breakdown or R-fade`,
+      reason: `SHORT blocked — at/near support / lower range ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤ ${(lowerHalf * 100).toFixed(0)}%); need R-fade or confirmed breakdown`,
     };
   }
 
-  // Resistance-zone fade.
+  // SHORT only as a resistance-zone trade (fade / sell the ceiling).
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
@@ -343,19 +367,10 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Continuation / mid-range short OK when not at support.
-  if (analysis.pricePosition > cfg.rangeBottomBlock) {
-    return {
-      ok: true,
-      analysis,
-      reason: `Continuation short — pos ${(analysis.pricePosition * 100).toFixed(0)}% (clear of support)`,
-    };
-  }
-
   return {
     ok: false,
     analysis,
-    reason: `SHORT blocked — at range floor ${(analysis.pricePosition * 100).toFixed(0)}% without breakdown`,
+    reason: `SHORT blocked — not in/near resistance (need R-zone fade or confirmed breakdown; mid-range short disabled)`,
   };
 }
 

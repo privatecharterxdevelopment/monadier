@@ -1690,10 +1690,10 @@ export class HyperliquidTradingService {
               'short flip conf too low'
             );
           }
-          if (rangePos < 0.75) {
+          if (rangePos < 0.8) {
             return rejectOpen(
               'sr_zone_flip',
-              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥75% resistance fade)`,
+              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥80% early R-fade in bull)`,
               'short flip not at range top'
             );
           }
