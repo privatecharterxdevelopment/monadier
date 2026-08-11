@@ -7829,8 +7829,8 @@ html[data-landing-theme='dark'] .mkt-funds-risks-head,
   width: 100%;
   padding: clamp(28px, 4vw, 40px) clamp(24px, 3.5vw, 36px);
   border-radius: 28px;
-  border: 1px solid rgb(0 0 0 / 0.08);
-  background: #f4f4f5;
+  border: 1px solid rgb(0 0 0 / 0.06);
+  background: #fafafa;
   box-sizing: border-box;
 }
 
@@ -7900,7 +7900,7 @@ html[data-landing-theme='dark'] .mkt-hiw-stats-card-head,
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.05;
-  color: #0a0a0a;
+  color: var(--lg-accent, #3dd68c);
   font-variant-numeric: tabular-nums;
 }
 
@@ -8078,14 +8078,17 @@ html[data-landing-theme='dark'] .mkt-hiw-h2,
 html[data-landing-theme='dark'] .mkt-hiw-step-num,
 html[data-landing-theme='dark'] .mkt-hiw-step-title,
 html[data-landing-theme='dark'] .mkt-hiw-tile-title,
-html[data-landing-theme='dark'] .mkt-hiw-stat-value,
 .landing-gmx--dark .mkt-hiw-title,
 .landing-gmx--dark .mkt-hiw-h2,
 .landing-gmx--dark .mkt-hiw-step-num,
 .landing-gmx--dark .mkt-hiw-step-title,
-.landing-gmx--dark .mkt-hiw-tile-title,
-.landing-gmx--dark .mkt-hiw-stat-value {
+.landing-gmx--dark .mkt-hiw-tile-title {
   color: #ffffff;
+}
+
+html[data-landing-theme='dark'] .mkt-hiw-stat-value,
+.landing-gmx--dark .mkt-hiw-stat-value {
+  color: var(--lg-accent, #3dd68c);
 }
 
 html[data-landing-theme='dark'] .mkt-hiw-lead,
@@ -8119,8 +8122,8 @@ html[data-landing-theme='dark'] .mkt-hiw-stats-card,
 html[data-landing-theme='dark'] .mkt-hiw-tile,
 .landing-gmx--dark .mkt-hiw-stats-card,
 .landing-gmx--dark .mkt-hiw-tile {
-  background: #161616;
-  border-color: rgb(255 255 255 / 0.12);
+  background: #1c1c1c;
+  border-color: rgb(255 255 255 / 0.1);
 }
 
 html[data-landing-theme='dark'] .mkt-hiw-stat-divider,
