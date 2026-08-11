@@ -588,7 +588,8 @@
       "tagline": "非银行存款 · 非 FDIC 或政府保险 · 无保证收益 · 你可能损失全部投入资金"
     },
     "volume": {
-      "label": "由 HG Bot 管理的日交易量",
+      "label": "日交易量",
+      "labelAccent": "由 HG Bot 管理",
       "live": "实时"
     }
   },

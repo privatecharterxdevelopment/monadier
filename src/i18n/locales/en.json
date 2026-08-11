@@ -605,7 +605,8 @@
       "tagline": "Not a bank deposit · Not FDIC or government insured · No guaranteed returns · You may lose all invested capital"
     },
     "volume": {
-      "label": "Daily trading volume managed by HG Bot",
+      "label": "Daily trading volume",
+      "labelAccent": "managed by HG Bot",
       "live": "Live"
     }
   },

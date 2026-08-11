@@ -588,7 +588,8 @@
       "tagline": "Non è un deposito bancario · Non assicurato FDIC o dallo Stato · Nessun rendimento garantito · Puoi perdere tutto il capitale investito"
     },
     "volume": {
-      "label": "Volume di trading giornaliero gestito da HG Bot",
+      "label": "Volume di trading giornaliero",
+      "labelAccent": "gestito da HG Bot",
       "live": "Live"
     }
   },

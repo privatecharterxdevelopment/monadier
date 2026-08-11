@@ -605,7 +605,8 @@
       "tagline": "Kein Bankguthaben · Nicht FDIC- oder staatlich versichert · Keine garantierten Renditen · Du kannst das gesamte eingesetzte Kapital verlieren"
     },
     "volume": {
-      "label": "Tägliches Handelsvolumen, gemanagt vom HG Bot",
+      "label": "Tägliches Handelsvolumen,",
+      "labelAccent": "gemanagt vom HG Bot",
       "live": "Live"
     }
   },

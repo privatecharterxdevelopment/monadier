@@ -131,7 +131,8 @@ const LandingVolumeSection: React.FC = () => {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.45, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
         >
-          {t('landing.volume.label')}
+          {t('landing.volume.label')}{' '}
+          <span className="landing-gmx-title-grey">{t('landing.volume.labelAccent')}</span>
         </motion.p>
       </div>
     </section>

@@ -32,6 +32,8 @@ const LandingAlphaHero: React.FC = () => {
 
   return (
     <section className="landing-al-hero" aria-labelledby="landing-al-hero-title">
+      <div className="landing-al-hero-glow" aria-hidden />
+
       <motion.div className="landing-al-film landing-al-users" {...fade(0)}>
         <span className="landing-al-users-dot" aria-hidden />
         {userLabel}

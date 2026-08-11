@@ -18,7 +18,10 @@ const LeaderboardLandingPage: React.FC = () => {
           <div className="landing-gmx-shell landing-lb-page-shell">
             <div className="landing-lb-simple">
               <header className="landing-lb-simple-head">
-                <h1 className="landing-lb-simple-title">{LEADERBOARD_PAGE.title}</h1>
+                <h1 className="landing-lb-simple-title">
+                  Leaderboard{' '}
+                  <span className="landing-gmx-title-grey">on chain</span>
+                </h1>
                 <p className="landing-lb-simple-lead">
                   Real Hyperliquid bot closes — masked wallets here, full addresses on HypurrScan.
                 </p>

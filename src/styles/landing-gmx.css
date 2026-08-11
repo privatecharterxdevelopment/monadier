@@ -18,6 +18,10 @@
   --lg-glass-blur: blur(22px);
   --lg-hero-title: #0a0a0a;
   --lg-hero-title-muted: #52525b;
+  /* App green — sparse accents only (title halves, eyebrows, CTAs) */
+  --lg-accent: #3dd68c;
+  --lg-accent-soft: color-mix(in srgb, #3dd68c 72%, #0a0a0a 8%);
+  --lg-accent-ink: #0b1210;
 
   position: relative;
   color: var(--lg-text);
@@ -968,7 +972,7 @@ html[data-landing-theme='light'] .landing-gmx-hero--betting.landing-gmx-hero--th
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
 }
 
 .landing-apple-widget-title {
@@ -1939,7 +1943,7 @@ html[data-landing-theme='light'] .landing-gmx-hero--betting.landing-gmx-hero--th
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
 }
 
 .landing-gmx-mobile-banner-title {
@@ -3288,7 +3292,7 @@ html[data-landing-theme='light'] .landing-gmx-hero--betting.landing-gmx-hero--th
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-grey, #6b7280);
+  color: var(--lg-accent);
 }
 
 .landing-agent-split-title {
@@ -5106,7 +5110,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-search input {
 }
 
 .landing-gmx-title-grey {
-  color: var(--lg-grey);
+  color: var(--lg-accent);
 }
 
 .landing-gmx-faq-tabs {
@@ -5237,7 +5241,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
 
 html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-grey,
 .landing-gmx--dark .landing-gmx-faq-frame-title .landing-gmx-title-grey {
-  color: #a1a1aa;
+  color: var(--lg-accent);
 }
 
 /* —— SaaS product preview (below hero) —— */
@@ -5288,7 +5292,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
 }
 
 .landing-gmx-preview-section .landing-gmx-section-hero-title {
@@ -5458,7 +5462,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
   margin-bottom: 14px;
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: var(--lg-grey);
+  color: var(--lg-accent);
 }
 
 .landing-gmx-partners-eyebrow {
@@ -5469,7 +5473,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
   text-align: center;
 }
 
@@ -5667,7 +5671,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
   margin-bottom: 20px;
 }
 
@@ -6718,7 +6722,7 @@ html[data-landing-theme='dark'] .landing-gmx-faq-frame-title .landing-gmx-title-
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
 }
 
 .mkt-hero-title {
@@ -7720,7 +7724,7 @@ html[data-landing-theme='dark'] .mkt-funds-risks-head,
   font-weight: 650;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #71717a;
+  color: var(--lg-accent);
 }
 
 /* Same scale as /leaderboard title */
@@ -8101,7 +8105,7 @@ html[data-landing-theme='dark'] .mkt-hiw-meta,
 
 html[data-landing-theme='dark'] .mkt-hiw-eyebrow,
 .landing-gmx--dark .mkt-hiw-eyebrow {
-  color: #a1a1aa;
+  color: var(--lg-accent);
 }
 
 html[data-landing-theme='dark'] .mkt-hiw-badges li,
@@ -8420,7 +8424,7 @@ html[data-landing-theme='dark'] .mkt-hiw-warn li::before,
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--lg-faint);
+  color: var(--lg-accent);
 }
 
 .landing-gmx-architecture-lead {
@@ -11505,7 +11509,7 @@ html[data-landing-theme='dark'] .landing-glass-card,
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-grey);
+  color: var(--lg-accent);
 }
 
 .landing-bot-estimate-spotlight-text {
@@ -11833,7 +11837,7 @@ html[data-landing-theme='dark'] .landing-glass-card,
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-grey);
+  color: var(--lg-accent);
 }
 
 .landing-bot-engine-title {
@@ -11993,16 +11997,16 @@ html[data-landing-theme='dark'] .landing-glass-card,
   padding: 12px 20px;
   border: 0;
   border-radius: 999px;
-  background: #0a0a0a;
-  color: #fff;
+  background: #3dd68c;
+  color: #0b1210;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: background 0.15s ease, opacity 0.15s ease;
 }
 
 .landing-bot-page-cta-primary:hover {
-  opacity: 0.88;
+  background: #34c57e;
 }
 
 .landing-bot-page-cta-secondary {
@@ -12010,17 +12014,42 @@ html[data-landing-theme='dark'] .landing-glass-card,
   align-items: center;
   padding: 12px 18px;
   border-radius: 999px;
-  border: 1px solid rgb(0 0 0 / 0.12);
-  background: rgb(255 255 255 / 0.5);
+  border: 1px solid color-mix(in srgb, #3dd68c 42%, transparent);
+  background: color-mix(in srgb, #3dd68c 10%, transparent);
   font-size: 14px;
   font-weight: 600;
-  color: #0a0a0a;
+  color: #1a9a62;
   text-decoration: none;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .landing-bot-page-cta-secondary:hover {
-  background: rgb(255 255 255 / 0.85);
+  background: color-mix(in srgb, #3dd68c 18%, transparent);
+  border-color: color-mix(in srgb, #3dd68c 58%, transparent);
+}
+
+html[data-landing-theme='dark'] .landing-bot-page-cta-primary,
+.landing-gmx--dark .landing-bot-page-cta-primary {
+  background: #3dd68c;
+  color: #0b1210;
+}
+
+html[data-landing-theme='dark'] .landing-bot-page-cta-primary:hover,
+.landing-gmx--dark .landing-bot-page-cta-primary:hover {
+  background: #34c57e;
+}
+
+html[data-landing-theme='dark'] .landing-bot-page-cta-secondary,
+.landing-gmx--dark .landing-bot-page-cta-secondary {
+  color: #3dd68c;
+  border-color: color-mix(in srgb, #3dd68c 36%, transparent);
+  background: color-mix(in srgb, #3dd68c 12%, transparent);
+}
+
+html[data-landing-theme='dark'] .landing-bot-page-cta-secondary:hover,
+.landing-gmx--dark .landing-bot-page-cta-secondary:hover {
+  background: color-mix(in srgb, #3dd68c 20%, transparent);
+  border-color: color-mix(in srgb, #3dd68c 52%, transparent);
 }
 
 .landing-bot-page-disclaimer {
@@ -12182,7 +12211,7 @@ html[data-landing-theme='dark'] .landing-bot-text-hero-lead {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-grey, #71717a);
+  color: var(--lg-accent);
 }
 
 .landing-bot-leaderboard-title {
@@ -13702,7 +13731,7 @@ html[data-landing-theme='dark'] .landing-bot-text-hero-lead {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-grey, #71717a);
+  color: var(--lg-accent);
 }
 
 .landing-leaderboard-page-title {
@@ -13851,8 +13880,16 @@ html[data-landing-theme='dark'] .landing-bot-text-hero-lead {
   color: #0a0a0a;
 }
 
+.landing-lb-simple-title .landing-gmx-title-grey {
+  color: var(--lg-accent, #3dd68c);
+}
+
 html[data-landing-theme='dark'] .landing-lb-simple-title {
   color: #f4f4f5;
+}
+
+html[data-landing-theme='dark'] .landing-lb-simple-title .landing-gmx-title-grey {
+  color: var(--lg-accent, #3dd68c);
 }
 
 .landing-lb-simple-lead {
@@ -14402,6 +14439,7 @@ html[data-landing-theme='dark'] .landing-how-strip-icon {
 }
 
 .landing-al-volume-inner {
+  position: relative;
   width: 100%;
   max-width: var(--lg-content-max, 1100px);
   margin-inline: auto;
@@ -14410,9 +14448,45 @@ html[data-landing-theme='dark'] .landing-how-strip-icon {
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  isolation: isolate;
+}
+
+/* Soft app-green glow behind the volume figure — larger radius, very fine transparency */
+.landing-al-volume-inner::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 0;
+  width: min(780px, 96vw);
+  height: min(280px, 52vw);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 62% 50% at 50% 50%,
+    rgba(61, 214, 140, 0.14) 0%,
+    rgba(61, 214, 140, 0.06) 38%,
+    rgba(61, 214, 140, 0.02) 58%,
+    transparent 78%
+  );
+  filter: blur(36px);
+  opacity: 0.55;
+}
+
+html[data-landing-theme='dark'] .landing-al-volume-inner::before {
+  background: radial-gradient(
+    ellipse 62% 50% at 50% 50%,
+    rgba(61, 214, 140, 0.12) 0%,
+    rgba(61, 214, 140, 0.05) 40%,
+    rgba(61, 214, 140, 0.02) 60%,
+    transparent 78%
+  );
+  opacity: 0.6;
 }
 
 .landing-al-volume-value {
+  position: relative;
+  z-index: 1;
   margin: 0;
   display: inline-flex;
   align-items: center;
@@ -14478,6 +14552,8 @@ html[data-landing-theme='dark'] .landing-al-volume-value {
 }
 
 .landing-al-volume-label {
+  position: relative;
+  z-index: 1;
   margin: 0;
   font-size: clamp(15px, 2vw, 18px);
   font-weight: 500;
@@ -14485,8 +14561,17 @@ html[data-landing-theme='dark'] .landing-al-volume-value {
   color: #52525b;
 }
 
+.landing-al-volume-label .landing-gmx-title-grey {
+  color: var(--lg-accent, #3dd68c);
+  font-weight: 550;
+}
+
 html[data-landing-theme='dark'] .landing-al-volume-label {
   color: #a1a1aa;
+}
+
+html[data-landing-theme='dark'] .landing-al-volume-label .landing-gmx-title-grey {
+  color: var(--lg-accent, #3dd68c);
 }
 
 /* Bento feature cards — unequal spans like reference, light grey */
@@ -15281,8 +15366,8 @@ html[data-landing-theme='dark'] .landing-al-header {
   margin-left: 4px;
   padding: 10px 14px 10px 18px;
   border-radius: 999px;
-  background: #0a0a0a;
-  color: #fff;
+  background: #3dd68c;
+  color: #0b1210;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -15291,16 +15376,16 @@ html[data-landing-theme='dark'] .landing-al-header {
 }
 
 .landing-al-nav-cta:hover {
-  background: #27272a;
+  background: #34c57e;
 }
 
 html[data-landing-theme='dark'] .landing-al-nav-cta {
-  background: #f4f4f5;
-  color: #0a0a0a;
+  background: #3dd68c;
+  color: #0b1210;
 }
 
 html[data-landing-theme='dark'] .landing-al-nav-cta:hover {
-  background: #e4e4e7;
+  background: #34c57e;
 }
 
 .landing-al-nav-cta-icon {
@@ -15310,11 +15395,11 @@ html[data-landing-theme='dark'] .landing-al-nav-cta:hover {
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.14);
+  background: rgb(11 18 16 / 0.12);
 }
 
 html[data-landing-theme='dark'] .landing-al-nav-cta-icon {
-  background: rgb(0 0 0 / 0.08);
+  background: rgb(11 18 16 / 0.12);
 }
 
 /* Full-screen mobile nav (portal to body) */
@@ -15520,6 +15605,7 @@ html[data-landing-theme='dark'] .landing-al-nav-cta-icon {
 /* Hero — AlphaLedger composition */
 .landing-al-hero {
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15527,6 +15613,69 @@ html[data-landing-theme='dark'] .landing-al-nav-cta-icon {
   padding-top: clamp(48px, 7vw, 88px);
   padding-bottom: 0;
   min-height: 0;
+  overflow: visible;
+}
+
+/* App-green light behind title + MacBook — soft, visible, not neon */
+.landing-al-hero-glow {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  z-index: 0;
+  width: min(1120px, 155vw);
+  height: min(820px, 105%);
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 68% 52% at 50% 42%,
+      rgba(61, 214, 140, 0.34) 0%,
+      rgba(61, 214, 140, 0.16) 32%,
+      rgba(61, 214, 140, 0.06) 52%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 50% 68%,
+      rgba(61, 214, 140, 0.14) 0%,
+      rgba(38, 166, 154, 0.05) 40%,
+      transparent 70%
+    );
+  filter: blur(48px);
+  opacity: 0.78;
+}
+
+.landing-al-hero > *:not(.landing-al-hero-glow) {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 639px) {
+  .landing-al-hero-glow {
+    width: min(860px, 175vw);
+    height: 100%;
+    top: 18%;
+    filter: blur(40px);
+    opacity: 0.72;
+  }
+}
+
+html[data-landing-theme='dark'] .landing-al-hero-glow,
+.landing-gmx--dark .landing-al-hero-glow {
+  background:
+    radial-gradient(
+      ellipse 68% 52% at 50% 42%,
+      rgba(61, 214, 140, 0.26) 0%,
+      rgba(61, 214, 140, 0.1) 36%,
+      rgba(61, 214, 140, 0.04) 55%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 50% 68%,
+      rgba(61, 214, 140, 0.1) 0%,
+      transparent 68%
+    );
+  filter: blur(50px);
+  opacity: 0.7;
 }
 
 .landing-al-film {
@@ -16088,7 +16237,7 @@ html[data-landing-theme='dark'] .landing-al-outer-footer .landing-gmx-footer-leg
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--lg-muted);
+  color: var(--lg-accent);
 }
 
 .landing-contact-title {
@@ -16220,41 +16369,43 @@ html[data-landing-theme='dark'] .landing-assist-dock {
 }
 
 .landing-assist-cta--primary {
-  background: #0a0a0a;
-  color: #fff;
+  background: #3dd68c;
+  color: #0b1210;
 }
 
 .landing-assist-cta--primary:hover {
-  background: #18181b;
+  background: #34c57e;
 }
 
 html[data-landing-theme='dark'] .landing-assist-cta--primary {
-  background: #f4f4f5;
-  color: #0a0a0a;
+  background: #3dd68c;
+  color: #0b1210;
 }
 
 html[data-landing-theme='dark'] .landing-assist-cta--primary:hover {
-  background: #fff;
+  background: #34c57e;
 }
 
 .landing-assist-cta--ghost {
-  background: rgb(255 255 255 / 0.45);
-  color: #0a0a0a;
-  border: 1px solid rgb(0 0 0 / 0.06);
+  background: color-mix(in srgb, #3dd68c 14%, transparent);
+  color: #1a9a62;
+  border: 1px solid color-mix(in srgb, #3dd68c 45%, transparent);
 }
 
 .landing-assist-cta--ghost:hover {
-  background: rgb(255 255 255 / 0.7);
+  background: color-mix(in srgb, #3dd68c 22%, transparent);
+  border-color: color-mix(in srgb, #3dd68c 62%, transparent);
 }
 
 html[data-landing-theme='dark'] .landing-assist-cta--ghost {
-  background: rgb(255 255 255 / 0.06);
-  color: #f4f4f5;
-  border-color: rgb(255 255 255 / 0.1);
+  background: color-mix(in srgb, #3dd68c 14%, transparent);
+  color: #3dd68c;
+  border-color: color-mix(in srgb, #3dd68c 40%, transparent);
 }
 
 html[data-landing-theme='dark'] .landing-assist-cta--ghost:hover {
-  background: rgb(255 255 255 / 0.12);
+  background: color-mix(in srgb, #3dd68c 22%, transparent);
+  border-color: color-mix(in srgb, #3dd68c 55%, transparent);
 }
 
 .landing-assist-panel {
