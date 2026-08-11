@@ -8,7 +8,7 @@ Service: `b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6`
 | Setting | Value |
 |---------|--------|
 | **Root directory** | `bot-service` |
-| **Build** | Nixpacks (`npm ci` + `npm run build`) |
+| **Build** | Dockerfile (`bot-service/Dockerfile` — not Nixpacks CLI snapshots) |
 | **Start** | `npm run start` (see `bot-service/railway.json`) |
 | **Health check** | `/health` |
 | **Public networking** | `https://monadier-production.up.railway.app` |
