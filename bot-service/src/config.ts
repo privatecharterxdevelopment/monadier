@@ -213,12 +213,12 @@ export const config = {
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 15),
       /**
        * Hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets up with the peak.
-       * Higher dropFrac = more room to pull back before floor close (0.55 → lock ~45% of peak).
-       * Only engages once peak ROE reaches breakevenArmRoePct.
+       * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
+       * Only engages once peak ROE reaches breakevenArmRoePct (stage 1 still required).
        */
-      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.55),
+      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
       /** After trail arms — min ms before trail/peak can close. */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 300_000),
       /**
        * Never profit-close unless uPnL ≥ round-trip fees × this (default 4×).
        * Stops +$5 closes that get nuked by ~$5 open+close fees.
@@ -230,44 +230,44 @@ export const config = {
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 2.5),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 3.2),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.038),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.032),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.048),
+      /** Stage-2 ATR/% trail distance — wider so winners can breathe before stop catches. */
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.055),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.048),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.062),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
        * LONG trail distance vs SHORT. >1 widens LONG stops so winners aren't sniped.
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.35),
-      /** Peak floor drop for LONGs — default matches SHORT profitFloorPeakDropFrac. */
-      longProfitFloorPeakDropFrac: Number(
-        process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC ||
-          process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC ||
-          0.45
-      ),
-      /** Stretch min-active time before a LONG trail/floor close. */
-      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.25),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.7),
       /**
-       * Extra green-hold before LONG profit closes (1.5m on top of shared arm hold).
+       * LONG peak-floor drop — independent of SHORT. 0.70 → lock ~30% of peak
+       * (was 0.45 → lock 55%, which sniped explosions too early).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 180_000),
+      longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.7),
+      /** Stretch min-active time before a LONG trail/floor close. */
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.5),
+      /**
+       * Extra green-hold before LONG profit closes (on top of shared arm hold).
+       */
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 300_000),
       /**
        * If true, LONGs skip stage-1 breakeven lock closes (legacy). Default OFF —
-       * displayed stop must close when crossed.
+       * stages stay: stage 1 BE lock, then stage 2 ATR trail that ratchets with price.
        */
       longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE === 'true',
       /**
        * Stage-2 ATR trail arm ROE for LONGs (higher than SHORT so winners can run).
        */
-      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 15),
+      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 18),
       /**
        * Min peak ROE before LONG trail/floor/peak closes.
        */
       longMinPeakRoePctBeforeTrailClose: Number(
-        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 12
+        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 18
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
@@ -289,10 +289,10 @@ export const config = {
     trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
-    /** Fraction of peak uPnL retrace before peak-grab close (0.55 = need 55% giveback). */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.55),
+    /** Fraction of peak uPnL retrace before peak-grab close (0.70 = need 70% giveback). */
+    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.7),
     /** Min peak (× round-trip fees) before peak-grab can fire. */
-    profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 12),
+    profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 16),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),
     /** 0 = disabled — no forced close just for being in profit N ms. */
     profitGrabMaxHoldMs: Number(process.env.HL_PROFIT_GRAB_MAX_HOLD_MS || 0),

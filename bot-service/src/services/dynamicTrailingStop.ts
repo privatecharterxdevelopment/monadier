@@ -726,9 +726,11 @@ async function evaluateDynamicTrailInner(
     }
 
     const peakFracBase = config.hyperliquid.profitPeakDropFraction;
+    // LONGs get extra giveback room so stage-2 trail can run with explosions.
+    // Still capped — stages are not skipped; grab only after a real peak retrace.
     const peakFrac =
       input.direction === 'LONG'
-        ? Math.min(0.65, peakFracBase * 1.15)
+        ? Math.min(0.82, peakFracBase * 1.2)
         : peakFracBase;
     const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
     const runWiden =
