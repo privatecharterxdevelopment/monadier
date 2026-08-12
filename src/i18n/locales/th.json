@@ -355,7 +355,12 @@
       "title": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
       "lead": "เทรดเพอร์เพตชวลอัตโนมัติด้วย AI บนบัญชี Hyperliquid ของคุณ",
       "leadSub": "ไม่คุมเงิน — USDC อยู่บน HL บอทเทรด 24/7 คุณเก็บกุญแจเอง",
-      "scrollDown": "เลื่อนลง"
+      "scrollDown": "เลื่อนลง",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "ได้รับความไว้วางใจจากนักเทรด",

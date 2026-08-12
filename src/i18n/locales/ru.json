@@ -355,7 +355,12 @@
       "title": "Полностью автоматический торговый бот",
       "lead": "ИИ-автоматизация перпетуалов на вашем счёте Hyperliquid.",
       "leadSub": "Non-custodial — USDC остаётся на HL; бот торгует 24/7, ключи у вас.",
-      "scrollDown": "Прокрутить вниз"
+      "scrollDown": "Прокрутить вниз",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "Нам доверяют трейдеры",

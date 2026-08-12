@@ -97,7 +97,12 @@
       "title": "फुल ऑटो ट्रेडिंग बॉट",
       "lead": "आपके Hyperliquid खाते पर AI-स्वचालित परपेचुअल्स ट्रेडिंग।",
       "leadSub": "नॉन-कस्टोडियल — आपका USDC HL पर रहता है; बॉट 24/7 ट्रेड करता है, कुंजियाँ आपके पास।",
-      "scrollDown": "नीचे स्क्रॉल करें"
+      "scrollDown": "नीचे स्क्रॉल करें",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "ट्रेडर्स का भरोसा",

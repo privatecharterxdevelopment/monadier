@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import LandingMacbookDashboard from './LandingMacbookDashboard';
 import LandingHeroLines from './LandingHeroLines';
 import { formatLandingUserCount, getLandingUserCount } from '../../lib/landingUserCounter';
+import { goToOpenAppRegister } from '../../lib/appUrls';
 
 const ROTATE_FALLBACK = [
   'on Hyperliquid',
@@ -20,15 +21,24 @@ const fade = (delay = 0) => ({
 
 const LandingAlphaHero: React.FC = () => {
   const { t } = useTranslation();
+  const [email, setEmail] = useState('');
   const rotateLinesRaw = t('landing.hero.rotateLines', { returnObjects: true });
-  const rotateLines = Array.isArray(rotateLinesRaw) && rotateLinesRaw.length > 0
-    ? (rotateLinesRaw as string[])
-    : [...ROTATE_FALLBACK];
+  const rotateLines =
+    Array.isArray(rotateLinesRaw) && rotateLinesRaw.length > 0
+      ? (rotateLinesRaw as string[])
+      : [...ROTATE_FALLBACK];
 
   const userLabel = useMemo(() => {
     const n = getLandingUserCount();
     return `${formatLandingUserCount(n)} ${t('landing.alpha.usersLabel')}`;
   }, [t]);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes('@')) return;
+    goToOpenAppRegister(false, trimmed);
+  };
 
   return (
     <section className="landing-al-hero" aria-labelledby="landing-al-hero-title">
@@ -52,10 +62,32 @@ const LandingAlphaHero: React.FC = () => {
         </div>
 
         <p className="landing-al-hero-lead">
-          {t('landing.alpha.lead')}
-          <br />
-          {t('landing.alpha.leadSub')}
+          <span className="landing-al-hero-lead-line">{t('landing.alpha.lead')}</span>
+          <span className="landing-al-hero-lead-line">{t('landing.alpha.leadSub')}</span>
         </p>
+
+        <form className="landing-al-signup" onSubmit={onSubmit} noValidate>
+          <div className="landing-al-signup-bar">
+            <label className="sr-only" htmlFor="landing-al-signup-email">
+              {t('landing.alpha.emailLabel')}
+            </label>
+            <input
+              id="landing-al-signup-email"
+              className="landing-al-signup-input"
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder={t('landing.alpha.emailPlaceholder')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <button type="submit" className="landing-al-signup-btn">
+              {t('landing.alpha.signUp')}
+            </button>
+          </div>
+        </form>
       </motion.div>
 
       <LandingMacbookDashboard embedded />

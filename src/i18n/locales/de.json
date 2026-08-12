@@ -97,6 +97,11 @@
       "title": "Full auto trading bot",
       "lead": "KI-automatisierter Perpetual-Handel auf deinem Hyperliquid-Konto.",
       "leadSub": "Non-custodial — dein USDC bleibt auf HL; der Bot handelt 24/7, die Keys bleiben bei dir.",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "Bitte gib deine gültige E-Mail ein",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Bereits ein Konto?",
+      "signIn": "Sign In",
       "scrollDown": "Nach unten scrollen"
     },
     "socialProof": {

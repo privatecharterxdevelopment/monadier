@@ -355,7 +355,12 @@
       "title": "全自动交易机器人",
       "lead": "在你的 Hyperliquid 账户上进行 AI 自动化永续交易。",
       "leadSub": "非托管——USDC 留在 HL；机器人 24/7 交易，密钥由你保管。",
-      "scrollDown": "向下滚动"
+      "scrollDown": "向下滚动",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "交易者信赖",

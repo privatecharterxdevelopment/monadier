@@ -71,6 +71,7 @@ import { useHlBotMinBalanceGuard } from '../../hooks/useHlBotMinBalanceGuard';
 import { getProTradeChartColors } from '../../lib/proTradeTheme';
 import { PlatformFeeProvider } from '../../contexts/PlatformFeeContext';
 import { BettingFeeProvider } from '../../contexts/BettingFeeContext';
+import { consumeRegisterEmail, peekRegisterEmail } from '../../lib/appUrls';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
   'identity',
@@ -123,6 +124,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
   const [focusBettingOutcomeId, setFocusBettingOutcomeId] = useState<number | null>(null);
   const [authModal, setAuthModal] = useState<'signin' | 'register' | null>(null);
+  const [registerPrefillEmail, setRegisterPrefillEmail] = useState('');
   const [signInReason, setSignInReason] = useState<string | undefined>();
   const [botSyncTick, setBotSyncTick] = useState(0);
   const [profileTab, setProfileTab] = useState<ProTradeProfileTab>(() =>
@@ -415,14 +417,22 @@ const Dashboard2ProPageContent: React.FC = () => {
     setAuthModal('signin');
   }, []);
 
-  /** Landing / deep link: /app?auth=register|signin → same Pro Trade auth modal (shared RegisterForm). */
+  /** Landing / deep link: /app?auth=register|signin&email=… → same Pro Trade auth modal. */
   useEffect(() => {
     if (!sessionReady) return;
     const auth = searchParams.get('auth');
     if (auth !== 'register' && auth !== 'signin' && auth !== 'login') return;
 
+    const emailFromQuery = searchParams.get('email')?.trim() ?? '';
+    const email = emailFromQuery || peekRegisterEmail();
+    if (email) {
+      setRegisterPrefillEmail(email);
+      consumeRegisterEmail();
+    }
+
     const params = new URLSearchParams(searchParams);
     params.delete('auth');
+    params.delete('email');
     setSearchParams(params, { replace: true });
 
     if (user) return;
@@ -983,9 +993,10 @@ const Dashboard2ProPageContent: React.FC = () => {
                 />
               ) : (
                 <ProTradeRegisterModal
-                  key="register"
+                  key={`register-${registerPrefillEmail || 'blank'}`}
                   embedded
                   open
+                  initialEmail={registerPrefillEmail}
                   onClose={closeAuthModal}
                   onSwitchToSignIn={switchToSignIn}
                 />

@@ -355,7 +355,12 @@
       "title": "Bot de trading full auto",
       "lead": "Trading de perpetuos automatizado con IA en tu cuenta Hyperliquid.",
       "leadSub": "Non-custodial — tu USDC permanece en HL; el bot opera 24/7 y tú conservas las claves.",
-      "scrollDown": "Desplazar abajo"
+      "scrollDown": "Desplazar abajo",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "De confianza para traders",

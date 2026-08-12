@@ -16,6 +16,8 @@ export type RegisterFormProps = {
   signInHref?: string;
   idPrefix?: string;
   className?: string;
+  /** Prefill from landing signup (`?email=` / session stash). */
+  initialEmail?: string;
   /** Optional parent toast (e.g. TermAuthToast). Local toast always works as fallback. */
   onToast?: (message: string, durationMs?: number) => void;
 };
@@ -27,12 +29,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   signInHref,
   idPrefix = 'auth-reg',
   className = '',
+  initialEmail = '',
   onToast,
 }) => {
   const { t } = useTranslation();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => initialEmail.trim());
   const [password, setPassword] = useState('');
   const [country, setCountry] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -50,6 +53,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     const stored = getStoredReferralCode();
     if (stored) setReferralCode(stored);
   }, []);
+
+  useEffect(() => {
+    const next = initialEmail.trim();
+    if (next) setEmail(next);
+  }, [initialEmail]);
 
   useEffect(
     () => () => {

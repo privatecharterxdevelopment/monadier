@@ -97,7 +97,12 @@
       "title": "فل آٹو ٹریڈنگ بوٹ",
       "lead": "آپ کے Hyperliquid اکاؤنٹ پر AI-خودکار پرپیچوئلز ٹریڈنگ۔",
       "leadSub": "نان-کسٹوڈیل — آپ کا USDC HL پر رہتا ہے؛ بوٹ 24/7 ٹریڈ کرتا ہے، کلیدیں آپ کے پاس۔",
-      "scrollDown": "نیچے اسکرول کریں"
+      "scrollDown": "نیچے اسکرول کریں",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "ٹریڈرز کا اعتماد",

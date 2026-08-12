@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Logo from '../components/ui/Logo';
 import MarketingSeo from '../components/seo/MarketingSeo';
 import RegisterForm from '../components/auth/RegisterForm';
-import { afterAuthGo, getOpenAppPath } from '../lib/appUrls';
+import { afterAuthGo, getOpenAppPath, consumeRegisterEmail, peekRegisterEmail } from '../lib/appUrls';
 import { queueAuthToast } from '../lib/authToast';
 import { captureReferralFromSearch } from '../lib/referralCapture';
 
@@ -13,6 +13,13 @@ const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [prefillEmail] = useState(
+    () => searchParams.get('email')?.trim() || peekRegisterEmail() || ''
+  );
+
+  useEffect(() => {
+    if (prefillEmail) consumeRegisterEmail();
+  }, [prefillEmail]);
 
   useEffect(() => {
     const ref = searchParams.get('ref') ?? searchParams.get('referral');
@@ -36,6 +43,7 @@ const RegisterPage: React.FC = () => {
             <h1 className="auth-card-title">{t('auth.register.title')}</h1>
             <RegisterForm
               idPrefix="page-reg"
+              initialEmail={prefillEmail}
               signInHref="/login"
               onSessionCreated={() => {
                 queueAuthToast('signed_in');

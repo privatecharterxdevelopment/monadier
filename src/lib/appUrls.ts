@@ -416,9 +416,39 @@ export function getRegisterUrl(returnToApp = true): string {
   return `${base}?from=${encodeURIComponent(getOpenAppPath())}`;
 }
 
+const REGISTER_EMAIL_KEY = 'hg_register_email';
+
+/** Persist email from landing signup so /app register can prefill after navigation. */
+export function stashRegisterEmail(email: string): void {
+  const trimmed = email.trim();
+  if (typeof sessionStorage === 'undefined') return;
+  if (!trimmed) {
+    sessionStorage.removeItem(REGISTER_EMAIL_KEY);
+    return;
+  }
+  sessionStorage.setItem(REGISTER_EMAIL_KEY, trimmed);
+}
+
+export function consumeRegisterEmail(): string {
+  if (typeof sessionStorage === 'undefined') return '';
+  const value = sessionStorage.getItem(REGISTER_EMAIL_KEY)?.trim() ?? '';
+  sessionStorage.removeItem(REGISTER_EMAIL_KEY);
+  return value;
+}
+
+export function peekRegisterEmail(): string {
+  if (typeof sessionStorage === 'undefined') return '';
+  return sessionStorage.getItem(REGISTER_EMAIL_KEY)?.trim() ?? '';
+}
+
 /** Navigate to Pro Trade and open the in-app register modal (same RegisterForm as Pro Trade). */
-export function goToOpenAppRegister(replace = false): void {
-  goToOpenApp('?auth=register', replace);
+export function goToOpenAppRegister(replace = false, email?: string): void {
+  const trimmed = email?.trim() ?? '';
+  if (trimmed) stashRegisterEmail(trimmed);
+  const q = trimmed
+    ? `?auth=register&email=${encodeURIComponent(trimmed)}`
+    : '?auth=register';
+  goToOpenApp(q, replace);
 }
 
 /** Navigate to Pro Trade and open the in-app sign-in modal. */

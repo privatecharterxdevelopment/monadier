@@ -15775,8 +15775,8 @@ html[data-landing-theme='dark'] .landing-al-hero-title {
 .landing-al-hero-copy {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  width: fit-content;
+  align-items: center;
+  width: min(100%, 52rem);
   max-width: 100%;
   margin: 0 auto 40px;
   text-align: center;
@@ -15868,19 +15868,121 @@ html[data-landing-theme='dark'] .landing-al-hero .landing-gmx-hero-line--muted {
 }
 
 .landing-al-hero-lead {
-  width: 0;
-  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
+  width: max-content;
+  max-width: min(100%, 92vw);
   box-sizing: border-box;
-  margin: 14px 0 0;
-  font-size: clamp(14px, 1.5vw, 16px);
+  margin: 14px auto 0;
+  font-size: clamp(12.5px, 1.35vw, 16px);
   font-weight: 400;
-  line-height: 1.45;
+  line-height: 1.4;
   color: #8b8b93;
   text-align: center;
 }
 
+.landing-al-hero-lead-line {
+  display: block;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .landing-al-hero-lead {
+    font-size: clamp(10px, 2.7vw, 13px);
+  }
+}
+
 html[data-landing-theme='dark'] .landing-al-hero-lead {
   color: #a1a1aa;
+}
+
+/* Hero email signup — pill input + brand-green Sign Up */
+.landing-al-signup {
+  width: min(420px, 100%);
+  margin: 22px auto 0;
+  text-align: left;
+}
+
+.landing-al-signup-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 52px;
+  padding: 5px 5px 5px 18px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #3dd68c 28%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, #0a0a0a 88%, #3dd68c 4%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+html[data-landing-theme='light'] .landing-al-signup-bar {
+  border-color: color-mix(in srgb, #3dd68c 32%, rgba(28, 36, 56, 0.12));
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.landing-al-signup-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #e8e8ef;
+  font-size: 14px;
+  font-weight: 450;
+  line-height: 1.3;
+  padding: 0 12px 0 0;
+}
+
+html[data-landing-theme='light'] .landing-al-signup-input {
+  color: #111827;
+}
+
+.landing-al-signup-input::placeholder {
+  color: #8b8b98;
+  opacity: 1;
+}
+
+html[data-landing-theme='light'] .landing-al-signup-input::placeholder {
+  color: #9ca3af;
+}
+
+.landing-al-signup-btn {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 22px;
+  min-width: 108px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0a0a0a;
+  cursor: pointer;
+  background: #3dd68c;
+  box-shadow: 0 6px 18px color-mix(in srgb, #3dd68c 32%, transparent);
+  transition: filter 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.landing-al-signup-btn:hover {
+  background: #4ae09a;
+  filter: none;
+}
+
+.landing-al-signup-btn:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 479px) {
+  .landing-al-signup-bar {
+    padding-left: 14px;
+  }
+
+  .landing-al-signup-btn {
+    min-width: 96px;
+    padding: 0 16px;
+  }
 }
 
 /* MacBook Air Starlight (Pacdora-style) */

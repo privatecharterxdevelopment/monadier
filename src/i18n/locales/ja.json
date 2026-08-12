@@ -355,7 +355,12 @@
       "title": "フルオート取引ボット",
       "lead": "Hyperliquid 口座での AI 自動パーペチュアル取引。",
       "leadSub": "非カストディアル——USDC は HL に残り、ボットが24時間取引、鍵はあなたのもの。",
-      "scrollDown": "下へスクロール"
+      "scrollDown": "下へスクロール",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
     },
     "socialProof": {
       "aria": "トレーダーに信頼されています",

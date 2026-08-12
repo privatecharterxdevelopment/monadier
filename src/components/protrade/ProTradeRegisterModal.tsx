@@ -9,6 +9,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSwitchToSignIn?: () => void;
+  /** Prefill email from landing signup deep link. */
+  initialEmail?: string;
   /** Render dialog only — parent supplies backdrop */
   embedded?: boolean;
 };
@@ -17,6 +19,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
   open,
   onClose,
   onSwitchToSignIn,
+  initialEmail = '',
   embedded = false,
 }) => {
   const { t } = useTranslation();
@@ -60,6 +63,7 @@ const ProTradeRegisterModal: React.FC<Props> = ({
         <p className="hl-auth-modal-sub">{t('auth.register.modalSub')}</p>
         <RegisterForm
           idPrefix="modal-reg"
+          initialEmail={initialEmail}
           onSwitchToSignIn={onSwitchToSignIn}
           onToast={showToast}
           onSessionCreated={() => {

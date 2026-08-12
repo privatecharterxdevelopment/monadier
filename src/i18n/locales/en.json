@@ -105,6 +105,11 @@
       "h1": "HyperGain - full-auto trading bot on hyperliquid 24/7",
       "lead": "AI-automated perpetuals trading on your Hyperliquid account.",
       "leadSub": "Non-custodial — your USDC stays on HL; the bot trades 24/7, you keep the keys.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In",
       "scrollDown": "Scroll down"
     },
     "socialProof": {
