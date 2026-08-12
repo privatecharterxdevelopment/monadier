@@ -192,6 +192,9 @@ export async function fetchHlPerpFundingSnapshot(
     isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   const tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
   const perpWithdrawable = hlWithdrawableUsd(state);
+  // Perp clearinghouse flakes often return null while Spot USDC still loads.
+  // Spot-only success is enough to treat funding as loaded on unified books.
+  const stateLoaded = state != null || spotUsdcUsd >= 1 || tradablePerpUsd >= 1;
   return {
     perpUsd,
     spotUsdcUsd,
@@ -200,7 +203,7 @@ export async function fetchHlPerpFundingSnapshot(
     withdrawableUsd: unifiedAccount
       ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
       : perpWithdrawable,
-    stateLoaded: state != null,
+    stateLoaded,
   };
 }
 
@@ -209,6 +212,10 @@ export function describeHlPerpBalanceBlocker(
   funding: HlPerpFundingSnapshot,
   minUsd: number
 ): string | null {
+  // Never flash "balance check failed" when Spot USDC already proves the wallet is funded.
+  if (funding.tradablePerpUsd >= minUsd || funding.spotUsdcUsd >= minUsd) {
+    if (funding.unifiedAccount || funding.tradablePerpUsd >= minUsd) return null;
+  }
   if (!funding.stateLoaded) {
     return 'HL balance check failed — retrying Hyperliquid account read';
   }
@@ -266,9 +273,9 @@ export function hlTradableFreeMarginUsd(
   funding: HlPerpFundingSnapshot,
   state: HlClearinghouseState | null
 ): number {
-  if (!funding.stateLoaded) return 0;
   const marginUsed = hlMarginUsedUsd(state);
-  if (funding.unifiedAccount) {
+  // Unified / spot-backed books: use Spot USDC even when clearinghouseState timed out.
+  if (funding.unifiedAccount || funding.spotUsdcUsd >= 1) {
     const equity = Math.max(
       funding.tradablePerpUsd,
       funding.spotUsdcUsd,
@@ -276,9 +283,11 @@ export function hlTradableFreeMarginUsd(
       funding.withdrawableUsd,
       hlAccountValueUsd(state)
     );
+    if (equity < 1 && !funding.stateLoaded) return 0;
     const derived = Math.max(0, equity - marginUsed);
     return Math.max(0, derived - 1);
   }
+  if (!funding.stateLoaded) return 0;
   return hlFreeMarginUsd(state);
 }
 

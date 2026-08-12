@@ -556,7 +556,10 @@ export function useTerminalBotAnalysis({
       openCount: effectiveOpenCount,
       maxSlots: serverMaxSlots,
     });
-    if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
+    // Debounce margin headline the same way we debounce scan-pause — avoid 1–2s $0 flashes.
+    if (status.title === 'Insufficient margin' && !marginBlocked) {
+      // fall through to normal scanning copy while the raw block is still settling
+    } else if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
       return {
         canEnter: false,
         headline: status.title,
@@ -630,6 +633,7 @@ export function useTerminalBotAnalysis({
     globalScanCount,
     globalCoinsScanned,
     rawScanCandidateCount,
+    marginBlocked,
   ]);
 
   const displaySymbol = useMemo(() => {
