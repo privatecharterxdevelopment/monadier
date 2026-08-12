@@ -4,12 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useBotPublicLeaderboardData } from '../../hooks/useBotPublicLeaderboard';
 import {
   accumulateLeaderboardVolume,
-  applyVolumeDrip,
   formatLandingVolumeUsd,
   getLandingVolumeBaseUsd,
   getLandingVolumeTotalUsd,
-  LANDING_VOLUME_DRIP_INTERVAL_MS,
-  nextVolumeDripUsd,
+  LANDING_VOLUME_TICK_MS,
   peekLeaderboardVolumeExtra,
 } from '../../lib/landingVolumeCounter';
 
@@ -49,12 +47,11 @@ const LandingVolumeSection: React.FC = () => {
     setTarget(getLandingVolumeTotalUsd(extraUsd));
   }, [liveTrades, topTrades]);
 
-  // Every minute: drip a few dollars onto the counter.
+  // Global clock: same climb for every visitor, ticks while the page is open.
   useEffect(() => {
     const id = window.setInterval(() => {
-      applyVolumeDrip(nextVolumeDripUsd());
       setTarget(getLandingVolumeTotalUsd(peekLeaderboardVolumeExtra()));
-    }, LANDING_VOLUME_DRIP_INTERVAL_MS);
+    }, LANDING_VOLUME_TICK_MS);
     return () => window.clearInterval(id);
   }, []);
 
