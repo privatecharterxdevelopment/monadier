@@ -227,11 +227,17 @@ export async function validateNoAltPumpShort(opts: {
       return { ok: false, reason };
     }
 
-    if (ch15m > -cfg.min15mRolloverPct || live15m > -cfg.min15mRolloverPct) {
+    // Continuation dumps: live 15m red is enough even if the last closed 15m
+    // finished slightly green. Old OR required BOTH ≤ −roll and starved every alt SHORT.
+    const roll = Math.max(0, cfg.min15mRolloverPct);
+    const liveDumping = live15m <= -Math.max(roll, 0.12);
+    const closedFaded = ch15m <= -roll;
+    const liveFaded = live15m <= -roll;
+    if (!liveDumping && !closedFaded && !liveFaded) {
       const reason =
         `SHORT blocked — ${coin} 15m not rolling over (closed ${ch15m >= 0 ? '+' : ''}${ch15m.toFixed(2)}%, ` +
         `live ${live15m >= 0 ? '+' : ''}${live15m.toFixed(2)}%) — need clear fade, not a heated pump`;
-      logger.info('Pump-short gate blocked', { coin, ch15m, live15m });
+      logger.info('Pump-short gate blocked', { coin, ch15m, live15m, roll });
       return { ok: false, reason };
     }
 

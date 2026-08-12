@@ -412,7 +412,7 @@ export const config = {
     pumpShort: {
       block1hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_1H || 0.15),
       block4hPct: Number(process.env.HL_PUMP_SHORT_BLOCK_4H || 0.35),
-      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
+      min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.02),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
     /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
