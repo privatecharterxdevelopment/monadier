@@ -40,7 +40,10 @@ const LandingAlphaHero: React.FC = () => {
       </motion.div>
 
       <motion.div className="landing-al-hero-copy" {...fade(0.06)}>
-        <div id="landing-al-hero-title" className="landing-al-hero-title-wrap">
+        <h1 id="landing-al-hero-title" className="sr-only">
+          {t('landing.alpha.h1')}
+        </h1>
+        <div className="landing-al-hero-title-wrap">
           <LandingHeroLines
             lineDarkTop={t('landing.hero.lineDarkTop')}
             rotateLines={rotateLines}

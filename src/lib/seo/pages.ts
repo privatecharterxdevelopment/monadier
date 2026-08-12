@@ -19,16 +19,16 @@ const BOT_KEYWORDS =
 
 /**
  * Indexable primary pages (AL nav + home + product + legal):
- * /, /trading-bot, /how-it-works, /leaderboard, /support, /terms, /privacy
+ * /, /trading-bot, /how-it-works, /leaderboard, /faqs, /support, /terms, /privacy
  *
  * Everything else is noindex (secondary product, thin pages, auth).
  */
 export const PAGE_SEO: Record<string, PageSeo> = {
   '/': {
     path: '/',
-    title: `${SITE_NAME} | Hyperliquid Trading Bot — Full Auto 24/7`,
+    title: `HyperGain - full-auto trading bot on hyperliquid 24/7`,
     description:
-      'HyperGain is a full auto Hyperliquid trading bot. Deposit native USDC on Arbitrum, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial. No guaranteed returns.',
+      'HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns.',
     keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading bot`,
     changefreq: 'weekly',
     priority: 1.0,
@@ -48,8 +48,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/how-it-works',
     title: `How it works | Deposit, Approve, Trade 24/7 — ${SITE_NAME}`,
     description:
-      'Deposit native USDC on Arbitrum One (min. $5 on HL, $20+ to start the bot). Approve the HyperGain agent once — it can trade, never withdraw. Non-custodial Hyperliquid automation.',
-    keywords: `how hyperliquid bot works, hyperliquid agent approval, USDC Arbitrum Hyperliquid, ${BOT_KEYWORDS}`,
+      'How HyperGain works: deposit USDC on Hyperliquid, pick 2 or 3 slots, start the bot. No API keys. Intelligent trailing stop in profit. Withdraw anytime.',
+    keywords: `how hyperliquid bot works, hypergain bot settings, hyperliquid USDC deposit, trailing stop loss bot, 2 or 3 trade slots, no API trading bot, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.9,
     sitemap: true,
@@ -58,7 +58,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/leaderboard',
     title: `Leaderboard | On-Chain Hyperliquid Bot Closes — ${SITE_NAME}`,
     description:
-      'Live on-chain leaderboard of Hyperliquid bot closes. Masked wallets here, full addresses on HypurrScan. Past results do not predict future performance.',
+      'Live Hyperliquid L1 leaderboard of bot closes. Masked wallets here, full addresses and fills on HypurrScan. Past results do not predict future performance.',
     keywords: `hyperliquid bot leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
     changefreq: 'weekly',
     priority: 0.85,
@@ -133,9 +133,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     description: 'HyperGain FAQs — deposits, agent approval, bot trading, fees, and withdrawals.',
     keywords: `HyperGain FAQ, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
-    priority: 0.2,
-    sitemap: false,
-    noindex: true,
+    priority: 0.75,
+    sitemap: true,
   },
   '/contact': {
     path: '/contact',
@@ -246,7 +245,7 @@ export function getPageSeo(pathname: string): PageSeo {
   return (
     PAGE_SEO[path] ?? {
       path,
-      title: `${SITE_NAME} | Hyperliquid Trading Bot`,
+      title: `Hyperliquid Trading Bot — ${SITE_NAME}`,
       description: PAGE_SEO['/'].description,
       keywords: BOT_KEYWORDS,
       changefreq: 'monthly',

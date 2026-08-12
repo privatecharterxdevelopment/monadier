@@ -137,10 +137,6 @@ function PerpsVisual() {
 
   return (
     <div className="al-feat-viz al-feat-viz--perps" aria-hidden>
-      <div className="al-feat-viz-perps-chip">
-        <span className="al-feat-viz-perps-chip-pair">BTC-PERP</span>
-        <span className="al-feat-viz-perps-chip-px">+1.8%</span>
-      </div>
       <svg className="al-feat-viz-candles" viewBox="0 0 128 88" fill="none">
         {[22, 40, 58, 76].map((y) => (
           <line

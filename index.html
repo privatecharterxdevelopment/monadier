@@ -41,7 +41,7 @@
     </script>
 
     <!-- SEO Meta Tags (fallback for crawlers — per-route tags via react-helmet-async) -->
-    <meta name="description" content="HyperGain is a full auto Hyperliquid trading bot. Deposit native USDC on Arbitrum, approve the agent once, and let the bot scan 200+ perpetual markets 24/7 — non-custodial. No guaranteed returns." />
+    <meta name="description" content="HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns." />
     <meta name="keywords" content="hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial trading bot, HyperGain" />
     <meta name="author" content="HyperGain" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -50,8 +50,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.hypergain.io/" />
     <meta property="og:site_name" content="HyperGain" />
-    <meta property="og:title" content="HyperGain | Hyperliquid Trading Bot — Full Auto 24/7" />
-    <meta property="og:description" content="Full auto Hyperliquid trading bot. Native USDC on Arbitrum, non-custodial agent, 24/7 across 200+ perps. No guaranteed returns." />
+    <meta property="og:title" content="HyperGain - full-auto trading bot on hyperliquid 24/7" />
+    <meta property="og:description" content="HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns." />
     <meta property="og:image" content="https://www.hypergain.io/og-image-v2.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -59,19 +59,19 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="HyperGain | Hyperliquid Trading Bot — Full Auto 24/7" />
-    <meta name="twitter:description" content="Full auto Hyperliquid trading bot. Non-custodial, 24/7 across 200+ HL markets. No guaranteed returns." />
+    <meta name="twitter:title" content="HyperGain - full-auto trading bot on hyperliquid 24/7" />
+    <meta name="twitter:description" content="HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns." />
     <meta name="twitter:image" content="https://www.hypergain.io/og-image-v2.png" />
 
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "HyperGain Hyperliquid Trading Bot",
+      "name": "HyperGain - full-auto trading bot on hyperliquid 24/7",
       "url": "https://www.hypergain.io/",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web",
-      "description": "Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perpetual markets. No guaranteed returns.",
+      "description": "HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, non-custodial, 200+ markets. No guaranteed returns.",
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -91,14 +91,57 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Hero video: start download before React boots (mp4 = universal; webm via <source>) -->
-    <link rel="preload" as="image" href="/videos/hero-bg-poster.jpg" fetchpriority="high" />
-    <link rel="preload" as="video" href="/videos/hero-bg.mp4" type="video/mp4" fetchpriority="high" />
-    <title>HyperGain | Hyperliquid Trading Bot — Full Auto 24/7</title>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&display=swap">
+    </noscript>
+    <title>HyperGain - full-auto trading bot on hyperliquid 24/7</title>
+    <!-- Hide SEO bootstrap from humans during SPA boot; crawlers still see it in raw HTML. -->
+    <style>
+      #seo-crawler {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+      }
+    </style>
   </head>
   <body class="bg-background text-[#0a0a0a] font-sans antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div id="seo-crawler">
+        <header>
+          <img src="/images/brand/hypergain-logo.webp" alt="HyperGain - full-auto trading bot on Hyperliquid" width="320" height="91" />
+          <h1>HyperGain - full-auto trading bot on hyperliquid 24/7</h1>
+          <p>Full-auto trading bot on Hyperliquid 24/7. Non-custodial perpetuals, native USDC on Arbitrum. No guaranteed returns.</p>
+          <nav>
+            <a href="/trading-bot">Hyperliquid trading bot</a>
+            <a href="/how-it-works">How it works</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="/support">Help center</a>
+            <a href="/faqs">FAQs</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="https://app.hypergain.io/">Open app</a>
+            <a href="https://hyperliquid.xyz/" rel="noopener noreferrer">Hyperliquid</a>
+          </nav>
+        </header>
+        <main>
+          <h2>How the Hyperliquid bot works</h2>
+          <img
+            src="/images/how-it-works/hypergain-bot-funds-deposit-withdraw-280.webp"
+            alt="HyperGain bot Funds tab showing Hyperliquid USDC trading balance and Deposit / Withdraw"
+            width="280"
+            height="506"
+          />
+          <p>Deposit native USDC on Arbitrum, approve the agent once, and the bot scans 200+ perpetual markets 24/7 from your Hyperliquid account.</p>
+        </main>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -5,7 +5,10 @@ import { useLandingTheme } from '../../contexts/LandingThemeContext';
 import {
   dashboardPreview,
   dashboardPreviewDark,
+  dashboardPreviewDarkWebpSrcSet,
+  dashboardPreviewWebpSrcSet,
   DASHBOARD_PREVIEW_HEIGHT,
+  DASHBOARD_PREVIEW_SIZES,
   DASHBOARD_PREVIEW_WIDTH,
 } from '../../assets/landing/dashboardPreview';
 
@@ -36,18 +39,24 @@ const LandingMacbookDashboard: React.FC<Props> = ({ embedded = false }) => {
               aspectRatio: `${DASHBOARD_PREVIEW_WIDTH} / ${DASHBOARD_PREVIEW_HEIGHT}`,
             }}
           >
-            <img
-              key={isLight ? 'dash-light' : 'dash-dark'}
-              src={imgSrc}
-              alt={t('landing.macbook.alt')}
-              className="landing-mba-img"
-              width={DASHBOARD_PREVIEW_WIDTH}
-              height={DASHBOARD_PREVIEW_HEIGHT}
-              sizes="(max-width: 900px) 94vw, 1100px"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-            />
+            <picture key={isLight ? 'dash-light' : 'dash-dark'}>
+              <source
+                type="image/webp"
+                srcSet={isLight ? dashboardPreviewWebpSrcSet : dashboardPreviewDarkWebpSrcSet}
+                sizes={DASHBOARD_PREVIEW_SIZES}
+              />
+              <img
+                src={imgSrc}
+                alt={t('landing.macbook.alt')}
+                className="landing-mba-img"
+                width={DASHBOARD_PREVIEW_WIDTH}
+                height={DASHBOARD_PREVIEW_HEIGHT}
+                sizes={DASHBOARD_PREVIEW_SIZES}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+            </picture>
           </div>
         </div>
       </div>

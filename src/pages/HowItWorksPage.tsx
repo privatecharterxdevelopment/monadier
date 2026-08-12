@@ -14,6 +14,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import MarketingInnerPage from '../components/marketing/MarketingInnerPage';
+import LandingHowItWorksShowcase from '../components/landing/LandingHowItWorksShowcase';
 import { HL_DEPOSIT_DO_NOT_USE } from '../lib/hlDepositRules';
 
 type StepItem = { title: string; text: string };
@@ -76,6 +77,8 @@ const HowItWorksPage: React.FC = () => {
             ))}
           </ul>
         </header>
+
+        <LandingHowItWorksShowcase variant="page" />
 
         <section className="mkt-hiw-section" aria-labelledby="hiw-fund-title">
           <div

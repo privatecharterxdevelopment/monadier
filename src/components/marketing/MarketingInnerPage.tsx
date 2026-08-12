@@ -9,7 +9,7 @@ const USDC_LOGO = '/images/partners/usdc.svg';
 
 type HeroProps = {
   eyebrow?: string;
-  title: string;
+  title: React.ReactNode;
   lead: string;
   sub?: string;
   aside?: React.ReactNode;

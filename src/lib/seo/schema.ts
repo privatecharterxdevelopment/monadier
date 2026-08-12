@@ -1,6 +1,7 @@
 import { OFFICIAL_X_URL } from '../brand';
 import { OG_IMAGE, SITE_NAME, SITE_ORIGIN, SUPPORT_EMAIL } from './site';
 import { GOOGLE_SITELINKS, sitelinkUrl } from './sitelinks';
+import { HOW_IT_WORKS_IMAGES, HOW_IT_WORKS_STEP_SCHEMA } from './howItWorksImages';
 
 export function organizationSchema() {
   return {
@@ -57,13 +58,13 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: opts?.name ?? `${SITE_NAME} Hyperliquid Trading Bot`,
+    name: opts?.name ?? 'HyperGain - full-auto trading bot on hyperliquid 24/7',
     applicationCategory: 'FinanceApplication',
     operatingSystem: 'Web',
     url: opts?.path ? `${SITE_ORIGIN}${opts.path}` : SITE_ORIGIN,
     description:
       opts?.description ??
-      'Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 across 200+ perps. No guaranteed returns.',
+      'HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets. No guaranteed returns.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -130,4 +131,50 @@ export function faqPageSchema(items: { q: string; a: string }[]) {
       },
     })),
   };
+}
+
+/** HowTo + ImageObject — helps Google Images index the product screenshots. */
+export function howToSchema() {
+  const images = HOW_IT_WORKS_IMAGES.map((img) => `${SITE_ORIGIN}${img.src}`);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: `How ${SITE_NAME} bot works on Hyperliquid`,
+    description:
+      'Deposit USDC on Hyperliquid, set simple bot settings and 2 or 3 slots, then start the bot. No API keys, no exchange connections.',
+    image: images,
+    url: `${SITE_ORIGIN}/how-it-works`,
+    step: HOW_IT_WORKS_IMAGES.map((img, i) => {
+      const copy = HOW_IT_WORKS_STEP_SCHEMA[img.id];
+      return {
+        '@type': 'HowToStep',
+        position: i + 1,
+        name: copy.name,
+        text: copy.text,
+        url: `${SITE_ORIGIN}/how-it-works#hiw-${img.id}`,
+        image: `${SITE_ORIGIN}${img.src}`,
+      };
+    }),
+  };
+}
+
+export function howItWorksImageSchema() {
+  return HOW_IT_WORKS_IMAGES.map((img) => ({
+    '@context': 'https://schema.org',
+    '@type': 'ImageObject',
+    contentUrl: `${SITE_ORIGIN}${img.src}`,
+    url: `${SITE_ORIGIN}${img.src}`,
+    name: img.seoTitle,
+    description: img.seoCaption,
+    caption: img.seoCaption,
+    width: img.width,
+    height: img.height,
+    encodingFormat: 'image/png',
+    representativeOfPage: img.id === 'funds',
+    isPartOf: {
+      '@type': 'WebPage',
+      '@id': `${SITE_ORIGIN}/how-it-works`,
+      url: `${SITE_ORIGIN}/how-it-works`,
+    },
+  }));
 }

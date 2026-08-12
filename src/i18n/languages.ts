@@ -3,7 +3,7 @@ export const LANGUAGE_STORAGE_KEY = 'monadier-lang';
 export const LANGUAGE_COOKIE_KEY = 'monadier-lang';
 const LANGUAGE_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365;
 
-export type AppLanguage = 'en' | 'de' | 'zh' | 'ja' | 'th' | 'es' | 'it' | 'ru';
+export type AppLanguage = 'en' | 'de' | 'zh' | 'ja' | 'th' | 'es' | 'it' | 'ru' | 'hi' | 'ur';
 
 export type LanguageOption = {
   code: AppLanguage;
@@ -21,12 +21,41 @@ export const APP_LANGUAGES: readonly LanguageOption[] = [
   { code: 'es', labelKey: 'languages.es' },
   { code: 'it', labelKey: 'languages.it' },
   { code: 'ru', labelKey: 'languages.ru' },
+  { code: 'hi', labelKey: 'languages.hi' },
+  { code: 'ur', labelKey: 'languages.ur', dir: 'rtl' },
 ] as const;
 
 export const DEFAULT_LANGUAGE: AppLanguage = 'en';
 
 export function isAppLanguage(value: string | null | undefined): value is AppLanguage {
   return APP_LANGUAGES.some((lang) => lang.code === value);
+}
+
+export function languageDir(code: AppLanguage): 'ltr' | 'rtl' {
+  return APP_LANGUAGES.find((lang) => lang.code === code)?.dir ?? 'ltr';
+}
+
+const NOTO_FONT_HREF: Record<'hi' | 'ur', string> = {
+  hi: 'https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap',
+  ur: 'https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap',
+};
+
+function loadLanguageFont(code: AppLanguage): void {
+  if (code !== 'hi' && code !== 'ur') return;
+  const id = `hg-font-${code}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = NOTO_FONT_HREF[code];
+  document.head.appendChild(link);
+}
+
+export function applyDocumentLanguage(code: AppLanguage): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = code;
+  document.documentElement.dir = languageDir(code);
+  loadLanguageFont(code);
 }
 
 function languageCookieDomain(): string | undefined {
@@ -55,5 +84,5 @@ export function persistAppLanguage(code: AppLanguage): void {
   } catch {
     /* cookie blocked */
   }
-  document.documentElement.lang = code;
+  applyDocumentLanguage(code);
 }

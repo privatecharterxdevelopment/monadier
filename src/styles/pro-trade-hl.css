@@ -433,6 +433,8 @@
   right: 0;
   z-index: 1100;
   min-width: 168px;
+  max-height: min(70vh, 440px);
+  overflow-y: auto;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -440,6 +442,14 @@
   background: var(--hl-bg-panel);
   border: 1px solid var(--hl-border);
   box-shadow: var(--hl-shadow-dropdown);
+}
+
+html[dir='rtl'] .hl-chart-row,
+html[dir='rtl'] .hl-chart-wrap,
+html[dir='rtl'] .hl-chart-tv-wrap,
+html[dir='rtl'] .hl-chart-engine,
+html[dir='rtl'] .hl-book {
+  direction: ltr;
 }
 
 .hl-lang-switch-option {

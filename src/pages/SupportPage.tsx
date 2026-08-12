@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import MarketingInnerPage, {
@@ -63,6 +64,12 @@ const SupportPage: React.FC = () => {
         </div>
       </article>
 
+      <div className="mkt-support-faq-head">
+        <h2 className="mkt-support-faq-title">{t('footer.faqs')}</h2>
+        <Link to="/faqs" className="landing-gmx-faq-all-link">
+          {t('landing.faq.viewAll')}
+        </Link>
+      </div>
       <MarketingFaqAccordion items={faqs} idPrefix="support-faq" />
     </MarketingInnerPage>
   );

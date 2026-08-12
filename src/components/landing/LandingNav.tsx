@@ -78,6 +78,9 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
             <Link to="/support" className={`landing-al-nav-link ${linkClass}`}>
               {t('common.helpCenter')}
             </Link>
+            <Link to="/faqs" className={`landing-al-nav-link ${linkClass}`}>
+              {t('footer.faqs')}
+            </Link>
             <Link to="/leaderboard" className={`landing-al-nav-link ${linkClass}`}>
               {t('common.leaderboard')}
             </Link>

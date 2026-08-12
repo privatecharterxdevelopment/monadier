@@ -7,7 +7,9 @@
     "th": "ไทย",
     "es": "Español",
     "it": "Italiano",
-    "ru": "Русский"
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "ur": "اردو"
   },
   "language": {
     "select": "言語を選択"
@@ -198,6 +200,8 @@
       ]
     },
     "faq": {
+      "titleAccent": "よくある",
+      "titleRest": "質問",
       "titleDark": "よくある",
       "titleGrey": "質問",
       "tabs": {

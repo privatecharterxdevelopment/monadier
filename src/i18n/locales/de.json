@@ -7,7 +7,9 @@
     "th": "ไทย",
     "es": "Español",
     "it": "Italiano",
-    "ru": "Русский"
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "ur": "اردو"
   },
   "language": {
     "select": "Sprache wählen"
@@ -147,6 +149,58 @@
         "bot": {
           "title": "Bot starten",
           "text": "Trading-Agent einmal freigeben, dann Bot starten."
+        }
+      }
+    },
+    "howShowcase": {
+      "title": "So funktioniert es",
+      "lead": "Links die echte App. Rechts, was du machst.",
+      "steps": {
+        "funds": {
+          "title": "Dein Geld <0>bleibt auf Hyperliquid</0>",
+          "text": "Trading-Balance, auszahlbares USDC, Margin in offenen Trades — ein Funds-Tab. Einzahlen und abheben, wann du willst. Nichts liegt bei uns.",
+          "alt": "HyperGain Bot Funds-Tab mit Hyperliquid USDC-Trading-Balance, auszahlbarem Betrag und den Buttons Deposit USDC / Withdraw USDC",
+          "badges": [
+            "Non-custodial",
+            "Funds-Tab",
+            "Jederzeit auszahlen"
+          ]
+        },
+        "settings": {
+          "title": "<0>Bot-Settings</0>, so einfach wie die App",
+          "text": "Risk. Hebel. Profit Trail. Ein paar Karten, dann Start bot. Kein Dashboard zum Lernen, keine Strategie-Menüs.",
+          "alt": "HyperGain Bot läuft mit einfachen Settings: Risk, Hebel, Profit-Trail-Stop-Loss und Stop bot",
+          "badges": [
+            "Risk",
+            "Hebel",
+            "Profit-Trail"
+          ]
+        },
+        "slots": {
+          "title": "Du entscheidest: <0>2 oder 3 Slots</0>",
+          "text": "Wie viele Trades gleichzeitig offen sein dürfen, bestimmst du. Risk teilt sich auf die Slots. Zwei oder drei — du bleibst in Kontrolle.",
+          "alt": "HyperGain Bot Settings: Open-Trade-Slots umschalten zwischen 2 Slots und 3 Slots auf Hyperliquid",
+          "badges": [
+            "2 oder 3 Slots",
+            "Risk teilen",
+            "Du entscheidest"
+          ]
+        },
+        "deposit": {
+          "title": "<0>Jederzeit</0> einzahlen und abheben",
+          "text": "Keine API-Verbindungen. Keine Exchange-Logins. Kein dubioses Custody. Native USDC auf Hyperliquid — du signierst jeden Move.",
+          "alt": "Hyperliquid USDC-Einzahlung von Arbitrum in HyperGain — Deposit to Hyperliquid, ohne Exchange-API",
+          "badges": [
+            "Kein API",
+            "Keine Börse",
+            "Native USDC"
+          ]
+        },
+        "auto": {
+          "title": "Den Bot selbst traden sehen",
+          "text": "Der Bot öffnet, managed und trailt im Profit von allein — nonstop. Intelligenter Trailing-Stop im Gewinn. Du monitorst. Du nimmst die Wins.",
+          "alt": "HyperGain Auto-Trading-Dashboard mit BTC-Perpetual-Chart, Entry-Linie, intelligentem Trailing-Stop im Profit und offenen Hyperliquid-Positionen",
+          "caption": "HyperGain Auto-Trading mit intelligentem Trailing-Stop-Loss im Profit auf Hyperliquid"
         }
       }
     },
@@ -371,6 +425,8 @@
       ]
     },
     "faq": {
+      "titleAccent": "Häufig",
+      "titleRest": " gestellte Fragen",
       "titleDark": "Häufig gestellte ",
       "titleGrey": "Fragen",
       "viewAll": "Alle FAQs ansehen",
@@ -378,7 +434,7 @@
       "searchEmpty": "Keine Fragen passen zu deiner Suche.",
       "page": {
         "eyebrow": "FAQs",
-        "title": "Häufig gestellte Fragen",
+        "title": "<0>Häufig</0> gestellte Fragen",
         "lead": "Alles zu HyperGain, dem Hyperliquid-Bot, Einzahlungen, Gebühren und Sports Betting — durchsuchen oder alle Antworten browsen."
       },
       "tabs": {
@@ -1470,12 +1526,12 @@
   },
   "leaderboard": {
     "title": "Bestenliste",
-    "lead": "Echte Hyperliquid-Bot-Closes unserer User — Wins und Losses, Wallet maskiert, jeden Trade auf HypurrScan prüfen.",
+    "lead": "Live Hyperliquid-L1-Fills unserer User — Wins und Losses, Wallet maskiert, jeden Trade auf HypurrScan prüfen.",
     "bestPositions": "Beste Positionen",
     "topByPnl": "Top {{n}} nach P/L · HypurrScan",
     "topWins": "Top-Wins",
     "allCloses": "Letzte Closes",
-    "recentAllMeta": "Aktuell {{n}} · Wins & Losses · 10s Refresh",
+    "recentAllMeta": "Aktuell {{n}} · Hyperliquid L1 · 10s Refresh",
     "recentRefresh": "Aktuell · 10s Refresh · Live HL",
     "loading": "Verifizierte Trades werden geladen…",
     "emptyTop": "Noch keine verifizierten Wins.",

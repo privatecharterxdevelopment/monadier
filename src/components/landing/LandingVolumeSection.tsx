@@ -113,6 +113,7 @@ const LandingVolumeSection: React.FC = () => {
           </span>
           <motion.span
             className="landing-al-volume-value-num"
+            dir="ltr"
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-60px' }}

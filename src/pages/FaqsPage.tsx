@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import MarketingInnerPage, {
   MarketingPageHero,
 } from '../components/marketing/MarketingInnerPage';
@@ -28,7 +28,12 @@ const FaqsPage: React.FC = () => {
     <MarketingInnerPage>
       <MarketingPageHero
         eyebrow={t('landing.faq.page.eyebrow')}
-        title={t('landing.faq.page.title')}
+        title={
+          <Trans
+            i18nKey="landing.faq.page.title"
+            components={[<em className="mkt-hero-em" key="em" />]}
+          />
+        }
         lead={t('landing.faq.page.lead')}
       />
 

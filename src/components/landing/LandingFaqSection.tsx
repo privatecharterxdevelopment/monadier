@@ -61,8 +61,8 @@ const LandingFaqSection: React.FC = () => {
       <motion.div {...fadeUp(0)} className="landing-gmx-faq-frame">
         <div className="landing-gmx-faq-head">
           <h2 id="landing-faq-title" className="landing-gmx-faq-frame-title">
-            <span className="landing-gmx-title-dark">{t('landing.faq.titleDark')}</span>
-            <span className="landing-gmx-title-grey">{t('landing.faq.titleGrey')}</span>
+            <span className="landing-gmx-title-grey">{t('landing.faq.titleAccent')}</span>
+            <span className="landing-gmx-title-dark">{t('landing.faq.titleRest')}</span>
           </h2>
 
           <Link to="/faqs" className="landing-gmx-faq-all-link">
@@ -74,7 +74,7 @@ const LandingFaqSection: React.FC = () => {
         <div
           className="landing-gmx-faq-grid"
           role="region"
-          aria-label={t('landing.faq.titleDark') + t('landing.faq.titleGrey')}
+          aria-label={`${t('landing.faq.titleAccent')}${t('landing.faq.titleRest')}`}
         >
           {previewFaqs.map((item, i) => {
             const isOpen = openKey === item.q;

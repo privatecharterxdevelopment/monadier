@@ -7,7 +7,9 @@
     "th": "ไทย",
     "es": "Español",
     "it": "Italiano",
-    "ru": "Русский"
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "ur": "اردو"
   },
   "language": {
     "select": "เลือกภาษา"
@@ -198,6 +200,8 @@
       ]
     },
     "faq": {
+      "titleAccent": "คำถามที่พบบ่อย",
+      "titleRest": "",
       "titleDark": "คำถามที่",
       "titleGrey": "พบบ่อย",
       "tabs": {

@@ -121,7 +121,7 @@ export const BOT_PAGE_HERO = {
 export const BOT_PAGE_LEADERBOARD = {
   eyebrow: 'On-chain proof',
   title: 'Leaderboard',
-  lead: 'Real Hyperliquid closes from bot wallets — wallet labels only, full addresses on HypurrScan. Past results do not predict future performance.',
+  lead: 'Live Hyperliquid L1 fills from bot wallets — wallet labels only, full addresses on HypurrScan. Past results do not predict future performance.',
 } as const;
 
 export const TRADING_BOT_FEATURES = [

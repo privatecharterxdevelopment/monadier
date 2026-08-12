@@ -44,6 +44,8 @@
   right: 0;
   z-index: 80;
   min-width: 168px;
+  max-height: min(70vh, 440px);
+  overflow-y: auto;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -152,4 +154,20 @@
   min-width: 180px;
   background: #fff;
   border: 1px solid #e4e4e7;
+}
+
+html[dir='rtl'] .lang-switch-menu,
+html[dir='rtl'] .lang-switch-menu--welcome,
+html[dir='rtl'] .hl-lang-switch-menu {
+  right: auto;
+  left: 0;
+}
+
+html[dir='rtl'] .lang-switch-option,
+html[dir='rtl'] .hl-lang-switch-option {
+  text-align: right;
+}
+
+html[dir='rtl'] .lang-switch--welcome {
+  align-items: flex-start;
 }

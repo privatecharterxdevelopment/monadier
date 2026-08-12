@@ -10,6 +10,8 @@ import { OG_IMAGE, SITE_NAME, absoluteUrl } from '../../lib/seo/site';
 import {
   breadcrumbSchema,
   faqPageSchema,
+  howItWorksImageSchema,
+  howToSchema,
   organizationSchema,
   softwareApplicationSchema,
   webPageSchema,
@@ -75,7 +77,23 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
     ];
 
     if (path === '/') {
-      blocks.push(organizationSchema(), webSiteSchema(), siteNavigationSchema(), softwareApplicationSchema());
+      blocks.push(
+        organizationSchema(),
+        webSiteSchema(),
+        siteNavigationSchema(),
+        softwareApplicationSchema(),
+        howToSchema(),
+        ...howItWorksImageSchema()
+      );
+    } else if (path === '/how-it-works') {
+      blocks.push(
+        howToSchema(),
+        ...howItWorksImageSchema(),
+        breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'How it works', path: '/how-it-works' },
+        ])
+      );
     } else if (path === '/trading-bot') {
       blocks.push(
         softwareApplicationSchema({

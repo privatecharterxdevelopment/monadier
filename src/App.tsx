@@ -40,6 +40,7 @@ import AdminMonitorPage from './pages/dashboard/AdminMonitorPage';
 import AdminMonitorLayout from './layouts/AdminMonitorLayout';
 import HostRedirects from './components/layout/HostRedirects';
 import { getAdminPath } from './lib/adminPath';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
   const { isLoading } = useAuth();
@@ -204,7 +205,7 @@ function App() {
           <Route path="/dashboard/*" element={<RedirectToApp />} />
           <Route path="/dashboard2" element={<RedirectToApp />} />
           <Route path="/dashboard2/*" element={<RedirectToApp />} />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AnimatePresence>
     </TransactionProvider>

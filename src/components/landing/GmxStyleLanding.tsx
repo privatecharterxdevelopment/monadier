@@ -2,6 +2,7 @@ import React from 'react';
 import LandingPageShell from './LandingPageShell';
 import LandingAlphaHero from './LandingAlphaHero';
 import LandingFeaturePanel from './LandingFeaturePanel';
+import LandingHowItWorksShowcase from './LandingHowItWorksShowcase';
 import LandingVolumeSection from './LandingVolumeSection';
 import LandingFaqSection from './LandingFaqSection';
 import { useLandingTheme } from '../../contexts/LandingThemeContext';
@@ -14,6 +15,7 @@ const GmxStyleLanding: React.FC = () => {
       <LandingPageShell>
         <LandingAlphaHero />
         <LandingFeaturePanel />
+        <LandingHowItWorksShowcase />
         <LandingVolumeSection />
         <LandingFaqSection />
       </LandingPageShell>

@@ -78,6 +78,9 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                 <Link to="/support" onClick={() => setIsOpen(false)} className={itemClass(isActive('/support'))}>
                   {t('common.helpCenter')}
                 </Link>
+                <Link to="/faqs" onClick={() => setIsOpen(false)} className={itemClass(isActive('/faqs'))}>
+                  {t('footer.faqs')}
+                </Link>
                 <Link
                   to="/leaderboard"
                   onClick={() => setIsOpen(false)}

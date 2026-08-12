@@ -1,9 +1,9 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import { useBotPublicLiveWins } from '../../hooks/useBotPublicLeaderboard';
+import { useBotPublicRecentCloses } from '../../hooks/useBotPublicLeaderboard';
 
 function fmtUsd(n: number): string {
-  const sign = n >= 0 ? '+' : '';
+  const sign = n >= 0 ? '+' : '−';
   return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -28,11 +28,11 @@ type Props = {
 
 const LeaderboardLiveTable: React.FC<Props> = ({
   limit = 12,
-  emptyMessage = 'No recent wins yet.',
-  loadingMessage = 'Loading verified trades…',
+  emptyMessage = 'No recent closes yet.',
+  loadingMessage = 'Loading Hyperliquid fills…',
   className = '',
 }) => {
-  const { rows, loading } = useBotPublicLiveWins(limit);
+  const { rows, loading } = useBotPublicRecentCloses(limit);
 
   if (loading && rows.length === 0) {
     return <p className="landing-leaderboard-table-empty">{loadingMessage}</p>;
@@ -65,7 +65,7 @@ const LeaderboardLiveTable: React.FC<Props> = ({
               <td className="is-mono">
                 0x{trade.walletLabel}
                 {trade.isLive ? (
-                  <span className="landing-leaderboard-live-pill" aria-label="Recent win">
+                  <span className="landing-leaderboard-live-pill" aria-label="Recent close">
                     live
                   </span>
                 ) : null}
@@ -80,7 +80,9 @@ const LeaderboardLiveTable: React.FC<Props> = ({
               </td>
               <td className="is-time">{fmtWhen(trade.openedAt)}</td>
               <td className="is-time">{fmtWhen(trade.closedAt)}</td>
-              <td className="is-num is-profit">{fmtUsd(trade.profitUsd)}</td>
+              <td className={`is-num ${trade.profitUsd >= 0 ? 'is-profit' : 'is-loss'}`}>
+                {fmtUsd(trade.profitUsd)}
+              </td>
               <td className="is-action">
                 <a
                   href={trade.verifyUrl}

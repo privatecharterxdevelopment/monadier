@@ -15,6 +15,7 @@ export const GOOGLE_SITELINKS: GoogleSitelink[] = [
   { name: 'Trading Bot', path: '/trading-bot' },
   { name: 'How it works', path: '/how-it-works' },
   { name: 'Leaderboard', path: '/leaderboard' },
+  { name: 'FAQs', path: '/faqs' },
   { name: 'Help center', path: '/support' },
   {
     name: 'Open App',

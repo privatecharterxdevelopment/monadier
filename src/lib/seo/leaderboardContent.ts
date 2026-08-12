@@ -4,16 +4,16 @@ export const LEADERBOARD_PAGE = {
   title: 'Leaderboard on chain',
   tagline: 'A bot for the people.',
   description:
-    'No hidden tricks. No custody of your keys. Simple technology — platform fees only when a bot trade closes in profit. Every win below is a real Hyperliquid close you can verify on HypurrScan.',
-  tableMeta: 'Live · refreshes every 10s from Hyperliquid',
-  tableEmpty: 'Profitable bot closes will appear here as users win — all verifiable on HypurrScan.',
-  tableLoading: 'Loading verified trades…',
+    'Live Hyperliquid L1 fills from our users. Masked wallets here — tap HypurrScan to verify the exact close. No hidden tricks. Platform fees only when a bot trade closes in profit.',
+  tableMeta: 'Live Hyperliquid L1 · refreshes every 10s',
+  tableEmpty: 'Bot closes appear here as Hyperliquid fills land — wins and losses, verifiable on HypurrScan.',
+  tableLoading: 'Loading Hyperliquid fills…',
 } as const;
 
 export const LEADERBOARD_PAGE_FAQS = [
   {
     q: 'Is the leaderboard real?',
-    a: 'Yes. Rows come from closed Hyperliquid bot trades recorded in our system. Wallet labels are masked; full addresses are public on HypurrScan where you can verify fills and P/L. Past results do not predict future performance.',
+    a: 'Yes. Rows are live Hyperliquid L1 fills (userFills) for HyperGain bot wallets — not a private database. Wallets are masked on this page; HypurrScan shows the full address, fill, and P/L. Past results do not predict future performance.',
   },
   {
     q: 'When do platform fees apply?',

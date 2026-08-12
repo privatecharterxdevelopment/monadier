@@ -23,7 +23,7 @@ const LeaderboardLandingPage: React.FC = () => {
                   <span className="landing-gmx-title-grey">on chain</span>
                 </h1>
                 <p className="landing-lb-simple-lead">
-                  Real Hyperliquid bot closes — masked wallets here, full addresses on HypurrScan.
+                  Live Hyperliquid L1 fills — masked wallets here, full addresses on HypurrScan.
                 </p>
               </header>
 

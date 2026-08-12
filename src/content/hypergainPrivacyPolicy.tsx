@@ -161,7 +161,8 @@ const EN_SECTIONS: LegalSection[] = [
         We use trusted infrastructure providers (e.g. hosting, database, email) under
         data-processing agreements. We do not sell your personal data. Hyperliquid and Arbitrum
         on-chain activity is publicly visible. We may disclose data if required by law or to protect
-        rights and safety.
+        rights and safety. If you accept cookies, we may use Google Analytics (GA4) to measure
+        visits and traffic sources; you can decline non-essential cookies in the banner.
       </p>
     ),
   },
@@ -978,6 +979,20 @@ const META: Record<
     intro: `Настоящая Политика объясняет, как ${BRAND_NAME} собирает, использует и защищает персональные данные при использовании нашего сайта и приложения для торговли на Hyperliquid.`,
     backLabel: 'Назад к регистрации',
     sections: RU_SECTIONS,
+  },
+  hi: {
+    title: 'गोपनीयता नीति',
+    updated: '22 जुलाई 2026',
+    intro: `यह गोपनीयता नीति बताती है कि आप हमारी Hyperliquid ट्रेडिंग वेबसाइट और ऐप का उपयोग करते समय ${BRAND_NAME} व्यक्तिगत डेटा कैसे एकत्र, उपयोग और सुरक्षित करता है।`,
+    backLabel: 'पंजीकरण पर वापस जाएँ',
+    sections: EN_SECTIONS,
+  },
+  ur: {
+    title: 'رازداری کی پالیسی',
+    updated: '22 جولائی 2026',
+    intro: `یہ رازداری کی پالیسی بتاتی ہے کہ آپ ہماری Hyperliquid ٹریڈنگ ویب سائٹ اور ایپ استعمال کرتے وقت ${BRAND_NAME} ذاتی ڈیٹا کیسے جمع، استعمال اور محفوظ کرتا ہے۔`,
+    backLabel: 'رجسٹریشن پر واپس جائیں',
+    sections: EN_SECTIONS,
   },
 };
 

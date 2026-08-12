@@ -1,7 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import { APP_LANGUAGES, DEFAULT_LANGUAGE, isAppLanguage, LANGUAGE_COOKIE_KEY, LANGUAGE_STORAGE_KEY } from './languages';
+import { APP_LANGUAGES, DEFAULT_LANGUAGE, applyDocumentLanguage, isAppLanguage, LANGUAGE_COOKIE_KEY, LANGUAGE_STORAGE_KEY } from './languages';
 import en from './locales/en.json';
 import de from './locales/de.json';
 import zh from './locales/zh.json';
@@ -10,6 +10,8 @@ import th from './locales/th.json';
 import es from './locales/es.json';
 import it from './locales/it.json';
 import ru from './locales/ru.json';
+import hi from './locales/hi.json';
+import ur from './locales/ur.json';
 
 const supportedLngs = APP_LANGUAGES.map((lang) => lang.code);
 
@@ -26,6 +28,8 @@ void i18n
       es: { translation: es },
       it: { translation: it },
       ru: { translation: ru },
+      hi: { translation: hi },
+      ur: { translation: ur },
     },
     supportedLngs,
     fallbackLng: DEFAULT_LANGUAGE,
@@ -51,9 +55,13 @@ void i18n
   });
 
 i18n.on('languageChanged', (lng) => {
-  document.documentElement.lang = lng;
+  const base = lng.split('-')[0]?.toLowerCase() ?? DEFAULT_LANGUAGE;
+  applyDocumentLanguage(isAppLanguage(base) ? base : DEFAULT_LANGUAGE);
 });
 
-document.documentElement.lang = i18n.language;
+{
+  const initial = (i18n.language ?? DEFAULT_LANGUAGE).split('-')[0]?.toLowerCase() ?? DEFAULT_LANGUAGE;
+  applyDocumentLanguage(isAppLanguage(initial) ? initial : DEFAULT_LANGUAGE);
+}
 
 export default i18n;

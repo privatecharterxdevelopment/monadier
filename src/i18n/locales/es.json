@@ -7,7 +7,9 @@
     "th": "ไทย",
     "es": "Español",
     "it": "Italiano",
-    "ru": "Русский"
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "ur": "اردو"
   },
   "language": {
     "select": "Seleccionar idioma"
@@ -198,6 +200,8 @@
       ]
     },
     "faq": {
+      "titleAccent": "Preguntas",
+      "titleRest": " frecuentes",
       "titleDark": "Preguntas ",
       "titleGrey": "frecuentes",
       "tabs": {
