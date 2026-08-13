@@ -16,7 +16,7 @@
   },
   "nav": {
     "howItWorks": "วิธีการทำงาน",
-    "aiTradingBot": "AI Trading Bot",
+    "aiTradingBot": "AI Trading Agent",
     "aiSportsBetting": "AI Sports Betting",
     "aiAutoBetting": "AI Sports Betting",
     "perpsTrading": "Perps Trading",
@@ -60,7 +60,7 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
+      "lineDarkTop": "เอเจนต์เทรด AI อัตโนมัติเต็มรูปแบบ",
       "rotateLines": [
         "บน Hyperliquid",
         "ด้วยเพิร์พอัตโนมัติ",
@@ -125,7 +125,7 @@
     "pitch": {
       "cta": "เริ่มบอท",
       "ctaRegister": "สมัครฟรี",
-      "ctaLaunchBot": "เปิด Bot ตอนนี้",
+      "ctaLaunchBot": "เปิด Agent ตอนนี้",
       "ctaFinal": "Start trading now",
       "lines": [
         [
@@ -244,42 +244,42 @@
           "a": "Hyperliquid มีสภาพคล่อง perp ลึก การดำเนินการเร็ว และ margin USDC บน L1 ของตัวเอง ฝากครั้งเดียวบน HL ใช้เทรดทุกตลาดที่ลิสต์ — ง่ายกว่า bridge ผ่าน L2 vault เก่า"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "บอทเทรดทำงานอย่างไร?",
           "a": "ขณะบอททำงาน เซิร์ฟเวอร์ HyperGain (Railway) ตรวจยอด HL ทุก ~10 วินาที สแกน perp Hyperliquid ทั้งหมดด้วยสัญญาณ multi-timeframe เปิด setup ที่แข็งแกร่งที่สุด ติดตาม TP/SL ปิดพозишน แล้วทำซ้ำ"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "บอทเทรดทำงานนานแค่ไหน?",
           "a": "24/7 ตราบใดที่เริ่มบอทเปิดอยู่และมี USDC อย่างน้อย $20 บน Hyperliquid ไม่มี session timeout — เซิร์ฟเวอร์วนจนกว่าจะกดหยุดบอท"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "บอทเทรด 24/7 ได้ไหม?",
           "a": "ได้ ตลาดคริpto ไม่ปิด เมื่อเริ่มแล้ว บอทสแกน HL perp ตลอด 24 ชม. และเปิด/ปิดพозишนได้ทุกเวลา — ไม่ต้องออนไลน์"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ปิดเทรดด้วยตนเองได้ไหม?",
           "a": "ได้ ปิดพозишนเปิดได้ใน HyperGain เทอร์มินัล หยุดบอทหยุดการเปิดใหม่ พозишนที่มีอยู่คงอยู่จน TP/SL หรือปิดเอง"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "บอทเทรดสินทรัพย์คริpto อะไรบ้าง?",
           "a": "perpetual Hyperliquid ที่ active และมีสัญญาณตลาดที่ valid — บอทโหลด universe HL ทั้งหมด (200+ คู่) และเลือก setup ที่แข็งแกร่งที่สุดแต่ละรอบ ไม่ใช่รายการ ETH/BTC คงที่"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "บอทใช้ leverage เท่าไหร่?",
           "a": "คุณตั้ง leverage, take profit และ stop loss ในการตั้งค่าบอท บอทจำกัดตามค่าสูงสุดต่อ asset ของ Hyperliquid (เช่น BTC 40×, ETH 25×) ในแต่ละเทรด"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ต้องเปิดคอมพิวเตอร์ทิ้งไว้ไหม?",
           "a": "ไม่ บอททำงานบนเซิร์ฟเวอร์ HyperGain (Railway) หลังเริ่มบอทและมีเงิน HL แล้ว เทรด 24/7 โดยไม่ต้องเปิดเบราว์เซอร์"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ฝากเงินอย่างไรให้บอทเริ่มได้?",
           "a": "ใน HyperGain Funds: ฝากเฉพาะ USDC native บน Arbitrum One — ไม่ใช่ BNB, BSC, ETH mainnet หรือ USDC บน chain อื่น ขั้นต่ำ $5 บน HL บอทต้องการ $20+ จากนั้นอนุมัติ agent → เริ่มบอท"
         },
@@ -352,7 +352,7 @@
     "alpha": {
       "watchFilm": "ดูภาพยนตร์",
       "usersLabel": "ผู้ใช้กำลังเทรดด้วยบอท",
-      "title": "บอทเทรดอัตโนมัติเต็มรูปแบบ",
+      "title": "เอเจนต์เทรด AI อัตโนมัติเต็มรูปแบบ",
       "lead": "เทรดเพอร์เพตชวลอัตโนมัติด้วย AI บนบัญชี Hyperliquid ของคุณ",
       "leadSub": "ไม่คุมเงิน — USDC อยู่บน HL บอทเทรด 24/7 คุณเก็บกุญแจเอง",
       "scrollDown": "เลื่อนลง",
@@ -411,7 +411,7 @@
         },
         "bot": {
           "title": "เริ่มบอท",
-          "text": "อนุมัติเอเจนต์เทรดครั้งเดียว แล้วกด Start bot"
+          "text": "อนุมัติเอเจนต์เทรดครั้งเดียว แล้วกด Start agent"
         }
       }
     },
@@ -598,7 +598,7 @@
     },
     "volume": {
       "label": "ปริมาณเทรดรายวัน",
-      "labelAccent": "ที่จัดการโดย HG Bot",
+      "labelAccent": "ที่จัดการโดย HG Agent",
       "live": "สด"
     }
   },
@@ -674,10 +674,10 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
       },
       "settingsTitle": "การตั้งค่าบอทในแอป",
-      "settingsSub": "ใน Bot trade คุณตั้งเลเวอเรจ ความเสี่ยง สล็อต สต็อปลอส และเกตอัตราชนะ — เหมือนในแอป HyperGain การบันทึกใช้กับการเปิดใหม่",
+      "settingsSub": "ใน Agent trade คุณตั้งเลเวอเรจ ความเสี่ยง สล็อต สต็อปลอส และเกตอัตราชนะ — เหมือนในแอป HyperGain การบันทึกใช้กับการเปิดใหม่",
       "settings": [
         {
           "title": "เลเวอเรจ (Leverage)",
@@ -700,7 +700,7 @@
           "text": "ทางเลือก: หยุดเปิดดีลใหม่หากอัตราชนะล่าสุดต่ำกว่าเกณฑ์ Off = บอทเปิดได้ไม่ว่าอัตราชนะล่าสุดจะเป็นอย่างไร"
         }
       ],
-      "settingsNote": "บันทึกการตั้งค่าจะเก็บความเสี่ยง เลเวอเรจ สต็อปลอส สล็อต และเกตอัตราชนะ เริ่ม/หยุดเทรดที่แท็บ Bot ขณะบอทรันยังเปลี่ยนสล็อตและบันทึกได้ — หยุดบอทก่อนแก้เลเวอเรจ ความเสี่ยง หรือสต็อปลอส"
+      "settingsNote": "บันทึกการตั้งค่าจะเก็บความเสี่ยง เลเวอเรจ สต็อปลอส สล็อต และเกตอัตราชนะ เริ่ม/หยุดเทรดที่แท็บ Agent ขณะบอทรันยังเปลี่ยนสล็อตและบันทึกได้ — หยุดบอทก่อนแก้เลเวอเรจ ความเสี่ยง หรือสต็อปลอส"
     },
     "support": {
       "eyebrow": "สนับสนุน",
@@ -748,7 +748,7 @@
       "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
       "goToSignIn": "Go to sign in",
       "referralLinked": "Referral linked",
-      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
       "acceptTermsRequired": "You must accept the Terms to continue",
       "usernameTaken": "That username is already taken",
       "createFailed": "Failed to create account. Please try again.",
@@ -767,18 +767,18 @@
       "alreadyHaveAccount": "Already have an account? ",
       "signInLink": "Sign In",
       "referralNotificationTitle": "Referral linked",
-      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
-      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
       "visualKicker": "HyperGain Pro Trade",
-      "visualTitle": "HyperGain bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
       "fullNameLabel": "Full name",
-      "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
       "kicker": "HyperGain",
@@ -854,7 +854,7 @@
       "sendingAs": "Sending as",
       "userId": "User ID:",
       "subject": "Subject",
-      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
       "message": "Message",
       "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
       "messageSent": "Message sent. We'll reply to {{email}}.",
@@ -873,13 +873,13 @@
   },
   "bot": {
     "autoTrading": "เทรดอัตโนมัติ",
-    "autoTradingHintModal": "Bot trades from your Hyperliquid balance on signals",
-    "autoTradingHintPanel": "Use the Bot tab → Start bot (not this panel) to turn trading on.",
+    "autoTradingHintModal": "Agent trades from your Hyperliquid balance on signals",
+    "autoTradingHintPanel": "Use the Agent tab → Start agent (not this panel) to turn trading on.",
     "riskPerTrade": "ความเสี่ยงต่อเทรด",
     "riskHint": "% of your HL balance used as margin — <strong>not</strong> leverage.",
     "riskAria": "Risk percent of HL balance per trade",
     "leverage": "Leverage (LVRG)",
-    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The bot clamps to each market cap when opening.",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
     "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
     "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
     "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
@@ -893,7 +893,7 @@
     "closedTradesGate": "เทรดที่ปิดก่อนเกณฑ์มีผล",
     "fewerTrades": "เทรดน้อยลง",
     "moreTrades": "เทรดมากขึ้น",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
     "leverageShort": "เลเวอเรจ"
   },
   "trading": {
@@ -1028,7 +1028,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "หมวดเดิมพัน",
     "marketsAria": "ตลาดเดิมพัน",
@@ -1374,7 +1374,7 @@
     "step2Hint": "หรือแปลงโทเคนอื่นเป็น USDC บน Arbitrum ในวอลเล็ต / DEX",
     "openWallet": "เปิดวอลเล็ต",
     "step3Title": "เริ่มบอท",
-    "step3Body": "เปิด Bot trade ฝากเข้า Hyperliquid หากจำเป็น อนุมัติเอเจนต์ครั้งเดียว แล้วกด Start bot",
+    "step3Body": "เปิด Agent trade ฝากเข้า Hyperliquid หากจำเป็น อนุมัติเอเจนต์ครั้งเดียว แล้วกด Start agent",
     "skip": "ข้าม",
     "back": "ย้อนกลับ",
     "next": "ถัดไป",

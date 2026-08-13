@@ -13,7 +13,7 @@ const BotTextHero: React.FC = () => {
   return (
     <section
       className="landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--text-only landing-gmx-gutter"
-      aria-label="Hyperliquid trading bot"
+      aria-label="Hyperliquid trading agent"
     >
       <div className="landing-gmx-shell landing-bot-text-hero-shell">
         <div className="landing-bot-text-hero-copy">

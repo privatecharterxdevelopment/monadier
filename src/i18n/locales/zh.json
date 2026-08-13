@@ -60,7 +60,7 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "全自动交易机器人",
+      "lineDarkTop": "全自动 AI 交易代理",
       "rotateLines": [
         "在 Hyperliquid 上",
         "自动化永续合约",
@@ -125,7 +125,7 @@
     "pitch": {
       "cta": "启动机器人",
       "ctaRegister": "免费注册",
-      "ctaLaunchBot": "立即启动 Bot",
+      "ctaLaunchBot": "立即启动 Agent",
       "ctaFinal": "Start trading now",
       "lines": [
         [
@@ -244,42 +244,42 @@
           "a": "Hyperliquid 提供深度永续流动性、快速执行及其 L1 上的 USDC 保证金。在 HL 上的一次存款即可交易所有上市市场——比通过旧版 L2 金库更简单。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "交易机器人如何工作？",
           "a": "机器人运行期间，HyperGain 服务器（Railway）约每 10 秒检查您的 HL 余额，用多时间框架信号扫描所有 Hyperliquid 永续合约，开最强设置，监控止盈/止损，平仓后重复。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "交易机器人运行多久？",
           "a": "在“启动机器人”开启且 Hyperliquid 上至少有 $20 USDC 时 24/7 运行。无会话超时——服务器持续循环，直到您按下“停止机器人”。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "机器人可以 24/7 交易吗？",
           "a": "可以。加密货币市场从不休市。启动后，机器人全天候扫描所有 HL 永续合约，随时可开平仓——您无需保持在线。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "我可以手动平仓吗？",
           "a": "可以。未平仓位可在 HyperGain 终端中关闭。停止机器人会暂停新开仓；现有仓位保留至止盈/止损或手动平仓。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "机器人交易哪些加密资产？",
           "a": "任何有有效市场信号的活跃 Hyperliquid 永续合约——机器人加载完整 HL  universe（200+ 交易对），每周期选择最强设置，而非固定 ETH/BTC 列表。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "机器人使用什么杠杆？",
           "a": "您在机器人设置中配置杠杆、止盈和止损。每笔交易机器人会限制在 Hyperliquid 各资产最大值（如 BTC 40×、ETH 25×）。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "我需要保持电脑开机吗？",
           "a": "不需要。机器人在 HyperGain 服务器（Railway）上运行。启动机器人并充值 Hyperliquid 账户后，无需打开浏览器即可 24/7 交易。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "如何存款以便机器人启动？",
           "a": "在 HyperGain 资金面板：仅存入 Arbitrum One 上的原生 USDC——不要用 BNB、BSC、ETH 主网或其他链上的 USDC。HL 最低 $5；机器人需 $20+。然后批准代理 → 启动机器人。"
         },
@@ -352,7 +352,7 @@
     "alpha": {
       "watchFilm": "观看影片",
       "usersLabel": "位用户正在使用机器人交易",
-      "title": "全自动交易机器人",
+      "title": "全自动 AI 交易代理",
       "lead": "在你的 Hyperliquid 账户上进行 AI 自动化永续交易。",
       "leadSub": "非托管——USDC 留在 HL；机器人 24/7 交易，密钥由你保管。",
       "scrollDown": "向下滚动",
@@ -598,7 +598,7 @@
     },
     "volume": {
       "label": "日交易量",
-      "labelAccent": "由 HG Bot 管理",
+      "labelAccent": "由 HG Agent 管理",
       "live": "实时"
     }
   },
@@ -674,10 +674,10 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
       },
       "settingsTitle": "应用内的机器人设置",
-      "settingsSub": "在 Bot trade 中设置杠杆、风险、仓位槽、止损与胜率门槛——与 HyperGain 应用中相同。保存后作用于新开仓。",
+      "settingsSub": "在 Agent trade 中设置杠杆、风险、仓位槽、止损与胜率门槛——与 HyperGain 应用中相同。保存后作用于新开仓。",
       "settings": [
         {
           "title": "杠杆（Leverage）",
@@ -700,7 +700,7 @@
           "text": "可选：若近期胜率低于你的阈值则暂停新开仓。关闭 = 无论近期胜率如何都可开仓。"
         }
       ],
-      "settingsNote": "保存设置会存储风险、杠杆、止损、槽位与胜率门槛。在 Bot 标签页启动/停止交易。机器人运行中仍可改槽并保存——要改杠杆、风险或止损请先停止机器人。"
+      "settingsNote": "保存设置会存储风险、杠杆、止损、槽位与胜率门槛。在 Agent 标签页启动/停止交易。机器人运行中仍可改槽并保存——要改杠杆、风险或止损请先停止机器人。"
     },
     "support": {
       "eyebrow": "支持",
@@ -748,7 +748,7 @@
       "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
       "goToSignIn": "Go to sign in",
       "referralLinked": "Referral linked",
-      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
       "acceptTermsRequired": "You must accept the Terms to continue",
       "usernameTaken": "That username is already taken",
       "createFailed": "Failed to create account. Please try again.",
@@ -767,18 +767,18 @@
       "alreadyHaveAccount": "Already have an account? ",
       "signInLink": "Sign In",
       "referralNotificationTitle": "Referral linked",
-      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
-      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
       "visualKicker": "HyperGain Pro Trade",
-      "visualTitle": "HyperGain bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
       "fullNameLabel": "Full name",
-      "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
       "kicker": "HyperGain",
@@ -854,7 +854,7 @@
       "sendingAs": "Sending as",
       "userId": "User ID:",
       "subject": "Subject",
-      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
       "message": "Message",
       "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
       "messageSent": "Message sent. We'll reply to {{email}}.",
@@ -879,7 +879,7 @@
     "riskHint": "HL 余额的 % 用作保证金 — <strong>不是</strong>杠杆。",
     "riskAria": "Risk percent of HL balance per trade",
     "leverage": "杠杆 (LVRG)",
-    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The bot clamps to each market cap when opening.",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
     "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
     "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
     "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
@@ -893,7 +893,7 @@
     "closedTradesGate": "门槛生效前的已平仓交易",
     "fewerTrades": "更少交易",
     "moreTrades": "更多交易",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
     "leverageShort": "杠杆"
   },
   "trading": {
@@ -1028,7 +1028,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "投注分类",
     "marketsAria": "投注市场",
@@ -1374,7 +1374,7 @@
     "step2Hint": "或在钱包／DEX 上将其他代币兑换为 Arbitrum 原生 USDC。",
     "openWallet": "打开钱包",
     "step3Title": "启动机器人",
-    "step3Body": "打开 Bot trade，如需则存入 Hyperliquid，授权代理一次，然后按 Start bot。",
+    "step3Body": "打开 Agent trade，如需则存入 Hyperliquid，授权代理一次，然后按 Start agent。",
     "skip": "跳过",
     "back": "返回",
     "next": "下一步",

@@ -24,7 +24,7 @@ const LandingBotArchitecture: React.FC = () => {
     >
       <div className="landing-gmx-shell">
         <motion.div {...fadeUp(0)} className="landing-gmx-architecture-head">
-          <p className="landing-gmx-architecture-eyebrow">Trading bot</p>
+          <p className="landing-gmx-architecture-eyebrow">Trading agent</p>
           <h2 id="landing-bot-architecture-title" className="landing-gmx-section-title">
             {BOT_ARCHITECTURE_TITLE}
           </h2>

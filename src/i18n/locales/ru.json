@@ -16,7 +16,7 @@
   },
   "nav": {
     "howItWorks": "Как это работает",
-    "aiTradingBot": "AI Trading Bot",
+    "aiTradingBot": "AI Trading Agent",
     "aiSportsBetting": "AI Sports Betting",
     "aiAutoBetting": "AI Sports Betting",
     "perpsTrading": "Perps Trading",
@@ -60,7 +60,7 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "Полностью автоматический торговый бот",
+      "lineDarkTop": "Полностью автоматический AI-торговый агент",
       "rotateLines": [
         "на Hyperliquid",
         "с автоматическими перпами",
@@ -125,7 +125,7 @@
     "pitch": {
       "cta": "Запустить бота",
       "ctaRegister": "Регистрация бесплатно",
-      "ctaLaunchBot": "Запустить Bot сейчас",
+      "ctaLaunchBot": "Запустить Agent сейчас",
       "ctaFinal": "Start trading now",
       "lines": [
         [
@@ -244,42 +244,42 @@
           "a": "Hyperliquid предлагает глубокую ликвидность перпов, быстрое исполнение и USDC-маржу на собственном L1. Один депозит на HL обеспечивает торговлю на всех листинговых рынках — проще, чем через legacy L2 vault."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Как работает торговый бот?",
           "a": "Пока бот работает, сервер HyperGain (Railway) каждые ~10 секунд проверяет HL-баланс, сканирует все перпы Hyperliquid с мультитаймфреймовыми сигналами, открывает лучший сетап, следит за TP/SL, закрывает позицию и повторяет."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Как долго работает бот?",
           "a": "24/7, пока «Запустить бота» включён и на Hyperliquid не менее $20 USDC. Нет таймаута сессии — сервер работает, пока вы не нажмёте «Остановить бота»."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Может ли бот торговать 24/7?",
           "a": "Да. Крипторынки не закрываются. После запуска бот сканирует все HL-перпы круглосуточно и может открывать или закрывать позиции в любое время — быть онлайн не нужно."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Могу ли я закрыть сделки вручную?",
           "a": "Да. Открытые позиции закрываются в терминале HyperGain. Остановка бота блокирует новые входы; существующие позиции остаются до TP/SL или ручного закрытия."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Какие криптоактивы торгует бот?",
           "a": "Любой активный перп Hyperliquid с валидным сигналом — бот загружает полную HL-вселенную (200+ пар) и выбирает лучший сетап каждый цикл, а не фиксированный список ETH/BTC."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Какое плечо использует бот?",
           "a": "Вы задаёте плечо, take profit и stop loss в настройках бота. Бот ограничивает максимумом Hyperliquid по активу (напр. BTC 40×, ETH 25×) на каждой сделке."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Нужно ли держать компьютер включённым?",
           "a": "Нет. Бот работает на серверах HyperGain (Railway). После запуска бота и пополнения HL-счёта торгует 24/7 без открытого браузера."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "Как внести депозит, чтобы бот запустился?",
           "a": "В HyperGain Funds: только нативный USDC на Arbitrum One — не BNB, BSC, ETH mainnet или USDC на других сетях. Мин. $5 на HL; боту нужно $20+. Затем одобрите агента → Запустить бота."
         },
@@ -352,7 +352,7 @@
     "alpha": {
       "watchFilm": "Смотреть фильм",
       "usersLabel": "пользователей активно торгуют ботом",
-      "title": "Полностью автоматический торговый бот",
+      "title": "Полностью автоматический AI-торговый агент",
       "lead": "ИИ-автоматизация перпетуалов на вашем счёте Hyperliquid.",
       "leadSub": "Non-custodial — USDC остаётся на HL; бот торгует 24/7, ключи у вас.",
       "scrollDown": "Прокрутить вниз",
@@ -411,7 +411,7 @@
         },
         "bot": {
           "title": "Запустить бота",
-          "text": "Один раз одобрите торгового агента и нажмите Start bot."
+          "text": "Один раз одобрите торгового агента и нажмите Start agent."
         }
       }
     },
@@ -598,7 +598,7 @@
     },
     "volume": {
       "label": "Дневной торговый объём",
-      "labelAccent": "под управлением HG Bot",
+      "labelAccent": "под управлением HG Agent",
       "live": "Live"
     }
   },
@@ -674,10 +674,10 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
       },
       "settingsTitle": "Настройки бота в приложении",
-      "settingsSub": "В Bot trade задаются плечо, риск, слоты, стоп-лосс и win-rate gate — те же контролы, что в приложении HyperGain. Сохранение действует на новые открытия.",
+      "settingsSub": "В Agent trade задаются плечо, риск, слоты, стоп-лосс и win-rate gate — те же контролы, что в приложении HyperGain. Сохранение действует на новые открытия.",
       "settings": [
         {
           "title": "Плечо (Leverage)",
@@ -700,7 +700,7 @@
           "text": "Опционально: пауза новых сделок, если недавний win rate ниже порога. Off = бот может открывать независимо от недавнего win rate."
         }
       ],
-      "settingsNote": "Сохранение записывает риск, плечо, стоп-лосс, слоты и win-rate gate. Старт/стоп торговли — во вкладке Bot. При работающем боте слоты ещё можно менять и сохранять — чтобы править плечо, риск или стоп-лосс, остановите бота."
+      "settingsNote": "Сохранение записывает риск, плечо, стоп-лосс, слоты и win-rate gate. Старт/стоп торговли — во вкладке Agent. При работающем боте слоты ещё можно менять и сохранять — чтобы править плечо, риск или стоп-лосс, остановите бота."
     },
     "support": {
       "eyebrow": "Поддержка",
@@ -748,7 +748,7 @@
       "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
       "goToSignIn": "Go to sign in",
       "referralLinked": "Referral linked",
-      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
       "acceptTermsRequired": "You must accept the Terms to continue",
       "usernameTaken": "That username is already taken",
       "createFailed": "Failed to create account. Please try again.",
@@ -767,18 +767,18 @@
       "alreadyHaveAccount": "Already have an account? ",
       "signInLink": "Sign In",
       "referralNotificationTitle": "Referral linked",
-      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
-      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
       "visualKicker": "HyperGain Pro Trade",
-      "visualTitle": "HyperGain bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
       "fullNameLabel": "Full name",
-      "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
       "kicker": "HyperGain",
@@ -854,7 +854,7 @@
       "sendingAs": "Sending as",
       "userId": "User ID:",
       "subject": "Subject",
-      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
       "message": "Message",
       "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
       "messageSent": "Message sent. We'll reply to {{email}}.",
@@ -873,13 +873,13 @@
   },
   "bot": {
     "autoTrading": "Авто-торговля",
-    "autoTradingHintModal": "Bot trades from your Hyperliquid balance on signals",
-    "autoTradingHintPanel": "Use the Bot tab → Start bot (not this panel) to turn trading on.",
+    "autoTradingHintModal": "Agent trades from your Hyperliquid balance on signals",
+    "autoTradingHintPanel": "Use the Agent tab → Start agent (not this panel) to turn trading on.",
     "riskPerTrade": "Риск на сделку",
     "riskHint": "% of your HL balance used as margin — <strong>not</strong> leverage.",
     "riskAria": "Risk percent of HL balance per trade",
     "leverage": "Плечо (LVRG)",
-    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The bot clamps to each market cap when opening.",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
     "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
     "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
     "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
@@ -893,7 +893,7 @@
     "closedTradesGate": "Закрытые сделки до фильтра",
     "fewerTrades": "Меньше сделок",
     "moreTrades": "Больше сделок",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
     "leverageShort": "Плечо"
   },
   "trading": {
@@ -1028,7 +1028,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "Категории ставок",
     "marketsAria": "Рынки ставок",
@@ -1374,7 +1374,7 @@
     "step2Hint": "Или конвертируйте другие токены в нативный USDC на Arbitrum в кошельке / на DEX.",
     "openWallet": "Открыть кошелёк",
     "step3Title": "Запустите бота",
-    "step3Body": "Откройте Bot trade, при необходимости внесите депозит на Hyperliquid, один раз одобрите агента и нажмите Start bot.",
+    "step3Body": "Откройте Agent trade, при необходимости внесите депозит на Hyperliquid, один раз одобрите агента и нажмите Start agent.",
     "skip": "Пропустить",
     "back": "Назад",
     "next": "Далее",

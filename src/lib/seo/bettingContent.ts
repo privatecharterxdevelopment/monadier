@@ -28,14 +28,14 @@ export const BETTING_FAQS: BettingFaq[] = [
   },
   {
     q: 'Do I need a separate account for sports betting?',
-    a: 'No — the same Hyperliquid account and USDC balance powers sports betting and the HyperGain trading bot in one terminal.',
+    a: 'No — the same Hyperliquid account and USDC balance powers sports betting and the HyperGain trading agent in one terminal.',
   },
   {
     q: 'Are betting odds transparent?',
     a: 'Yes. Odds move on-chain as the book updates. Positions and balances are visible on Hyperliquid — not a hidden bookmaker ledger.',
   },
   {
-    q: 'Can I use the trading bot and sports betting together?',
+    q: 'Can I use the trading agent and sports betting together?',
     a: 'Yes. HyperGain combines automated Hyperliquid perpetuals trading and on-chain sports markets in one platform with one HL account.',
   },
 ];
@@ -55,6 +55,6 @@ export const BETTING_BENEFITS = [
   },
   {
     title: 'One HL account',
-    text: 'Same USDC balance for sports markets and the HyperGain trading bot terminal.',
+    text: 'Same USDC balance for sports markets and the HyperGain trading agent terminal.',
   },
 ] as const;

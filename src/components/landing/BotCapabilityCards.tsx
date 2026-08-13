@@ -24,7 +24,7 @@ const BotCapabilityCards: React.FC = () => (
     <div className="landing-gmx-shell landing-bot-capability-shell">
       <motion.div {...fadeUp(0)} className="landing-bot-capability-head">
         <h2 id="bot-capability-title" className="landing-bot-capability-title">
-          What the bot does
+          What the agent does
         </h2>
         <p className="landing-bot-capability-lead">
           Scan, gate, enter, and trail — without you at the chart.

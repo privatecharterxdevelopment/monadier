@@ -60,7 +60,7 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "フルオート取引ボット",
+      "lineDarkTop": "フルオートAIトレーディングエージェント",
       "rotateLines": [
         "Hyperliquid で",
         "自動パーペチュアル",
@@ -125,7 +125,7 @@
     "pitch": {
       "cta": "ボット開始",
       "ctaRegister": "無料登録",
-      "ctaLaunchBot": "Botを今すぐ起動",
+      "ctaLaunchBot": "Agentを今すぐ起動",
       "ctaFinal": "Start trading now",
       "lines": [
         [
@@ -244,42 +244,42 @@
           "a": "Hyperliquid は深いパーペ流動性、高速約定、独自 L1 上の USDC 証拠金を提供します。HL への 1 回の入金で全上場マーケットを取引でき、従来の L2 ボルトよりシンプルです。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "取引ボットはどう動きますか？",
           "a": "ボット稼働中、HyperGain サーバー（Railway）が約 10 秒ごとに HL 残高を確認し、マルチタイムフレームシグナルで全 Hyperliquid パーペをスキャン、最強セットアップを開き、TP/SL を監視して決済後に繰り返します。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "取引ボットはどのくらい動きますか？",
           "a": "「ボット開始」がオンで Hyperliquid に最低 $20 USDC がある限り 24/7 稼働。セッションタイムアウトはなく、「ボット停止」までサーバーがサイクルします。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ボットは 24/7 取引できますか？",
           "a": "はい。暗号市場に休場はありません。開始後、ボットは HL 全パーペを常時スキャンし、いつでもポジションの開閉が可能です。オンラインである必要はありません。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "手動で決済できますか？",
           "a": "はい。未決済ポジションは HyperGain ターミナルで決済できます。ボット停止は新規エントリーのみ停止。既存ポジションは TP/SL または手動決済まで残ります。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ボットはどの暗号資産を取引しますか？",
           "a": "有効なマーケットシグナルのあるアクティブな Hyperliquid パーペすべて。ボットは HL 全ユニバース（200+ ペア）を読み込み、各サイクルで最強セットアップを選び、固定 ETH/BTC リストではありません。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ボットはどのレバレッジを使いますか？",
           "a": "ボット設定でレバレッジ、利確、損切りを設定します。各取引で Hyperliquid の資産別最大値（例：BTC 40×、ETH 25×）に制限されます。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "PC をつけたままにする必要はありますか？",
           "a": "いいえ。ボットは HyperGain サーバー（Railway）で動作します。ボット開始と HL 入金後、ブラウザを開かなくても 24/7 取引します。"
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "ボットを開始するにはどう入金しますか？",
           "a": "HyperGain 資金パネルで、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
         },
@@ -352,7 +352,7 @@
     "alpha": {
       "watchFilm": "フィルムを見る",
       "usersLabel": "人がボット取引中",
-      "title": "フルオート取引ボット",
+      "title": "フルオートAIトレーディングエージェント",
       "lead": "Hyperliquid 口座での AI 自動パーペチュアル取引。",
       "leadSub": "非カストディアル——USDC は HL に残り、ボットが24時間取引、鍵はあなたのもの。",
       "scrollDown": "下へスクロール",
@@ -598,7 +598,7 @@
     },
     "volume": {
       "label": "日間取引高",
-      "labelAccent": "HG Bot が管理",
+      "labelAccent": "HG Agent が管理",
       "live": "ライブ"
     }
   },
@@ -674,10 +674,10 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
       },
       "settingsTitle": "アプリのボット設定",
-      "settingsSub": "Bot trade でレバレッジ、リスク、スロット、ストップロス、勝率ゲートを設定します — HyperGain アプリと同じコントロールです。保存は新規オープンに適用されます。",
+      "settingsSub": "Agent trade でレバレッジ、リスク、スロット、ストップロス、勝率ゲートを設定します — HyperGain アプリと同じコントロールです。保存は新規オープンに適用されます。",
       "settings": [
         {
           "title": "レバレッジ（Leverage）",
@@ -700,7 +700,7 @@
           "text": "任意: 直近の勝率がしきい値を下回ったら新規トレードを一時停止。Off = 直近勝率に関係なくオープン可能。"
         }
       ],
-      "settingsNote": "設定の保存でリスク、レバレッジ、ストップロス、スロット、勝率ゲートを保存します。売買の開始／停止は Bot タブから。ボット稼働中でもスロットは変更・保存できます — レバレッジ、リスク、ストップロスを変えるにはボットを停止してください。"
+      "settingsNote": "設定の保存でリスク、レバレッジ、ストップロス、スロット、勝率ゲートを保存します。売買の開始／停止は Agent タブから。ボット稼働中でもスロットは変更・保存できます — レバレッジ、リスク、ストップロスを変えるにはボットを停止してください。"
     },
     "support": {
       "eyebrow": "サポート",
@@ -748,7 +748,7 @@
       "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
       "goToSignIn": "Go to sign in",
       "referralLinked": "Referral linked",
-      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
       "acceptTermsRequired": "You must accept the Terms to continue",
       "usernameTaken": "That username is already taken",
       "createFailed": "Failed to create account. Please try again.",
@@ -767,18 +767,18 @@
       "alreadyHaveAccount": "Already have an account? ",
       "signInLink": "Sign In",
       "referralNotificationTitle": "Referral linked",
-      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
-      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
       "visualKicker": "HyperGain Pro Trade",
-      "visualTitle": "HyperGain bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
       "fullNameLabel": "Full name",
-      "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
       "kicker": "HyperGain",
@@ -854,7 +854,7 @@
       "sendingAs": "Sending as",
       "userId": "User ID:",
       "subject": "Subject",
-      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
       "message": "Message",
       "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
       "messageSent": "Message sent. We'll reply to {{email}}.",
@@ -873,13 +873,13 @@
   },
   "bot": {
     "autoTrading": "自動取引",
-    "autoTradingHintModal": "Bot trades from your Hyperliquid balance on signals",
-    "autoTradingHintPanel": "Use the Bot tab → Start bot (not this panel) to turn trading on.",
+    "autoTradingHintModal": "Agent trades from your Hyperliquid balance on signals",
+    "autoTradingHintPanel": "Use the Agent tab → Start agent (not this panel) to turn trading on.",
     "riskPerTrade": "取引あたりのリスク",
     "riskHint": "% of your HL balance used as margin — <strong>not</strong> leverage.",
     "riskAria": "Risk percent of HL balance per trade",
     "leverage": "レバレッジ (LVRG)",
-    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The bot clamps to each market cap when opening.",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
     "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
     "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
     "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
@@ -893,7 +893,7 @@
     "closedTradesGate": "ゲート適用前の決済数",
     "fewerTrades": "取引数を減らす",
     "moreTrades": "取引数を増やす",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
     "leverageShort": "レバレッジ"
   },
   "trading": {
@@ -1028,7 +1028,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "ベッティングカテゴリ",
     "marketsAria": "ベッティング市場",
@@ -1374,7 +1374,7 @@
     "step2Hint": "またはウォレット／DEXで他トークンをArbitrumのネイティブUSDCに変換。",
     "openWallet": "ウォレットを開く",
     "step3Title": "ボットを開始",
-    "step3Body": "Bot tradeを開き、必要ならHyperliquidへ入金し、エージェントを一度承認してからStart botを押します。",
+    "step3Body": "Agent tradeを開き、必要ならHyperliquidへ入金し、エージェントを一度承認してからStart agentを押します。",
     "skip": "スキップ",
     "back": "戻る",
     "next": "次へ",

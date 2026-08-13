@@ -1,10 +1,10 @@
-/** Deterministic landing user counter: starts at 271, +5–15/day through 2029-12-31. */
+/** Deterministic landing user counter: starts at 29_200, +5–15/day through 2029-12-31. */
 
-const BASE_USERS = 271;
+const BASE_USERS = 29_200;
 const DAY_MS = 86_400_000;
 
 /** Counter epoch (UTC): day 0 shows BASE_USERS. */
-const START_UTC = Date.UTC(2026, 7, 9); // 2026-08-09
+const START_UTC = Date.UTC(2026, 7, 13); // 2026-08-13
 /** Last day that still receives a daily bump. */
 const END_UTC = Date.UTC(2029, 11, 31); // 2029-12-31
 

@@ -15,7 +15,7 @@ export type PageSeo = {
 };
 
 const BOT_KEYWORDS =
-  'hyperliquid bot, hyperliquid trading bot, full auto trading bot, automated trading bot, crypto trading bot, hyperliquid perpetuals bot, non-custodial trading bot';
+  'hyperliquid agent, hyperliquid trading agent, full auto AI trading agent, automated trading agent, crypto trading agent, hyperliquid perpetuals agent, non-custodial trading agent';
 
 /**
  * Indexable primary pages (AL nav + home + product + legal):
@@ -26,20 +26,20 @@ const BOT_KEYWORDS =
 export const PAGE_SEO: Record<string, PageSeo> = {
   '/': {
     path: '/',
-    title: `HyperGain - full-auto trading bot on hyperliquid 24/7`,
+    title: `HyperGain - full-auto AI trading agent on hyperliquid 24/7`,
     description:
-      'HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns.',
-    keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading bot`,
+      'HyperGain - full-auto AI trading agent on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns.',
+    keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading agent`,
     changefreq: 'weekly',
     priority: 1.0,
     sitemap: true,
   },
   '/trading-bot': {
     path: '/trading-bot',
-    title: `Hyperliquid Trading Bot | Full Auto 24/7 — ${SITE_NAME}`,
+    title: `Hyperliquid Trading Agent | Full Auto 24/7 — ${SITE_NAME}`,
     description:
-      'Hands-off Hyperliquid automation across 200+ perps. Fund HL USDC (min. $5 deposit, $20+ to run the bot), approve once, trail when profitable. Non-custodial — no guaranteed returns.',
-    keywords: `${BOT_KEYWORDS}, AI trading bot, 24/7 crypto bot, algorithmic Hyperliquid trading`,
+      'Hands-off Hyperliquid automation across 200+ perps. Fund HL USDC (min. $5 deposit, $20+ to run the agent), approve once, trail when profitable. Non-custodial — no guaranteed returns.',
+    keywords: `${BOT_KEYWORDS}, AI trading agent, 24/7 crypto agent, algorithmic Hyperliquid trading`,
     changefreq: 'weekly',
     priority: 1.0,
     sitemap: true,
@@ -48,28 +48,28 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     path: '/how-it-works',
     title: `How it works | Deposit, Approve, Trade 24/7 — ${SITE_NAME}`,
     description:
-      'How HyperGain works: deposit USDC on Hyperliquid, pick 2 or 3 slots, start the bot. No API keys. Intelligent trailing stop in profit. Withdraw anytime.',
-    keywords: `how hyperliquid bot works, hypergain bot settings, hyperliquid USDC deposit, trailing stop loss bot, 2 or 3 trade slots, no API trading bot, ${BOT_KEYWORDS}`,
+      'How HyperGain works: deposit USDC on Hyperliquid, pick 2 or 3 slots, start the agent. No API keys. Intelligent trailing stop in profit. Withdraw anytime.',
+    keywords: `how hyperliquid agent works, hypergain agent settings, hyperliquid USDC deposit, trailing stop loss agent, 2 or 3 trade slots, no API trading agent, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.9,
     sitemap: true,
   },
   '/leaderboard': {
     path: '/leaderboard',
-    title: `Leaderboard | On-Chain Hyperliquid Bot Closes — ${SITE_NAME}`,
+    title: `Leaderboard | On-Chain Hyperliquid Agent Closes — ${SITE_NAME}`,
     description:
-      'Live Hyperliquid L1 leaderboard of bot closes. Masked wallets here, full addresses and fills on HypurrScan. Past results do not predict future performance.',
-    keywords: `hyperliquid bot leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
+      'Live Hyperliquid L1 leaderboard of agent closes. Masked wallets here, full addresses and fills on HypurrScan. Past results do not predict future performance.',
+    keywords: `hyperliquid agent leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
     changefreq: 'weekly',
     priority: 0.85,
     sitemap: true,
   },
   '/support': {
     path: '/support',
-    title: `Help Center | Hyperliquid Bot Support — ${SITE_NAME}`,
+    title: `Help Center | Hyperliquid Agent Support — ${SITE_NAME}`,
     description:
-      'HyperGain help center — deposits, agent approval, bot settings, fees, and withdrawals. Contact administration@hypergain.io. Support available 24/7.',
-    keywords: `hyperliquid bot support, HyperGain help center, trading bot help, ${BOT_KEYWORDS}`,
+      'HyperGain help center — deposits, agent approval, agent settings, fees, and withdrawals. Contact administration@hypergain.io. Support available 24/7.',
+    keywords: `hyperliquid agent support, HyperGain help center, trading agent help, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,
     sitemap: true,
@@ -86,7 +86,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/privacy': {
     path: '/privacy',
     title: `Privacy Policy | ${SITE_NAME}`,
-    description: 'Privacy policy for HyperGain — Hyperliquid trading bot and platform.',
+    description: 'Privacy policy for HyperGain — Hyperliquid trading agent and platform.',
     keywords: 'HyperGain privacy policy',
     changefreq: 'yearly',
     priority: 0.2,
@@ -107,10 +107,10 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/pricing': {
     path: '/pricing',
-    title: `Pricing | Bot Fees — ${SITE_NAME}`,
+    title: `Pricing | Agent Fees — ${SITE_NAME}`,
     description:
-      'HyperGain pricing for the Hyperliquid trading bot. No monthly subscription — platform fees as disclosed in Terms.',
-    keywords: `hyperliquid bot fees, trading bot pricing, ${BOT_KEYWORDS}`,
+      'HyperGain pricing for the Hyperliquid trading agent. No monthly subscription — platform fees as disclosed in Terms.',
+    keywords: `hyperliquid agent fees, trading agent pricing, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.3,
     sitemap: false,
@@ -121,7 +121,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     title: `Technology | ${SITE_NAME}`,
     description:
       'How HyperGain powers full auto Hyperliquid trading: multi-timeframe signals, non-custodial agent execution, and 24/7 automation.',
-    keywords: `hyperliquid bot technology, ${BOT_KEYWORDS}`,
+    keywords: `hyperliquid agent technology, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.2,
     sitemap: false,
@@ -130,7 +130,7 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/faqs': {
     path: '/faqs',
     title: `FAQs | ${SITE_NAME}`,
-    description: 'HyperGain FAQs — deposits, agent approval, bot trading, fees, and withdrawals.',
+    description: 'HyperGain FAQs — deposits, agent approval, agent trading, fees, and withdrawals.',
     keywords: `HyperGain FAQ, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.75,
@@ -245,7 +245,7 @@ export function getPageSeo(pathname: string): PageSeo {
   return (
     PAGE_SEO[path] ?? {
       path,
-      title: `Hyperliquid Trading Bot — ${SITE_NAME}`,
+      title: `Hyperliquid Trading Agent — ${SITE_NAME}`,
       description: PAGE_SEO['/'].description,
       keywords: BOT_KEYWORDS,
       changefreq: 'monthly',

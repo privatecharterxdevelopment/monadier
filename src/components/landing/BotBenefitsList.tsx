@@ -17,7 +17,7 @@ const BotBenefitsList: React.FC = () => (
     <div className="landing-gmx-shell landing-bot-benefits-shell">
       <motion.div {...fadeUp(0)} className="landing-betting-benefits">
         <h2 id="bot-benefits-title" className="landing-betting-benefits-title">
-          Why use the HyperGain trading bot
+          Why use the HyperGain trading agent
         </h2>
         <p className="landing-betting-benefits-lead">
           Full auto Hyperliquid perpetuals — non-custodial funds, 200+ markets, server-side execution

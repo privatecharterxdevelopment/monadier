@@ -6,39 +6,39 @@ export type TradingBotFaq = { q: string; a: string };
 
 export const TRADING_BOT_FAQS: TradingBotFaq[] = [
   {
-    q: 'What is the HyperGain Hyperliquid trading bot?',
-    a: 'HyperGain is a full auto trading bot for Hyperliquid perpetuals. You deposit USDC on your own Hyperliquid account, approve the HyperGain agent once, and the bot scans 200+ HL markets 24/7 to open and close trades automatically. This is software automation — not a promise of profit.',
+    q: 'What is the HyperGain Hyperliquid trading agent?',
+    a: 'HyperGain is a full auto AI trading agent for Hyperliquid perpetuals. You deposit USDC on your own Hyperliquid account, approve the HyperGain agent once, and the agent scans 200+ HL markets 24/7 to open and close trades automatically. This is software automation — not a promise of profit.',
   },
   {
-    q: 'Does the bot run while I am offline?',
-    a: 'The bot can run 24/7 on HyperGain servers while you are offline, but crypto trading is not income and returns are not guaranteed. It automates execution; profits and losses depend on markets, settings, and risk. Only use capital you can afford to lose. See Terms of Service — no promised or guaranteed returns.',
+    q: 'Does the agent run while I am offline?',
+    a: 'The agent can run 24/7 on HyperGain servers while you are offline, but crypto trading is not income and returns are not guaranteed. It automates execution; profits and losses depend on markets, settings, and risk. Only use capital you can afford to lose. See Terms of Service — no promised or guaranteed returns.',
   },
   {
-    q: 'Is the Hyperliquid bot non-custodial?',
+    q: 'Is the Hyperliquid agent non-custodial?',
     a: 'Yes. Your USDC stays on your Hyperliquid account in your name. HyperGain never holds your private keys. The approved agent can place trades but cannot withdraw funds without your wallet.',
   },
   {
-    q: 'How much USDC do I need to start the bot?',
-    a: 'At least $20 USDC on your Hyperliquid account to run the bot (HL minimum deposit is $5). Deposit native USDC on Arbitrum One only.',
+    q: 'How much USDC do I need to start the agent?',
+    a: 'At least $20 USDC on your Hyperliquid account to run the agent (HL minimum deposit is $5). Deposit native USDC on Arbitrum One only.',
   },
   {
-    q: 'Can the trading bot run 24/7?',
-    a: 'Yes. Once you press Start bot and your HL account is funded, the bot can scan Hyperliquid perpetuals around the clock. You do not need to keep your browser open. Uptime and fills are not guaranteed (outages, rejections, and slippage can occur).',
+    q: 'Can the trading agent run 24/7?',
+    a: 'Yes. Once you press Start agent and your HL account is funded, the agent can scan Hyperliquid perpetuals around the clock. You do not need to keep your browser open. Uptime and fills are not guaranteed (outages, rejections, and slippage can occur).',
   },
   {
-    q: 'Which markets does the full auto bot trade?',
-    a: 'Any active Hyperliquid perpetual with a valid signal — the bot loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed BTC/ETH list.',
+    q: 'Which markets does the full auto agent trade?',
+    a: 'Any active Hyperliquid perpetual with a valid signal — the agent loads the full HL universe (200+ pairs) and picks the strongest setup each cycle, not a fixed BTC/ETH list.',
   },
   {
-    q: 'What fees does the Hyperliquid trading bot charge?',
-    a: 'No monthly platform subscription. Standard Hyperliquid trading and funding fees apply on every trade. HyperGain may charge a Platform Success Fee on qualifying profitable closes as disclosed in the Terms of Service and in-app (currently up to 10% when enabled). Arbitrum gas for bot trades may be covered by HyperGain when that feature is active.',
+    q: 'What fees does the Hyperliquid trading agent charge?',
+    a: 'No monthly platform subscription. Standard Hyperliquid trading and funding fees apply on every trade. HyperGain may charge a Platform Success Fee on qualifying profitable closes as disclosed in the Terms of Service and in-app (currently up to 10% when enabled). Arbitrum gas for agent trades may be covered by HyperGain when that feature is active.',
   },
   {
-    q: 'Can I stop the bot or close trades manually?',
-    a: 'Yes. Press Stop bot to halt new entries. Open positions remain until your configured exits, exchange liquidation, or manual close in the HyperGain terminal. Stop-loss and take-profit fills are not guaranteed (see Terms).',
+    q: 'Can I stop the agent or close trades manually?',
+    a: 'Yes. Press Stop agent to halt new entries. Open positions remain until your configured exits, exchange liquidation, or manual close in the HyperGain terminal. Stop-loss and take-profit fills are not guaranteed (see Terms).',
   },
   {
-    q: 'Do I need trading experience to use the bot?',
+    q: 'Do I need trading experience to use the agent?',
     a: 'You can connect a wallet, fund HL, approve the agent, set risk parameters, and start — but leveraged crypto perpetuals carry substantial risk of loss. This is not investment advice. Only trade if it is lawful where you live and only with capital you can afford to lose.',
   },
   {
@@ -50,11 +50,11 @@ export const TRADING_BOT_FAQS: TradingBotFaq[] = [
 export const TRADING_BOT_BENEFITS = [
   {
     title: 'Full auto 24/7',
-    text: 'The Hyperliquid trading bot can scan listed perps around the clock — no manual chart watching required while it is enabled.',
+    text: 'The Hyperliquid trading agent can scan listed perps around the clock — no manual chart watching required while it is enabled.',
   },
   {
     title: 'Hands-off automation',
-    text: 'Set your risk once, start the bot, and let server-side automation handle entries and exits while you are offline. Results are not guaranteed.',
+    text: 'Set your risk once, start the agent, and let server-side automation handle entries and exits while you are offline. Results are not guaranteed.',
   },
   {
     title: 'Non-custodial',
@@ -62,7 +62,7 @@ export const TRADING_BOT_BENEFITS = [
   },
   {
     title: '200+ HL markets',
-    text: 'Not limited to BTC or ETH — the bot ranks the full Hyperliquid perpetual universe each cycle.',
+    text: 'Not limited to BTC or ETH — the agent ranks the full Hyperliquid perpetual universe each cycle.',
   },
   {
     title: 'Fees as disclosed',
@@ -101,17 +101,17 @@ export const TRADING_BOT_WALLET_BANNER = {
 export const TRADING_BOT_RISK_BANNER = {
   eyebrow: 'Risk management',
   title: 'You set the guardrails',
-  desc: 'Risk % controls margin per trade — not leverage. Cap LVRG, limit concurrent positions, and preview illustrative P/L before you press Start bot. Illustrative only — not a profit forecast.',
+  desc: 'Risk % controls margin per trade — not leverage. Cap LVRG, limit concurrent positions, and preview illustrative P/L before you press Start agent. Illustrative only — not a profit forecast.',
 } as const;
 
 export const BOT_AUDIENCE_VIDEO_BANNER = {
   videoSrc: '/videos/6667321-uhd_4096_2160_25fps.mp4',
   lineOne: 'Focus on what matters',
-  lineTwo: 'with a bot you control',
+  lineTwo: 'with an agent you control',
 } as const;
 
 export const BOT_PAGE_HERO = {
-  title: 'Trading bot',
+  title: 'Trading agent',
   rotateLines: ['200+ markets', 'runs 24/7', 'trails profits'],
   footer: 'on Hyperliquid',
   tagline: 'Hands-off Hyperliquid automation — on-chain positions, no guaranteed returns.',
@@ -121,7 +121,7 @@ export const BOT_PAGE_HERO = {
 export const BOT_PAGE_LEADERBOARD = {
   eyebrow: 'On-chain proof',
   title: 'Leaderboard',
-  lead: 'Live Hyperliquid L1 fills from bot wallets — wallet labels only, full addresses on HypurrScan. Past results do not predict future performance.',
+  lead: 'Live Hyperliquid L1 fills from agent wallets — wallet labels only, full addresses on HypurrScan. Past results do not predict future performance.',
 } as const;
 
 export const TRADING_BOT_FEATURES = [
@@ -135,7 +135,7 @@ export const TRADING_BOT_FEATURES = [
   },
   {
     title: 'Confidence scoring',
-    text: 'Each setup is scored before entry. Trades execute only when thresholds and your bot settings align.',
+    text: 'Each setup is scored before entry. Trades execute only when thresholds and your agent settings align.',
   },
   {
     title: 'Risk gates',
@@ -143,10 +143,10 @@ export const TRADING_BOT_FEATURES = [
   },
   {
     title: 'Live terminal',
-    text: 'Charts, open positions, trade history, and bot controls in one workspace alongside manual trading.',
+    text: 'Charts, open positions, trade history, and agent controls in one workspace alongside manual trading.',
   },
   {
     title: 'Gas covered',
-    text: 'Network gas on Arbitrum for automated bot trades may be paid by HyperGain when that feature is active — not a fee waiver on HL trading costs.',
+    text: 'Network gas on Arbitrum for automated agent trades may be paid by HyperGain when that feature is active — not a fee waiver on HL trading costs.',
   },
 ] as const;

@@ -78,6 +78,7 @@ import {
   PLATFORM_FEE_WINS_BEFORE_BLOCK,
 } from './services/platformFees';
 import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
+import { getPublicHlLeaderboard } from './services/hlPublicLeaderboard';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -1266,6 +1267,36 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/public-leaderboard' && req.method === 'GET') {
+    try {
+      const sortRaw = (url.searchParams.get('sort') || 'recent_all').toLowerCase();
+      const sort =
+        sortRaw === 'top' || sortRaw === 'recent' || sortRaw === 'recent_all'
+          ? sortRaw
+          : 'recent_all';
+      const limit = Number(url.searchParams.get('limit') || 40);
+      const board = await getPublicHlLeaderboard({ sort, limit });
+      res.writeHead(200, {
+        ...corsHeaders,
+        'Cache-Control': 'public, max-age=5, stale-while-revalidate=15',
+      });
+      res.end(
+        JSON.stringify({
+          success: true,
+          source: board.source,
+          wallets: board.wallets,
+          rows: board.rows,
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'leaderboard failed';
+      logger.error('API: public-leaderboard failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/global-signals') {
     try {
       const scan =
@@ -1534,6 +1565,7 @@ healthServer.listen(Number(PORT), HOST, () => {
   logger.info('  GET /api/platform-fees?wallet=0x… - Accrued success fees');
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
+  logger.info('  GET /api/public-leaderboard - Live Hyperliquid L1 bot closes');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');

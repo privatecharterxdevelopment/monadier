@@ -27,7 +27,7 @@ export const HOW_IT_WORKS_IMAGES: readonly HowItWorksImage[] = [
     width: 567,
     height: 1024,
     layout: 'portrait',
-    seoTitle: 'HyperGain bot Funds — deposit and withdraw USDC on Hyperliquid',
+    seoTitle: 'HyperGain agent Funds — deposit and withdraw USDC on Hyperliquid',
     seoCaption:
       'HyperGain Funds tab: Hyperliquid trading balance, withdrawable USDC, and Deposit / Withdraw. No API keys — funds stay on Hyperliquid.',
   },
@@ -40,9 +40,9 @@ export const HOW_IT_WORKS_IMAGES: readonly HowItWorksImage[] = [
     width: 567,
     height: 1024,
     layout: 'portrait',
-    seoTitle: 'HyperGain bot settings — risk, leverage, and profit trail stop loss',
+    seoTitle: 'HyperGain agent settings — risk, leverage, and profit trail stop loss',
     seoCaption:
-      'HyperGain bot running with simple settings: risk, leverage, and intelligent profit-trail stop loss. As simple as the app itself.',
+      'HyperGain agent running with simple settings: risk, leverage, and intelligent profit-trail stop loss. As simple as the app itself.',
   },
   {
     id: 'slots',
@@ -53,7 +53,7 @@ export const HOW_IT_WORKS_IMAGES: readonly HowItWorksImage[] = [
     width: 560,
     height: 1024,
     layout: 'portrait',
-    seoTitle: 'HyperGain bot open trade slots — choose 2 or 3 Hyperliquid positions',
+    seoTitle: 'HyperGain agent open trade slots — choose 2 or 3 Hyperliquid positions',
     seoCaption:
       'HyperGain Settings: pick 2 or 3 open trade slots. Risk splits across slots on your Hyperliquid balance.',
   },
@@ -81,8 +81,8 @@ export const HOW_IT_WORKS_STEP_SCHEMA: Record<
     text: 'Open Funds. Deposit USDC to your Hyperliquid account and withdraw anytime. No API keys, no exchange connections.',
   },
   settings: {
-    name: 'Set simple bot settings',
-    text: 'Risk, leverage, and profit trail — a few controls, as simple as the app itself. Then start the bot.',
+    name: 'Set simple agent settings',
+    text: 'Risk, leverage, and profit trail — a few controls, as simple as the app itself. Then start the agent.',
   },
   slots: {
     name: 'Choose 2 or 3 open trade slots',

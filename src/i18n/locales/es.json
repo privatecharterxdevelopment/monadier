@@ -16,11 +16,11 @@
   },
   "nav": {
     "howItWorks": "Cómo funciona",
-    "aiTradingBot": "AI Trading Bot",
+    "aiTradingBot": "AI Trading Agent",
     "aiSportsBetting": "AI Sports Betting",
     "aiAutoBetting": "AI Sports Betting",
     "perpsTrading": "Perps Trading",
-    "bot": "Bot",
+    "bot": "Agent",
     "leaderboard": "Leaderboard",
     "betting": "Apuestas",
     "technology": "Tecnología",
@@ -32,7 +32,7 @@
     "signOut": "Cerrar sesión",
     "openApp": "Abrir app",
     "app": "App",
-    "startBot": "Iniciar bot",
+    "startBot": "Iniciar agent",
     "connect": "Conectar",
     "restoring": "Restaurando…",
     "support": "Soporte",
@@ -60,7 +60,7 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "Bot de trading full auto",
+      "lineDarkTop": "Agente de trading AI full auto",
       "rotateLines": [
         "en Hyperliquid",
         "con perps automatizados",
@@ -78,11 +78,11 @@
         "mañana",
         "cuando quieras"
       ],
-      "description": "HyperGain combina trading bot automatizado, ejecución profesional de perps, apuestas deportivas y mercados de predicción en Hyperliquid — una cuenta, una interfaz. Tu USDC permanece en Hyperliquid en todo momento.",
+      "description": "HyperGain combina trading agent automatizado, ejecución profesional de perps, apuestas deportivas y mercados de predicción en Hyperliquid — una cuenta, una interfaz. Tu USDC permanece en Hyperliquid en todo momento.",
       "cards": {
         "bot": {
-          "title": "Trading bot totalmente automático",
-          "cta": "Iniciar bot"
+          "title": "Trading agent totalmente automático",
+          "cta": "Iniciar agent"
         },
         "perps": {
           "title": "Trading pro de perps",
@@ -101,9 +101,9 @@
     "bento": {
       "ariaLabel": "Funciones de trading",
       "bot": {
-        "title": "Operar con bot",
+        "title": "Operar con agent",
         "desc": "El agente IA escanea 200+ perps HL cada ciclo — abre entradas, sigue ganancias y corta perdedores 24/7.",
-        "cta": "Iniciar bot",
+        "cta": "Iniciar agent",
         "pillScan": "Escaneando HL",
         "pillLong": "BTC LONG 81%",
         "pillTrail": "Trail activo"
@@ -123,14 +123,14 @@
       "sub": "Impulsado por el framework de Hyperliquid."
     },
     "pitch": {
-      "cta": "Iniciar bot",
+      "cta": "Iniciar agent",
       "ctaRegister": "Regístrate gratis",
-      "ctaLaunchBot": "Iniciar Bot ahora",
+      "ctaLaunchBot": "Iniciar Agent ahora",
       "ctaFinal": "Start trading now",
       "lines": [
         [
           {
-            "text": "El bot de trading más avanzado ",
+            "text": "El agent de trading más avanzado ",
             "muted": true
           },
           {
@@ -207,7 +207,7 @@
       "tabs": {
         "all": "Todas",
         "platform": "Plataforma",
-        "bot": "Bot de trading",
+        "bot": "Agent de trading",
         "betting": "Apuestas",
         "vault": "Depósito y comisiones"
       },
@@ -216,12 +216,12 @@
         {
           "tab": "platform",
           "q": "¿Qué es HyperGain?",
-          "a": "HyperGain es un bot automatizado de perpetuos en Hyperliquid. Depositas USDC en tu cuenta Hyperliquid, apruebas una vez el agente de trading de HyperGain y nuestro servidor escanea todos los mercados HL 24/7 para abrir y cerrar operaciones por ti."
+          "a": "HyperGain es un agent automatizado de perpetuos en Hyperliquid. Depositas USDC en tu cuenta Hyperliquid, apruebas una vez el agente de trading de HyperGain y nuestro servidor escanea todos los mercados HL 24/7 para abrir y cerrar operaciones por ti."
         },
         {
           "tab": "platform",
           "q": "¿Es seguro usar HyperGain?",
-          "a": "HyperGain es no custodial en Hyperliquid: tu USDC permanece en tu cuenta HL a tu nombre. El agente puede operar pero no retirar sin tu wallet. El auto-trading solo funciona cuando pulsas Iniciar bot."
+          "a": "HyperGain es no custodial en Hyperliquid: tu USDC permanece en tu cuenta HL a tu nombre. El agente puede operar pero no retirar sin tu wallet. El auto-trading solo funciona cuando pulsas Iniciar agent."
         },
         {
           "tab": "platform",
@@ -244,54 +244,54 @@
           "a": "Hyperliquid ofrece liquidez profunda en perps, ejecución rápida y margen USDC en su propia L1. Un depósito en HL alimenta el trading en todos los mercados listados — más simple que puentes L2 legacy."
         },
         {
-          "tab": "bot",
-          "q": "¿Cómo funciona el bot de trading?",
-          "a": "Con el bot activo, el servidor HyperGain (Railway) revisa tu saldo HL cada ~10 segundos, escanea todos los perps de Hyperliquid con señales multi-timeframe, abre el mejor setup, monitoriza TP/SL, cierra la posición y repite."
+          "tab": "agent",
+          "q": "¿Cómo funciona el agent de trading?",
+          "a": "Con el agent activo, el servidor HyperGain (Railway) revisa tu saldo HL cada ~10 segundos, escanea todos los perps de Hyperliquid con señales multi-timeframe, abre el mejor setup, monitoriza TP/SL, cierra la posición y repite."
         },
         {
-          "tab": "bot",
-          "q": "¿Cuánto tiempo funciona el bot?",
-          "a": "24/7 mientras Iniciar bot esté activo y tengas al menos $20 USDC en Hyperliquid. Sin timeout de sesión — el servidor sigue hasta que pulses Detener bot."
+          "tab": "agent",
+          "q": "¿Cuánto tiempo funciona el agent?",
+          "a": "24/7 mientras Iniciar agent esté activo y tengas al menos $20 USDC en Hyperliquid. Sin timeout de sesión — el servidor sigue hasta que pulses Detener agent."
         },
         {
-          "tab": "bot",
-          "q": "¿Puede el bot operar 24/7?",
-          "a": "Sí. Los mercados cripto no cierran. Una vez iniciado, el bot escanea todos los perps HL las 24 horas y puede abrir o cerrar posiciones a cualquier hora — no necesitas estar conectado."
+          "tab": "agent",
+          "q": "¿Puede el agent operar 24/7?",
+          "a": "Sí. Los mercados cripto no cierran. Una vez iniciado, el agent escanea todos los perps HL las 24 horas y puede abrir o cerrar posiciones a cualquier hora — no necesitas estar conectado."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "¿Puedo cerrar operaciones manualmente?",
-          "a": "Sí. Las posiciones abiertas se cierran en el terminal HyperGain. Detener bot pausa nuevas entradas; las posiciones existentes permanecen hasta TP/SL o cierre manual."
+          "a": "Sí. Las posiciones abiertas se cierran en el terminal HyperGain. Detener agent pausa nuevas entradas; las posiciones existentes permanecen hasta TP/SL o cierre manual."
         },
         {
-          "tab": "bot",
-          "q": "¿Qué activos cripto opera el bot?",
-          "a": "Cualquier perpetuo activo de Hyperliquid con señal válida — el bot carga el universo HL completo (200+ pares) y elige el mejor setup cada ciclo, no una lista fija ETH/BTC."
+          "tab": "agent",
+          "q": "¿Qué activos cripto opera el agent?",
+          "a": "Cualquier perpetuo activo de Hyperliquid con señal válida — el agent carga el universo HL completo (200+ pares) y elige el mejor setup cada ciclo, no una lista fija ETH/BTC."
         },
         {
-          "tab": "bot",
-          "q": "¿Qué apalancamiento usa el bot?",
-          "a": "Configuras apalancamiento, take profit y stop loss en ajustes del bot. El bot limita al máximo por activo de Hyperliquid (p. ej. BTC 40×, ETH 25×) en cada operación."
+          "tab": "agent",
+          "q": "¿Qué apalancamiento usa el agent?",
+          "a": "Configuras apalancamiento, take profit y stop loss en ajustes del agent. El agent limita al máximo por activo de Hyperliquid (p. ej. BTC 40×, ETH 25×) en cada operación."
         },
         {
-          "tab": "bot",
+          "tab": "agent",
           "q": "¿Debo dejar el ordenador encendido?",
-          "a": "No. El bot corre en servidores HyperGain (Railway). Tras Iniciar bot y una cuenta HL financiada, opera 24/7 sin el navegador abierto."
+          "a": "No. El agent corre en servidores HyperGain (Railway). Tras Iniciar agent y una cuenta HL financiada, opera 24/7 sin el navegador abierto."
         },
         {
-          "tab": "bot",
-          "q": "¿Cómo deposito para que el bot arranque?",
-          "a": "En HyperGain Funds: deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el bot necesita $20+. Luego aprueba agente → Iniciar bot."
+          "tab": "agent",
+          "q": "¿Cómo deposito para que el agent arranque?",
+          "a": "En HyperGain Funds: deposita solo USDC nativo en Arbitrum One — no BNB, BSC, ETH mainnet ni USDC en otras chains. Mín. $5 en HL; el agent necesita $20+. Luego aprueba agente → Iniciar agent."
         },
         {
           "tab": "vault",
           "q": "¿Cuánto USDC necesito para empezar?",
-          "a": "Al menos $20 USDC en tu cuenta Hyperliquid para el bot (depósito mínimo HL $5). Financia solo lo que quieras que use el bot — opera desde tu saldo HL, no un vault separado."
+          "a": "Al menos $20 USDC en tu cuenta Hyperliquid para el agent (depósito mínimo HL $5). Financia solo lo que quieras que use el agent — opera desde tu saldo HL, no un vault separado."
         },
         {
           "tab": "vault",
-          "q": "¿Qué comisiones cobra el bot?",
-          "a": "Aplican comisiones de trading Hyperliquid en cada perp. HyperGain puede cobrar builder fee en órdenes HL y planes de suscripción para acceso al bot. Consulta la app para tarifas actuales."
+          "q": "¿Qué comisiones cobra el agent?",
+          "a": "Aplican comisiones de trading Hyperliquid en cada perp. HyperGain puede cobrar builder fee en órdenes HL y planes de suscripción para acceso al agent. Consulta la app para tarifas actuales."
         },
         {
           "tab": "vault",
@@ -301,12 +301,12 @@
         {
           "tab": "vault",
           "q": "¿Por qué Hyperliquid en lugar de un vault?",
-          "a": "Tu USDC permanece en tu cuenta Hyperliquid a tu nombre. El bot solo opera vía agente aprobado; no puede mover fondos. Ves saldo y posiciones directamente en HL."
+          "a": "Tu USDC permanece en tu cuenta Hyperliquid a tu nombre. El agent solo opera vía agente aprobado; no puede mover fondos. Ves saldo y posiciones directamente en HL."
         },
         {
           "tab": "vault",
           "q": "¿Debo firmar transacciones de wallet?",
-          "a": "Sí para depósitos, retiros y la aprobación única del agente. Las operaciones del bot las firma el agente aprobado — no firmas cada trade manualmente."
+          "a": "Sí para depósitos, retiros y la aprobación única del agente. Las operaciones del agent las firma el agente aprobado — no firmas cada trade manualmente."
         },
         {
           "tab": "betting",
@@ -335,7 +335,7 @@
       "page": {
         "eyebrow": "FAQ",
         "title": "Preguntas frecuentes",
-        "lead": "Todo sobre HyperGain, el bot de Hyperliquid, depósitos, comisiones y apuestas deportivas — busca o explora todas las respuestas."
+        "lead": "Todo sobre HyperGain, el agent de Hyperliquid, depósitos, comisiones y apuestas deportivas — busca o explora todas las respuestas."
       }
     },
     "bettingFaq": {
@@ -346,15 +346,15 @@
     },
     "macbook": {
       "title": "Tu panel de trading",
-      "lead": "Gráficos, controles del bot, financiación e historial — un solo espacio en Hyperliquid.",
-      "alt": "Panel HyperGain con gráficos en vivo, bot automatizado e historial de operaciones"
+      "lead": "Gráficos, controles del agent, financiación e historial — un solo espacio en Hyperliquid.",
+      "alt": "Panel HyperGain con gráficos en vivo, agent automatizado e historial de operaciones"
     },
     "alpha": {
       "watchFilm": "Ver el film",
-      "usersLabel": "usuarios operando con el bot",
-      "title": "Bot de trading full auto",
+      "usersLabel": "usuarios operando con el agent",
+      "title": "Agente de trading AI full auto",
       "lead": "Trading de perpetuos automatizado con IA en tu cuenta Hyperliquid.",
-      "leadSub": "Non-custodial — tu USDC permanece en HL; el bot opera 24/7 y tú conservas las claves.",
+      "leadSub": "Non-custodial — tu USDC permanece en HL; el agent opera 24/7 y tú conservas las claves.",
       "scrollDown": "Desplazar abajo",
       "emailLabel": "Email",
       "emailPlaceholder": "Please enter your valid email",
@@ -374,10 +374,10 @@
       "cards": {
         "how": {
           "title": "Cómo funciona",
-          "text": "Conecta la wallet, puentea USDC a Hyperliquid, aprueba el agente una vez e inicia el bot."
+          "text": "Conecta la wallet, puentea USDC a Hyperliquid, aprueba el agente una vez e inicia el agent."
         },
         "bot": {
-          "title": "Trading con bot",
+          "title": "Trading con agent",
           "text": "La IA escanea 200+ perps de HL 24/7: abre, arrastra ganancias y corta pérdidas sin custodia."
         },
         "betting": {
@@ -386,13 +386,13 @@
         },
         "perps": {
           "title": "Perps pro",
-          "text": "Opera la misma liquidez HL que usa el bot: gráficos, profundidad y ejecución en un terminal."
+          "text": "Opera la misma liquidez HL que usa el agent: gráficos, profundidad y ejecución en un terminal."
         }
       }
     },
     "howStrip": {
       "title": "Cómo funciona",
-      "lead": "Cuatro pasos de la wallet al bot en vivo en Hyperliquid.",
+      "lead": "Cuatro pasos de la wallet al agent en vivo en Hyperliquid.",
       "learnMore": "Saber más",
       "startApp": "Abrir app",
       "stepLabel": "Paso {{n}}",
@@ -410,29 +410,29 @@
           "text": "Financia con USDC nativo en Arbitrum One — necesario para HL."
         },
         "bot": {
-          "title": "Iniciar bot",
-          "text": "Aprueba el agente de trading una vez y pulsa Start bot."
+          "title": "Iniciar agent",
+          "text": "Aprueba el agente de trading una vez y pulsa Start agent."
         }
       }
     },
     "sleepEarnings": {
       "title": "Clasificación on-chain totalmente transparente",
-      "description": "Cierres del bot Hyperliquid en vivo — ganancias y pérdidas — con wallets enmascaradas, par, lado, PnL, fecha y hora. Resultados pasados no garantizan el futuro.",
-      "pillsAria": "Destacados del bot",
+      "description": "Cierres del agent Hyperliquid en vivo — ganancias y pérdidas — con wallets enmascaradas, par, lado, PnL, fecha y hora. Resultados pasados no garantizan el futuro.",
+      "pillsAria": "Destacados del agent",
       "registerCta": "Regístrate gratis",
       "pills": {
         "run247": "71,4% winrate medio"
       }
     },
     "agentSections": {
-      "aria": "Funciones del bot HyperGain",
+      "aria": "Funciones del agent HyperGain",
       "calc": {
         "eyebrow": "Clasificación en vivo",
-        "title": "Últimos cierres del bot",
-        "desc": "Resultados del bot Hyperliquid en vivo — ganancias y pérdidas — con wallet, par, lado, PnL, fecha y hora. Se actualiza al cerrar."
+        "title": "Últimos cierres del agent",
+        "desc": "Resultados del agent Hyperliquid en vivo — ganancias y pérdidas — con wallet, par, lado, PnL, fecha y hora. Se actualiza al cerrar."
       },
       "toolkit": {
-        "aria": "Analizador de mercado del bot HyperGain",
+        "aria": "Analizador de mercado del agent HyperGain",
         "eyebrow": "Más de 14 gates antes de abrir",
         "title": "Más de 14 gates de trade antes de abrir",
         "desc": "Beta macro, pump-short, sesgo 4h/24h y más — el mismo pipeline multi-gate que el terminal en vivo antes de abrir un perp HL.",
@@ -454,11 +454,11 @@
       "sub": "Impulsado por el framework de Hyperliquid.",
       "bot": {
         "title": "Opera con IA",
-        "desc": "Escaneo MTF en 200+ perps Hyperliquid. El bot abre, arrastra beneficios y corta pérdidas 24/7."
+        "desc": "Escaneo MTF en 200+ perps Hyperliquid. El agent abre, arrastra beneficios y corta pérdidas 24/7."
       },
       "perps": {
         "title": "Opera las velas",
-        "desc": "Gráficos pro, profundidad y ejecución en la misma liquidez HL que usa el bot."
+        "desc": "Gráficos pro, profundidad y ejecución en la misma liquidez HL que usa el agent."
       },
       "sports": {
         "title": "Apuestas deportivas",
@@ -469,7 +469,7 @@
         "desc": "Mercados macro, crypto y de eventos — cuotas Yes/No transparentes en Hyperliquid."
       },
       "calc": {
-        "eyebrow": "ROI del bot",
+        "eyebrow": "ROI del agent",
         "title": "Estima tus ganancias",
         "stakeLabel": "Saldo USDC en Hyperliquid",
         "leverage": "Apalancamiento",
@@ -486,7 +486,7 @@
         "footnote": "No es consejo financiero. Con saldos pequeños el objetivo típico es ~2–3× al mes, no 10×. Los resultados varían."
       },
       "lb": {
-        "aria": "Clasificación del bot en vivo",
+        "aria": "Clasificación del agent en vivo",
         "live": "En vivo",
         "subtitle": "Ganancias y pérdidas",
         "loading": "Cargando cierres…",
@@ -523,7 +523,7 @@
           "id": "no-promised-returns",
           "heading": "Sin rentabilidades prometidas ni garantizadas",
           "paragraphs": [
-            "Nada en {{domain}}, en la app, en materiales de marketing o en comunicaciones de soporte constituye promesa, proyección o garantía de beneficio, rendimiento o resultado de trading concreto. El cripto y los derivados apalancados son especulativos. Puedes perder parte o todo tu margen. Ejemplos, tasas de acierto, backtests y rendimiento pasado del bot son solo ilustrativos y no indican resultados futuros.",
+            "Nada en {{domain}}, en la app, en materiales de marketing o en comunicaciones de soporte constituye promesa, proyección o garantía de beneficio, rendimiento o resultado de trading concreto. El cripto y los derivados apalancados son especulativos. Puedes perder parte o todo tu margen. Ejemplos, tasas de acierto, backtests y rendimiento pasado del agent son solo ilustrativos y no indican resultados futuros.",
             "Los resultados varían según condiciones de mercado, apalancamiento, comisiones, slippage, latencia y ajustes del usuario. Los sistemas automatizados pueden leer mal el mercado, fallar en volatilidad o dejar de operar por problemas técnicos. Tú asumes solo el riesgo financiero de cada operación."
           ]
         },
@@ -590,7 +590,7 @@
           "id": "fees",
           "heading": "Comisiones y reembolsos",
           "paragraphs": [
-            "Las comisiones de protocolo y red de Hyperliquid aplican a cada operación. HyperGain puede cobrar comisiones de plataforma basadas en éxito en cierres rentables, builder fees u otros cargos divulgados en la app. Las comisiones de plataforma acumuladas impagas pueden bloquear nuevas aperturas del bot y retiros Hyperliquid en la app hasta liquidarse. Consulta los Términos para el calendario de comisiones y las reglas de aplicación."
+            "Las comisiones de protocolo y red de Hyperliquid aplican a cada operación. HyperGain puede cobrar comisiones de plataforma basadas en éxito en cierres rentables, builder fees u otros cargos divulgados en la app. Las comisiones de plataforma acumuladas impagas pueden bloquear nuevas aperturas del agent y retiros Hyperliquid en la app hasta liquidarse. Consulta los Términos para el calendario de comisiones y las reglas de aplicación."
           ]
         }
       ],
@@ -598,7 +598,7 @@
     },
     "volume": {
       "label": "Volumen de trading diario",
-      "labelAccent": "gestionado por HG Bot",
+      "labelAccent": "gestionado por HG Agent",
       "live": "En vivo"
     }
   },
@@ -606,18 +606,18 @@
     "howItWorks": {
       "eyebrow": "Producto",
       "title": "Cómo funciona",
-      "lead": "Deposita USDC nativo en Arbitrum, aprueba el bot una vez — nuestra estrategia opera 24/7 en Hyperliquid.",
+      "lead": "Deposita USDC nativo en Arbitrum, aprueba el agent una vez — nuestra estrategia opera 24/7 en Hyperliquid.",
       "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
       "arbitrum": {
         "title": "USDC en Arbitrum One — obligatorio",
-        "text": "Para el bot necesitas USDC nativo en Arbitrum One en tu wallet. Hyperliquid no acepta BNB, ETH mainnet ni USDC de otras redes.",
-        "minHl": "Mín. $5 en HL · $20+ para el bot",
+        "text": "Para el agent necesitas USDC nativo en Arbitrum One en tu wallet. Hyperliquid no acepta BNB, ETH mainnet ni USDC de otras redes.",
+        "minHl": "Mín. $5 en HL · $20+ para el agent",
         "gas": "Mantén un poco de ETH en Arbitrum para el gas del depósito.",
         "doNotUse": "No usar",
         "minDepositValue": "$5",
         "minDepositLabel": "Depósito mínimo en Hyperliquid",
         "startBotValue": "$20",
-        "startBotLabel": "Para iniciar el bot"
+        "startBotLabel": "Para iniciar el agent"
       },
       "stepsTitle": "Configuración en cuatro pasos",
       "stepsSub": "Configuración única en la app HyperGain.",
@@ -631,8 +631,8 @@
           "text": "Desde la pestaña Funds, envía USDC nativo de tu wallet Arbitrum a tu cuenta Hyperliquid."
         },
         {
-          "title": "Aprobar agente e iniciar bot",
-          "text": "Una firma permite operar — no retirar. Pulsa Iniciar bot."
+          "title": "Aprobar agente e iniciar agent",
+          "text": "Una firma permite operar — no retirar. Pulsa Iniciar agent."
         },
         {
           "title": "Retirar cuando quieras",
@@ -648,7 +648,7 @@
         },
         {
           "title": "Tu cuenta HL",
-          "text": "El USDC está en tu cuenta Hyperliquid. El bot opera solo con aprobación de agente — no puede retirar."
+          "text": "El USDC está en tu cuenta Hyperliquid. El agent opera solo con aprobación de agente — no puede retirar."
         },
         {
           "title": "Al cerrar operaciones",
@@ -661,7 +661,7 @@
       ],
       "risksTitle": "Riesgos",
       "risks": [
-        "Riesgo operativo de Hyperliquid y del bot",
+        "Riesgo operativo de Hyperliquid y del agent",
         "Volatilidad cripto y apalancamiento",
         "Solo deposita lo que puedas perder"
       ],
@@ -674,14 +674,14 @@
           "No smart contract",
           "Non custodial"
         ],
-        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The bot only trades via agent approval; it cannot withdraw."
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
       },
-      "settingsTitle": "Ajustes del bot en la app",
-      "settingsSub": "En Bot trade defines apalancamiento, riesgo, slots, stop loss y la puerta de win rate — los mismos controles que en la app HyperGain. Guardar aplica a nuevas aperturas.",
+      "settingsTitle": "Ajustes del agent en la app",
+      "settingsSub": "En Agent trade defines apalancamiento, riesgo, slots, stop loss y la puerta de win rate — los mismos controles que en la app HyperGain. Guardar aplica a nuevas aperturas.",
       "settings": [
         {
           "title": "Apalancamiento (Leverage)",
-          "text": "Cuánta palanca lleva cada posición en Hyperliquid (slider hasta 40×). Los caps de HL varían por activo — p. ej. BTC máx. 40× en el slider; el bot limita al cap del mercado al abrir. Alto apalancamiento: un movimiento adverso pequeño puede liquidar (alrededor de ~2,3% a 40×)."
+          "text": "Cuánta palanca lleva cada posición en Hyperliquid (slider hasta 40×). Los caps de HL varían por activo — p. ej. BTC máx. 40× en el slider; el agent limita al cap del mercado al abrir. Alto apalancamiento: un movimiento adverso pequeño puede liquidar (alrededor de ~2,3% a 40×)."
         },
         {
           "title": "Riesgo por trade",
@@ -689,33 +689,33 @@
         },
         {
           "title": "Slots de trades abiertos",
-          "text": "Cuántas posiciones del bot pueden estar abiertas a la vez (2 o 3). El % de riesgo se reparte entre slots (½ con 2, ⅓ con 3). Usa todo tu saldo HL salvo que fijes un presupuesto de AI betting. Puedes cambiar slots y guardar aunque el bot esté en marcha."
+          "text": "Cuántas posiciones del agent pueden estar abiertas a la vez (2 o 3). El % de riesgo se reparte entre slots (½ con 2, ⅓ con 3). Usa todo tu saldo HL salvo que fijes un presupuesto de AI betting. Puedes cambiar slots y guardar aunque el agent esté en marcha."
         },
         {
           "title": "Stop loss",
-          "text": "Pérdida máxima sobre el margen mientras la posición está en rojo. Off (decide el bot) = solo trail de beneficios en verde — sin cierre automático en rojo. O elige 5–50% / % personalizado y el bot cierra a esa pérdida de margen."
+          "text": "Pérdida máxima sobre el margen mientras la posición está en rojo. Off (decide el agent) = solo trail de beneficios en verde — sin cierre automático en rojo. O elige 5–50% / % personalizado y el agent cierra a esa pérdida de margen."
         },
         {
           "title": "Puerta de win rate",
-          "text": "Opcional: pausar nuevas operaciones si el win rate reciente cae por debajo de tu umbral. Off = el bot puede abrir sin mirar el win rate reciente."
+          "text": "Opcional: pausar nuevas operaciones si el win rate reciente cae por debajo de tu umbral. Off = el agent puede abrir sin mirar el win rate reciente."
         }
       ],
-      "settingsNote": "Guardar ajustes almacena riesgo, apalancamiento, stop loss, slots y la puerta de win rate. Inicia/para el trading en la pestaña Bot. Con el bot en marcha aún puedes cambiar slots y guardar — para editar apalancamiento, riesgo o stop loss, detén el bot."
+      "settingsNote": "Guardar ajustes almacena riesgo, apalancamiento, stop loss, slots y la puerta de win rate. Inicia/para el trading en la pestaña Agent. Con el agent en marcha aún puedes cambiar slots y guardar — para editar apalancamiento, riesgo o stop loss, detén el agent."
     },
     "support": {
       "eyebrow": "Soporte",
       "title": "Ayuda y contacto",
-      "lead": "¿Preguntas sobre tu cuenta HL, el bot o tu cuenta HyperGain? Escríbenos o consulta las respuestas abajo.",
+      "lead": "¿Preguntas sobre tu cuenta HL, el agent o tu cuenta HyperGain? Escríbenos o consulta las respuestas abajo.",
       "sub": "Para problemas urgentes de trading, incluye tu dirección de wallet y una captura del panel.",
       "contactEmailTitle": "Soporte por email",
       "contactEmailText": "Envíanos un mensaje — respondemos en un plazo de 24 horas.",
       "contactHoursTitle": "Horario de soporte",
-      "contactHoursText": "Todos los días, 24/7. El bot opera todo el día en nuestra infraestructura — puedes contactarnos en cualquier momento.",
+      "contactHoursText": "Todos los días, 24/7. El agent opera todo el día en nuestra infraestructura — puedes contactarnos en cualquier momento.",
       "faqTitle": "Preguntas frecuentes",
       "faqSub": "Respuestas rápidas sobre configuración, seguridad y comisiones.",
       "faqExtra": {
         "q": "¿Qué tan rápido es el soporte?",
-        "a": "Usa el botón Enviar email en esta página — objetivo: respuesta en 24 h. Soporte y bot disponibles todos los días, 24/7."
+        "a": "Usa el agentón Enviar email en esta página — objetivo: respuesta en 24 h. Soporte y agent disponibles todos los días, 24/7."
       },
       "ctaContact": "Contactar soporte",
       "disclaimer": "Por seguridad, nunca compartas tu frase semilla o claves privadas — ni siquiera con soporte.",
@@ -738,7 +738,7 @@
     "signInFailed": "Error al iniciar sesión",
     "googleSignInFailed": "Error al iniciar sesión con Google",
     "signInToAccount": "Inicia sesión en tu cuenta HyperGain.",
-    "signInToProfile": "Inicia sesión para abrir perfil y ajustes del bot.",
+    "signInToProfile": "Inicia sesión para abrir perfil y ajustes del agent.",
     "signInToAffiliate": "Inicia sesión para ver tu panel de afiliados.",
     "signInToSupport": "Inicia sesión para contactar soporte.",
     "signInOrRegister": "Iniciar sesión o registrarse",
@@ -748,7 +748,7 @@
       "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
       "goToSignIn": "Go to sign in",
       "referralLinked": "Referral linked",
-      "referralDesc": "Referrer earns 2% on your profitable bot trades",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
       "acceptTermsRequired": "You must accept the Terms to continue",
       "usernameTaken": "That username is already taken",
       "createFailed": "Failed to create account. Please try again.",
@@ -767,18 +767,18 @@
       "alreadyHaveAccount": "Already have an account? ",
       "signInLink": "Sign In",
       "referralNotificationTitle": "Referral linked",
-      "referralNotificationMessage": "Your referrer earns 2% when you close profitable bot trades.",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
       "modalTitle": "Register",
-      "modalSub": "Create your HyperGain account for bot trading and Pro Trade.",
-      "referralApplied": "Referral code applied — referrer earns 2% on your profitable bot trades",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
       "accountCreatedWelcome": "Account created — welcome!",
       "createFailedShort": "Failed to create account",
       "orDivider": "or",
       "visualKicker": "HyperGain Pro Trade",
-      "visualTitle": "HyperGain bot + trading terminal",
-      "visualCopy": "Perps, spot, portfolio, and HyperGain bot — one trading workspace.",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
       "fullNameLabel": "Full name",
-      "acceptTermsMarketing": ", including use of my bot trade outcomes for marketing and public verification (e.g. HypurrScan)"
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
     },
     "signInModal": {
       "kicker": "HyperGain",
@@ -795,7 +795,7 @@
   "app": {
     "nav": {
       "perps": "Perps",
-      "bot": "Bot trade",
+      "bot": "Agent trade",
       "betting": "Apuestas",
       "portfolio": "Portfolio",
       "news": "Noticias",
@@ -804,14 +804,14 @@
     },
     "account": {
       "title": "Tu cuenta HyperGain",
-      "guestDesc": "Inicia sesión para guardar ajustes del bot, perfil e historial.",
+      "guestDesc": "Inicia sesión para guardar ajustes del agent, perfil e historial.",
       "profileSettings": "Perfil y ajustes",
-      "profileSettingsFallback": "Perfil y ajustes del bot",
+      "profileSettingsFallback": "Perfil y ajustes del agent",
       "affiliateProgram": "Programa de afiliados",
       "securityPassword": "Seguridad y contraseña",
       "linkedWallets": "Wallets vinculadas",
       "loginHistory": "Historial de inicio",
-      "botTradeHistory": "Historial del bot",
+      "botTradeHistory": "Historial del agent",
       "closeAccountMenu": "Cerrar menú de cuenta",
       "accountMenu": "Menú de cuenta",
       "guestAccountMenu": "Menú de invitado"
@@ -827,7 +827,7 @@
       "totalEst": "Total (est.)",
       "perpsPlusSpot": "Perps + spot",
       "affiliateProgram": "Programa de afiliados",
-      "affiliateDesc": "Gana un 2% de las operaciones rentables del bot de tus referidos.",
+      "affiliateDesc": "Gana un 2% de las operaciones rentables del agent de tus referidos.",
       "perpPositions": "Posiciones perp",
       "openCount": "{{count}} abiertas",
       "noPerpPositions": "Sin posiciones perp abiertas.",
@@ -854,7 +854,7 @@
       "sendingAs": "Sending as",
       "userId": "User ID:",
       "subject": "Subject",
-      "subjectPlaceholder": "e.g. Bot not trading, deposit, withdrawal",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
       "message": "Message",
       "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
       "messageSent": "Message sent. We'll reply to {{email}}.",
@@ -873,13 +873,13 @@
   },
   "bot": {
     "autoTrading": "Auto-trading",
-    "autoTradingHintModal": "Bot trades from your Hyperliquid balance on signals",
-    "autoTradingHintPanel": "Use the Bot tab → Start bot (not this panel) to turn trading on.",
+    "autoTradingHintModal": "Agent trades from your Hyperliquid balance on signals",
+    "autoTradingHintPanel": "Use the Agent tab → Start agent (not this panel) to turn trading on.",
     "riskPerTrade": "Riesgo por operación",
     "riskHint": "% of your HL balance used as margin — <strong>not</strong> leverage.",
     "riskAria": "Risk percent of HL balance per trade",
     "leverage": "Apalancamiento (LVRG)",
-    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The bot clamps to each market cap when opening.",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
     "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
     "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
     "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
@@ -893,7 +893,7 @@
     "closedTradesGate": "Operaciones cerradas antes del filtro",
     "fewerTrades": "Menos operaciones",
     "moreTrades": "Más operaciones",
-    "exitsHint": "<strong>Exits:</strong> Bot trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
     "leverageShort": "Apalancamiento"
   },
   "trading": {
@@ -1028,7 +1028,7 @@
       "title": "Betting isn't available in your region",
       "detectedLocation": "Detected location",
       "tradePerpsInstead": "Trade perps instead",
-      "footnote": "Perps trading and the HyperGain bot remain available. Outcome markets follow regional compliance rules."
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
     },
     "categoriesAria": "Categorías de apuestas",
     "marketsAria": "Mercados de apuestas",
@@ -1063,8 +1063,8 @@
     "coin": "Coin"
   },
   "tradePanel": {
-    "title": "Bot {{brand}}",
-    "tabBot": "Bot",
+    "title": "Agent {{brand}}",
+    "tabBot": "Agent",
     "tabSettings": "Ajustes",
     "tabFunds": "Fondos",
     "status": "Estado",
@@ -1079,12 +1079,12 @@
       "ready": "Listo",
       "running": "En marcha{{timer}}"
     },
-    "stopBot": "Detener bot",
+    "stopBot": "Detener agent",
     "stopping": "Deteniendo…",
-    "startBot": "Iniciar bot",
+    "startBot": "Iniciar agent",
     "starting": "Iniciando…",
     "parameters": "Parámetros",
-    "parametersAria": "Parámetros del bot",
+    "parametersAria": "Parámetros del agent",
     "adjust": "Ajustar",
     "risk": "Riesgo",
     "lvrg": "LVRG",
@@ -1099,7 +1099,7 @@
     "upnl": "uPnL",
     "totalPnl": "P/L total",
     "open": "Abiertas",
-    "howBotWorks": "Cómo funciona el bot",
+    "howBotWorks": "Cómo funciona el agent",
     "refresh": "Actualizar",
     "connectWallet": "Conectar wallet",
     "signIn": "Iniciar sesión",
@@ -1108,11 +1108,11 @@
     "tradingBalance": "Saldo de trading",
     "totalBalance": "Saldo total",
     "hyperliquidAccount": "Cuenta Hyperliquid",
-    "stopFirstTitle": "Detén el bot primero",
-    "stopFirstSubtitle": "Apalancamiento y riesgo están bloqueados mientras el bot está activo",
+    "stopFirstTitle": "Detén el agent primero",
+    "stopFirstSubtitle": "Apalancamiento y riesgo están bloqueados mientras el agent está activo",
     "keepRunning": "Seguir en marcha",
-    "stopFirstHint": "1. Detén el bot · 2. Cambia ajustes · 3. Pulsa Iniciar bot de nuevo.",
-    "stopFirstNote": "Aplica a apalancamiento y riesgo — no mientras el bot está activo."
+    "stopFirstHint": "1. Detén el agent · 2. Cambia ajustes · 3. Pulsa Iniciar agent de nuevo.",
+    "stopFirstNote": "Aplica a apalancamiento y riesgo — no mientras el agent está activo."
   },
   "dock": {
     "ariaPanels": "Paneles de cuenta",
@@ -1143,7 +1143,7 @@
     "noTwap": "Sin órdenes TWAP.",
     "noTriggers": "Sin órdenes trigger o stop.",
     "noData": "Sin datos.",
-    "noManualPositions": "Sin perps manuales — opera aquí o revisa el Bot.",
+    "noManualPositions": "Sin perps manuales — opera aquí o revisa el Agent.",
     "noOpenPositions": "Sin posiciones abiertas.",
     "cols": {
       "token": "Token",
@@ -1200,7 +1200,7 @@
       "security": "Seguridad",
       "wallets": "Wallets",
       "betting": "Apuestas",
-      "botTrades": "Trades del bot",
+      "botTrades": "Trades del agent",
       "history": "Historial de acceso"
     },
     "hyperliquidAccount": "Cuenta Hyperliquid",
@@ -1211,18 +1211,18 @@
     "bettingLead": "Apuestas abiertas y cerradas con ganancia/pérdida — guardadas en tu cuenta.",
     "loginHistoryTitle": "Historial de acceso",
     "botHistory": {
-      "title": "Historial de trades del bot",
-      "subtitle": "Solo trades del bot — los fills manuales de Perps están en la pestaña Perps.",
+      "title": "Historial de trades del agent",
+      "subtitle": "Solo trades del agent — los fills manuales de Perps están en la pestaña Perps.",
       "account": "Cuenta: {{name}}",
       "userId": "ID de usuario: {{id}}",
       "gain": "Ganancia",
       "loss": "Pérdida",
       "upnl": "uPnL",
       "openCount": "{{count}} abiertas",
-      "totalsAria": "Totales del bot",
+      "totalsAria": "Totales del agent",
       "downloadPdf": "Descargar PDF",
       "exporting": "Exportando…",
-      "pdfAria": "Descargar historial del bot en PDF",
+      "pdfAria": "Descargar historial del agent en PDF",
       "exportFailed": "Falló la exportación PDF.",
       "sinceToday": "Desde hoy · {{date}}",
       "sinceDays": "Desde {{date}} · {{count}}d",
@@ -1257,7 +1257,7 @@
     },
     "tradeEmail": {
       "title": "Emails de cierre",
-      "desc": "Recibe un email cuando un trade del bot o apuesta cierre en ganancia{{at}}.",
+      "desc": "Recibe un email cuando un trade del agent o apuesta cierre en ganancia{{at}}.",
       "atEmail": " en {{email}}",
       "on": "On",
       "off": "Off",
@@ -1319,7 +1319,7 @@
     "empty": "Sin actividad aún",
     "viewHistory": "Ver historial",
     "kindBet": "Apuesta",
-    "kindBot": "Bot"
+    "kindBot": "Agent"
   },
   "news": {
     "title": "Noticias",
@@ -1336,7 +1336,7 @@
   },
   "leaderboard": {
     "title": "Clasificación",
-    "lead": "Ganancias reales del bot Hyperliquid — wallet enmascarado, verifica en HypurrScan.",
+    "lead": "Ganancias reales del agent Hyperliquid — wallet enmascarado, verifica en HypurrScan.",
     "bestPositions": "Mejores posiciones",
     "topByPnl": "Top {{n}} por P/L · HypurrScan",
     "topWins": "Mejores wins",
@@ -1364,7 +1364,7 @@
     "close": "Cerrar",
     "progress": "{{current}} / {{total}}",
     "title": "Bienvenido a HyperGain",
-    "lead": "El bot de trading y apuestas totalmente automatizado más avanzado del mundo.",
+    "lead": "El agent de trading y apuestas totalmente automatizado más avanzado del mundo.",
     "step1Title": "Conecta tu wallet",
     "step1Body": "Conecta la wallet que usas en Hyperliquid.",
     "connectWallet": "Conectar wallet",
@@ -1373,8 +1373,8 @@
     "step2Body": "Recarga USDC en Arbitrum vía MetaMask o un exchange — no desde esta app.",
     "step2Hint": "O convierte otros tokens a USDC nativo en Arbitrum en tu wallet / un DEX.",
     "openWallet": "Abrir wallet",
-    "step3Title": "Inicia el bot",
-    "step3Body": "Abre Bot trade, deposita en Hyperliquid si hace falta, aprueba el agente una vez y pulsa Start bot.",
+    "step3Title": "Inicia el agent",
+    "step3Body": "Abre Agent trade, deposita en Hyperliquid si hace falta, aprueba el agente una vez y pulsa Start agent.",
     "skip": "Omitir",
     "back": "Atrás",
     "next": "Siguiente",

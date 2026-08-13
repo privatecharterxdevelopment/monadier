@@ -17,7 +17,7 @@ const fadeUp = (delay = 0) => ({
 
 const PREVIEW_CHIPS = [
   'Hyperliquid perps',
-  '24/7 trading bot',
+  '24/7 trading agent',
   'USDC on HL',
   'Live charts',
 ] as const;

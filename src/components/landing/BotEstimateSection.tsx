@@ -101,7 +101,7 @@ const BotEstimateSection: React.FC = () => (
           <div className="landing-bot-estimate-spotlight-body">
             <p className="landing-bot-estimate-spotlight-eyebrow">How it works</p>
             <p className="landing-bot-estimate-spotlight-text">
-              Connect wallet → fund HL with USDC on Arbitrum → approve agent → Start bot. The server
+              Connect wallet → fund HL with USDC on Arbitrum → approve agent → Start agent. The server
               scans, opens, trails profit, and cuts losers.
             </p>
             <button
@@ -109,7 +109,7 @@ const BotEstimateSection: React.FC = () => (
               className="landing-bot-estimate-spotlight-cta"
               onClick={() => goToOpenApp('?section=bot', false)}
             >
-              Start bot
+              Start agent
               <ArrowRight size={15} strokeWidth={2.5} aria-hidden />
             </button>
           </div>
@@ -119,7 +119,7 @@ const BotEstimateSection: React.FC = () => (
       <motion.div {...fadeUp(0.11)} className="landing-bot-estimate-does">
         <header className="landing-bot-estimate-does-head">
           <h3 id="bot-features-title" className="landing-bot-estimate-does-title">
-            What the bot does for you
+            What the agent does for you
           </h3>
           <p className="landing-bot-estimate-does-lead">
             Signal scanning, risk gates, and execution — built into one terminal alongside manual Pro Trade.

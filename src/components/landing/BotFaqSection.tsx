@@ -21,7 +21,7 @@ const BotFaqSection: React.FC = () => {
       <div className="landing-gmx-shell landing-bot-faq-shell">
         <motion.header {...fadeUp(0)} className="landing-bot-faq-head">
           <h2 id="bot-faq-title" className="landing-bot-faq-title">
-            Trading bot FAQ
+            Trading agent FAQ
           </h2>
           <p className="landing-bot-faq-lead">
             Setup, fees, non-custodial funds, and 24/7 automation on Hyperliquid.

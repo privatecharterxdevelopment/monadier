@@ -14,7 +14,7 @@ const BOT_VIDEO_SRC = '/videos/pitch-bg.mp4';
 const BotVideoHero: React.FC = () => (
   <section
     className="landing-gmx-hero landing-gmx-hero--centered landing-gmx-hero--betting landing-gmx-hero--bot landing-gmx-gutter"
-    aria-label="Hyperliquid trading bot"
+    aria-label="Hyperliquid trading agent"
   >
     <div className="landing-gmx-shell landing-gmx-hero-shell landing-gmx-hero-shell--betting">
       <div className="landing-gmx-hero-stage landing-gmx-hero-stage--betting">
@@ -35,7 +35,7 @@ const BotVideoHero: React.FC = () => (
             <div className="landing-gmx-hero-chrome-spacer" aria-hidden />
             <div className="landing-gmx-hero-chrome-title">
               <LandingHeroLines
-                lineDarkTop="Trading bot,"
+                lineDarkTop="Trading agent,"
                 rotateLines={BOT_ROTATE_LINES}
                 rotatePosition="two-row"
                 rotateSuffix="on Hyperliquid"
@@ -55,7 +55,7 @@ const BotVideoHero: React.FC = () => (
                   goToOpenApp('?section=bot', false);
                 }}
               >
-                Start bot
+                Start agent
                 <ArrowRight size={16} aria-hidden />
               </a>
             </div>

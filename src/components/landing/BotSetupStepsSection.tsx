@@ -26,7 +26,7 @@ const STEPS = [
   },
   {
     title: 'Approve & start',
-    text: 'One-time agent approval lets the bot place trades — not withdraw. Set TP/SL, optional leverage, then press Start bot.',
+    text: 'One-time agent approval lets the agent place trades — not withdraw. Set TP/SL, optional leverage, then press Start agent.',
     visual: <MktAgentApproveVisual />,
   },
 ] as const;

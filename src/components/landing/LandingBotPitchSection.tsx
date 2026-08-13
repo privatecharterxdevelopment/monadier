@@ -122,7 +122,7 @@ const LandingBotPitchSection: React.FC = () => {
       className={`landing-gmx-bot-pitch-section landing-gmx-section--auto-play landing-gmx-bot-pitch-section--with-video${
         onLastStep ? ' landing-gmx-bot-pitch-section--final' : ''
       }`}
-      aria-label="Trading bot highlights"
+      aria-label="Trading agent highlights"
     >
       <div className="landing-gmx-bot-pitch-sticky">
         <div

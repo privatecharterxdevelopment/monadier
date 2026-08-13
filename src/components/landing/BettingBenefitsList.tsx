@@ -16,7 +16,7 @@ const BettingBenefitsList: React.FC = () => (
     </h2>
     <p className="landing-betting-benefits-lead">
       On-chain sports betting and prediction markets — non-custodial, transparent odds, one platform
-      with our Hyperliquid trading bot.
+      with our Hyperliquid trading agent.
     </p>
     <ul className="landing-betting-benefits-list">
       {BETTING_BENEFITS.map((item, i) => (

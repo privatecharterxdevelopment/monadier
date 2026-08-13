@@ -12,7 +12,7 @@ export function organizationSchema() {
     logo: OG_IMAGE,
     email: SUPPORT_EMAIL,
     description:
-      'Non-custodial Hyperliquid trading bot — full auto 24/7 perpetuals execution across 200+ markets. No guaranteed returns.',
+      'Non-custodial Hyperliquid trading agent — full auto 24/7 perpetuals execution across 200+ markets. No guaranteed returns.',
     sameAs: [OFFICIAL_X_URL],
   };
 }
@@ -25,7 +25,7 @@ export function webSiteSchema() {
     name: SITE_NAME,
     url: SITE_ORIGIN,
     description:
-      'Full auto Hyperliquid trading bot. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perps.',
+      'Full auto Hyperliquid trading agent. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perps.',
     publisher: {
       '@type': 'Organization',
       name: SITE_NAME,
@@ -58,13 +58,13 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: opts?.name ?? 'HyperGain - full-auto trading bot on hyperliquid 24/7',
+    name: opts?.name ?? 'HyperGain - full-auto AI trading agent on hyperliquid 24/7',
     applicationCategory: 'FinanceApplication',
     operatingSystem: 'Web',
     url: opts?.path ? `${SITE_ORIGIN}${opts.path}` : SITE_ORIGIN,
     description:
       opts?.description ??
-      'HyperGain - full-auto trading bot on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets. No guaranteed returns.',
+      'HyperGain - full-auto AI trading agent on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets. No guaranteed returns.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -73,7 +73,7 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
         'No monthly subscription; Hyperliquid fees apply; Platform Success Fee may apply on profitable closes as disclosed',
     },
     featureList: [
-      'Full auto Hyperliquid trading bot',
+      'Full auto Hyperliquid trading agent',
       'Non-custodial Hyperliquid account trading',
       'Native USDC on Arbitrum One deposits',
       '200+ Hyperliquid perpetual markets',
@@ -112,7 +112,7 @@ export function webPageSchema(opts: { path: string; title: string; description: 
     },
     about: {
       '@type': 'SoftwareApplication',
-      name: `${SITE_NAME} Hyperliquid Trading Bot`,
+      name: `${SITE_NAME} Hyperliquid Trading Agent`,
       applicationCategory: 'FinanceApplication',
     },
   };
@@ -139,9 +139,9 @@ export function howToSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
-    name: `How ${SITE_NAME} bot works on Hyperliquid`,
+    name: `How ${SITE_NAME} agent works on Hyperliquid`,
     description:
-      'Deposit USDC on Hyperliquid, set simple bot settings and 2 or 3 slots, then start the bot. No API keys, no exchange connections.',
+      'Deposit USDC on Hyperliquid, set simple agent settings and 2 or 3 slots, then start the agent. No API keys, no exchange connections.',
     image: images,
     url: `${SITE_ORIGIN}/how-it-works`,
     step: HOW_IT_WORKS_IMAGES.map((img, i) => {
