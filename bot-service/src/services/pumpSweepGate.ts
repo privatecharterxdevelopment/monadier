@@ -71,7 +71,7 @@ function gateForDirection(
     };
   }
   // Only block the earliest bounce scrapes; mid-range post-dump is a valid fade.
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.18) {
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.12) {
     return {
       ok: false,
       reason:

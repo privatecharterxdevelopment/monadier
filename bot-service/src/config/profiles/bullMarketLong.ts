@@ -39,13 +39,18 @@ export const BULL_MARKET: HlDirectionProfile = {
   long: { ...PRIMARY_RULES },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    minConfidence: 70,
+    minConfidence: 65,
     minDirectionalTfs: 2,
-    minTrendAlignment: 60,
+    minTrendAlignment: 55,
     /** Skips volume-fade secondaries only — entry-momentum still always runs for SHORT. */
     relaxSecondaryGates: true,
     trustMtfScan: true,
     /** Trusted MTF dump: don't re-kill with tiny 1h noise (+0.18% was blocking). */
     bypassPumpShortWhenTrusted: true,
+    /**
+     * Counter-trend HTF hard-block killed dump SHORTs near support (Aug drought).
+     * Keep enableHtfSr for shadow logs; do not enforce hard reject on bull SHORT.
+     */
+    enforceHtfSr: false,
   },
 };

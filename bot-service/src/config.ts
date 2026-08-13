@@ -377,13 +377,12 @@ export const config = {
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
       /**
-       * SHORT range floor — block flush bottoms, allow dump-continuation mid-range.
-       * 0.12 (23bd6b8) → FIL bottoms; 0.45 (2851481) starved all continuation shorts.
-       * Floor ≥0.22 keeps extreme washouts out without killing 30–44% range dumps.
+       * SHORT range floor — block flush bottoms, allow dump-continuation (PEOPLE/ZRO/SUI era).
+       * 0.12 → FIL bottoms; 0.45 → drought. Floor ≥0.18 keeps extreme washouts out.
        */
       shortMinRangePosition: Math.max(
-        0.22,
-        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.28)
+        0.18,
+        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.22)
       ),
     },
     /**

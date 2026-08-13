@@ -223,7 +223,8 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
     (supportZone != null &&
       price <= supportZone.zoneHigh * (1 + Math.max(cfg.nearLevelPct, 0.008)) &&
       price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
-    pos <= Math.max(cfg.rangeBottomBlock, 0.5) ||
+    // Floor band only — NOT the whole lower half (0.5 starved dump-continuation SHORTs).
+    pos <= cfg.rangeBottomBlock ||
     distToSupPct <= Math.max(cfg.nearLevelPct, 0.008) ||
     price <= support * (1 + Math.max(cfg.nearLevelPct, 0.008));
 

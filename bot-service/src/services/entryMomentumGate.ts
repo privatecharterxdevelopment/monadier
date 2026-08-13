@@ -141,13 +141,23 @@ export async function validateEntryMomentum(opts: {
       } else if (!fade15m) {
         const inUpperRange = rangePos >= cfg.shortMinRangePosition;
         const smallRally = change15mPct >= 0 && change15mPct < 0.6;
-        if (inUpperRange && smallRally) {
+        // Dump continuation (Aug 10–12 style): red/flat 15m clear of flush floor — not only R-fades.
+        const liveDumping =
+          Math.min(change15mPct, live15mPct) <= -min15;
+        const dumpContinuation =
+          rangePos >= cfg.shortMinRangePosition &&
+          (liveDumping || (change15mPct <= 0 && change15mPct > -1.5));
+        if (dumpContinuation) {
+          momentumAligned = true;
+          reason =
+            `Dump continuation OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct.toFixed(2)}% (live ${live15mPct.toFixed(2)}%)`;
+        } else if (inUpperRange && smallRally) {
           momentumAligned = true;
           reason =
             `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m bounce +${change15mPct.toFixed(2)}% to fade`;
         } else {
           reason =
-            `SHORT blocked — ${coin} needs 15m rejection from rally (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+            `SHORT blocked — ${coin} needs 15m dump/fade or R-rejection (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
         }
       } else if (change1hPct > cfg.maxCounter1hPct) {
         reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;
