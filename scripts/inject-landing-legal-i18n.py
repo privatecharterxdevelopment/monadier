@@ -13,7 +13,7 @@ LEGAL: dict[str, dict] = {
         "ariaLabel": "Legal disclosures",
         "operator": [
             "Trading on {{brand}} connects your wallet to your own Hyperliquid account. Orders are placed on Hyperliquid perpetual and outcome markets using your USDC margin — this is live trading with real financial instruments, not a simulated or demo evaluation program.",
-            "{{brand}} was founded, created, and developed by Lorenzo Vanza (PrivateCharterX). The website {{domain}} provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. Full operational and legal responsibility is currently carried privately by Lorenzo Vanza, who acknowledges that he is presently overwhelmed by the product. Official X/Twitter (only): @{{xHandle}}. {{brand}} is NOT on Telegram — any Telegram account, group, bot, or DM claiming to represent {{brand}} is a scam. Any other social account is not official. For legal or compliance inquiries, contact {{email}}.",
+            "{{brand}} was founded, created, and developed by Lorenzo Vanza. The website {{domain}} provides access to automated trading tools, dashboards, and optional sports outcome markets on Hyperliquid. Full operational and legal responsibility is currently carried privately by Lorenzo Vanza, who acknowledges that he is presently overwhelmed by the product. Official X/Twitter (only): @{{xHandle}}. {{brand}} is NOT on Telegram — any Telegram account, group, bot, or DM claiming to represent {{brand}} is a scam. Any other social account is not official. For legal or compliance inquiries, contact {{email}}.",
         ],
         "blocks": [
             {
@@ -104,7 +104,7 @@ LEGAL: dict[str, dict] = {
         "ariaLabel": "Rechtliche Hinweise",
         "operator": [
             "Der Handel über {{brand}} verbindet deine Wallet mit deinem eigenen Hyperliquid-Konto. Orders werden auf Hyperliquid-Perpetuals und Outcome-Märkten mit deiner USDC-Margin ausgeführt — das ist Live-Handel mit echten Finanzinstrumenten, kein simuliertes oder Demo-Evaluierungsprogramm.",
-            "{{brand}} wurde von Lorenzo Vanza (PrivateCharterX) gegründet, erstellt und entwickelt. Die Website {{domain}} bietet Zugang zu automatisierten Trading-Tools, Dashboards und optionalen Sport-Outcome-Märkten auf Hyperliquid. Die volle operative und rechtliche Verantwortung trägt derzeit privat Lorenzo Vanza, der einräumt, dass er vom Produkt derzeit überlastet ist. Offizielles X/Twitter (nur): @{{xHandle}}. {{brand}} ist NICHT auf Telegram — jedes Telegram-Konto, jede Gruppe, jeder Bot oder jede DM, die vorgibt, {{brand}} zu vertreten, ist ein Betrug. Jeder andere Social-Account ist nicht offiziell. Für rechtliche oder Compliance-Anfragen: {{email}}.",
+            "{{brand}} wurde von Lorenzo Vanza gegründet, erstellt und entwickelt. Die Website {{domain}} bietet Zugang zu automatisierten Trading-Tools, Dashboards und optionalen Sport-Outcome-Märkten auf Hyperliquid. Die volle operative und rechtliche Verantwortung trägt derzeit privat Lorenzo Vanza, der einräumt, dass er vom Produkt derzeit überlastet ist. Offizielles X/Twitter (nur): @{{xHandle}}. {{brand}} ist NICHT auf Telegram — jedes Telegram-Konto, jede Gruppe, jeder Bot oder jede DM, die vorgibt, {{brand}} zu vertreten, ist ein Betrug. Jeder andere Social-Account ist nicht offiziell. Für rechtliche oder Compliance-Anfragen: {{email}}.",
         ],
         "blocks": [
             {
@@ -201,7 +201,7 @@ def zh() -> dict:
         "ariaLabel": "法律披露",
         "operator": [
             "通过 {{brand}} 交易会将你的钱包连接到你自己的 Hyperliquid 账户。订单使用你的 USDC 保证金在 Hyperliquid 永续与结果市场上成交——这是真实金融工具的实盘交易，而非模拟或演示评估计划。",
-            "{{brand}} 由 Lorenzo Vanza（PrivateCharterX）创立、创建并开发。网站 {{domain}} 提供自动化交易工具、仪表盘以及 Hyperliquid 上可选的体育结果市场。目前全部运营与法律责任由 Lorenzo Vanza 私人承担，他承认目前产品压力很大。官方 X/Twitter（仅此）：@{{xHandle}}。{{brand}} 不在 Telegram 上——任何声称代表 {{brand}} 的 Telegram 账号、群组、机器人或私信均为骗局。其他社交账号均非官方。法律或合规咨询请联系 {{email}}。",
+            "{{brand}} 由 Lorenzo Vanza创立、创建并开发。网站 {{domain}} 提供自动化交易工具、仪表盘以及 Hyperliquid 上可选的体育结果市场。目前全部运营与法律责任由 Lorenzo Vanza 私人承担，他承认目前产品压力很大。官方 X/Twitter（仅此）：@{{xHandle}}。{{brand}} 不在 Telegram 上——任何声称代表 {{brand}} 的 Telegram 账号、群组、机器人或私信均为骗局。其他社交账号均非官方。法律或合规咨询请联系 {{email}}。",
         ],
         "blocks": [
             {
@@ -295,7 +295,7 @@ def ja() -> dict:
         "ariaLabel": "法的開示",
         "operator": [
             "{{brand}} での取引は、ウォレットをご自身の Hyperliquid 口座に接続します。注文は USDC 証拠金を用いて Hyperliquid のパーペチュアルおよびアウトカム市場で執行されます。これは実金融商品によるライブ取引であり、シミュレーションやデモ評価プログラムではありません。",
-            "{{brand}} は Lorenzo Vanza（PrivateCharterX）により設立・作成・開発されました。ウェブサイト {{domain}} は、自動化取引ツール、ダッシュボード、および Hyperliquid 上の任意のスポーツアウトカム市場へのアクセスを提供します。現在の運用および法的責任は Lorenzo Vanza が個人で負っており、製品により現在過負荷であることを認めています。公式 X/Twitter（のみ）：@{{xHandle}}。{{brand}} は Telegram にはいません — {{brand}} を名乗る Telegram アカウント、グループ、ボット、DM は詐欺です。その他のソーシャルアカウントは公式ではありません。法務・コンプライアンスのお問い合わせは {{email}} まで。",
+            "{{brand}} は Lorenzo Vanzaにより設立・作成・開発されました。ウェブサイト {{domain}} は、自動化取引ツール、ダッシュボード、および Hyperliquid 上の任意のスポーツアウトカム市場へのアクセスを提供します。現在の運用および法的責任は Lorenzo Vanza が個人で負っており、製品により現在過負荷であることを認めています。公式 X/Twitter（のみ）：@{{xHandle}}。{{brand}} は Telegram にはいません — {{brand}} を名乗る Telegram アカウント、グループ、ボット、DM は詐欺です。その他のソーシャルアカウントは公式ではありません。法務・コンプライアンスのお問い合わせは {{email}} まで。",
         ],
         "blocks": [
             {
@@ -389,7 +389,7 @@ def th() -> dict:
         "ariaLabel": "การเปิดเผยทางกฎหมาย",
         "operator": [
             "การเทรดบน {{brand}} จะเชื่อมวอลเล็ตของคุณกับบัญชี Hyperliquid ของคุณเอง คำสั่งซื้อขายจะถูกส่งบนตลาดเพอร์เพตชวลและตลาดผลลัพธ์ของ Hyperliquid โดยใช้มาร์จิ้น USDC ของคุณ — นี่คือการเทรดจริงด้วยเครื่องมือการเงินจริง ไม่ใช่โปรแกรมจำลองหรือประเมินผลแบบเดโม",
-            "{{brand}} ก่อตั้ง สร้าง และพัฒนาโดย Lorenzo Vanza (PrivateCharterX) เว็บไซต์ {{domain}} ให้เข้าถึงเครื่องมือเทรดอัตโนมัติ แดชบอร์ด และตลาดผลลัพธ์กีฬาบน Hyperliquid (ถ้ามี) ความรับผิดชอบด้านการดำเนินงานและกฎหมายทั้งหมดปัจจุบันอยู่กับ Lorenzo Vanza ส่วนตัว ซึ่งยอมรับว่าขณะนี้ผลิตภัณฑ์ทำให้เขาทำงานหนักเกินไป X/Twitter ทางการ (เท่านั้น): @{{xHandle}} {{brand}} ไม่อยู่บน Telegram — บัญชี กลุ่ม บอท หรือ DM ใดบน Telegram ที่อ้างว่าเป็น {{brand}} คือการหลอกลวง บัญชีโซเชียลอื่นไม่เป็นทางการ สอบถามด้านกฎหมายหรือการปฏิบัติตามกฎได้ที่ {{email}}",
+            "{{brand}} ก่อตั้ง สร้าง และพัฒนาโดย Lorenzo Vanza เว็บไซต์ {{domain}} ให้เข้าถึงเครื่องมือเทรดอัตโนมัติ แดชบอร์ด และตลาดผลลัพธ์กีฬาบน Hyperliquid (ถ้ามี) ความรับผิดชอบด้านการดำเนินงานและกฎหมายทั้งหมดปัจจุบันอยู่กับ Lorenzo Vanza ส่วนตัว ซึ่งยอมรับว่าขณะนี้ผลิตภัณฑ์ทำให้เขาทำงานหนักเกินไป X/Twitter ทางการ (เท่านั้น): @{{xHandle}} {{brand}} ไม่อยู่บน Telegram — บัญชี กลุ่ม บอท หรือ DM ใดบน Telegram ที่อ้างว่าเป็น {{brand}} คือการหลอกลวง บัญชีโซเชียลอื่นไม่เป็นทางการ สอบถามด้านกฎหมายหรือการปฏิบัติตามกฎได้ที่ {{email}}",
         ],
         "blocks": [
             {
@@ -483,7 +483,7 @@ def es() -> dict:
         "ariaLabel": "Avisos legales",
         "operator": [
             "Operar en {{brand}} conecta tu wallet con tu propia cuenta de Hyperliquid. Las órdenes se ejecutan en mercados perpetuos y de resultados de Hyperliquid con tu margen en USDC: es trading en vivo con instrumentos financieros reales, no un programa simulado ni de evaluación demo.",
-            "{{brand}} fue fundada, creada y desarrollada por Lorenzo Vanza (PrivateCharterX). El sitio {{domain}} ofrece acceso a herramientas de trading automatizado, paneles y mercados opcionales de resultados deportivos en Hyperliquid. La responsabilidad operativa y legal completa recae actualmente de forma privada en Lorenzo Vanza, quien reconoce estar actualmente sobrecargado por el producto. X/Twitter oficial (único): @{{xHandle}}. {{brand}} NO está en Telegram: cualquier cuenta, grupo, bot o DM de Telegram que diga representar a {{brand}} es una estafa. Cualquier otra cuenta social no es oficial. Para consultas legales o de cumplimiento, contacta {{email}}.",
+            "{{brand}} fue fundada, creada y desarrollada por Lorenzo Vanza. El sitio {{domain}} ofrece acceso a herramientas de trading automatizado, paneles y mercados opcionales de resultados deportivos en Hyperliquid. La responsabilidad operativa y legal completa recae actualmente de forma privada en Lorenzo Vanza, quien reconoce estar actualmente sobrecargado por el producto. X/Twitter oficial (único): @{{xHandle}}. {{brand}} NO está en Telegram: cualquier cuenta, grupo, bot o DM de Telegram que diga representar a {{brand}} es una estafa. Cualquier otra cuenta social no es oficial. Para consultas legales o de cumplimiento, contacta {{email}}.",
         ],
         "blocks": [
             {
@@ -577,7 +577,7 @@ def it() -> dict:
         "ariaLabel": "Informativa legale",
         "operator": [
             "Operare su {{brand}} collega il tuo wallet al tuo account Hyperliquid. Gli ordini vengono eseguiti sui mercati perpetual e outcome di Hyperliquid con il tuo margine USDC: è trading live con strumenti finanziari reali, non un programma simulato o di valutazione demo.",
-            "{{brand}} è stata fondata, creata e sviluppata da Lorenzo Vanza (PrivateCharterX). Il sito {{domain}} offre accesso a strumenti di trading automatizzato, dashboard e mercati opzionali di outcome sportivi su Hyperliquid. La piena responsabilità operativa e legale è attualmente assunta privatamente da Lorenzo Vanza, che riconosce di essere attualmente sopraffatto dal prodotto. X/Twitter ufficiale (unico): @{{xHandle}}. {{brand}} NON è su Telegram: qualsiasi account, gruppo, bot o DM Telegram che pretende di rappresentare {{brand}} è una truffa. Qualsiasi altro account social non è ufficiale. Per richieste legali o di compliance: {{email}}.",
+            "{{brand}} è stata fondata, creata e sviluppata da Lorenzo Vanza. Il sito {{domain}} offre accesso a strumenti di trading automatizzato, dashboard e mercati opzionali di outcome sportivi su Hyperliquid. La piena responsabilità operativa e legale è attualmente assunta privatamente da Lorenzo Vanza, che riconosce di essere attualmente sopraffatto dal prodotto. X/Twitter ufficiale (unico): @{{xHandle}}. {{brand}} NON è su Telegram: qualsiasi account, gruppo, bot o DM Telegram che pretende di rappresentare {{brand}} è una truffa. Qualsiasi altro account social non è ufficiale. Per richieste legali o di compliance: {{email}}.",
         ],
         "blocks": [
             {
@@ -671,7 +671,7 @@ def ru() -> dict:
         "ariaLabel": "Юридические сведения",
         "operator": [
             "Торговля на {{brand}} подключает ваш кошелёк к вашему собственному счёту Hyperliquid. Ордера исполняются на perpetual- и outcome-рынках Hyperliquid с вашей маржой в USDC — это живая торговля реальными финансовыми инструментами, а не симуляция или демо-оценка.",
-            "{{brand}} основан, создан и разработан Lorenzo Vanza (PrivateCharterX). Сайт {{domain}} предоставляет доступ к инструментам автоматизированной торговли, дашбордам и опциональным спортивным outcome-рынкам на Hyperliquid. Полную операционную и юридическую ответственность в настоящее время несёт лично Lorenzo Vanza, который признаёт, что сейчас перегружен продуктом. Официальный X/Twitter (единственный): @{{xHandle}}. {{brand}} НЕ представлен в Telegram — любой Telegram-аккаунт, группа, бот или ЛС, выдающие себя за {{brand}}, являются мошенничеством. Любой другой соцаккаунт неофициален. По юридическим и compliance-вопросам: {{email}}.",
+            "{{brand}} основан, создан и разработан Lorenzo Vanza. Сайт {{domain}} предоставляет доступ к инструментам автоматизированной торговли, дашбордам и опциональным спортивным outcome-рынкам на Hyperliquid. Полную операционную и юридическую ответственность в настоящее время несёт лично Lorenzo Vanza, который признаёт, что сейчас перегружен продуктом. Официальный X/Twitter (единственный): @{{xHandle}}. {{brand}} НЕ представлен в Telegram — любой Telegram-аккаунт, группа, бот или ЛС, выдающие себя за {{brand}}, являются мошенничеством. Любой другой соцаккаунт неофициален. По юридическим и compliance-вопросам: {{email}}.",
         ],
         "blocks": [
             {

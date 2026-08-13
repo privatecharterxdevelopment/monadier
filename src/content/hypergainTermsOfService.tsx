@@ -52,7 +52,7 @@ export const HYPERGAIN_TERMS_SECTIONS: LegalSection[] = [
           'If you accept these Terms on behalf of a legal entity, you represent that you have authority to bind that entity, and "you" refers to that entity.'
         )}
         {p(
-          `${BRAND_NAME} was founded, created, and developed by Lorenzo Vanza (PrivateCharterX / privatecharterx). The Service is currently operated as a private project under his personal responsibility. Full operational and legal responsibility is presently carried privately by Lorenzo Vanza, who acknowledges that he is currently overwhelmed by the product and related operational demands. Until responsibility is transferred to a separate legal entity, he remains the founder, creator, and developer accountable for the Service. References in these Terms to the "Operator" mean Lorenzo Vanza in that capacity, unless and until a successor entity is designated.`
+          `${BRAND_NAME} was founded, created, and developed by Lorenzo Vanza. The Service is currently operated as a private project under his personal responsibility. Full operational and legal responsibility is presently carried privately by Lorenzo Vanza, who acknowledges that he is currently overwhelmed by the product and related operational demands. Until responsibility is transferred to a separate legal entity, he remains the founder, creator, and developer accountable for the Service. References in these Terms to the "Operator" mean Lorenzo Vanza in that capacity, unless and until a successor entity is designated.`
         )}
         {p(
           <>

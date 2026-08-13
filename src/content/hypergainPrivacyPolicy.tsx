@@ -67,23 +67,23 @@ const officialChannelsDe = () => (
 
 const operatorIdentityEn = () => (
   <>
-    {BRAND_NAME} was founded, created, and developed by <strong>Lorenzo Vanza</strong> (PrivateCharterX
-    / privatecharterx). The Service is currently operated as a private project under his personal
-    responsibility. Full operational and legal responsibility is presently carried privately by
-    Lorenzo Vanza, who acknowledges that he is currently overwhelmed by the product and related
-    operational demands. Until responsibility is transferred to a separate legal entity, he remains
-    the founder, creator, and developer accountable for the Service.
+    {BRAND_NAME} was founded, created, and developed by <strong>Lorenzo Vanza</strong>. The Service is
+    currently operated as a private project under his personal responsibility. Full operational and
+    legal responsibility is presently carried privately by Lorenzo Vanza, who acknowledges that he is
+    currently overwhelmed by the product and related operational demands. Until responsibility is
+    transferred to a separate legal entity, he remains the founder, creator, and developer accountable
+    for the Service.
   </>
 );
 
 const operatorIdentityDe = () => (
   <>
-    {BRAND_NAME} wurde gegründet, erstellt und entwickelt von <strong>Lorenzo Vanza</strong>{' '}
-    (PrivateCharterX / privatecharterx). Der Service wird derzeit als privates Projekt unter seiner
-    persönlichen Verantwortung betrieben. Die volle operative und rechtliche Verantwortung trägt
-    derzeit privat Lorenzo Vanza; er stellt klar, dass er vom Produkt und der damit verbundenen
-    Betriebsbelastung derzeit überfordert ist. Bis eine Übertragung auf eine separate juristische
-    Person erfolgt, bleibt er Gründer, Creator und Entwickler mit Verantwortung für den Service.
+    {BRAND_NAME} wurde gegründet, erstellt und entwickelt von <strong>Lorenzo Vanza</strong>. Der
+    Service wird derzeit als privates Projekt unter seiner persönlichen Verantwortung betrieben. Die
+    volle operative und rechtliche Verantwortung trägt derzeit privat Lorenzo Vanza; er stellt klar,
+    dass er vom Produkt und der damit verbundenen Betriebsbelastung derzeit überfordert ist. Bis eine
+    Übertragung auf eine separate juristische Person erfolgt, bleibt er Gründer, Creator und Entwickler
+    mit Verantwortung für den Service.
   </>
 );
 
