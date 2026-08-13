@@ -23,13 +23,13 @@ export const SITE_ORIGIN = BRAND_SITE_URL;
 
 export const SITE_NAME = BRAND_NAME;
 
-export function ogImageUrl(path = '/og-image-v3.png'): string {
+export function ogImageUrl(path = '/og-image-v4.png'): string {
   return `${getSiteOrigin()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 /** Build-time absolute OG image for index.html parity / helmet fallbacks.
- *  v3 = green 3D flyer; filename busts X/WhatsApp caches of the arrow card. */
-export const OG_IMAGE = `${BRAND_SITE_URL}/og-image-v3.png`;
+ *  v4 = current green 3D flyer; filename busts X/WhatsApp caches. */
+export const OG_IMAGE = `${BRAND_SITE_URL}/og-image-v4.png`;
 
 export { SUPPORT_EMAIL };
 
