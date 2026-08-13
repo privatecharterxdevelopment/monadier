@@ -1,16 +1,16 @@
 /**
- * Landing volume: $51,375 at epoch, then climbs on a global clock through 2027
+ * Landing volume: $107,000 at epoch, then climbs on a global clock through 2027
  * (same number for every visitor). Leaderboard wins add on top — never drops.
  */
 
-export const LANDING_VOLUME_BASE_USD = 51_375;
+export const LANDING_VOLUME_BASE_USD = 107_000;
 
-/** When the public $51,375 counter started (UTC). */
-export const LANDING_VOLUME_EPOCH_MS = Date.UTC(2026, 7, 12, 8, 0, 0);
+/** When the public $107k counter started (UTC). */
+export const LANDING_VOLUME_EPOCH_MS = Date.UTC(2026, 7, 13, 10, 0, 0);
 
 /**
  * Steady climb through 2027: ~$180/day ≈ $7.50/hour.
- * ~17 months → ~+$92k by end of 2027, then keeps going (no freeze).
+ * ~17 months → material growth by end of 2027, then keeps going (no freeze).
  */
 export const LANDING_VOLUME_USD_PER_DAY = 180;
 
@@ -20,12 +20,12 @@ export const LANDING_VOLUME_TICK_MS = 2_000;
 /** @deprecated clock replaced the session drip; kept for old imports. */
 export const LANDING_VOLUME_DRIP_INTERVAL_MS = LANDING_VOLUME_TICK_MS;
 
-const SEEN_KEY = 'hg_landing_volume_seen_v2';
-const EXTRA_KEY = 'hg_landing_volume_extra_v2';
+const SEEN_KEY = 'hg_landing_volume_seen_v3';
+const EXTRA_KEY = 'hg_landing_volume_extra_v3';
 
 const MS_PER_DAY = 86_400_000;
 
-/** `+51'375.00$` (Swiss thousands separator). */
+/** `+107'000.00$` (Swiss thousands separator). */
 export function formatLandingVolumeUsd(n: number): string {
   const abs = Math.max(0, n);
   const fixed = abs.toFixed(2);

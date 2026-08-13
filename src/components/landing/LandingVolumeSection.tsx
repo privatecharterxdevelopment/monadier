@@ -34,7 +34,7 @@ const LandingVolumeSection: React.FC = () => {
   const started = useRef(false);
   const displayRef = useRef(0);
 
-  // Fold leaderboard P/L (+80, +30, +91…) onto the 51k base — never drops.
+  // Fold leaderboard P/L (+80, +30, +91…) onto the 107k base — never drops.
   useEffect(() => {
     const rows = [...liveTrades, ...topTrades];
     if (rows.length === 0) {
@@ -67,7 +67,7 @@ const LandingVolumeSection: React.FC = () => {
       const start = performance.now();
       let raf = 0;
       const from = 0;
-      // First paint: always reveal from 0 → at least base 51k (plus any already-seen adds).
+      // First paint: always reveal from 0 → at least base 107k (plus any already-seen adds).
       const to = Math.max(target, getLandingVolumeBaseUsd());
 
       const tick = (now: number) => {
