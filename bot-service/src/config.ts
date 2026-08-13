@@ -371,18 +371,19 @@ export const config = {
       /** Block LONG when 15m/1h already extended up — wait for pullback. */
       maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.28),
       maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.45),
-      /** Block SHORT when 15m/1h already extended down — wait for bounce. */
-      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.35),
-      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.7),
+      /** Block SHORT when 15m AND 1h already extended down — wait for bounce. */
+      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.55),
+      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.9),
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
       /**
-       * SHORT must stay upper half (sell high). Floor ≥0.42 — DO NOT drop to 0.12 again.
-       * Regression: 23bd6b8 (2026-08-12) set 0.12 → FIL flush-bottom shorts; restored after.
+       * SHORT range floor — block flush bottoms, allow dump-continuation mid-range.
+       * 0.12 (23bd6b8) → FIL bottoms; 0.45 (2851481) starved all continuation shorts.
+       * Floor ≥0.22 keeps extreme washouts out without killing 30–44% range dumps.
        */
       shortMinRangePosition: Math.max(
-        0.42,
-        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.45)
+        0.22,
+        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.28)
       ),
     },
     /**

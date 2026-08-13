@@ -123,12 +123,14 @@ export async function validateEntryMomentum(opts: {
           `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% bounce`;
       }
     } else {
-      // Chase / flush bottom — OR on live OR closed (AND on closed alone missed FIL dump).
+      // Chase / flush bottom — require BOTH TFs extended (live-aware min).
+      // 2851481 used OR + tight floors → dumped trade rate; keep live min so
+      // closed-only bars can't miss a forming flush, but don't OR-kill mild dumps.
       const chase15 =
         Math.min(change15mPct, live15mPct) <= cfg.maxChaseShort15mPct;
       const chase1h =
         Math.min(change1hPct, live1hPct) <= cfg.maxChaseShort1hPct;
-      if (chase15 || chase1h) {
+      if (chase15 && chase1h) {
         reason =
           `SHORT blocked — ${coin} already extended down ` +
           `(15m ${Math.min(change15mPct, live15mPct).toFixed(2)}%, 1h ${Math.min(change1hPct, live1hPct).toFixed(2)}%) ` +
