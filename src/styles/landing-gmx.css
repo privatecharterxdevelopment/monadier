@@ -15620,17 +15620,18 @@ html[data-landing-theme='dark'] .landing-al-nav-cta-icon {
   min-height: 52px;
   padding: 14px 18px;
   border-radius: 999px;
-  background: #0a0a0a;
-  color: #fff;
+  background: #3dd68c;
+  color: #0a0a0a;
   font-size: 15px;
   font-weight: 650;
   letter-spacing: -0.01em;
   text-decoration: none;
   box-sizing: border-box;
+  box-shadow: 0 6px 18px color-mix(in srgb, #3dd68c 32%, transparent);
 }
 
 .landing-mobile-menu--dark .landing-mobile-menu-cta {
-  background: #f4f4f5;
+  background: #3dd68c;
   color: #0a0a0a;
 }
 
