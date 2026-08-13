@@ -109,6 +109,7 @@ const ProTradeBuyCryptoPage: React.FC = () => {
             <div className="hl-buy-page__empty hl-buy-usdc__coming-soon">
               <p className="hl-buy-usdc__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
               <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+              <PaymentMethodMarks className="hl-buy-usdc__marks hl-buy-usdc__marks--below" />
             </div>
           ) : !isConnected || !address ? (
             <div className="hl-buy-page__empty">
@@ -178,10 +179,12 @@ const ProTradeBuyCryptoPage: React.FC = () => {
         </div>
       </div>
 
-      <footer className="hl-buy-page__partners">
-        <p className="hl-buy-page__partners-label">{t('app.buyCrypto.partners')}</p>
-        <PaymentMethodMarks className="hl-buy-page__marks" />
-      </footer>
+      {comingSoon ? null : (
+        <footer className="hl-buy-page__partners">
+          <p className="hl-buy-page__partners-label">{t('app.buyCrypto.partners')}</p>
+          <PaymentMethodMarks className="hl-buy-page__marks" />
+        </footer>
+      )}
     </div>
   );
 };

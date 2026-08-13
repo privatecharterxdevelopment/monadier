@@ -9636,6 +9636,11 @@ html[dir='rtl'] .hl-book {
   justify-content: flex-start;
 }
 
+.hl-buy-usdc__marks--below {
+  margin: 14px 0 0;
+  justify-content: center;
+}
+
 .hl-buy-usdc__sub {
   margin: 4px 0 0;
   font-size: 13px;

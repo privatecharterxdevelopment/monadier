@@ -17771,6 +17771,10 @@ html[data-landing-theme='dark'] .hg-docs-sidebar__link.is-on,
   margin: 0 auto 22px;
 }
 
+.hg-buy-land__marks--below {
+  margin: 16px auto 0;
+}
+
 .hg-buy-land__steps {
   display: flex;
   flex-wrap: wrap;

@@ -133,8 +133,8 @@ const BuyUsdcModal: React.FC<Props> = ({
               <h2 id="buy-usdc-title" className="hl-modal-title">
                 {t('app.buyUsdc.title')}
               </h2>
-              <PaymentMethodMarks className="hl-buy-usdc__marks" />
               <p className="hl-buy-usdc__sub">{t('app.buyUsdc.sub', { provider })}</p>
+              {!comingSoon ? <PaymentMethodMarks className="hl-buy-usdc__marks" /> : null}
             </div>
           </div>
           <button type="button" className="hl-modal-close" onClick={onClose} aria-label="Close">
@@ -147,6 +147,7 @@ const BuyUsdcModal: React.FC<Props> = ({
             <div className="hl-buy-usdc__empty hl-buy-usdc__coming-soon">
               <p className="hl-buy-usdc__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
               <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+              <PaymentMethodMarks className="hl-buy-usdc__marks hl-buy-usdc__marks--below" />
             </div>
           ) : !walletAddress ? (
             <div className="hl-buy-usdc__empty">

@@ -105,18 +105,19 @@ const BuyCryptoLandingPage: React.FC = () => {
         </h1>
         <p className="hg-buy-land__lead">{t('landing.buyPage.lead')}</p>
 
-        <PaymentMethodMarks className="hg-buy-land__marks" />
-
         <div className="hg-buy-land__panel" role="region" aria-label={t('app.buyUsdc.title')}>
-          <p className="hg-buy-land__secure">
-            <Lock size={12} strokeWidth={2.25} aria-hidden />
-            <span>{t('app.buyUsdc.ctaSecure', { provider })}</span>
-          </p>
+          {comingSoon ? null : (
+            <p className="hg-buy-land__secure">
+              <Lock size={12} strokeWidth={2.25} aria-hidden />
+              <span>{t('app.buyUsdc.ctaSecure', { provider })}</span>
+            </p>
+          )}
 
           {comingSoon ? (
             <div className="hg-buy-land__empty hg-buy-land__coming-soon">
               <p className="hg-buy-land__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
               <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+              <PaymentMethodMarks className="hg-buy-land__marks hg-buy-land__marks--below" />
             </div>
           ) : !isConnected ? (
             <div className="hg-buy-land__empty">
