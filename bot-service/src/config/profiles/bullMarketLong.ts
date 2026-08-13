@@ -7,15 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-first regime.
+ * BULL MARKET — LONG-first regime (full long focus).
  *
- * LONG analysis: 15m + 1h (+ optional 4h at runtime).
- * SHORT still allowed on strong MTF dumps (continuation OK — not only R-fades).
+ * SHORT is counter-trend only: early resistance fade after real rejection.
+ * Never late dump shorts / blind MTF reverse into lows.
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary; SHORT allowed on strong MTF dumps (continuation OK — not only R-fades).',
+    'LONG-primary bull run; SHORT only early R-fade (strict — no late dump reverses).',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -25,10 +25,8 @@ export const BULL_MARKET: HlDirectionProfile = {
   preOpenTimeframeLong: '15m',
   preOpenTimeframeShort: '1m',
   preOpenCandleCount: 8,
-  /** Quiet-hour majors (0.17–0.37×) must not starve every SHORT. */
-  preOpenMinVolumeRatio: 0.18,
-  /** Liquid mid-caps past rank 60 still tradeable. */
-  maxVolumeRank: 100,
+  preOpenMinVolumeRatio: 0.35,
+  maxVolumeRank: 80,
   minDayVolumeUsd: 0,
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
@@ -36,21 +34,25 @@ export const BULL_MARKET: HlDirectionProfile = {
   enableLlmConfirm: true,
   allowLongOpens: true,
   allowShortOpens: true,
-  long: { ...PRIMARY_RULES },
+  long: {
+    ...PRIMARY_RULES,
+    /** Full long focus under bull — slightly lower bar than shared PRIMARY. */
+    minConfidence: 50,
+    minDirectionalTfs: 2,
+    minTrendAlignment: 45,
+    trustMtfScan: true,
+    relaxSecondaryGates: true,
+    enforceHtfSr: false,
+  },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    minConfidence: 65,
-    minDirectionalTfs: 2,
-    minTrendAlignment: 55,
-    /** Skips volume-fade secondaries only — entry-momentum still always runs for SHORT. */
-    relaxSecondaryGates: true,
-    trustMtfScan: true,
-    /** Trusted MTF dump: don't re-kill with tiny 1h noise (+0.18% was blocking). */
-    bypassPumpShortWhenTrusted: true,
-    /**
-     * Counter-trend HTF hard-block killed dump SHORTs near support (Aug drought).
-     * Keep enableHtfSr for shadow logs; do not enforce hard reject on bull SHORT.
-     */
-    enforceHtfSr: false,
+    /** Strict — bull fades must be early + clean. */
+    minConfidence: 85,
+    minDirectionalTfs: 3,
+    minTrendAlignment: 75,
+    relaxSecondaryGates: false,
+    trustMtfScan: false,
+    bypassPumpShortWhenTrusted: false,
+    enforceHtfSr: true,
   },
 };

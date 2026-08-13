@@ -309,7 +309,28 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is always valid continuation.
+  // LONG-primary (bull): ONLY early resistance fades — no late dump / floor shorts.
+  if (config.hyperliquid.directionProfile.primaryDirection === 'LONG') {
+    const bullTop = Math.max(cfg.rangeTopBlock, 0.78);
+    if (analysis.nearResistance || analysis.pricePosition >= bullTop) {
+      const zone =
+        analysis.resistanceZone != null
+          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+          : fmtLevel(analysis.resistance);
+      return {
+        ok: true,
+        analysis,
+        reason: `Bull R-fade short — early resistance ${(analysis.pricePosition * 100).toFixed(0)}% · ${zone}`,
+      };
+    }
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked in bull — need early R-fade (≥${(bullTop * 100).toFixed(0)}% / near R); no late dump reverse (pos ${(analysis.pricePosition * 100).toFixed(0)}%)`,
+    };
+  }
+
+  // Bear / SHORT-primary: breakdown OK; never short the floor without it.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
