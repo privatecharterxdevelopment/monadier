@@ -1,0 +1,114 @@
+{
+  "what-is-hypergain-io": {
+    "title": "Cos’è HyperGain.io?",
+    "description": "HyperGain.io è un agente di trading crypto con IA su Hyperliquid — non il brand di proteine / mass-gainer Hyper Gain.",
+    "body": [
+      "HyperGain.io (hypergain.io) è software di trading non custodial per Hyperliquid: un agente di perpetuals con IA, terminale perps pro e mercati di outcome on-chain — un’unica interfaccia.",
+      "Non è affiliato ad alcun prodotto fitness / proteine / mass-gainer chiamato “Hyper Gain”, “Hypergain” o simile. Se cercavi polvere per la massa e sei arrivato qui, vuoi un altro brand.",
+      "Il prodotto è su hypergain.io e app.hypergain.io. Social ufficiali: @HyperGainAi su X. Supporto: administration@hypergain.io.",
+      "Finanzi con USDC nativo su Arbitrum sul tuo account Hyperliquid, approvi l’agente di trading una volta e puoi scansionare in full-auto oltre 200 perps HL. HyperGain non detiene mai le private key e non prende in custodia fondi in un wallet aziendale.",
+      "Non ci sono rendimenti promessi o garantiti. Il trading crypto a leva è ad alto rischio. Non è consulenza finanziaria."
+    ]
+  },
+  "overview": {
+    "title": "Panoramica",
+    "description": "Cos’è HyperGain e come l’agente non custodial si inserisce su Hyperliquid.",
+    "body": [
+      "HyperGain.io è una piattaforma di trading non custodial su Hyperliquid: un agente di perpetuals con IA che può girare 24/7 sul tuo account HL, più perps pro e scommesse sportive/outcome on-chain — un’unica interfaccia.",
+      "Forniamo il layer di automazione. Il tuo USDC resta su Hyperliquid a tuo nome. HyperGain non detiene mai le private key e non prende in custodia i depositi in un wallet aziendale.",
+      "L’agente scansiona oltre 200 perps Hyperliquid mentre Start bot è attivo, apre e chiude secondo le tue impostazioni di rischio (slot, leva, trailing) e può essere fermato in qualsiasi momento. Puoi anche chiudere le posizioni manualmente nel terminale.",
+      "Non ci sono rendimenti promessi o garantiti. Il trading crypto a leva è ad alto rischio — puoi perdere denaro. Il P/L passato sulla leaderboard non predice i risultati futuri. Non è consulenza finanziaria.",
+      "Nota sul brand: HyperGain.io è software di trading crypto. Non è correlato a proteine o mass-gainer Hyper Gain che condividono un nome simile."
+    ]
+  },
+  "hypergain-101": {
+    "title": "HyperGain 101",
+    "description": "Le basi — wallet, USDC su Arbitrum, approvazione dell’agente e Start bot.",
+    "body": [
+      "HyperGain è pensato per chi vuole automatizzare i perpetuals su Hyperliquid senza stare a guardare i grafici o consegnare le chiavi.",
+      "Crea un account gratuito, collega MetaMask o WalletConnect e assicurati di essere su Arbitrum One. Finanzia con USDC nativo su Arbitrum — altre chain o varianti di USDC non verranno accreditate correttamente nel flusso HL.",
+      "Deposita sul tuo account Hyperliquid tramite il flusso Funds in-app. Il deposito minimo HL è $5; l’agente tipicamente serve circa $20+ USDC su HL per funzionare in modo utile.",
+      "Approva l’agente di trading una volta. Quell’approvazione è solo per il trading — non per i prelievi. I prelievi richiedono sempre il tuo wallet su Hyperliquid.",
+      "Premi Start bot quando sei finanziato. Non serve lasciare il browser aperto; l’automazione gira sui server HyperGain finché non la fermi."
+    ]
+  },
+  "getting-started": {
+    "title": "Per iniziare",
+    "description": "Quattro passaggi dalla registrazione all’automazione live.",
+    "body": [
+      "Passo 1 — Account e wallet: Registrati gratis, accedi e collega MetaMask o WalletConnect su Arbitrum One.",
+      "Passo 2 — Finanzia Hyperliquid: Usa la scheda Funds per fare bridge di USDC nativo Arbitrum sul tuo account HL. Chain sbagliata / variante USDC sbagliata non funzionano.",
+      "Passo 3 — Approva una volta: Concedi all’agente di trading HyperGain il permesso di piazzare ordini sul tuo account HL. Non può prelevare.",
+      "Passo 4 — Start bot: Scegli slot / preferenze di rischio se serve, poi premi Start bot. Mentre è attivo e hai abbastanza free margin, l’agente scansiona e può aprire o chiudere posizioni giorno e notte.",
+      "Stop bot in qualsiasi momento. Le posizioni aperte restano tue su Hyperliquid finché non le chiudi (manualmente o con la logica di uscita dell’agente). Dimensiona sempre per un rischio che puoi permetterti di perdere."
+    ]
+  },
+  "non-custodial": {
+    "title": "Fondi non custodial",
+    "description": "Chiavi, prelievi e cosa l’agente può (e non può) fare.",
+    "body": [
+      "La custodia è la prima domanda degli utenti seri. HyperGain non riceve depositi in un hot wallet della piattaforma. Il tuo USDC vive su Hyperliquid sotto il tuo account.",
+      "Non deteniamo mai le tue private key. Accedere e collegare un wallet non dà a HyperGain la capacità di svuotare i fondi.",
+      "Dopo aver approvato l’agente di trading, può piazzare e gestire trade su Hyperliquid secondo le tue impostazioni. Non può prelevare USDC da HL. I prelievi richiedono sempre l’azione del tuo wallet su Hyperliquid.",
+      "Se qualcuno ti chiede di finanziare un “wallet aziendale” o di condividere una seed phrase per usare HyperGain — non siamo noi. Tieni le chiavi offline e approva solo il flusso ufficiale dell’agente in-app."
+    ]
+  },
+  "profit-trailing": {
+    "title": "Trailing sui profitti",
+    "description": "Come vengono seguiti i trade in guadagno e quando l’agente taglia un pullback.",
+    "body": [
+      "Quando una posizione diventa in profitto, l’agente può armare un trailing stop che segue il prezzo favorevole ed esce su un pullback definito — così i vincitori possono correre senza che tu guardi ogni candela.",
+      "Per i long, il trail sta sotto il massimo (estremo favorevole) e sale man mano che il prezzo fa nuovi high. Per gli short, il trail sta sopra il minimo e scende.",
+      "Il trail non deve mai stare dal lato sbagliato del mercato (es. uno stop long sopra il mark). Se qualcosa sembra invertito, ferma l’agente e rivedi la posizione nel terminale.",
+      "Gli override “let run” per posizione disattivano il trail solo per quella coin quando li attivi — utili se vuoi gestire l’uscita a mano. Di default il trail è attivo quando la posizione è in profitto e let run è off."
+    ]
+  },
+  "leaderboard": {
+    "title": "Leaderboard on-chain",
+    "description": "Perché le chiusure sono pubbliche e come verificarle su HypurrScan.",
+    "body": [
+      "Gli screenshot di marketing sono facili da falsificare. La leaderboard pubblica di HyperGain è collegata a chiusure Hyperliquid reali dell’attività dell’agente.",
+      "I wallet sono mascherati sul sito per privacy. Indirizzi completi e fill si possono verificare su HypurrScan e altri explorer HL.",
+      "Usa la board come trasparenza — non come promessa di rendimento. I risultati passati non predicono le performance future e il trading a leva può perdere denaro rapidamente."
+    ]
+  },
+  "fees": {
+    "title": "Commissioni",
+    "description": "Commissioni di trading Hyperliquid, builder fee e success fee della piattaforma.",
+    "body": [
+      "Hyperliquid applica commissioni di trading sui fill dei perps (stile maker/taker a seconda del fill del venue). Quelle commissioni fanno parte del trading su HL usi o meno HyperGain.",
+      "HyperGain può applicare un builder fee sugli ordini HL e tier di abbonamento per l’accesso all’agente. Controlla Pricing sul sito e le impostazioni fee nell’app per i numeri attuali.",
+      "Le success fee della piattaforma sulle chiusure dell’agente in genere si applicano solo quando il trade è in profitto — vedi i termini attuali nell’app. Le chiusure in perdita non dovrebbero essere fatturate come “successo”.",
+      "Depositi e bridge verso Hyperliquid non includono una fee di deposito extra HyperGain — vedi Deposit successful (nessuna fee di deposito HyperGain). Lascia sempre abbastanza free margin per le fee HL e i movimenti avversi."
+    ]
+  },
+  "depositing-bridging-hyperliquid": {
+    "title": "Depositare / fare bridge su Hyperliquid",
+    "description": "Come HyperGain fa bridge di USDC nativo Arbitrum sul tuo account Hyperliquid — firma wallet, conferma Arbitrum, poi credito HL.",
+    "body": [
+      "Apri Funds → Deposit in HyperGain. Collega un wallet su Arbitrum One e deposita solo USDC nativo — non BNB, BSC, ETH mainnet o USDC su altre chain.",
+      "Dopo aver firmato nel wallet, HyperGain mostra Depositing to Hyperliquid in tre passaggi: Wallet signed → Arbitrum confirmed → Hyperliquid credit. I primi due di solito finiscono in fretta; il credito HL spesso richiede circa 1–3 minuti.",
+      "Puoi aprire la transazione Arbitrum e il tuo wallet HypurrScan dal modal per verificare il bridge on-chain. Finché il credito Hyperliquid non è completo, il nuovo USDC non compare come saldo di trading.",
+      "HyperGain non prende mai in custodia in un wallet aziendale. Il deposito arriva sul tuo account Hyperliquid a tuo nome. Chain sbagliata o variante USDC sbagliata non verranno accreditate correttamente."
+    ]
+  },
+  "deposit-successful-no-extra-fees": {
+    "title": "Deposito riuscito — nessuna fee di deposito HyperGain",
+    "description": "Quando il credito HL è completo, l’USDC compare sul saldo Hyperliquid. HyperGain non addebita una fee extra di deposito o bridge — solo le fee Hyperliquid / di rete.",
+    "body": [
+      "Quando il bridge termina, il modal mostra Deposit successful con l’importo accreditato e il totale Hyperliquid aggiornato. Premi Done per tornare a Funds.",
+      "HyperGain non addebita nulla in più per depositare o fare bridge di USDC su Hyperliquid. Non c’è markup di deposito HyperGain, sovrapprezzo bridge o fee di “processing” sopra il trasferimento.",
+      "Puoi comunque pagare il gas di rete normale su Arbitrum e i costi di protocollo Hyperliquid applicabili al percorso di deposito — sono fee Hyperliquid / di chain, non fee HyperGain.",
+      "Il trading successivo segue ancora le fee di trading Hyperliquid e le fee di successo / builder dell’agente HyperGain descritte in Fees. Il deposito in sé resta senza add-on HyperGain."
+    ]
+  },
+  "sports-betting": {
+    "title": "Scommesse sportive con IA",
+    "description": "Mercati di outcome dallo spot HL — stesso modello non custodial.",
+    "body": [
+      "HyperGain mostra anche i mercati di outcome Hyperliquid per sport ed eventi macro. Il funding arriva dal tuo saldo spot HL — stesso modello non custodial dell’agente di trading.",
+      "Scegli Yes/No alle quote live, dimensiona la puntata che puoi permetterti e monitora le scommesse aperte nell’app. Fai cash out quando c’è liquidità, oppure tieni fino al settlement.",
+      "Quote e size disponibili dipendono dalla liquidità del mercato HL. Book sottili possono significare prezzi più ampi o cash-out limitato. Non è un conto deposito da sportsbook; i fondi restano su Hyperliquid."
+    ]
+  }
+}

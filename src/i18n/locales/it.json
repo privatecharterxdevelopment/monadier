@@ -1502,14 +1502,14 @@
     "back": "All posts"
   },
   "docs": {
-    "navLabel": "Documentation",
-    "title": "HyperGain Documentation",
-    "lead": "Everything you need to run the non-custodial Hyperliquid AI trading agent: how deposits work on Arbitrum USDC, one-time agent approval, profit trailing, fees, the on-chain leaderboard, and AI sports betting — without giving up your keys.",
-    "familiar": "Get familiar with HyperGain",
-    "browse": "Browse docs",
-    "learnMore": "Learn more",
-    "back": "All docs",
-    "englishOnlyNote": "Gli articoli docs sono attualmente in inglese. L’interfaccia segue la tua lingua.",
+    "navLabel": "Documentazione",
+    "title": "Documentazione HyperGain",
+    "lead": "Tutto per l’agente AI non-custodial su Hyperliquid: depositi USDC su Arbitrum, approvazione una tantum, trailing, fee, leaderboard on-chain e scommesse AI — senza cedere le keys.",
+    "familiar": "Conosci HyperGain",
+    "browse": "Sfoglia docs",
+    "learnMore": "Scopri di più",
+    "back": "Tutti i docs",
+    "englishOnlyNote": "Gli articoli docs sono attualmente in inglese.",
     "sections": {
       "introduction": "Introduzione",
       "getting-started": "Per iniziare",

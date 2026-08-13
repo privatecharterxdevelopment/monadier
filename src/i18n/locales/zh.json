@@ -1502,14 +1502,14 @@
     "back": "All posts"
   },
   "docs": {
-    "navLabel": "Documentation",
-    "title": "HyperGain Documentation",
-    "lead": "Everything you need to run the non-custodial Hyperliquid AI trading agent: how deposits work on Arbitrum USDC, one-time agent approval, profit trailing, fees, the on-chain leaderboard, and AI sports betting — without giving up your keys.",
-    "familiar": "Get familiar with HyperGain",
-    "browse": "Browse docs",
-    "learnMore": "Learn more",
-    "back": "All docs",
-    "englishOnlyNote": "文档正文目前为英文。界面文案跟随你的语言设置。",
+    "navLabel": "文档",
+    "title": "HyperGain 文档",
+    "lead": "运行非托管 Hyperliquid AI 交易代理所需的一切：Arbitrum USDC 入金、一次性代理授权、利润追踪、费用、链上排行榜与 AI 体育博彩——无需交出私钥。",
+    "familiar": "了解 HyperGain",
+    "browse": "浏览文档",
+    "learnMore": "了解更多",
+    "back": "全部文档",
+    "englishOnlyNote": "文档正文目前为英文。",
     "sections": {
       "introduction": "简介",
       "getting-started": "入门",
