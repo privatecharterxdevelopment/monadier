@@ -95,7 +95,7 @@
       "destination": "https://monadier-production.up.railway.app/:path*"
     },
     {
-      "source": "/((?!api/|bot-service/|assets/|images/|videos/|favicon\\.ico|favicon\\.svg|favicon-.*\\.png|apple-touch-icon\\.png|og-image.*\\.png|email-logo\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt|404\\.html).*)",
+      "source": "/((?!api/|bot-service/|assets/|images/|videos/|og/|favicon\\.ico|favicon\\.svg|favicon-.*\\.png|apple-touch-icon\\.png|og-image.*\\.png|email-logo\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt|404\\.html).*)",
       "destination": "/index.html"
     }
   ],
