@@ -10,6 +10,7 @@ import { useLandingTheme } from '../contexts/LandingThemeContext';
 import { useMonadierWallet } from '../hooks/useMonadierWallet';
 import { goToOpenApp, goToOpenAppRegister } from '../lib/appUrls';
 import {
+  isOnrampComingSoon,
   onrampProviderLabel,
   resolveOnrampBuyUrl,
 } from '../lib/onramp/buyUsdc';
@@ -25,6 +26,7 @@ const BuyCryptoLandingPage: React.FC = () => {
   const { address, isConnected } = useMonadierWallet();
   const { isAuthenticated } = useAuth();
   const provider = onrampProviderLabel();
+  const comingSoon = isOnrampComingSoon();
 
   const [iframeReady, setIframeReady] = useState(false);
   const [loadingUrl, setLoadingUrl] = useState(false);
@@ -34,7 +36,7 @@ const BuyCryptoLandingPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (comingSoon || !isConnected || !address) {
       setWidgetUrl(null);
       setLoadError(false);
       setLoadingUrl(false);
@@ -75,7 +77,7 @@ const BuyCryptoLandingPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, address, theme, i18n.language]);
+  }, [isConnected, address, theme, i18n.language, comingSoon]);
 
   const copyAddress = async () => {
     if (!address) return;
@@ -111,7 +113,12 @@ const BuyCryptoLandingPage: React.FC = () => {
             <span>{t('app.buyUsdc.ctaSecure', { provider })}</span>
           </p>
 
-          {!isConnected ? (
+          {comingSoon ? (
+            <div className="hg-buy-land__empty hg-buy-land__coming-soon">
+              <p className="hg-buy-land__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
+              <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+            </div>
+          ) : !isConnected ? (
             <div className="hg-buy-land__empty">
               <p>{t('landing.buyPage.connectFirst')}</p>
               <button type="button" className="hg-buy-land__primary" onClick={connectWallet}>

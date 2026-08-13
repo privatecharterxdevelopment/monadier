@@ -5,6 +5,7 @@ import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 import {
+  isOnrampComingSoon,
   onrampProviderLabel,
   resolveOnrampBuyUrl,
 } from '../../lib/onramp/buyUsdc';
@@ -19,6 +20,7 @@ const ProTradeBuyCryptoPage: React.FC = () => {
   const { open } = useMonadierAppKit();
   const { address, isConnected } = useMonadierWallet();
   const provider = onrampProviderLabel();
+  const comingSoon = isOnrampComingSoon();
 
   const [iframeReady, setIframeReady] = useState(false);
   const [loadingUrl, setLoadingUrl] = useState(false);
@@ -28,7 +30,7 @@ const ProTradeBuyCryptoPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (comingSoon || !isConnected || !address) {
       setWidgetUrl(null);
       setLoadError(false);
       setLoadingUrl(false);
@@ -69,7 +71,7 @@ const ProTradeBuyCryptoPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, address, theme, i18n.language]);
+  }, [isConnected, address, theme, i18n.language, comingSoon]);
 
   const copyAddress = async () => {
     if (!address) return;
@@ -103,7 +105,12 @@ const ProTradeBuyCryptoPage: React.FC = () => {
             <span>{t('app.buyUsdc.ctaSecure', { provider })}</span>
           </div>
 
-          {!isConnected || !address ? (
+          {comingSoon ? (
+            <div className="hl-buy-page__empty hl-buy-usdc__coming-soon">
+              <p className="hl-buy-usdc__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
+              <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+            </div>
+          ) : !isConnected || !address ? (
             <div className="hl-buy-page__empty">
               <p>{t('app.buyUsdc.connectFirst')}</p>
               <button
@@ -154,7 +161,7 @@ const ProTradeBuyCryptoPage: React.FC = () => {
             </>
           )}
 
-          {widgetUrl ? (
+          {widgetUrl && !comingSoon ? (
             <div className="hl-buy-page__card-foot">
               <a
                 href={widgetUrl}

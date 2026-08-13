@@ -4,6 +4,7 @@ import { Check, Copy, CreditCard, ExternalLink, Loader2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 import {
+  isOnrampComingSoon,
   onrampProviderLabel,
   resolveOnrampBuyUrl,
 } from '../../lib/onramp/buyUsdc';
@@ -27,6 +28,7 @@ const BuyUsdcModal: React.FC<Props> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const theme = useProTradeThemeOptional();
+  const comingSoon = isOnrampComingSoon();
   const [iframeReady, setIframeReady] = useState(false);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [widgetUrl, setWidgetUrl] = useState<string | null>(null);
@@ -45,7 +47,7 @@ const BuyUsdcModal: React.FC<Props> = ({
       setCopied(false);
       return;
     }
-    if (!walletAddress) return;
+    if (comingSoon || !walletAddress) return;
 
     let cancelled = false;
     setLoadingUrl(true);
@@ -81,7 +83,7 @@ const BuyUsdcModal: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [open, walletAddress, fiatAmount, theme, i18n.language]);
+  }, [open, walletAddress, fiatAmount, theme, i18n.language, comingSoon]);
 
   useEffect(() => {
     if (!open) return;
@@ -141,7 +143,12 @@ const BuyUsdcModal: React.FC<Props> = ({
         </div>
 
         <div className="hl-buy-usdc__body">
-          {!walletAddress ? (
+          {comingSoon ? (
+            <div className="hl-buy-usdc__empty hl-buy-usdc__coming-soon">
+              <p className="hl-buy-usdc__coming-soon-badge">{t('app.buyUsdc.comingSoon')}</p>
+              <p>{t('app.buyUsdc.comingSoonHint', { provider })}</p>
+            </div>
+          ) : !walletAddress ? (
             <div className="hl-buy-usdc__empty">
               <p>{t('app.buyUsdc.connectFirst', { provider })}</p>
               <button
@@ -194,7 +201,7 @@ const BuyUsdcModal: React.FC<Props> = ({
           )}
         </div>
 
-        {widgetUrl ? (
+        {widgetUrl && !comingSoon ? (
           <div className="hl-buy-usdc__foot">
             <a
               href={widgetUrl}

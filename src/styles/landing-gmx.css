@@ -17837,6 +17837,30 @@ html[data-landing-theme='dark'] .hg-docs-sidebar__link.is-on,
   color: #3f3f46;
 }
 
+.hg-buy-land__coming-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3dd68c;
+  background: rgba(61, 214, 140, 0.12);
+  border: 1px solid rgba(61, 214, 140, 0.28);
+}
+
+.hg-buy-land__coming-soon > p:last-child {
+  margin: 0;
+  max-width: 28rem;
+  color: #71717a;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .hg-buy-land__primary,
 .hg-buy-land__secondary {
   display: inline-flex;

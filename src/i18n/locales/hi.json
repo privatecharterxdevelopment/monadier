@@ -897,6 +897,8 @@
       "sub": "USDC on Arbitrum via {{provider}}",
       "trust": "{{provider}} takes the payment. We never see your card.",
       "connectFirst": "Connect your wallet — {{provider}} sends USDC there.",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "{{provider}} के ज़रिए कार्ड खरीद पार्टनर अनुमोदन की प्रतीक्षा में है। जल्द वापस आएँ।",
       "notConfigured": "Card buy is not enabled yet on this environment.",
       "notConfiguredHint": "Set VITE_MOONPAY_API_KEY (or VITE_RAMP_HOST_API_KEY) in your deploy env.",
       "loading": "Loading secure checkout…",

@@ -27,6 +27,16 @@ export function isOnrampConfigured(): boolean {
 }
 
 /**
+ * Partner (MoonPay) KYB / go-live pending — show Coming soon instead of checkout.
+ * Set VITE_ONRAMP_COMING_SOON=false to re-enable the live widget.
+ */
+export function isOnrampComingSoon(): boolean {
+  const raw = (import.meta.env.VITE_ONRAMP_COMING_SOON as string | undefined)?.trim().toLowerCase();
+  if (raw === '0' || raw === 'false' || raw === 'off' || raw === 'no') return false;
+  return true;
+}
+
+/**
  * Prefer bot-service signed URL when available; otherwise client-side Ramp / unsigned MoonPay.
  */
 export async function resolveOnrampBuyUrl(params: BuildOnrampUrlParams): Promise<{

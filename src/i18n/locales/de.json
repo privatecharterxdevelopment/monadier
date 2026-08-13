@@ -897,6 +897,8 @@
       "sub": "USDC auf Arbitrum via {{provider}}",
       "trust": "{{provider}} nimmt die Zahlung entgegen. Wir sehen keine Kartendaten.",
       "connectFirst": "Wallet verbinden — {{provider}} sendet USDC dorthin.",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "Kartenzahlungen über {{provider}} warten noch auf Partner-Freigabe. Bald verfügbar.",
       "notConfigured": "Kartenkauf ist in dieser Umgebung noch nicht aktiviert.",
       "notConfiguredHint": "Setze MOONPAY_API_KEY + MOONPAY_SECRET_KEY im bot-service (oder VITE_MOONPAY_API_KEY im Frontend).",
       "loading": "Sicheres Checkout wird geladen…",
