@@ -7,15 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-first regime (full long focus).
+ * BULL MARKET — LONG-primary with high trade throughput.
  *
- * SHORT is counter-trend only: early resistance fade after real rejection.
- * Never late dump shorts / blind MTF reverse into lows.
+ * Goal: many opens, dip-buy LONGs (room up), dump SHORTs allowed,
+ * multi-stage profit trail handles exits — stop over-waiting on soft gates/LLM.
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary bull run; SHORT only early R-fade (strict — no late dump reverses).',
+    'LONG-primary throughput: dip LONGs + dump SHORTs; no LLM candle waits.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -25,34 +25,34 @@ export const BULL_MARKET: HlDirectionProfile = {
   preOpenTimeframeLong: '15m',
   preOpenTimeframeShort: '1m',
   preOpenCandleCount: 8,
-  preOpenMinVolumeRatio: 0.35,
-  maxVolumeRank: 80,
+  preOpenMinVolumeRatio: 0.18,
+  maxVolumeRank: 100,
   minDayVolumeUsd: 0,
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
-  enableLlmConfirm: true,
+  /** LLM disagreement waits starved opens — trail manages risk after entry. */
+  enableLlmConfirm: false,
   allowLongOpens: true,
   allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
-    /** Full long focus under bull — slightly lower bar than shared PRIMARY. */
-    minConfidence: 50,
+    minConfidence: 48,
     minDirectionalTfs: 2,
-    minTrendAlignment: 45,
+    minTrendAlignment: 40,
     trustMtfScan: true,
     relaxSecondaryGates: true,
     enforceHtfSr: false,
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    /** Strict — bull fades must be early + clean. */
-    minConfidence: 85,
-    minDirectionalTfs: 3,
-    minTrendAlignment: 75,
-    relaxSecondaryGates: false,
-    trustMtfScan: false,
-    bypassPumpShortWhenTrusted: false,
-    enforceHtfSr: true,
+    minConfidence: 62,
+    minDirectionalTfs: 2,
+    minTrendAlignment: 50,
+    relaxSecondaryGates: true,
+    trustMtfScan: true,
+    bypassPumpShortWhenTrusted: true,
+    /** Shadow HTF only — hard enforce starved dump shorts. */
+    enforceHtfSr: false,
   },
 };
