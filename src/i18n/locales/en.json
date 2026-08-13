@@ -465,7 +465,12 @@
         {
           "tab": "platform",
           "q": "What is HyperGain?",
-          "a": "HyperGain is an automated perpetuals agent on Hyperliquid. You deposit USDC on your Hyperliquid account, approve the HyperGain trading agent once, and our server scans all HL markets 24/7 to open and close trades for you."
+          "a": "HyperGain.io is an automated perpetuals agent on Hyperliquid (crypto) — not a protein or mass-gainer brand. You deposit USDC on your Hyperliquid account, approve the HyperGain trading agent once, and our server scans HL markets 24/7. Official site: hypergain.io."
+        },
+        {
+          "tab": "platform",
+          "q": "Is HyperGain a protein or mass-gainer supplement?",
+          "a": "No. HyperGain.io is unrelated to Hyper Gain / Hypergain fitness supplements. We are a Hyperliquid AI trading agent at hypergain.io and app.hypergain.io. Official X: @HyperGainAi."
         },
         {
           "tab": "platform",

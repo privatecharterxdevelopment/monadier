@@ -2,18 +2,31 @@ import { OFFICIAL_X_URL } from '../brand';
 import { OG_IMAGE, SITE_NAME, SITE_ORIGIN, SUPPORT_EMAIL } from './site';
 import { GOOGLE_SITELINKS, sitelinkUrl } from './sitelinks';
 import { HOW_IT_WORKS_IMAGES, HOW_IT_WORKS_STEP_SCHEMA } from './howItWorksImages';
+import type { DocsSeoImage } from './docsImages';
+import { DOCS_SEO_IMAGES } from './docsImages';
 
 export function organizationSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: SITE_NAME,
+    name: 'HyperGain',
+    legalName: 'HyperGain',
+    alternateName: ['HyperGain.io', 'HyperGain AI', 'HyperGain Hyperliquid'],
     url: SITE_ORIGIN,
     logo: OG_IMAGE,
     email: SUPPORT_EMAIL,
     description:
-      'Non-custodial Hyperliquid trading agent — full auto 24/7 perpetuals execution across 200+ markets. No guaranteed returns.',
+      'HyperGain.io — non-custodial Hyperliquid AI trading agent. Full-auto perpetuals across 200+ markets. Not a fitness or protein brand.',
+    disambiguatingDescription:
+      'HyperGain.io (hypergain.io) is crypto trading software for Hyperliquid. It is not affiliated with Hyper Gain / Hypergain mass-gainer or protein supplement brands.',
     sameAs: [OFFICIAL_X_URL],
+    knowsAbout: [
+      'Hyperliquid',
+      'cryptocurrency trading',
+      'perpetual futures',
+      'non-custodial trading agent',
+      'Arbitrum USDC',
+    ],
   };
 }
 
@@ -22,13 +35,14 @@ export function webSiteSchema() {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     '@id': `${SITE_ORIGIN}/#website`,
-    name: SITE_NAME,
+    name: 'HyperGain.io',
+    alternateName: 'HyperGain',
     url: SITE_ORIGIN,
     description:
-      'Full auto Hyperliquid trading agent. Native USDC on Arbitrum → Hyperliquid, non-custodial agent, 24/7 automation across 200+ perps.',
+      'HyperGain.io — full-auto Hyperliquid AI trading agent. Native USDC on Arbitrum → Hyperliquid, non-custodial, 24/7 automation across 200+ perps. Not a supplement brand.',
     publisher: {
       '@type': 'Organization',
-      name: SITE_NAME,
+      name: 'HyperGain',
       url: SITE_ORIGIN,
     },
     hasPart: GOOGLE_SITELINKS.map((link) => ({
@@ -58,13 +72,14 @@ export function softwareApplicationSchema(opts?: { path?: string; name?: string;
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: opts?.name ?? 'HyperGain - full-auto AI trading agent on hyperliquid 24/7',
+    name: opts?.name ?? 'HyperGain.io — Hyperliquid AI trading agent',
+    alternateName: ['HyperGain', 'HyperGain Hyperliquid agent'],
     applicationCategory: 'FinanceApplication',
     operatingSystem: 'Web',
     url: opts?.path ? `${SITE_ORIGIN}${opts.path}` : SITE_ORIGIN,
     description:
       opts?.description ??
-      'HyperGain - full-auto AI trading agent on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets. No guaranteed returns.',
+      'HyperGain.io is a non-custodial Hyperliquid AI trading agent for crypto perpetuals — not a protein or mass-gainer brand. Full auto 24/7. No guaranteed returns.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -177,4 +192,31 @@ export function howItWorksImageSchema() {
       url: `${SITE_ORIGIN}/how-it-works`,
     },
   }));
+}
+
+export function docsImageObjectSchema(img: DocsSeoImage) {
+  const pageUrl = `${SITE_ORIGIN}/docs/${img.articleSlug}`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ImageObject',
+    contentUrl: `${SITE_ORIGIN}${img.src}`,
+    url: `${SITE_ORIGIN}${img.src}`,
+    name: img.seoTitle,
+    description: img.seoCaption,
+    caption: img.seoCaption,
+    width: img.width,
+    height: img.height,
+    encodingFormat: 'image/png',
+    representativeOfPage: true,
+    isPartOf: {
+      '@type': 'WebPage',
+      '@id': pageUrl,
+      url: pageUrl,
+      name: img.seoTitle,
+    },
+  };
+}
+
+export function docsImagesSchema() {
+  return DOCS_SEO_IMAGES.map((img) => docsImageObjectSchema(img));
 }

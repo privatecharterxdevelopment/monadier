@@ -23,15 +23,30 @@ export type DocsArticle = DocsNavItem & {
 
 const ARTICLES: DocsArticle[] = [
   {
+    slug: 'what-is-hypergain-io',
+    title: 'What is HyperGain.io?',
+    description:
+      'HyperGain.io is a Hyperliquid AI crypto trading agent — not the Hyper Gain protein / mass-gainer supplement brand.',
+    section: 'introduction',
+    body: [
+      'HyperGain.io (hypergain.io) is non-custodial trading software for Hyperliquid: an AI perpetuals agent, pro perps terminal, and on-chain outcome markets — one interface.',
+      'It is not affiliated with any “Hyper Gain”, “Hypergain”, or similar fitness / protein / mass-gainer supplement products. If you searched for muscle powder and landed here, you want a different brand.',
+      'Our product lives at hypergain.io and app.hypergain.io. Official social: @HyperGainAi on X. Support: administration@hypergain.io.',
+      'You fund native USDC on Arbitrum into your own Hyperliquid account, approve the trading agent once, and can run full-auto scanning across 200+ HL perps. HyperGain never holds private keys and never takes custody into a company wallet.',
+      'There are no promised or guaranteed returns. Leveraged crypto trading is high risk. Not financial advice.',
+    ],
+  },
+  {
     slug: 'overview',
     title: 'Overview',
     description: 'What HyperGain is and how the non-custodial agent fits on Hyperliquid.',
     section: 'introduction',
     body: [
-      'HyperGain is a non-custodial Hyperliquid trading platform: an AI perpetuals agent that can run 24/7 on your HL account, plus pro perps and on-chain sports/outcome betting — one interface.',
+      'HyperGain.io is a non-custodial Hyperliquid trading platform: an AI perpetuals agent that can run 24/7 on your HL account, plus pro perps and on-chain sports/outcome betting — one interface.',
       'We supply the automation layer. Your USDC stays on Hyperliquid in your name. HyperGain never holds private keys and never takes custody of deposits into a company wallet.',
       'The agent scans 200+ Hyperliquid perps while Start bot is on, opens and closes according to your risk settings (slots, leverage, trailing), and can be stopped anytime. You can also close positions manually in the terminal.',
       'There are no promised or guaranteed returns. Leveraged crypto trading is high risk — you can lose money. Past P/L on the leaderboard does not predict future results. Not financial advice.',
+      'Brand note: HyperGain.io is crypto trading software. It is unrelated to Hyper Gain protein or mass-gainer supplements that share a similar name.',
     ],
   },
   {
@@ -104,7 +119,33 @@ const ARTICLES: DocsArticle[] = [
       'Hyperliquid charges trading fees on perp fills (maker/taker style depending on the venue fill). Those fees are part of trading on HL whether or not you use HyperGain.',
       'HyperGain may charge a builder fee on HL orders and subscription tiers for agent access. Check Pricing on the site and fee settings in the app for current numbers.',
       'Platform success fees on agent closes typically apply only when a trade is profitable — see current terms in the app. Losing closes should not be billed as “success.”',
-      'Always leave enough free margin for fees and adverse moves. If withdrawable or free margin is near zero, new opens can fail even when equity looks fine.',
+      'Deposits and bridging into Hyperliquid do not include an extra HyperGain deposit fee — see Deposit successful (no HyperGain deposit fee). Always leave enough free margin for HL fees and adverse moves.',
+    ],
+  },
+  {
+    slug: 'depositing-bridging-hyperliquid',
+    title: 'Depositing / bridging on Hyperliquid',
+    description:
+      'How HyperGain bridges native Arbitrum USDC into your Hyperliquid account — wallet sign, Arbitrum confirm, then HL credit.',
+    section: 'funds',
+    body: [
+      'Open Funds → Deposit in HyperGain. Connect a wallet on Arbitrum One and deposit native USDC only — not BNB, BSC, ETH mainnet, or USDC on other chains.',
+      'After you sign in your wallet, HyperGain shows Depositing to Hyperliquid with three steps: Wallet signed → Arbitrum confirmed → Hyperliquid credit. The first two usually finish quickly; HL credit often takes about 1–3 minutes.',
+      'You can open the Arbitrum transaction and your HypurrScan wallet from the modal to verify the bridge on-chain. Until Hyperliquid credit completes, the new USDC will not appear as trading balance.',
+      'HyperGain never takes custody into a company wallet. The deposit lands on your Hyperliquid account in your name. Wrong chain or the wrong USDC variant will not credit correctly.',
+    ],
+  },
+  {
+    slug: 'deposit-successful-no-extra-fees',
+    title: 'Deposit successful — no HyperGain deposit fee',
+    description:
+      'When HL credit completes, USDC shows on your Hyperliquid balance. HyperGain does not charge an extra deposit or bridge fee — only Hyperliquid / network fees apply.',
+    section: 'funds',
+    body: [
+      'When the bridge finishes, the modal shows Deposit successful with the amount credited and your updated Hyperliquid total. Press Done to return to Funds.',
+      'HyperGain does not charge anything extra to deposit or bridge USDC into Hyperliquid. There is no HyperGain deposit markup, bridge surcharge, or “processing” fee on top of the transfer.',
+      'You may still pay normal network gas on Arbitrum and whatever Hyperliquid protocol costs apply to the deposit path — those are Hyperliquid / chain fees, not HyperGain fees.',
+      'Trading later still follows Hyperliquid trading fees and any HyperGain agent success / builder fees described under Fees. The deposit itself stays free of HyperGain add-ons.',
     ],
   },
   {
@@ -149,27 +190,27 @@ export const DOCS_SECTIONS: DocsSection[] = [
 ];
 
 export const DOCS_FEATURED = {
-  slug: 'getting-started',
-  title: 'Getting started with HyperGain',
+  slug: 'what-is-hypergain-io',
+  title: 'What is HyperGain.io?',
   description:
-    'Connect a wallet, fund Arbitrum USDC into Hyperliquid, approve the agent once, and press Start bot — automation runs 24/7 until you stop it.',
+    'HyperGain.io is the Hyperliquid AI crypto trading agent — not a protein or mass-gainer brand. Domain: hypergain.io.',
 };
 
 export const DOCS_FAMILIAR = [
   {
-    slug: 'hypergain-101',
-    title: 'HyperGain 101',
-    description: 'Wallet, Arbitrum USDC, approval, and Start bot in plain language.',
+    slug: 'what-is-hypergain-io',
+    title: 'What is HyperGain.io?',
+    description: 'Crypto trading agent on Hyperliquid — not supplements.',
   },
   {
-    slug: 'non-custodial',
-    title: 'Non-custodial',
-    description: 'What we can trade — and why we cannot withdraw your funds.',
+    slug: 'depositing-bridging-hyperliquid',
+    title: 'Depositing / bridging',
+    description: 'Wallet sign → Arbitrum confirm → Hyperliquid credit.',
   },
   {
-    slug: 'profit-trailing',
-    title: 'Profit trailing',
-    description: 'How winners are trailed and when pullbacks get cut.',
+    slug: 'deposit-successful-no-extra-fees',
+    title: 'Deposit successful',
+    description: 'No HyperGain deposit fee — only HL / network fees.',
   },
   {
     slug: 'fees',

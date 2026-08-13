@@ -15,7 +15,7 @@ export type PageSeo = {
 };
 
 const BOT_KEYWORDS =
-  'hyperliquid agent, hyperliquid trading agent, full auto AI trading agent, automated trading agent, crypto trading agent, hyperliquid perpetuals agent, non-custodial trading agent';
+  'hypergain.io, HyperGain.io, HyperGain Hyperliquid, hyperliquid agent, hyperliquid trading agent, full auto AI trading agent, automated trading agent, crypto trading agent, hyperliquid perpetuals agent, non-custodial trading agent';
 
 /**
  * Indexable primary pages (AL nav + home + product + legal):
@@ -26,9 +26,9 @@ const BOT_KEYWORDS =
 export const PAGE_SEO: Record<string, PageSeo> = {
   '/': {
     path: '/',
-    title: `HyperGain - full-auto AI trading agent on hyperliquid 24/7`,
+    title: `HyperGain.io | Hyperliquid AI Trading Agent — full auto 24/7`,
     description:
-      'HyperGain - full-auto AI trading agent on Hyperliquid 24/7. Automated perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns.',
+      'HyperGain.io is the Hyperliquid AI trading agent (crypto) — not a protein brand. Full-auto perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns.',
     keywords: `${BOT_KEYWORDS}, HyperGain, Hyperliquid automated trading, DeFi trading agent`,
     changefreq: 'weekly',
     priority: 1.0,
@@ -36,9 +36,9 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/trading-bot': {
     path: '/trading-bot',
-    title: `Hyperliquid Trading Agent | Full Auto 24/7 — ${SITE_NAME}`,
+    title: `Hyperliquid Trading Agent | Full Auto 24/7 — HyperGain.io`,
     description:
-      'Hands-off Hyperliquid automation across 200+ perps. Fund HL USDC (min. $5 deposit, $20+ to run the agent), approve once, trail when profitable. Non-custodial — no guaranteed returns.',
+      'Hands-off Hyperliquid automation on HyperGain.io across 200+ perps. Fund HL USDC, approve once, trail when profitable. Non-custodial crypto trading agent — no guaranteed returns.',
     keywords: `${BOT_KEYWORDS}, AI trading agent, 24/7 crypto agent, algorithmic Hyperliquid trading`,
     changefreq: 'weekly',
     priority: 1.0,
@@ -46,9 +46,9 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/buy-crypto': {
     path: '/buy-crypto',
-    title: `Buy USDC with card | MoonPay on Arbitrum — ${SITE_NAME}`,
+    title: `Buy USDC with card | MoonPay on Arbitrum — HyperGain.io`,
     description:
-      'Buy USDC with Visa, Mastercard or Apple Pay via MoonPay. Connect wallet, fund on Arbitrum, then register and start the HyperGain Hyperliquid agent.',
+      'Buy USDC with Visa, Mastercard or Apple Pay via MoonPay. Connect wallet, fund on Arbitrum, then register and start the HyperGain.io Hyperliquid agent.',
     keywords: `buy USDC card, MoonPay Hyperliquid, buy crypto Arbitrum USDC, HyperGain on-ramp, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,
@@ -56,19 +56,19 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/how-it-works': {
     path: '/how-it-works',
-    title: `How it works | Deposit, Approve, Trade 24/7 — ${SITE_NAME}`,
+    title: `How HyperGain.io Works | Deposit, Approve, Trade 24/7 on Hyperliquid`,
     description:
-      'How HyperGain works: deposit USDC on Hyperliquid, pick 2 or 3 slots, start the agent. No API keys. Intelligent trailing stop in profit. Withdraw anytime.',
-    keywords: `how hyperliquid agent works, hypergain agent settings, hyperliquid USDC deposit, trailing stop loss agent, 2 or 3 trade slots, no API trading agent, ${BOT_KEYWORDS}`,
+      'How HyperGain.io works on Hyperliquid: deposit USDC, pick 2 or 3 slots, start the agent. No API keys. Crypto trading agent — not a supplement brand.',
+    keywords: `how hyperliquid agent works, hypergain.io agent settings, hyperliquid USDC deposit, trailing stop loss agent, 2 or 3 trade slots, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.9,
     sitemap: true,
   },
   '/leaderboard': {
     path: '/leaderboard',
-    title: `Leaderboard | On-Chain Hyperliquid Agent Closes — ${SITE_NAME}`,
+    title: `Leaderboard | On-Chain Hyperliquid Agent Closes — HyperGain.io`,
     description:
-      'Live Hyperliquid L1 leaderboard of agent closes. Masked wallets here, full addresses and fills on HypurrScan. Past results do not predict future performance.',
+      'Live Hyperliquid L1 leaderboard of HyperGain.io agent closes. Masked wallets here, full addresses on HypurrScan. Past results do not predict future performance.',
     keywords: `hyperliquid agent leaderboard, on-chain trading wins, hypurrscan verify, ${BOT_KEYWORDS}`,
     changefreq: 'weekly',
     priority: 0.85,
@@ -76,20 +76,20 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/support': {
     path: '/support',
-    title: `Help Center | Hyperliquid Agent Support — ${SITE_NAME}`,
+    title: `Help Center | Hyperliquid Agent Support — HyperGain.io`,
     description:
-      'HyperGain help center — deposits, agent approval, agent settings, fees, and withdrawals. Contact administration@hypergain.io. Support available 24/7.',
-    keywords: `hyperliquid agent support, HyperGain help center, trading agent help, ${BOT_KEYWORDS}`,
+      'HyperGain.io help center — deposits, agent approval, settings, fees, withdrawals. Contact administration@hypergain.io.',
+    keywords: `hyperliquid agent support, HyperGain.io help center, trading agent help, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,
     sitemap: true,
   },
   '/docs': {
     path: '/docs',
-    title: `Docs | Hyperliquid AI Trading Agent Documentation — ${SITE_NAME}`,
+    title: `Docs | HyperGain.io Hyperliquid AI Trading Agent`,
     description:
-      'HyperGain documentation — getting started, non-custodial funds, profit trailing, fees, leaderboard, and AI sports betting on Hyperliquid.',
-    keywords: `HyperGain docs, hyperliquid trading agent documentation, AI trading agent guide, ${BOT_KEYWORDS}`,
+      'HyperGain.io docs — what HyperGain.io is (Hyperliquid crypto agent, not protein), depositing / bridging USDC, fees, trailing, sports betting.',
+    keywords: `HyperGain.io docs, what is hypergain.io, hyperliquid deposit bridge, ${BOT_KEYWORDS}`,
     changefreq: 'weekly',
     priority: 0.75,
     sitemap: true,
@@ -149,9 +149,10 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   },
   '/faqs': {
     path: '/faqs',
-    title: `FAQs | ${SITE_NAME}`,
-    description: 'HyperGain FAQs — deposits, agent approval, agent trading, fees, and withdrawals.',
-    keywords: `HyperGain FAQ, ${BOT_KEYWORDS}`,
+    title: `FAQs | HyperGain.io Hyperliquid Trading Agent`,
+    description:
+      'FAQs about HyperGain.io — Hyperliquid AI trading agent (crypto), not a fitness supplement. Deposits, fees, custody, sports betting.',
+    keywords: `HyperGain.io FAQ, is HyperGain a supplement, hyperliquid agent FAQ, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.75,
     sitemap: true,

@@ -96,7 +96,14 @@ serve(async (req: Request) => {
       });
     }
 
-    if (message.length < 10 || message.length > MAX_MESSAGE) {
+    if (channel === 'chat') {
+      if (message.length < 1 || message.length > MAX_MESSAGE) {
+        return new Response(JSON.stringify({ error: 'Message must be 1–5000 characters' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else if (message.length < 10 || message.length > MAX_MESSAGE) {
       return new Response(JSON.stringify({ error: 'Message must be 10–5000 characters' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

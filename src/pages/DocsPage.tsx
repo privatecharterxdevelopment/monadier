@@ -17,7 +17,7 @@ import {
   DOCS_SECTIONS,
 } from '../lib/docs/pages';
 
-const FAMILIAR_ICONS = [BookOpen, Shield, Sparkles, CircleDollarSign] as const;
+const FAMILIAR_ICONS = [BookOpen, CircleDollarSign, Shield, Sparkles] as const;
 
 const DocsPage: React.FC = () => {
   const { t } = useTranslation();

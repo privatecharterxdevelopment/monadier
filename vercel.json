@@ -41,6 +41,16 @@
       "permanent": true
     },
     {
+      "source": "/blog",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/blog/:path*",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
       "source": "/app",
       "has": [{ "type": "host", "value": "www.hypergain.io" }],
       "destination": "https://app.hypergain.io/",
@@ -95,7 +105,7 @@
       "destination": "https://monadier-production.up.railway.app/:path*"
     },
     {
-      "source": "/((?!api/|bot-service/|assets/|images/|videos/|og/|favicon\\.ico|favicon\\.svg|favicon-.*\\.png|apple-touch-icon\\.png|og-image.*\\.png|email-logo\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt|404\\.html).*)",
+      "source": "/((?!api/|bot-service/|assets/|images/|videos/|og/|favicon\\.ico|favicon\\.svg|favicon-.*\\.png|apple-touch-icon\\.png|og-image.*\\.png|email-logo\\.png|robots\\.txt|sitemap\\.xml|image-sitemap\\.xml|llms\\.txt|404\\.html).*)",
       "destination": "/index.html"
     }
   ],

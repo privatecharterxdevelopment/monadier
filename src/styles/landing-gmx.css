@@ -17694,6 +17694,29 @@ html[data-landing-theme='dark'] .hg-blog-article-body p,
   color: #52525b;
 }
 
+.hg-docs-article__figure {
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.hg-docs-article__figure img {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid #e4e4e7;
+  background: #0b0b0b;
+}
+
+.hg-docs-article__figure figcaption {
+  margin-top: 10px;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #71717a;
+}
+
 .hg-docs-article__body {
   display: flex;
   flex-direction: column;

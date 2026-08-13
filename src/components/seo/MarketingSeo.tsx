@@ -9,6 +9,7 @@ import { LEADERBOARD_PAGE_FAQS } from '../../lib/seo/leaderboardContent';
 import { OG_IMAGE, SITE_NAME, absoluteUrl } from '../../lib/seo/site';
 import {
   breadcrumbSchema,
+  docsImagesSchema,
   faqPageSchema,
   howItWorksImageSchema,
   howToSchema,
@@ -92,6 +93,14 @@ const MarketingSeo: React.FC<Props> = ({ path: pathOverride, faqs }) => {
         breadcrumbSchema([
           { name: 'Home', path: '/' },
           { name: 'How it works', path: '/how-it-works' },
+        ])
+      );
+    } else if (path === '/docs') {
+      blocks.push(
+        ...docsImagesSchema(),
+        breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Docs', path: '/docs' },
         ])
       );
     } else if (path === '/trading-bot') {

@@ -5,7 +5,9 @@ import { ArrowLeft, ChevronRight, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import MarketingPageLayout from '../components/layout/MarketingPageLayout';
 import { DOCS_SECTIONS, getDocsArticle } from '../lib/docs/pages';
-import { SITE_NAME, absoluteUrl } from '../lib/seo/site';
+import { getDocsSeoImage } from '../lib/seo/docsImages';
+import { docsImageObjectSchema } from '../lib/seo/schema';
+import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from '../lib/seo/site';
 
 const DocsArticlePage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -18,16 +20,35 @@ const DocsArticlePage: React.FC = () => {
 
   const title = `${article.title} — ${SITE_NAME} Docs`;
   const canonical = absoluteUrl(`/docs/${article.slug}`);
+  const seoImage = getDocsSeoImage(article.slug);
+  const ogImage = seoImage ? `${SITE_ORIGIN}${seoImage.src}` : undefined;
 
   return (
     <MarketingPageLayout inner>
       <Helmet>
         <title>{title}</title>
         <meta name="description" content={article.description} />
+        <meta name="robots" content="index, follow, max-image-preview:large" />
         <link rel="canonical" href={canonical} />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={article.description} />
         <meta property="og:url" content={canonical} />
+        {ogImage ? (
+          <>
+            <meta property="og:image" content={ogImage} />
+            <meta property="og:image:secure_url" content={ogImage} />
+            <meta property="og:image:width" content={String(seoImage!.width)} />
+            <meta property="og:image:height" content={String(seoImage!.height)} />
+            <meta property="og:image:alt" content={seoImage!.alt} />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:image" content={ogImage} />
+          </>
+        ) : null}
+        {seoImage ? (
+          <script type="application/ld+json">
+            {JSON.stringify(docsImageObjectSchema(seoImage))}
+          </script>
+        ) : null}
       </Helmet>
 
       <div className="hg-docs">
@@ -63,6 +84,20 @@ const DocsArticlePage: React.FC = () => {
           </p>
           <h1>{article.title}</h1>
           <p className="hg-docs-article__lead">{article.description}</p>
+          {seoImage ? (
+            <figure className="hg-docs-article__figure">
+              <img
+                src={seoImage.src}
+                alt={seoImage.alt}
+                title={seoImage.seoTitle}
+                width={seoImage.width}
+                height={seoImage.height}
+                loading="eager"
+                decoding="async"
+              />
+              <figcaption>{seoImage.seoCaption}</figcaption>
+            </figure>
+          ) : null}
           <div className="hg-docs-article__body">
             {article.body.map((para) => (
               <p key={para.slice(0, 40)}>{para}</p>

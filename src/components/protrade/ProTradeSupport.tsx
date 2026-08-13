@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BookOpen,
   ChevronDown,
@@ -13,6 +14,7 @@ import {
   Send,
   Shield,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -63,9 +65,37 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
   const threadRef = useRef<HTMLDivElement | null>(null);
   const knownMsgIdsRef = useRef<Set<string>>(new Set());
   const [animateIds, setAnimateIds] = useState<Set<string>>(() => new Set());
+  const [isNarrow, setIsNarrow] = useState(false);
 
   const displayEmail = profile?.email || user?.email || '—';
   const displayName = profile?.full_name || profile?.username || '—';
+
+  const closeChat = useCallback(() => {
+    setView('home');
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  useEffect(() => {
+    if (!(view === 'chat' && isNarrow)) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeChat();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [view, isNarrow, closeChat]);
 
   const faqs = useMemo(() => {
     const items = t('landing.faq.items', { returnObjects: true });
@@ -206,8 +236,130 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
     setOpenFaq(null);
   };
 
+  const chatSection = (
+    <section
+      className={`hl-help-docs__chat${isNarrow ? ' hl-help-docs__chat--sheet' : ''}`}
+      role={isNarrow ? 'dialog' : undefined}
+      aria-modal={isNarrow ? true : undefined}
+      aria-label={t('app.support.liveChatTitle')}
+    >
+      <header className="hl-help-docs__chat-head hl-help-docs__chat-head--bar">
+        <div className="hl-help-docs__chat-head-row">
+          <div className="hl-help-docs__chat-head-copy">
+            <h2>{t('app.support.liveChatTitle')}</h2>
+            <p>
+              {ticket
+                ? t('app.support.liveChatActive', { subject: ticket.subject })
+                : t('app.support.liveChatLead')}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="hl-help-docs__chat-close"
+            onClick={closeChat}
+            aria-label={t('common.close', { defaultValue: 'Close' })}
+          >
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+        {user ? (
+          <p className="hl-help-docs__chat-as">
+            <span>{t('app.support.sendingAs')}</span>
+            {displayName} · {displayEmail}
+          </p>
+        ) : null}
+      </header>
+
+      {!user ? (
+        <div className="hl-help-chat__gate">
+          <p className="hl-support-lead">{t('app.support.guestLead')}</p>
+          <button
+            type="button"
+            className="hl-support-primary"
+            onClick={() => onRequireSignIn?.(t('auth.signInToSupport'))}
+          >
+            {t('app.support.signInForHelp')}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="hl-help-chat__thread" ref={threadRef}>
+            {chatLoading ? (
+              <p className="hl-help-chat__empty">
+                <Loader2 size={16} className="hl-spin" aria-hidden />
+                {t('app.support.chatLoading')}
+              </p>
+            ) : messages.length === 0 ? (
+              <p className="hl-help-chat__empty">{t('app.support.chatEmpty')}</p>
+            ) : (
+              messages.map((m) =>
+                m.sender_role === 'admin' ? (
+                  <SupportBrandBubble
+                    key={m.id}
+                    body={m.body}
+                    createdAt={m.created_at}
+                    roleLabel={t('app.support.roleSupport')}
+                    animate={animateIds.has(m.id)}
+                  />
+                ) : (
+                  <div key={m.id} className="hl-help-chat__msg hl-help-chat__msg--user">
+                    <div className="hl-help-chat__bubble hl-help-chat__bubble--user">
+                      <span className="hl-help-chat__bubble-role">{t('app.support.roleYou')}</span>
+                      <p>{m.body}</p>
+                      <time dateTime={m.created_at}>{new Date(m.created_at).toLocaleString()}</time>
+                    </div>
+                  </div>
+                )
+              )
+            )}
+          </div>
+          <form
+            className="hl-help-chat__composer hl-help-chat__composer--modern"
+            onSubmit={(e) => void handleStartOrSend(e)}
+          >
+            {error ? (
+              <p className="hl-support-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="hl-help-chat__composer-row">
+              <input
+                type="text"
+                className="hl-help-chat__composer-input"
+                placeholder={t('app.support.chatPlaceholder')}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={5000}
+                disabled={sending}
+                required
+              />
+              <button
+                type="submit"
+                className="hl-help-chat__send"
+                disabled={sending || draft.trim().length < 1}
+              >
+                {sending ? <Loader2 size={16} className="hl-spin" /> : <Send size={16} />}
+              </button>
+            </div>
+          </form>
+          <div className="hl-support-hours">
+            <Clock size={16} aria-hidden />
+            <div>
+              <strong>{t('app.support.supportHours')}</strong>
+              <p>{t('app.support.supportHoursDetail')}</p>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+
   return (
-    <div className="hl-meta-canvas hl-support-page hl-help-center hl-help-docs">
+    <div
+      className={`hl-meta-canvas hl-support-page hl-help-center hl-help-docs${
+        view === 'chat' ? ' hl-help-docs--chat-open' : ''
+      }`}
+    >
       <aside className="hl-help-docs__sidebar" aria-label={t('docs.navLabel', { defaultValue: 'Documentation' })}>
         <div className="hl-help-docs__side-section">
           <p className="hl-help-docs__side-heading">Introduction</p>
@@ -356,104 +508,16 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
               </section>
             )}
           </>
-        ) : (
-          <section className="hl-help-docs__chat">
-            <header className="hl-help-docs__chat-head">
-              <h2>{t('app.support.liveChatTitle')}</h2>
-              <p>
-                {ticket
-                  ? t('app.support.liveChatActive', { subject: ticket.subject })
-                  : t('app.support.liveChatLead')}
-              </p>
-            </header>
-
-            {!user ? (
-              <div className="hl-help-chat__gate">
-                <p className="hl-support-lead">{t('app.support.guestLead')}</p>
-                <button
-                  type="button"
-                  className="hl-support-primary"
-                  onClick={() => onRequireSignIn?.(t('auth.signInToSupport'))}
-                >
-                  {t('app.support.signInForHelp')}
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="hl-help-chat__meta">
-                  <p className="hl-support-user-label">{t('app.support.sendingAs')}</p>
-                  <p className="hl-support-user-value">
-                    {displayName} · {displayEmail}
-                  </p>
-                </div>
-                <div className="hl-help-chat__thread" ref={threadRef}>
-                  {chatLoading ? (
-                    <p className="hl-help-chat__empty">
-                      <Loader2 size={16} className="hl-spin" aria-hidden />
-                      {t('app.support.chatLoading')}
-                    </p>
-                  ) : messages.length === 0 ? (
-                    <p className="hl-help-chat__empty">{t('app.support.chatEmpty')}</p>
-                  ) : (
-                    messages.map((m) =>
-                      m.sender_role === 'admin' ? (
-                        <SupportBrandBubble
-                          key={m.id}
-                          body={m.body}
-                          createdAt={m.created_at}
-                          roleLabel={t('app.support.roleSupport')}
-                          animate={animateIds.has(m.id)}
-                        />
-                      ) : (
-                        <div key={m.id} className="hl-help-chat__msg hl-help-chat__msg--user">
-                          <div className="hl-help-chat__bubble hl-help-chat__bubble--user">
-                            <span className="hl-help-chat__bubble-role">{t('app.support.roleYou')}</span>
-                            <p>{m.body}</p>
-                            <time dateTime={m.created_at}>{new Date(m.created_at).toLocaleString()}</time>
-                          </div>
-                        </div>
-                      )
-                    )
-                  )}
-                </div>
-                <form className="hl-help-chat__composer hl-help-chat__composer--modern" onSubmit={(e) => void handleStartOrSend(e)}>
-                  {error ? (
-                    <p className="hl-support-error" role="alert">
-                      {error}
-                    </p>
-                  ) : null}
-                  <div className="hl-help-chat__composer-row">
-                    <input
-                      type="text"
-                      className="hl-help-chat__composer-input"
-                      placeholder={t('app.support.chatPlaceholder')}
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      maxLength={5000}
-                      disabled={sending}
-                      required
-                    />
-                    <button
-                      type="submit"
-                      className="hl-help-chat__send"
-                      disabled={sending || draft.trim().length < (ticket ? 1 : 10)}
-                    >
-                      {sending ? <Loader2 size={16} className="hl-spin" /> : <Send size={16} />}
-                    </button>
-                  </div>
-                </form>
-                <div className="hl-support-hours">
-                  <Clock size={16} aria-hidden />
-                  <div>
-                    <strong>{t('app.support.supportHours')}</strong>
-                    <p>{t('app.support.supportHoursDetail')}</p>
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
+        ) : isNarrow ? null : (
+          chatSection
         )}
       </div>
+      {view === 'chat' && isNarrow && typeof document !== 'undefined'
+        ? createPortal(
+            chatSection,
+            document.querySelector('.hl-root') ?? document.body
+          )
+        : null}
     </div>
   );
 };

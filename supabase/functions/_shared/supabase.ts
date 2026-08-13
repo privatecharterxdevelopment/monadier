@@ -33,10 +33,29 @@ export function createSupabaseClient(authHeader: string) {
   );
 }
 
-// Get user from JWT token
+// Get user from JWT token (Authorization: Bearer <jwt>)
 export async function getUserFromToken(authHeader: string) {
-  const supabase = createSupabaseClient(authHeader);
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    throw new Error('Invalid or expired token');
+  }
+
+  // Pass the JWT explicitly — more reliable than only setting global Authorization
+  // (avoids stale/empty session on the edge client).
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_ANON_KEY') || '',
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
 
   if (error || !user) {
     throw new Error('Invalid or expired token');
