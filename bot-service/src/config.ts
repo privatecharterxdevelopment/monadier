@@ -305,10 +305,21 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
-    /** Min ms before any re-open on a coin after it was closed (anti instant flip; default 2 min). */
-    sameCoinReentryMinMs: Number(process.env.HL_SAME_COIN_REENTRY_MS || 120_000),
-    /** Min ms before opposite direction on same coin after close (default 5 min). */
-    blockOppositeSameCoinMs: Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 300_000),
+    /**
+     * Same-coin reentry after close. Cap at 5m — Railway once had 30m and starved
+     * throughput (“bot waits forever”). Ops can go lower via env; not higher.
+     */
+    sameCoinReentryMinMs: Math.min(
+      300_000,
+      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 120_000))
+    ),
+    /**
+     * Opposite-direction same-coin block. Cap at 10m for the same reason.
+     */
+    blockOppositeSameCoinMs: Math.min(
+      600_000,
+      Math.max(0, Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 300_000))
+    ),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
       /** Price in top X of range = near resistance. */
