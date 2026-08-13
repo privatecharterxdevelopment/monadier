@@ -15092,10 +15092,6 @@ html[data-landing-theme='dark'] .al-feat-viz-candle--dn {
   opacity: 0.4;
 }
 
-html[data-landing-theme='dark'] .al-feat-viz-candle--dn {
-  color: #a1a1aa;
-}
-
 @media (max-width: 799px) {
   .al-feat-viz--bot {
     position: relative;
