@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import LandingMacbookDashboard from './LandingMacbookDashboard';
 import LandingHeroLines from './LandingHeroLines';
-import { formatLandingUserCount, getLandingUserCount } from '../../lib/landingUserCounter';
+import { useLandingUserCount } from '../../hooks/useLandingUserCount';
 import { goToOpenAppRegister } from '../../lib/appUrls';
 
 const ROTATE_FALLBACK = [
@@ -22,16 +22,14 @@ const fade = (delay = 0) => ({
 const LandingAlphaHero: React.FC = () => {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
+  const { label: userCountLabel } = useLandingUserCount();
   const rotateLinesRaw = t('landing.hero.rotateLines', { returnObjects: true });
   const rotateLines =
     Array.isArray(rotateLinesRaw) && rotateLinesRaw.length > 0
       ? (rotateLinesRaw as string[])
       : [...ROTATE_FALLBACK];
 
-  const userLabel = useMemo(() => {
-    const n = getLandingUserCount();
-    return `${formatLandingUserCount(n)} ${t('landing.alpha.usersLabel')}`;
-  }, [t]);
+  const userLabel = `${userCountLabel} ${t('landing.alpha.usersLabel')}`;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +54,7 @@ const LandingAlphaHero: React.FC = () => {
         <div className="landing-al-hero-title-wrap">
           <LandingHeroLines
             lineDarkTop={t('landing.hero.lineDarkTop')}
+            lineDarkTopAccent={t('landing.hero.lineDarkTopAccent')}
             rotateLines={rotateLines}
             rotatePosition="two-row"
           />

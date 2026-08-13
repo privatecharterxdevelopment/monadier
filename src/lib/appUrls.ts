@@ -143,6 +143,7 @@ const MARKETING_EXACT_PATHS = [
   '/ai-sports-betting',
   '/technology',
   '/support',
+  '/docs',
   '/faqs',
   '/faq',
   '/pricing',
@@ -153,7 +154,7 @@ const MARKETING_EXACT_PATHS = [
   '/kyc',
 ] as const;
 
-const MARKETING_PREFIX_PATHS = ['/auth', '/your-funds'] as const;
+const MARKETING_PREFIX_PATHS = ['/auth', '/your-funds', '/docs'] as const;
 
 export function isMarketingPath(pathname: string): boolean {
   const path = pathname.split('?')[0];

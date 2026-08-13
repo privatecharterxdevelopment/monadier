@@ -220,6 +220,7 @@ export async function validateNoAltPumpShort(opts: {
     const ch15m = pctChangeClosed(c15m, 1);
 
     if (ch1h >= cfg.block1hPct || ch4h >= cfg.block4hPct) {
+      // Tiny green noise on 1h must not veto a stacked MTF SHORT (was 0.15% → false pumps).
       const reason =
         `SHORT blocked — ${coin} still pumping (1h ${ch1h >= 0 ? '+' : ''}${ch1h.toFixed(2)}%, ` +
         `4h ${ch4h >= 0 ? '+' : ''}${ch4h.toFixed(2)}%)`;

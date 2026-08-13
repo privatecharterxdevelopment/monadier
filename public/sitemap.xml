@@ -66,7 +66,12 @@
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-  <url>
+    <url>
+    <loc>https://www.hypergain.io/docs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.75</priority>
+  </url>
+<url>
     <loc>https://www.hypergain.io/support</loc>
     <lastmod>2026-08-10</lastmod>
     <changefreq>monthly</changefreq>

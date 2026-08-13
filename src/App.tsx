@@ -24,6 +24,8 @@ import ForexPage from './pages/ForexPage';
 import TechnologyPage from './pages/TechnologyPage';
 import SupportPage from './pages/SupportPage';
 import FaqsPage from './pages/FaqsPage';
+import DocsPage from './pages/DocsPage';
+import DocsArticlePage from './pages/DocsArticlePage';
 import ContactPage from './pages/ContactPage';
 import AboutPage from './pages/AboutPage';
 import PricingPage from './pages/PricingPage';
@@ -116,6 +118,18 @@ function App() {
               <SupportPage />
             </PageTransition>
           } />
+          <Route path="/docs" element={
+            <PageTransition>
+              <DocsPage />
+            </PageTransition>
+          } />
+          <Route path="/docs/:slug" element={
+            <PageTransition>
+              <DocsArticlePage />
+            </PageTransition>
+          } />
+          <Route path="/blog" element={<Navigate to="/docs" replace />} />
+          <Route path="/blog/:slug" element={<Navigate to="/docs" replace />} />
           <Route path="/faqs" element={
             <PageTransition>
               <FaqsPage />

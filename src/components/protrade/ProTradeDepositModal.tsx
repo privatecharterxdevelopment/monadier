@@ -6,6 +6,8 @@ import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useChainId, useSwitchChain } from 'wagmi';
 import { useWeb3 } from '../../contexts/Web3Context';
+import BuyUsdcCta from './BuyUsdcCta';
+import BuyUsdcModal from './BuyUsdcModal';
 import HlArbitrumUsdcCallout from './HlArbitrumUsdcCallout';
 import HlDepositFlowOverlay, { type HlDepositFlowState } from './HlDepositFlowOverlay';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
@@ -18,6 +20,7 @@ import {
   fetchHlFundingSnapshot,
   pollHlFundingAfterDeposit,
   spotToPerpTransferAmount,
+  type HlFundingSnapshot,
 } from '../../lib/hyperliquid/funding';
 import { USDC_ADDRESSES, USDC_DECIMALS } from '../../lib/usdcArbitrum';
 import { ERC20_ABI } from '../../lib/dex/router';
@@ -74,6 +77,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [depositFlow, setDepositFlow] = useState<HlDepositFlowState>({ phase: 'idle' });
   const [liveFunding, setLiveFunding] = useState<HlFundingSnapshot | null>(null);
+  const [buyUsdcOpen, setBuyUsdcOpen] = useState(false);
 
   const onArbitrum = chainId === HL_ARBITRUM_CHAIN_ID;
   const usdcNum = parseFloat(usdcBalance) || 0;
@@ -536,6 +540,16 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   walletAddress={address}
                 />
 
+                <BuyUsdcCta
+                  onClick={() => {
+                    if (!isConnected) {
+                      open();
+                      return;
+                    }
+                    setBuyUsdcOpen(true);
+                  }}
+                />
+
                 <label className="term-profile-label hl-funds-amount-label">Amount (USDC)</label>
                 <div className="term-modal-input-row">
                   <input
@@ -655,9 +669,31 @@ const ProTradeDepositModal: React.FC<Props> = ({
     </div>
   );
 
-  if (typeof document === 'undefined') return modal;
+  if (typeof document === 'undefined') {
+    return (
+      <>
+        {modal}
+        <BuyUsdcModal
+          open={buyUsdcOpen}
+          onClose={() => setBuyUsdcOpen(false)}
+          walletAddress={address}
+          onRequireWallet={() => open()}
+        />
+      </>
+    );
+  }
 
-  return createPortal(modal, document.body);
+  return (
+    <>
+      {createPortal(modal, document.body)}
+      <BuyUsdcModal
+        open={buyUsdcOpen}
+        onClose={() => setBuyUsdcOpen(false)}
+        walletAddress={address}
+        onRequireWallet={() => open()}
+      />
+    </>
+  );
 };
 
 export default ProTradeDepositModal;

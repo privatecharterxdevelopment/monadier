@@ -1625,6 +1625,21 @@ export class HyperliquidTradingService {
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
+
+        // SHORT-only alts (not BTC/ETH/SOL): zone often wants SHORT→LONG at support.
+        // Rejecting that flip used to kill the SHORT entirely ("LONG majors only") —
+        // keep the original SHORT instead (memes are SHORT-primary by design).
+        if (
+          flipped === 'LONG' &&
+          zoneFlipFrom === 'SHORT' &&
+          !isLongAllowedCoin(coin)
+        ) {
+          logger.info('HL zone flip SHORT→LONG skipped — coin SHORT-only, keeping SHORT', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            reason: locationGate.reason,
+          });
+        } else {
         if (flipped === 'LONG') {
           if (config.hyperliquid.excludedCoins.includes(coin)) {
             return rejectOpen(
@@ -1757,6 +1772,7 @@ export class HyperliquidTradingService {
           );
         }
         (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
+        } // end else (flip allowed)
       }
 
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.

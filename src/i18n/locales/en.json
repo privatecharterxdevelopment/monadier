@@ -67,7 +67,9 @@
     "support": "Support",
     "faqs": "FAQs",
     "about": "About",
-    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · administration@hypergain.io"
+    "copyright": "© {{year}} HyperGain · Hyperliquid automated trading · administration@hypergain.io",
+    "blog": "Blog",
+    "docs": "Docs"
   },
   "contact": {
     "eyebrow": "Contact",
@@ -84,7 +86,8 @@
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "Full auto AI trading Agent",
+      "lineDarkTop": "Full auto ",
+      "lineDarkTopAccent": "AI trading Agent",
       "rotateLines": [
         "on Hyperliquid",
         "with automated perps",
@@ -879,9 +882,37 @@
     }
   },
   "app": {
+    "buyUsdc": {
+      "title": "Buy USDC",
+      "sub": "Pay with Visa, Mastercard or Apple Pay · USDC arrives in your wallet on Arbitrum",
+      "trust": "Card details stay with {{provider}}. HyperGain never sees or stores your payment info — USDC goes straight to your wallet, then you deposit to Hyperliquid.",
+      "connectFirst": "Connect your wallet so we can send USDC to the right address.",
+      "notConfigured": "Card buy is not enabled yet on this environment.",
+      "notConfiguredHint": "Add MOONPAY_API_KEY + MOONPAY_SECRET_KEY on bot-service (or VITE_MOONPAY_API_KEY on the frontend).",
+      "loading": "Loading secure checkout…",
+      "openExternal": "Open in new tab",
+      "afterBuy": "After purchase, wait for USDC in MetaMask on Arbitrum, then Deposit to Hyperliquid.",
+      "cta": "Buy USDC with card",
+      "ctaShort": "Buy with card",
+      "ctaHint": "Visa, Mastercard, Apple Pay · USDC on Arbitrum",
+      "ctaSecure": "SSL encrypted by {{provider}}",
+      "pasteWallet": "Paste this Arbitrum address in checkout if asked:",
+      "copy": "Copy",
+      "copied": "Copied"
+    },
+    "buyCrypto": {
+      "navLabel": "Buy crypto",
+      "navShort": "Buy",
+      "titleBefore": "Buy ",
+      "cryptoWord": "crypto",
+      "titleAfter": " instantly with {{provider}}",
+      "lead": "Card, Apple Pay or Google Pay — crypto lands in your connected wallet on Arbitrum.",
+      "widgetLabel": "MoonPay checkout",
+      "partners": "Accepted payment methods"
+    },
     "nav": {
       "perps": "Perps",
-      "bot": "Agent trade",
+      "bot": "Bot trade",
       "betting": "Betting",
       "portfolio": "Portfolio",
       "news": "News",
@@ -968,7 +999,9 @@
       "sent": "Sent",
       "sendMessage": "Send message",
       "supportHours": "Support hours",
-      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · live chat when the team is online"
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · live chat when the team is online",
+      "docsNavLabel": "Help",
+      "familiarTitle": "Get familiar with HyperGain"
     },
     "community": {
       "title": "Community · Help Center",
@@ -1595,5 +1628,20 @@
     "hoursAgo": "{{n}}h ago",
     "daysAgo": "{{n}}d ago",
     "live": "LIVE"
+  },
+  "blog": {
+    "title": "Blog",
+    "lead": "The latest news and product notes from HyperGain.",
+    "recent": "Recent posts",
+    "back": "All posts"
+  },
+  "docs": {
+    "navLabel": "Documentation",
+    "title": "HyperGain Documentation",
+    "lead": "Everything you need to run the non-custodial Hyperliquid AI trading agent: how deposits work on Arbitrum USDC, one-time agent approval, profit trailing, fees, the on-chain leaderboard, and AI sports betting — without giving up your keys.",
+    "familiar": "Get familiar with HyperGain",
+    "browse": "Browse docs",
+    "learnMore": "Learn more",
+    "back": "All docs"
   }
 }

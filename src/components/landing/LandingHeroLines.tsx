@@ -5,6 +5,8 @@ const ROTATE_MS = 3200;
 
 type Props = {
   lineDarkTop: string;
+  /** Optional green accent suffix/phrase in the top title line (e.g. "AI trading Agent"). */
+  lineDarkTopAccent?: string;
   rotateLines: readonly string[];
   lineDarkBottom?: string;
   /** middle = Trade | rotate | bottom (subpages). two-row = static block + rotate. */
@@ -21,6 +23,7 @@ type Props = {
 
 const LandingHeroLines: React.FC<Props> = ({
   lineDarkTop,
+  lineDarkTopAccent,
   rotateLines,
   lineDarkBottom = '',
   rotatePosition = 'middle',
@@ -83,13 +86,22 @@ const LandingHeroLines: React.FC<Props> = ({
     </div>
   );
 
+  const topLine = lineDarkTopAccent ? (
+    <>
+      {lineDarkTop}
+      <span className="landing-gmx-hero-line--accent">{lineDarkTopAccent}</span>
+    </>
+  ) : (
+    lineDarkTop
+  );
+
   return (
     <div className={`landing-gmx-hero-title ${className}`.trim()}>
       <div className="landing-gmx-hero-lines">
         {rotatePosition === 'two-row' ? (
           <>
             <div className="landing-gmx-hero-static-lines">
-              <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
+              <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{topLine}</div>
               {lineDarkBottom && !rotateSuffix ? (
                 <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkBottom}</div>
               ) : null}
@@ -111,7 +123,7 @@ const LandingHeroLines: React.FC<Props> = ({
           </>
         ) : (
           <>
-            <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{lineDarkTop}</div>
+            <div className="landing-gmx-hero-line landing-gmx-hero-line--dark">{topLine}</div>
             {rotateBlock}
             {lineDarkBottom ? (
               <div

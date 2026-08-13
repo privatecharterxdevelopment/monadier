@@ -3,6 +3,7 @@ import {
   Bot,
   Briefcase,
   CandlestickChart,
+  CreditCard,
   Gift,
   Headphones,
   Medal,
@@ -37,6 +38,7 @@ export type ProTradeSection =
   | 'portfolio'
   | 'community'
   | 'support'
+  | 'buy'
   | 'profile'
   | 'history'
   | 'affiliate'
@@ -200,6 +202,16 @@ const ProTradeTopNav: React.FC<Props> = ({
         <ProTradeThemeIcon />
         <button
           type="button"
+          className={`hl-topnav-buy-btn${section === 'buy' ? ' hl-topnav-buy-btn--on' : ''}`}
+          aria-label={t('app.buyCrypto.navLabel')}
+          aria-current={section === 'buy' ? 'page' : undefined}
+          onClick={() => pickNavSection('buy', true)}
+        >
+          <CreditCard size={15} strokeWidth={2.25} aria-hidden />
+          <span className="hl-topnav-buy-btn__label">{t('app.buyCrypto.navShort')}</span>
+        </button>
+        <button
+          type="button"
           className={`hl-topnav-icon-btn hl-topnav-support-btn hl-topnav-support-btn--desktop${section === 'support' ? ' hl-topnav-support-btn--on' : ''}`}
           aria-label={t('common.support')}
           aria-current={section === 'support' ? 'page' : undefined}
@@ -279,6 +291,16 @@ const ProTradeTopNav: React.FC<Props> = ({
                   {id === 'bot' ? <DockCountBadge count={botOpenCount} tone={botOpenTone} /> : null}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`hl-mobile-nav-link ${section === 'buy' ? 'hl-mobile-nav-link--on' : ''}`}
+                onClick={() => pickSection('buy', true)}
+              >
+                <span className="hl-mobile-nav-link-main">
+                  <CreditCard size={16} aria-hidden />
+                  {t('app.buyCrypto.navLabel')}
+                </span>
+              </button>
               <button
                 type="button"
                 className={`hl-mobile-nav-link ${section === 'support' ? 'hl-mobile-nav-link--on' : ''}`}

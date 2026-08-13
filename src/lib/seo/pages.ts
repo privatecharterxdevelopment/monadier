@@ -19,7 +19,7 @@ const BOT_KEYWORDS =
 
 /**
  * Indexable primary pages (AL nav + home + product + legal):
- * /, /trading-bot, /how-it-works, /leaderboard, /faqs, /support, /terms, /privacy
+ * /, /trading-bot, /how-it-works, /leaderboard, /docs, /faqs, /support, /terms, /privacy
  *
  * Everything else is noindex (secondary product, thin pages, auth).
  */
@@ -72,6 +72,16 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     keywords: `hyperliquid agent support, HyperGain help center, trading agent help, ${BOT_KEYWORDS}`,
     changefreq: 'monthly',
     priority: 0.8,
+    sitemap: true,
+  },
+  '/docs': {
+    path: '/docs',
+    title: `Docs | Hyperliquid AI Trading Agent Documentation — ${SITE_NAME}`,
+    description:
+      'HyperGain documentation — getting started, non-custodial funds, profit trailing, fees, leaderboard, and AI sports betting on Hyperliquid.',
+    keywords: `HyperGain docs, hyperliquid trading agent documentation, AI trading agent guide, ${BOT_KEYWORDS}`,
+    changefreq: 'weekly',
+    priority: 0.75,
     sitemap: true,
   },
   '/terms': {

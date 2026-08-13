@@ -56,11 +56,14 @@
     "support": "支持",
     "about": "关于",
     "copyright": "© {{year}} HyperGain · Hyperliquid 自动交易 · administration@hypergain.io",
-    "faqs": "常见问题"
+    "faqs": "常见问题",
+    "blog": "博客",
+    "docs": "文档"
   },
   "landing": {
     "hero": {
-      "lineDarkTop": "全自动 AI 交易代理",
+      "lineDarkTop": "全自动 ",
+      "lineDarkTopAccent": "AI 交易代理",
       "rotateLines": [
         "在 Hyperliquid 上",
         "自动化永续合约",
@@ -793,9 +796,37 @@
     }
   },
   "app": {
+    "buyUsdc": {
+      "title": "Buy USDC",
+      "sub": "Card or Apple Pay via {{provider}} · lands in your wallet on Arbitrum",
+      "trust": "HyperGain never holds your card or crypto. Purchase goes straight to your connected wallet as native USDC on Arbitrum One — then deposit to Hyperliquid.",
+      "connectFirst": "Connect your wallet so we can send USDC to the right address.",
+      "notConfigured": "Card buy is not enabled yet on this environment.",
+      "notConfiguredHint": "Set VITE_MOONPAY_API_KEY (or VITE_RAMP_HOST_API_KEY) in your deploy env.",
+      "loading": "Loading secure checkout…",
+      "openExternal": "Open in new tab",
+      "afterBuy": "After purchase, wait for USDC in MetaMask on Arbitrum, then Deposit to Hyperliquid.",
+      "cta": "Buy USDC with card",
+      "ctaShort": "Buy with card",
+      "pasteWallet": "Paste this Arbitrum address in checkout if asked:",
+      "copy": "Copy",
+      "copied": "Copied",
+      "ctaHint": "Visa, Mastercard, Apple Pay · USDC on Arbitrum",
+      "ctaSecure": "SSL encrypted by {{provider}}"
+    },
+    "buyCrypto": {
+      "navLabel": "Buy crypto",
+      "navShort": "Buy",
+      "titleBefore": "Buy ",
+      "cryptoWord": "crypto",
+      "titleAfter": " instantly with {{provider}}",
+      "lead": "Card, Apple Pay or Google Pay — crypto lands in your connected wallet on Arbitrum.",
+      "widgetLabel": "MoonPay checkout",
+      "partners": "Accepted payment methods"
+    },
     "nav": {
       "perps": "永续",
-      "bot": "机器人交易",
+      "bot": "Bot交易",
       "betting": "投注",
       "portfolio": "投资组合",
       "news": "新闻",
@@ -1379,5 +1410,20 @@
     "back": "返回",
     "next": "下一步",
     "startTrading": "立即开始交易"
+  },
+  "blog": {
+    "title": "Blog",
+    "lead": "The latest news and product notes from HyperGain.",
+    "recent": "Recent posts",
+    "back": "All posts"
+  },
+  "docs": {
+    "navLabel": "Documentation",
+    "title": "HyperGain Documentation",
+    "lead": "Everything you need to run the non-custodial Hyperliquid AI trading agent: how deposits work on Arbitrum USDC, one-time agent approval, profit trailing, fees, the on-chain leaderboard, and AI sports betting — without giving up your keys.",
+    "familiar": "Get familiar with HyperGain",
+    "browse": "Browse docs",
+    "learnMore": "Learn more",
+    "back": "All docs"
   }
 }

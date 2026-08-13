@@ -1,0 +1,187 @@
+/**
+ * HyperGain Docs — Aave-style documentation structure.
+ */
+
+export type DocsSectionId = 'introduction' | 'getting-started' | 'agent' | 'funds' | 'betting';
+
+export type DocsNavItem = {
+  slug: string;
+  title: string;
+  description: string;
+  section: DocsSectionId;
+};
+
+export type DocsSection = {
+  id: DocsSectionId;
+  title: string;
+  items: DocsNavItem[];
+};
+
+export type DocsArticle = DocsNavItem & {
+  body: string[];
+};
+
+const ARTICLES: DocsArticle[] = [
+  {
+    slug: 'overview',
+    title: 'Overview',
+    description: 'What HyperGain is and how the non-custodial agent fits on Hyperliquid.',
+    section: 'introduction',
+    body: [
+      'HyperGain is a non-custodial Hyperliquid trading platform: an AI perpetuals agent that can run 24/7 on your HL account, plus pro perps and on-chain sports/outcome betting — one interface.',
+      'We supply the automation layer. Your USDC stays on Hyperliquid in your name. HyperGain never holds private keys and never takes custody of deposits into a company wallet.',
+      'The agent scans 200+ Hyperliquid perps while Start bot is on, opens and closes according to your risk settings (slots, leverage, trailing), and can be stopped anytime. You can also close positions manually in the terminal.',
+      'There are no promised or guaranteed returns. Leveraged crypto trading is high risk — you can lose money. Past P/L on the leaderboard does not predict future results. Not financial advice.',
+    ],
+  },
+  {
+    slug: 'hypergain-101',
+    title: 'HyperGain 101',
+    description: 'Learn the basics — wallet, USDC on Arbitrum, agent approval, and Start bot.',
+    section: 'introduction',
+    body: [
+      'HyperGain is built for people who want Hyperliquid perpetuals automation without babysitting charts or handing over keys.',
+      'Create a free account, connect MetaMask or WalletConnect, and make sure you are on Arbitrum One. Fund with native USDC on Arbitrum — other chains or USDC variants will not credit correctly into the HL flow.',
+      'Deposit into your Hyperliquid account via the in-app Funds flow. HL’s minimum deposit is $5; the agent typically needs about $20+ USDC on HL to run usefully.',
+      'Approve the trading agent once. That approval is for trading only — not withdrawals. Withdrawals always require your wallet on Hyperliquid.',
+      'Press Start bot when funded. You do not need to keep the browser open; automation runs on HyperGain servers until you stop it.',
+    ],
+  },
+  {
+    slug: 'getting-started',
+    title: 'Getting started',
+    description: 'Four steps from signup to live automation.',
+    section: 'getting-started',
+    body: [
+      'Step 1 — Account & wallet: Register free, sign in, and connect MetaMask or WalletConnect on Arbitrum One.',
+      'Step 2 — Fund Hyperliquid: Use the Funds tab to bridge native Arbitrum USDC into your HL account. Wrong chain / wrong USDC variant will not work.',
+      'Step 3 — Approve once: Grant the HyperGain trading agent permission to place orders on your HL account. It cannot withdraw.',
+      'Step 4 — Start bot: Choose slots / risk preferences if needed, then press Start bot. While it is on and you have enough free margin, the agent scans and may open or close positions around the clock.',
+      'Stop bot anytime. Open positions remain yours on Hyperliquid until you close them (manually or via the agent’s exit logic). Always size for risk you can afford to lose.',
+    ],
+  },
+  {
+    slug: 'non-custodial',
+    title: 'Non-custodial funds',
+    description: 'Keys, withdrawals, and what the agent can (and cannot) do.',
+    section: 'funds',
+    body: [
+      'Custody is the first question serious users ask. HyperGain does not take deposits into a platform hot wallet. Your USDC lives on Hyperliquid under your account.',
+      'We never hold your private keys. Signing in and connecting a wallet does not give HyperGain the ability to drain funds.',
+      'After you approve the trading agent, it can place and manage trades on Hyperliquid according to your settings. It cannot withdraw USDC off HL. Withdrawals always need your wallet action on Hyperliquid.',
+      'If someone asks you to seed a “company wallet” or share a seed phrase to use HyperGain — that is not us. Keep keys offline and only approve the official agent flow in the app.',
+    ],
+  },
+  {
+    slug: 'profit-trailing',
+    title: 'Profit trailing',
+    description: 'How winners are trailed and when the agent cuts a pullback.',
+    section: 'agent',
+    body: [
+      'When a position turns profitable, the agent can arm a trailing stop that follows favorable price and exits on a defined pullback — so winners can run without requiring you to watch every candle.',
+      'For longs, the trail sits below the high (favorable extreme) and ratchets up as price makes new highs. For shorts, the trail sits above the low and ratchets down.',
+      'The trail should never sit on the wrong side of the market (e.g. a long stop above mark). If something looks inverted, stop the agent and review the position in the terminal.',
+      'Per-position “let run” overrides trail for that coin only when you turn it on — useful when you want to manage an exit manually. Default is trail-capable when the position is in profit and let run is off.',
+    ],
+  },
+  {
+    slug: 'leaderboard',
+    title: 'On-chain leaderboard',
+    description: 'Why closes are public and how to verify on HypurrScan.',
+    section: 'agent',
+    body: [
+      'Marketing screenshots are easy to fake. HyperGain’s public leaderboard is wired to real Hyperliquid closes from agent activity.',
+      'Wallets are masked on the site for privacy. Full addresses and fills can be verified on HypurrScan and other HL explorers.',
+      'Use the board as transparency — not as a yield promise. Past results do not predict future performance, and leveraged trading can lose money quickly.',
+    ],
+  },
+  {
+    slug: 'fees',
+    title: 'Fees',
+    description: 'Hyperliquid trading fees, builder fees, and platform success fees.',
+    section: 'funds',
+    body: [
+      'Hyperliquid charges trading fees on perp fills (maker/taker style depending on the venue fill). Those fees are part of trading on HL whether or not you use HyperGain.',
+      'HyperGain may charge a builder fee on HL orders and subscription tiers for agent access. Check Pricing on the site and fee settings in the app for current numbers.',
+      'Platform success fees on agent closes typically apply only when a trade is profitable — see current terms in the app. Losing closes should not be billed as “success.”',
+      'Always leave enough free margin for fees and adverse moves. If withdrawable or free margin is near zero, new opens can fail even when equity looks fine.',
+    ],
+  },
+  {
+    slug: 'sports-betting',
+    title: 'AI sports betting',
+    description: 'Outcome markets from HL spot — same non-custodial model.',
+    section: 'betting',
+    body: [
+      'HyperGain also surfaces Hyperliquid outcome markets for sports and macro-style events. Funding comes from your HL spot balance — same non-custodial model as the trading agent.',
+      'Pick Yes/No at live odds, size the stake you can afford, and track open bets in the app. Cash out when liquidity allows, or hold to settlement.',
+      'Odds and available size depend on HL market liquidity. Thin books can mean wider prices or limited cash-out. This is not a sportsbook deposit account; funds stay on Hyperliquid.',
+    ],
+  },
+];
+
+export const DOCS_SECTIONS: DocsSection[] = [
+  {
+    id: 'introduction',
+    title: 'Introduction',
+    items: ARTICLES.filter((a) => a.section === 'introduction'),
+  },
+  {
+    id: 'getting-started',
+    title: 'Getting started',
+    items: ARTICLES.filter((a) => a.section === 'getting-started'),
+  },
+  {
+    id: 'agent',
+    title: 'Trading agent',
+    items: ARTICLES.filter((a) => a.section === 'agent'),
+  },
+  {
+    id: 'funds',
+    title: 'Funds & fees',
+    items: ARTICLES.filter((a) => a.section === 'funds'),
+  },
+  {
+    id: 'betting',
+    title: 'Betting',
+    items: ARTICLES.filter((a) => a.section === 'betting'),
+  },
+];
+
+export const DOCS_FEATURED = {
+  slug: 'getting-started',
+  title: 'Getting started with HyperGain',
+  description:
+    'Connect a wallet, fund Arbitrum USDC into Hyperliquid, approve the agent once, and press Start bot — automation runs 24/7 until you stop it.',
+};
+
+export const DOCS_FAMILIAR = [
+  {
+    slug: 'hypergain-101',
+    title: 'HyperGain 101',
+    description: 'Wallet, Arbitrum USDC, approval, and Start bot in plain language.',
+  },
+  {
+    slug: 'non-custodial',
+    title: 'Non-custodial',
+    description: 'What we can trade — and why we cannot withdraw your funds.',
+  },
+  {
+    slug: 'profit-trailing',
+    title: 'Profit trailing',
+    description: 'How winners are trailed and when pullbacks get cut.',
+  },
+  {
+    slug: 'fees',
+    title: 'Fees',
+    description: 'HL trading fees, builder fees, and when success fees apply.',
+  },
+];
+
+export function getDocsArticle(slug: string): DocsArticle | undefined {
+  return ARTICLES.find((a) => a.slug === slug);
+}
+
+export function getAllDocsArticles(): DocsArticle[] {
+  return ARTICLES;
+}

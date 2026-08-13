@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Headphones } from 'lucide-react';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
@@ -75,9 +75,6 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
           </div>
 
           <div className="landing-al-nav-center hidden sm:flex">
-            <Link to="/support" className={`landing-al-nav-link ${linkClass}`}>
-              {t('common.helpCenter')}
-            </Link>
             <Link to="/faqs" className={`landing-al-nav-link ${linkClass}`}>
               {t('footer.faqs')}
             </Link>
@@ -87,9 +84,20 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
             <Link to="/how-it-works" className={`landing-al-nav-link ${linkClass}`}>
               {t('common.howItWorks')}
             </Link>
+            <Link to="/docs" className={`landing-al-nav-link ${linkClass}`}>
+              {t('footer.docs')}
+            </Link>
           </div>
 
           <div className="landing-al-nav-right">
+            <Link
+              to="/support"
+              className="landing-al-nav-support"
+              aria-label={t('common.helpCenter')}
+              title={t('common.helpCenter')}
+            >
+              <Headphones size={18} strokeWidth={2.15} aria-hidden />
+            </Link>
             <LandingThemeToggle />
             <LanguageSwitcher variant={langVariant} className="landing-al-lang" />
             <OpenAppLink className="hidden sm:inline-flex landing-al-nav-cta">
@@ -141,10 +149,15 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
         <div className="flex items-center gap-1 md:gap-2">
           {minimal ? (
             <>
-              <LandingThemeToggle />
-              <Link to="/support" className={`hidden sm:inline-flex px-2 py-1.5 ${linkClass}`}>
-                {t('common.helpCenter')}
+              <Link
+                to="/support"
+                className="landing-al-nav-support hidden sm:inline-flex"
+                aria-label={t('common.helpCenter')}
+                title={t('common.helpCenter')}
+              >
+                <Headphones size={18} strokeWidth={2.15} aria-hidden />
               </Link>
+              <LandingThemeToggle />
               <Link to="/leaderboard" className={`hidden sm:inline-flex px-2 py-1.5 ${linkClass}`}>
                 {t('common.leaderboard')}
               </Link>
@@ -157,6 +170,14 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
             </>
           ) : (
             <>
+              <Link
+                to="/support"
+                className="landing-al-nav-support"
+                aria-label={t('common.helpCenter')}
+                title={t('common.helpCenter')}
+              >
+                <Headphones size={18} strokeWidth={2.15} aria-hidden />
+              </Link>
               <OfficialXLink className="landing-nav-x" />
               <LandingThemeToggle />
               <LanguageSwitcher variant={langVariant} />

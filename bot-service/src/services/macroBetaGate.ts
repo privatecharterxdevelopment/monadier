@@ -169,7 +169,8 @@ export async function evaluateMacroBetaAlignment(opts: {
   const isPumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
     const hits: string[] = [];
     if (m.change15mPct >= pump15) hits.push(`${label} 15m +${m.change15mPct.toFixed(2)}%`);
-    if (m.consecutiveGreen15m >= minGreen) {
+    // Consecutive greens alone are noise on majors — need a real 15m lift too.
+    if (m.consecutiveGreen15m >= minGreen && m.change15mPct >= Math.max(pump15 * 0.45, cfg.flatTrendPct)) {
       hits.push(`${label} ${m.consecutiveGreen15m}× green 15m candles`);
     }
     if (m.change1hPct >= pump1h) {
@@ -187,7 +188,8 @@ export async function evaluateMacroBetaAlignment(opts: {
   const isDumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
     const hits: string[] = [];
     if (m.change15mPct <= -dump15) hits.push(`${label} 15m ${m.change15mPct.toFixed(2)}%`);
-    if (m.consecutiveRed15m >= minRed) {
+    // 3 tiny red dojis must not block ETH/BTC LONGs — require meaningful 15m dump too.
+    if (m.consecutiveRed15m >= minRed && m.change15mPct <= -Math.max(dump15 * 0.45, cfg.flatTrendPct)) {
       hits.push(`${label} ${m.consecutiveRed15m}× red 15m candles`);
     }
     if (m.change1hPct <= -dump1h) {

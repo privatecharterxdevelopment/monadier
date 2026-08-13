@@ -9,6 +9,7 @@
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { isLongAllowedCoin } from './longAllowlist';
+import { logger } from '../utils/logger';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -419,27 +420,33 @@ export async function validateEntryLocation(opts: {
   // Zone flip ON by default — counter-open when zone confirms the other side.
   // SHORT-primary (bear_market): NEVER flip SHORT→LONG at "support" — that is the
   // falling-knife bug (ETH/SOL 2026-08-03). Wait for breakdown or skip.
+  // SHORT-only alts (not BTC/ETH/SOL): same — never propose LONG flip; fall through
+  // to classic SHORT eval (breakdown / R-fade / continuation) instead of
+  // "ok+flip LONG" → long_allowlist kill of the SHORT.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
     zoneGate.flipTo !== opts.direction
   ) {
-    if (
+    const longFlipBlocked =
       zoneGate.flipTo === 'LONG' &&
-      config.hyperliquid.directionProfile.primaryDirection === 'SHORT'
-    ) {
+      (config.hyperliquid.directionProfile.primaryDirection === 'SHORT' ||
+        !isLongAllowedCoin(opts.coin ?? ''));
+    if (longFlipBlocked) {
+      // Fall through — do not return flipTo LONG for SHORT-only / bear profiles.
+      logger.info('HL zone flip SHORT→LONG suppressed at location gate', {
+        coin: opts.coin,
+        reason: zoneGate.reason,
+        profile: config.hyperliquid.directionProfile.name,
+      });
+    } else {
       return {
-        ok: false,
-        reason: `${zoneGate.reason} — SHORT-primary: no SHORT→LONG into support (dump = stay SHORT / wait breakdown)`,
+        ok: true,
+        reason: zoneGate.reason,
         analysis: sr,
+        flipTo: zoneGate.flipTo,
       };
     }
-    return {
-      ok: true,
-      reason: zoneGate.reason,
-      analysis: sr,
-      flipTo: zoneGate.flipTo,
-    };
   }
 
   // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).

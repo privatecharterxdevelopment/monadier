@@ -28,6 +28,7 @@ import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal
 import ProTradeTransferModal from '../../components/protrade/ProTradeTransferModal';
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
+import ProTradeBuyCryptoPage from '../../components/protrade/ProTradeBuyCryptoPage';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
 import ProTradeLeaderboard from '../../components/protrade/ProTradeLeaderboard';
@@ -106,6 +107,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (initialSection === 'leaderboard') return 'leaderboard';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     if (initialSection === 'support') return 'support';
+    if (initialSection === 'buy') return 'buy';
     if (initialSection === 'portfolio') return 'portfolio';
     if (initialSection === 'affiliate') return 'affiliate';
     if (initialSection === 'profile' || initialSection === 'history') return 'profile';
@@ -498,6 +500,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       target === 'bot' ||
       target === 'sportsbets' ||
       target === 'support' ||
+      target === 'buy' ||
       target === 'leaderboard' ||
       target === 'affiliate'
     ) {
@@ -526,6 +529,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         setSection('sportsbets');
       } else if (urlSection === 'support') {
         setSection('support');
+      } else if (urlSection === 'buy') {
+        setSection('buy');
       } else if (
         urlSection === 'community' ||
         urlSection === 'news' ||
@@ -555,6 +560,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       setSection('sportsbets');
     } else if (urlSection === 'support') {
       setSection('support');
+    } else if (urlSection === 'buy') {
+      setSection('buy');
     } else if (
       urlSection === 'community' ||
       urlSection === 'news' ||
@@ -920,6 +927,11 @@ const Dashboard2ProPageContent: React.FC = () => {
       {section === 'support' ? (
         <div className="hl-terminal hl-terminal--support">
           <ProTradeSupport onRequireSignIn={promptSignIn} />
+        </div>
+      ) : null}
+      {section === 'buy' ? (
+        <div className="hl-terminal hl-terminal--buy">
+          <ProTradeBuyCryptoPage />
         </div>
       ) : null}
       {section === 'portfolio' ? (

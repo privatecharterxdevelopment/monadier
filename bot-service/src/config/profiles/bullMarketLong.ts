@@ -45,5 +45,7 @@ export const BULL_MARKET: HlDirectionProfile = {
     /** Strong MTF SHORT skips volume-fade / perp sell-low secondaries. */
     relaxSecondaryGates: true,
     trustMtfScan: true,
+    /** Trusted MTF dump: don't re-kill with tiny 1h noise (+0.18% was blocking). */
+    bypassPumpShortWhenTrusted: true,
   },
 };

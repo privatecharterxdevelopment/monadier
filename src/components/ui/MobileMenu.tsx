@@ -75,9 +75,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
           <nav className="landing-mobile-menu-nav">
             {minimal ? (
               <>
-                <Link to="/support" onClick={() => setIsOpen(false)} className={itemClass(isActive('/support'))}>
-                  {t('common.helpCenter')}
-                </Link>
                 <Link to="/faqs" onClick={() => setIsOpen(false)} className={itemClass(isActive('/faqs'))}>
                   {t('footer.faqs')}
                 </Link>
@@ -94,6 +91,12 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                   className={itemClass(isActive('/how-it-works'))}
                 >
                   {t('common.howItWorks')}
+                </Link>
+                <Link to="/docs" onClick={() => setIsOpen(false)} className={itemClass(isActive('/docs'))}>
+                  {t('footer.docs')}
+                </Link>
+                <Link to="/support" onClick={() => setIsOpen(false)} className={itemClass(isActive('/support'))}>
+                  {t('common.helpCenter')}
                 </Link>
               </>
             ) : (

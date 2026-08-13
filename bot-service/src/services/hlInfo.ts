@@ -399,23 +399,80 @@ export function isHlExtraAgentActive(agent: HlExtraAgent): boolean {
 export async function fetchHlMeta(): Promise<{
   universe: { name: string; szDecimals: number; maxLeverage?: number; isDelisted?: boolean }[];
 }> {
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'meta' }),
-  });
-  if (!res.ok) throw new Error('HL meta fetch failed');
-  return res.json();
+  return fetchHlInfoCached('meta', { type: 'meta' }, META_TTL_MS);
 }
 
 export async function fetchHlAllMids(): Promise<Record<string, string>> {
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'allMids' }),
-  });
-  if (!res.ok) throw new Error('HL allMids fetch failed');
-  return res.json();
+  return fetchHlInfoCached('allMids', { type: 'allMids' }, MIDS_TTL_MS);
+}
+
+const META_TTL_MS = Number(process.env.HL_META_CACHE_MS || 30_000);
+const MIDS_TTL_MS = Number(process.env.HL_MIDS_CACHE_MS || 5_000);
+
+type HlInfoCacheEntry = { at: number; data: unknown };
+const hlInfoCache = new Map<string, HlInfoCacheEntry>();
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Shared HL info POST with short TTL cache + stale fallback on 429/5xx.
+ * Without this, 1s trade cycles + leaderboard + monitors stampede HL and
+ * wipe entire open cycles (`HL meta fetch failed`).
+ */
+async function fetchHlInfoCached<T>(
+  cacheKey: string,
+  body: Record<string, unknown>,
+  ttlMs: number
+): Promise<T> {
+  const hit = hlInfoCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < ttlMs) {
+    return hit.data as T;
+  }
+
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      lastStatus = res.status;
+      if (res.status === 429 || res.status >= 500) {
+        if (hit) {
+          logger.warn('HL info rate-limited — serving stale cache', {
+            cacheKey,
+            status: res.status,
+            ageMs: Date.now() - hit.at,
+          });
+          return hit.data as T;
+        }
+        await sleep(250 * (attempt + 1) * (attempt + 1));
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(`HL ${cacheKey} fetch failed (${res.status})`);
+      }
+      const data = (await res.json()) as T;
+      hlInfoCache.set(cacheKey, { at: Date.now(), data });
+      return data;
+    } catch (err) {
+      if (hit && attempt >= 2) {
+        logger.warn('HL info fetch error — serving stale cache', {
+          cacheKey,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return hit.data as T;
+      }
+      if (attempt >= 2) throw err;
+      await sleep(200 * (attempt + 1));
+    }
+  }
+
+  if (hit) return hit.data as T;
+  throw new Error(`HL ${cacheKey} fetch failed (${lastStatus || 'network'})`);
 }
 
 type HlRawFill = {

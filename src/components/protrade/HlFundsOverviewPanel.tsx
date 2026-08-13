@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { useBettingUi } from '../../contexts/BettingUiContext';
 import { useBettingFeeGate } from '../../contexts/BettingFeeContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { useAuth } from '../../contexts/AuthContext';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import BuyUsdcCta from './BuyUsdcCta';
+import BuyUsdcModal from './BuyUsdcModal';
 
 type Props = {
   walletAddress?: string | null;
@@ -26,6 +29,7 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
   title = 'Hyperliquid funds',
 }) => {
   const { openFunds } = useBettingUi();
+  const { open: openWallet } = useMonadierAppKit();
   const platformFees = usePlatformFeeGate();
   const bettingFees = useBettingFeeGate();
   const withdrawGate = useWithdrawFeeGate();
@@ -34,6 +38,7 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
   const { metrics } = useDashboard2Metrics();
   const wallet = (walletAddress ?? address)?.toLowerCase();
   const { snapshot } = useHlAccountSnapshot(wallet);
+  const [buyUsdcOpen, setBuyUsdcOpen] = useState(false);
 
   const isAuthenticated = Boolean(user) || isDemoUser;
   const hlPerpUsd = snapshot?.tradablePerpUsd ?? metrics.hlBalanceUsd;
@@ -137,6 +142,18 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
             <ArrowUpRight size={14} aria-hidden />
             Withdraw USDC
           </button>
+          <BuyUsdcCta
+            compact
+            onClick={() =>
+              requireAccount('Sign in before buying USDC.', () => {
+                if (!isConnected) {
+                  openWallet();
+                  return;
+                }
+                setBuyUsdcOpen(true);
+              })
+            }
+          />
         </div>
 
         <p className="hl-funds-overview__hint">
@@ -153,12 +170,19 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
             </>
           ) : (
             <>
-              Deposit native USDC on Arbitrum. Withdrawable balance may be lower while a position is
-              open.
+              Buy native USDC on Arbitrum with card, then deposit to Hyperliquid. Withdrawable
+              balance may be lower while a position is open.
             </>
           )}
         </p>
       </div>
+
+      <BuyUsdcModal
+        open={buyUsdcOpen}
+        onClose={() => setBuyUsdcOpen(false)}
+        walletAddress={address ?? walletAddress}
+        onRequireWallet={() => openWallet()}
+      />
     </section>
   );
 };

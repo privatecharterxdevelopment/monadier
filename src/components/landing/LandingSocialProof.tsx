@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { TRUSTED_TRADER_AVATARS } from '../../lib/landing/trustedTraderAvatars';
-import { formatLandingUserCount, getLandingUserCount } from '../../lib/landingUserCounter';
+import { useLandingUserCount } from '../../hooks/useLandingUserCount';
 
 type Props = {
   worldwide?: boolean;
@@ -9,7 +9,7 @@ type Props = {
 
 const LandingSocialProof: React.FC<Props> = ({ worldwide = false }) => {
   const { t } = useTranslation();
-  const countLabel = useMemo(() => formatLandingUserCount(getLandingUserCount()), []);
+  const { label: countLabel } = useLandingUserCount();
 
   return (
     <div className="landing-gmx-social-proof" aria-label={t('landing.socialProof.aria')}>

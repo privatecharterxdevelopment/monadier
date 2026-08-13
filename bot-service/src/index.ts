@@ -79,6 +79,7 @@ import {
 } from './services/platformFees';
 import { getHlPositionTrailSnapshots } from './services/hlPositionTrailStatus';
 import { getPublicHlLeaderboard } from './services/hlPublicLeaderboard';
+import { buildMoonPayBuyUrl, moonpayConfigured } from './services/moonpayOnramp';
 
 // Health check server for Railway/cloud deployments
 const PORT = process.env.PORT || 3001;
@@ -1297,6 +1298,52 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  /** Signed MoonPay buy URL — Arbitrum native USDC to the connected wallet. */
+  if (url.pathname === '/api/onramp/moonpay-url' && req.method === 'GET') {
+    try {
+      if (!moonpayConfigured()) {
+        res.writeHead(503, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'MoonPay not configured' }));
+        return;
+      }
+      const wallet = (url.searchParams.get('wallet') || '').trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'Valid wallet required' }));
+        return;
+      }
+      const themeRaw = (url.searchParams.get('theme') || 'light').toLowerCase();
+      const theme = themeRaw === 'dark' ? 'dark' : 'light';
+      const language = (url.searchParams.get('lang') || 'en').slice(0, 2);
+      const amountRaw = Number(url.searchParams.get('amount') || 0);
+      const fiatAmount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : undefined;
+      const built = buildMoonPayBuyUrl({
+        walletAddress: wallet,
+        theme,
+        language,
+        fiatAmount,
+      });
+      res.writeHead(200, {
+        ...corsHeaders,
+        'Cache-Control': 'no-store',
+      });
+      res.end(
+        JSON.stringify({
+          success: true,
+          url: built.url,
+          signed: built.signed,
+          currency: 'usdc_arbitrum',
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'moonpay-url failed';
+      logger.error('API: onramp/moonpay-url failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/global-signals') {
     try {
       const scan =
@@ -1566,6 +1613,7 @@ healthServer.listen(Number(PORT), HOST, () => {
   logger.info('  POST /api/referral/try-qualify - Qualify referral after HL fund + bot activity');
   logger.info('  GET /api/bot-status?wallet=0x… - Wallet bot diagnostics');
   logger.info('  GET /api/public-leaderboard - Live Hyperliquid L1 bot closes');
+  logger.info('  GET /api/onramp/moonpay-url?wallet=0x… - Signed MoonPay Arbitrum USDC buy URL');
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
@@ -1754,7 +1802,12 @@ async function runTradingCycle(): Promise<void> {
         globalSignals: ctx.globalScan.standard.length + ctx.globalScan.aggressive.length,
       });
     } catch (err) {
-      logger.error('Error in HL trading cycle', { error: err });
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      logger.error('Error in HL trading cycle', {
+        error: msg,
+        stack: stack?.split('\n').slice(0, 4).join(' | '),
+      });
     }
   } finally {
     isTradingCycleRunning = false;

@@ -85,7 +85,14 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
     body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
   });
   if (!res.ok) {
-    throw new Error('HL metaAndAssetCtxs fetch failed');
+    if (cached && (res.status === 429 || res.status >= 500)) {
+      logger.warn('HL metaAndAssetCtxs rate-limited — serving stale universe', {
+        status: res.status,
+        ageMs: Date.now() - cached.fetchedAt,
+      });
+      return cached;
+    }
+    throw new Error(`HL metaAndAssetCtxs fetch failed (${res.status})`);
   }
 
   const raw = (await res.json()) as unknown;
