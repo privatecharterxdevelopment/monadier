@@ -621,6 +621,58 @@
       "registerCta": "Register now",
       "startBotCta": "Start bot trading",
       "stepsLabel": "How it works"
+    },
+    "howShowcase": {
+      "title": "Come funziona",
+      "lead": "Sinistra: l’app reale. Destra: cosa fai davvero.",
+      "steps": {
+        "funds": {
+          "title": "I tuoi fondi <0>restano su Hyperliquid</0>",
+          "text": "Saldo, USDC prelevabile, margine — una tab Funds. Deposita e preleva quando vuoi. Niente resta con noi.",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
+          "badges": [
+            "Non-custodial",
+            "Funds",
+            "Preleva quando vuoi"
+          ]
+        },
+        "settings": {
+          "title": "<0>Impostazioni agent</0>, semplici come l’app",
+          "text": "Rischio. Leva. Trailing. Poche card, poi Start agent.",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
+          "badges": [
+            "Rischio",
+            "Leva",
+            "Trailing"
+          ]
+        },
+        "slots": {
+          "title": "Scegli tu: <0>2 o 3 slot</0>",
+          "text": "Quanti trade aperti insieme. Il rischio si divide. Controlli tu.",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
+          "badges": [
+            "2 o 3 slot",
+            "Rischio diviso",
+            "Controlli tu"
+          ]
+        },
+        "deposit": {
+          "title": "Deposita e preleva <0>quando vuoi</0>",
+          "text": "Niente API né login exchange. USDC nativo su Hyperliquid — firmi tu.",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
+          "badges": [
+            "Niente API",
+            "Niente exchange",
+            "USDC nativo"
+          ]
+        },
+        "auto": {
+          "title": "Guarda l’agent tradare da solo",
+          "text": "Apre, gestisce e traila in profitto. Tu monitori.",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
+        }
+      }
     }
   },
   "marketing": {
@@ -638,7 +690,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "Deposito minimo su Hyperliquid",
         "startBotValue": "$20",
-        "startBotLabel": "Per avviare il agent"
+        "startBotLabel": "Per avviare il agent",
+        "doNotUseItems": [
+          "BNB / BSC (Binance Smart Chain)",
+          "ETH su Ethereum mainnet",
+          "USDT o USDC su Polygon, Base, Optimism, Solana",
+          "Solo USDC.e bridged — prima scambia in USDC nativo su Arbitrum",
+          "Prelievo exchange? Rete: Arbitrum · Coin: USDC (nativo)"
+        ]
       },
       "stepsTitle": "Setup in quattro passi",
       "stepsSub": "Configurazione una tantum nell'app HyperGain.",
@@ -1407,7 +1466,12 @@
     "minsAgo": "{{n}}m fa",
     "hoursAgo": "{{n}}h fa",
     "daysAgo": "{{n}}g fa",
-    "live": "LIVE"
+    "live": "LIVE",
+    "onChain": "on-chain",
+    "faqRealQ": "La classifica è reale?",
+    "faqRealA": "Sì. Righe = fill live Hyperliquid L1 dei wallet agente HyperGain, non un database privato. Wallet mascherati qui; HypurrScan mostra indirizzo, fill e P/L. I risultati passati non predicono il futuro.",
+    "faqFeesQ": "Quando si applicano le fee di piattaforma?",
+    "faqFeesA": "Solo su chiusure profittevoli dell’agente — non su depositi, perdite o trade manuali. Continui a operare finché non sono dovute; paga in USDC Arbitrum. Vedi Termini."
   },
   "welcomeWalkthrough": {
     "languageLabel": "Lingua",
@@ -1444,6 +1508,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "Gli articoli docs sono attualmente in inglese. L’interfaccia segue la tua lingua.",
+    "sections": {
+      "introduction": "Introduzione",
+      "getting-started": "Per iniziare",
+      "agent": "Agente di trading",
+      "funds": "Fondi e fee",
+      "betting": "Scommesse"
+    }
   }
 }

@@ -64,6 +64,11 @@ const HowItWorksPage: React.FC = () => {
     return Array.isArray(items) ? (items as FundItem[]) : [];
   }, [t]);
 
+  const doNotUse = useMemo(() => {
+    const items = t('marketing.howItWorks.arbitrum.doNotUseItems', { returnObjects: true });
+    return Array.isArray(items) ? (items as string[]) : [...HL_DEPOSIT_DO_NOT_USE];
+  }, [t]);
+
   return (
     <MarketingInnerPage>
       <div className="mkt-hiw">
@@ -134,7 +139,7 @@ const HowItWorksPage: React.FC = () => {
               <p>{t('marketing.howItWorks.arbitrum.doNotUse')}</p>
             </div>
             <ul>
-              {HL_DEPOSIT_DO_NOT_USE.map((item) => (
+              {doNotUse.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>

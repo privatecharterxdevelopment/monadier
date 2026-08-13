@@ -1,18 +1,32 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ChevronRight, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import MarketingPageLayout from '../components/layout/MarketingPageLayout';
-import { DOCS_SECTIONS, getDocsArticle } from '../lib/docs/pages';
+import {
+  docsArticlesAreEnglishFallback,
+  getDocsArticle,
+  getDocsSections,
+  type DocsSectionId,
+} from '../lib/docs/pages';
 import { getDocsSeoImage } from '../lib/seo/docsImages';
 import { docsImageObjectSchema } from '../lib/seo/schema';
 import { SITE_NAME, SITE_ORIGIN, absoluteUrl } from '../lib/seo/site';
 
 const DocsArticlePage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
-  const { t } = useTranslation();
-  const article = slug ? getDocsArticle(slug) : undefined;
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language || 'en';
+  const article = slug ? getDocsArticle(slug, lang) : undefined;
+
+  const sections = useMemo(
+    () =>
+      getDocsSections(lang, (id: DocsSectionId) =>
+        t(`docs.sections.${id}`, { defaultValue: id })
+      ),
+    [lang, t]
+  );
 
   if (!article) {
     return <Navigate to="/docs" replace />;
@@ -22,6 +36,10 @@ const DocsArticlePage: React.FC = () => {
   const canonical = absoluteUrl(`/docs/${article.slug}`);
   const seoImage = getDocsSeoImage(article.slug);
   const ogImage = seoImage ? `${SITE_ORIGIN}${seoImage.src}` : undefined;
+  const sectionLabel =
+    sections.find((s) => s.id === article.section)?.title ??
+    t(`docs.sections.${article.section}`, { defaultValue: article.section });
+  const showEnNote = docsArticlesAreEnglishFallback(lang);
 
   return (
     <MarketingPageLayout inner>
@@ -53,7 +71,7 @@ const DocsArticlePage: React.FC = () => {
 
       <div className="hg-docs">
         <aside className="hg-docs-sidebar" aria-label={t('docs.navLabel')}>
-          {DOCS_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.id} className="hg-docs-sidebar__section">
               <p className="hg-docs-sidebar__heading">{section.title}</p>
               <ul className="hg-docs-sidebar__list">
@@ -79,9 +97,12 @@ const DocsArticlePage: React.FC = () => {
             <ArrowLeft size={16} strokeWidth={2.25} aria-hidden />
             {t('docs.back')}
           </Link>
-          <p className="hg-docs-article__section">
-            {DOCS_SECTIONS.find((s) => s.id === article.section)?.title}
-          </p>
+          {showEnNote ? (
+            <p className="hg-docs-lang-note" role="status">
+              {t('docs.englishOnlyNote')}
+            </p>
+          ) : null}
+          <p className="hg-docs-article__section">{sectionLabel}</p>
           <h1>{article.title}</h1>
           <p className="hg-docs-article__lead">{article.description}</p>
           {seoImage ? (

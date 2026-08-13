@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
@@ -14,19 +14,55 @@ import MarketingPageLayout from '../components/layout/MarketingPageLayout';
 import {
   DOCS_FAMILIAR,
   DOCS_FEATURED,
-  DOCS_SECTIONS,
+  docsArticlesAreEnglishFallback,
+  getDocsArticle,
+  getDocsSections,
+  type DocsSectionId,
 } from '../lib/docs/pages';
 
 const FAMILIAR_ICONS = [BookOpen, CircleDollarSign, Shield, Sparkles] as const;
 
 const DocsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language || 'en';
+
+  const sections = useMemo(
+    () =>
+      getDocsSections(lang, (id: DocsSectionId) =>
+        t(`docs.sections.${id}`, { defaultValue: id })
+      ),
+    [lang, t]
+  );
+
+  const featured = useMemo(() => {
+    const article = getDocsArticle(DOCS_FEATURED.slug, lang);
+    return {
+      slug: DOCS_FEATURED.slug,
+      title: article?.title ?? DOCS_FEATURED.title,
+      description: article?.description ?? DOCS_FEATURED.description,
+    };
+  }, [lang]);
+
+  const familiar = useMemo(
+    () =>
+      DOCS_FAMILIAR.map((card) => {
+        const article = getDocsArticle(card.slug, lang);
+        return {
+          slug: card.slug,
+          title: article?.title ?? card.title,
+          description: article?.description ?? card.description,
+        };
+      }),
+    [lang]
+  );
+
+  const showEnNote = docsArticlesAreEnglishFallback(lang);
 
   return (
     <MarketingPageLayout inner>
       <div className="hg-docs">
         <aside className="hg-docs-sidebar" aria-label={t('docs.navLabel')}>
-          {DOCS_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.id} className="hg-docs-sidebar__section">
               <p className="hg-docs-sidebar__heading">{section.title}</p>
               <ul className="hg-docs-sidebar__list">
@@ -45,13 +81,19 @@ const DocsPage: React.FC = () => {
         </aside>
 
         <div className="hg-docs-main">
-          <Link to={`/docs/${DOCS_FEATURED.slug}`} className="hg-docs-callout">
+          {showEnNote ? (
+            <p className="hg-docs-lang-note" role="status">
+              {t('docs.englishOnlyNote')}
+            </p>
+          ) : null}
+
+          <Link to={`/docs/${featured.slug}`} className="hg-docs-callout">
             <span className="hg-docs-callout__icon" aria-hidden>
               <Rocket size={18} />
             </span>
             <span className="hg-docs-callout__copy">
-              <strong>{DOCS_FEATURED.title}</strong>
-              <span>{DOCS_FEATURED.description}</span>
+              <strong>{featured.title}</strong>
+              <span>{featured.description}</span>
             </span>
             <span className="hg-docs-callout__cta">{t('docs.learnMore')}</span>
           </Link>
@@ -64,7 +106,7 @@ const DocsPage: React.FC = () => {
           <section className="hg-docs-familiar" aria-labelledby="hg-docs-familiar-title">
             <h2 id="hg-docs-familiar-title">{t('docs.familiar')}</h2>
             <div className="hg-docs-familiar__grid">
-              {DOCS_FAMILIAR.map((card, i) => {
+              {familiar.map((card, i) => {
                 const Icon = FAMILIAR_ICONS[i] ?? BookOpen;
                 return (
                   <Link key={card.slug} to={`/docs/${card.slug}`} className="hg-docs-familiar__card">
@@ -84,7 +126,7 @@ const DocsPage: React.FC = () => {
           <section className="hg-docs-browse" aria-labelledby="hg-docs-browse-title">
             <h2 id="hg-docs-browse-title">{t('docs.browse')}</h2>
             <ul className="hg-docs-browse__list">
-              {DOCS_SECTIONS.flatMap((s) => s.items).map((item) => (
+              {sections.flatMap((s) => s.items).map((item) => (
                 <li key={item.slug}>
                   <Link to={`/docs/${item.slug}`} className="hg-docs-browse__row">
                     <span>

@@ -621,6 +621,58 @@
       "registerCta": "Register now",
       "startBotCta": "Start bot trading",
       "stepsLabel": "How it works"
+    },
+    "howShowcase": {
+      "title": "仕組み",
+      "lead": "左：本物のアプリ。右：実際にやること。",
+      "steps": {
+        "funds": {
+          "title": "資金は<0>Hyperliquidに残る</0>",
+          "text": "残高・引出可能USDC・証拠金を1つのFundsで。いつでも入出金。当社は資金を預かりません。",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
+          "badges": [
+            "ノンカストディアル",
+            "Funds",
+            "いつでも引出"
+          ]
+        },
+        "settings": {
+          "title": "<0>エージェント設定</0>はアプリと同じくらい簡単",
+          "text": "リスク・レバレッジ・利確トレール。数カードでStart agent。",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
+          "badges": [
+            "リスク",
+            "レバレッジ",
+            "利確トレール"
+          ]
+        },
+        "slots": {
+          "title": "あなたが決める：<0>2または3スロット</0>",
+          "text": "同時オープン数を選択。リスクは分散。コントロールはあなた。",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
+          "badges": [
+            "2または3",
+            "リスク分散",
+            "あなたが制御"
+          ]
+        },
+        "deposit": {
+          "title": "いつでも入出金",
+          "text": "APIなし。取引所ログインなし。HyperliquidのネイティブUSDC—毎回あなたが署名。",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
+          "badges": [
+            "APIなし",
+            "取引所なし",
+            "ネイティブUSDC"
+          ]
+        },
+        "auto": {
+          "title": "エージェントの自動売買を見る",
+          "text": "建玉・管理・利確トレールを自動で。あなたは監視。",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
+        }
+      }
     }
   },
   "marketing": {
@@ -638,7 +690,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "Hyperliquid の最低入金額",
         "startBotValue": "$20",
-        "startBotLabel": "ボットを開始するには"
+        "startBotLabel": "ボットを開始するには",
+        "doNotUseItems": [
+          "BNB / BSC（BNBスマートチェーン）",
+          "EthereumメインネットのETH",
+          "Polygon / Base / Optimism / Solana上のUSDTまたはUSDC",
+          "ブリッジUSDC.eのみ — 先にArbitrumネイティブUSDCへ",
+          "取引所出金？ネットワーク: Arbitrum · コイン: USDC（ネイティブ）"
+        ]
       },
       "stepsTitle": "4 ステップでセットアップ",
       "stepsSub": "HyperGain アプリで一度だけ設定。",
@@ -1407,7 +1466,12 @@
     "minsAgo": "{{n}}分前",
     "hoursAgo": "{{n}}時間前",
     "daysAgo": "{{n}}日前",
-    "live": "LIVE"
+    "live": "LIVE",
+    "onChain": "オンチェーン",
+    "faqRealQ": "リーダーボードは本物ですか？",
+    "faqRealA": "はい。HyperGainエージェントのウォレットによるHyperliquid L1のライブ約定です。ウォレットはマスク表示、HypurrScanで全アドレス・約定・損益を確認できます。過去の成績は将来を保証しません。",
+    "faqFeesQ": "プラットフォーム手数料はいつ？",
+    "faqFeesA": "エージェントの利益確定クローズのみ。入金・損失・手動取引にはかかりません。請求まで取引は継続可能。Arbitrum USDCで支払い。詳細は利用規約。"
   },
   "welcomeWalkthrough": {
     "languageLabel": "言語",
@@ -1444,6 +1508,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "ドキュメント本文は現在英語です。UI文言は選択言語に従います。",
+    "sections": {
+      "introduction": "はじめに",
+      "getting-started": "はじめに",
+      "agent": "トレーディングエージェント",
+      "funds": "資金と手数料",
+      "betting": "ベッティング"
+    }
   }
 }

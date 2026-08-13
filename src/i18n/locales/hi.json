@@ -162,53 +162,53 @@
     },
     "howShowcase": {
       "title": "यह कैसे काम करता है",
-      "lead": "बाएँ: असली ऐप। दाएँ: आप वास्तव में क्या करते हैं।",
+      "lead": "बाएँ: असली ऐप। दाएँ: आप क्या करते हैं।",
       "steps": {
         "funds": {
           "title": "आपका पैसा <0>Hyperliquid पर रहता है</0>",
-          "text": "ट्रेडिंग बैलेंस, निकाले जा सकने वाला USDC, खुले ट्रेड में मार्जिन — एक Funds टैब। कभी भी जमा और निकासी। हमारे पास कुछ नहीं रहता।",
-          "alt": "HyperGain बॉट Funds टैब जिसमें Hyperliquid USDC ट्रेडिंग बैलेंस, निकाले जा सकने वाली राशि, और Deposit USDC / Withdraw USDC बटन दिखते हैं",
+          "text": "बैलेंस, निकासी योग्य USDC, मार्जिन — एक Funds टैब। कभी भी जमा/निकासी। हमारे पास कुछ नहीं रहता।",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
           "badges": [
             "नॉन-कस्टोडियल",
-            "Funds टैब",
+            "Funds",
             "कभी भी निकासी"
           ]
         },
         "settings": {
-          "title": "<0>बॉट सेटिंग्स</0>, ऐप जितनी सरल",
-          "text": "जोखिम। लीवरेज। प्रॉफिट ट्रेल। कुछ कार्ड, फिर बॉट शुरू करें। सीखने के लिए डैशबोर्ड नहीं, संभालने के लिए रणनीति मेनू नहीं।",
-          "alt": "सरल सेटिंग्स के साथ चलता HyperGain बॉट: जोखिम, लीवरेज, प्रॉफिट ट्रेल स्टॉप लॉस, और बॉट रोकें",
+          "title": "<0>एजेंट सेटिंग्स</0>, ऐप जितनी सरल",
+          "text": "रिस्क। लेवरेज। प्रॉफिट ट्रेल। कुछ कार्ड, फिर Start agent।",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
           "badges": [
-            "जोखिम",
-            "लीवरेज",
+            "रिस्क",
+            "लेवरेज",
             "प्रॉफिट ट्रेल"
           ]
         },
         "slots": {
-          "title": "आप तय करें: <0>2 या 3 स्लॉट</0>",
-          "text": "चुनें कितने ट्रेड एक साथ खुले रह सकते हैं। जोखिम स्लॉट पर बँटता है। दो या तीन — नियंत्रण आपके पास।",
-          "alt": "HyperGain बॉट Settings: Hyperliquid पर 2 स्लॉट और 3 स्लॉट के बीच ओपन ट्रेड स्लॉट टॉगल",
+          "title": "आप चुनें: <0>2 या 3 स्लॉट</0>",
+          "text": "एक साथ कितने ट्रेड। रिस्क बँटता है। नियंत्रण आपके पास।",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
           "badges": [
-            "2 या 3 स्लॉट",
-            "जोखिम बाँटें",
-            "आप नियंत्रण"
+            "2 या 3",
+            "रिस्क विभाजन",
+            "आपका नियंत्रण"
           ]
         },
         "deposit": {
-          "title": "<0>कभी भी</0> जमा और निकासी",
-          "text": "कोई API कनेक्शन नहीं। कोई एक्सचेंज लॉगिन नहीं। कोई संदिग्ध कस्टडी नहीं। Hyperliquid पर नेटिव USDC — हर कदम आप साइन करते हैं।",
-          "alt": "Arbitrum वॉलेट से HyperGain में Hyperliquid USDC डिपॉजिट — Hyperliquid पर जमा, कोई एक्सचेंज API नहीं",
+          "title": "कभी भी जमा/निकासी",
+          "text": "कोई API नहीं। कोई एक्सचेंज लॉगिन नहीं। Hyperliquid नेटिव USDC — हर मूव पर आप साइन करते हैं।",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
           "badges": [
-            "कोई API नहीं",
-            "कोई एक्सचेंज नहीं",
+            "बिना API",
+            "बिना एक्सचेंज",
             "नेटिव USDC"
           ]
         },
         "auto": {
-          "title": "बॉट को खुद ट्रेड करते देखें",
-          "text": "बॉट खुद खोलता, प्रबंधित करता और लाभ में ट्रेल करता है — बिना रुके। इंटेलिजेंट ट्रेलिंग स्टॉप-लॉस। आप निगरानी करते हैं। जीत आपके पास।",
-          "alt": "BTC परपेचुअल चार्ट, एंट्री लाइन, लाभ में इंटेलिजेंट ट्रेलिंग स्टॉप लॉस, और लाइव Hyperliquid पोज़ीशन के साथ HyperGain ऑटो ट्रेडिंग डैशबोर्ड",
-          "caption": "Hyperliquid पर लाभ में इंटेलिजेंट ट्रेलिंग स्टॉप-लॉस के साथ HyperGain ऑटो-ट्रेडिंग"
+          "title": "एजेंट खुद ट्रेड करता देखें",
+          "text": "खोलता, मैनेज करता और मुनाफे में ट्रेल करता है। आप मॉनिटर करें।",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
         }
       }
     },
@@ -716,7 +716,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "न्यूनतम डिपॉजिट",
         "startBotValue": "$20",
-        "startBotLabel": "बॉट शुरू करने के लिए"
+        "startBotLabel": "बॉट शुरू करने के लिए",
+        "doNotUseItems": [
+          "BNB / BSC (Binance Smart Chain)",
+          "Ethereum mainnet पर ETH",
+          "Polygon, Base, Optimism, Solana पर USDT या USDC",
+          "केवल bridged USDC.e — पहले Arbitrum native USDC में स्वैप करें",
+          "एक्सचेंज निकासी? नेटवर्क: Arbitrum · कॉइन: USDC (native)"
+        ]
       },
       "stepsTitle": "सेटअप",
       "stepsSub": "चार कदम। एक बार।",
@@ -1637,7 +1644,12 @@
     "minsAgo": "{{n}}मि पहले",
     "hoursAgo": "{{n}}घं पहले",
     "daysAgo": "{{n}}दि पहले",
-    "live": "LIVE"
+    "live": "LIVE",
+    "onChain": "ऑन-चेन",
+    "faqRealQ": "क्या लीडरबोर्ड असली है?",
+    "faqRealA": "हाँ। पंक्तियाँ HyperGain एजेंट वॉलेट की लाइव Hyperliquid L1 फिल हैं — निजी डेटाबेस नहीं। वॉलेट यहाँ मास्क हैं; HypurrScan पर पता, फिल और P/L देखें। पिछले नतीजे भविष्य की गारंटी नहीं।",
+    "faqFeesQ": "प्लेटफ़ॉर्म शुल्क कब लगता है?",
+    "faqFeesA": "केवल सफल एजेंट क्लोज़ पर — डिपॉज़िट, नुकसान या मैन्युअल ट्रेड पर नहीं। Arbitrum USDC से भुगतान। विवरण सेवा की शर्तों में।"
   },
   "blog": {
     "title": "Blog",
@@ -1652,6 +1664,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "डॉक्स लेख अभी अंग्रेज़ी में हैं। UI आपकी भाषा में है।",
+    "sections": {
+      "introduction": "परिचय",
+      "getting-started": "शुरुआत",
+      "agent": "ट्रेडिंग एजेंट",
+      "funds": "फंड और शुल्क",
+      "betting": "बेटिंग"
+    }
   }
 }

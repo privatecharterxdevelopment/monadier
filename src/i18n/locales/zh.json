@@ -621,6 +621,58 @@
       "registerCta": "Register now",
       "startBotCta": "Start bot trading",
       "stepsLabel": "How it works"
+    },
+    "howShowcase": {
+      "title": "工作原理",
+      "lead": "左侧：真实应用。右侧：你要做的事。",
+      "steps": {
+        "funds": {
+          "title": "资金<0>留在 Hyperliquid</0>",
+          "text": "交易余额、可提 USDC、保证金——一个 Funds 页。随时存取，我们不经手资金。",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
+          "badges": [
+            "非托管",
+            "Funds",
+            "随时提现"
+          ]
+        },
+        "settings": {
+          "title": "<0>代理设置</0>，和应用一样简单",
+          "text": "风险、杠杆、利润追踪。几张卡片，然后 Start agent。",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
+          "badges": [
+            "风险",
+            "杠杆",
+            "利润追踪"
+          ]
+        },
+        "slots": {
+          "title": "你决定：<0>2 或 3 个槽位</0>",
+          "text": "同时可开多少笔。风险分摊到槽位。你掌控。",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
+          "badges": [
+            "2 或 3 槽",
+            "分摊风险",
+            "你掌控"
+          ]
+        },
+        "deposit": {
+          "title": "随时存取",
+          "text": "无 API。无交易所登录。Hyperliquid 原生 USDC——每笔由你签名。",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
+          "badges": [
+            "无 API",
+            "无交易所",
+            "原生 USDC"
+          ]
+        },
+        "auto": {
+          "title": "看代理自主交易",
+          "text": "自动开仓、管理并在盈利时追踪止损。你监控即可。",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
+        }
+      }
     }
   },
   "marketing": {
@@ -638,7 +690,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "Hyperliquid 最低入金",
         "startBotValue": "$20",
-        "startBotLabel": "启动机器人所需"
+        "startBotLabel": "启动机器人所需",
+        "doNotUseItems": [
+          "BNB / BSC（币安智能链）",
+          "以太坊主网 ETH",
+          "Polygon / Base / Optimism / Solana 上的 USDT 或 USDC",
+          "仅 bridged USDC.e — 先换成 Arbitrum 原生 USDC",
+          "交易所提现？网络：Arbitrum · 币种：USDC（原生）"
+        ]
       },
       "stepsTitle": "四步设置",
       "stepsSub": "在 HyperGain 应用中一次性完成。",
@@ -1407,7 +1466,12 @@
     "minsAgo": "{{n}} 分钟前",
     "hoursAgo": "{{n}} 小时前",
     "daysAgo": "{{n}} 天前",
-    "live": "实时"
+    "live": "实时",
+    "onChain": "链上",
+    "faqRealQ": "排行榜是真实的吗？",
+    "faqRealA": "是的。数据来自 HyperGain 代理钱包的 Hyperliquid L1 实时成交，不是私有数据库。本页钱包已脱敏；HypurrScan 可查看完整地址、成交与盈亏。过往业绩不代表未来表现。",
+    "faqFeesQ": "平台费用何时收取？",
+    "faqFeesA": "仅在代理盈利平仓时收取——不包括入金、亏损或手动交易。费用到期前仍可交易；用 Arbitrum USDC 支付。详见服务条款。"
   },
   "welcomeWalkthrough": {
     "languageLabel": "语言",
@@ -1444,6 +1508,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "文档正文目前为英文。界面文案跟随你的语言设置。",
+    "sections": {
+      "introduction": "简介",
+      "getting-started": "入门",
+      "agent": "交易代理",
+      "funds": "资金与费用",
+      "betting": "博彩"
+    }
   }
 }

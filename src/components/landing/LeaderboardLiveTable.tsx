@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useBotPublicRecentCloses } from '../../hooks/useBotPublicLeaderboard';
 
 function fmtUsd(n: number): string {
@@ -28,18 +29,21 @@ type Props = {
 
 const LeaderboardLiveTable: React.FC<Props> = ({
   limit = 12,
-  emptyMessage = 'No recent closes yet.',
-  loadingMessage = 'Loading Hyperliquid fills…',
+  emptyMessage,
+  loadingMessage,
   className = '',
 }) => {
+  const { t } = useTranslation();
   const { rows, loading } = useBotPublicRecentCloses(limit);
+  const empty = emptyMessage ?? t('leaderboard.emptyAll');
+  const loadingMsg = loadingMessage ?? t('leaderboard.loading');
 
   if (loading && rows.length === 0) {
-    return <p className="landing-leaderboard-table-empty">{loadingMessage}</p>;
+    return <p className="landing-leaderboard-table-empty">{loadingMsg}</p>;
   }
 
   if (rows.length === 0) {
-    return <p className="landing-leaderboard-table-empty">{emptyMessage}</p>;
+    return <p className="landing-leaderboard-table-empty">{empty}</p>;
   }
 
   return (
@@ -47,15 +51,15 @@ const LeaderboardLiveTable: React.FC<Props> = ({
       <table className="landing-leaderboard-table">
         <thead>
           <tr>
-            <th scope="col">Wallet</th>
-            <th scope="col">Pair</th>
-            <th scope="col">Opened</th>
-            <th scope="col">Closed</th>
+            <th scope="col">{t('leaderboard.wallet')}</th>
+            <th scope="col">{t('leaderboard.pair')}</th>
+            <th scope="col">{t('leaderboard.opened')}</th>
+            <th scope="col">{t('leaderboard.closed')}</th>
             <th scope="col" className="is-num">
-              P/L
+              {t('leaderboard.pnl')}
             </th>
             <th scope="col" className="is-action">
-              Verify
+              {t('leaderboard.verify')}
             </th>
           </tr>
         </thead>
@@ -65,8 +69,8 @@ const LeaderboardLiveTable: React.FC<Props> = ({
               <td className="is-mono">
                 0x{trade.walletLabel}
                 {trade.isLive ? (
-                  <span className="landing-leaderboard-live-pill" aria-label="Recent close">
-                    live
+                  <span className="landing-leaderboard-live-pill" aria-label={t('leaderboard.live')}>
+                    {t('leaderboard.live')}
                   </span>
                 ) : null}
               </td>
@@ -90,7 +94,7 @@ const LeaderboardLiveTable: React.FC<Props> = ({
                   rel="noopener noreferrer"
                   className="landing-leaderboard-verify"
                 >
-                  HypurrScan
+                  {t('leaderboard.hypurrScan')}
                   <ExternalLink size={12} aria-hidden />
                 </a>
               </td>

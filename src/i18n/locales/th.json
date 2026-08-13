@@ -621,6 +621,58 @@
       "registerCta": "Register now",
       "startBotCta": "Start bot trading",
       "stepsLabel": "How it works"
+    },
+    "howShowcase": {
+      "title": "วิธีการทำงาน",
+      "lead": "ซ้าย: แอปจริง ขวา: สิ่งที่คุณทำ",
+      "steps": {
+        "funds": {
+          "title": "เงินของคุณ<0>อยู่บน Hyperliquid</0>",
+          "text": "ยอดเทรด USDC ถอนได้ มาร์จิ้น — แท็บ Funds เดียว ฝากถอนได้ตลอด เราไม่ถือเงิน",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
+          "badges": [
+            "Non-custodial",
+            "Funds",
+            "ถอนได้ตลอด"
+          ]
+        },
+        "settings": {
+          "title": "<0>ตั้งค่าเอเจนต์</0> ง่ายเหมือนแอป",
+          "text": "ความเสี่ยง เลverage เทรลกำไร กด Start agent ได้เลย",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
+          "badges": [
+            "ความเสี่ยง",
+            "เลverage",
+            "เทรลกำไร"
+          ]
+        },
+        "slots": {
+          "title": "คุณเลือก: <0>2 หรือ 3 สล็อต</0>",
+          "text": "เปิดกี่ดีลพร้อมกัน ความเสี่ยงแบ่งตามสล็อต คุณควบคุม",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
+          "badges": [
+            "2 หรือ 3",
+            "แบ่งความเสี่ยง",
+            "คุณควบคุม"
+          ]
+        },
+        "deposit": {
+          "title": "ฝากถอนได้<0>ตลอดเวลา</0>",
+          "text": "ไม่มี API ไม่ล็อกอินเอ็กซ์เชนจ์ USDC พื้นเมืองบน Hyperliquid — คุณเซ็นทุกครั้ง",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
+          "badges": [
+            "ไม่มี API",
+            "ไม่มี exchange",
+            "USDC พื้นเมือง"
+          ]
+        },
+        "auto": {
+          "title": "ดูเอเจนต์เทรดเอง",
+          "text": "เปิด จัดการ และเทรลตอนกำไรเอง คุณเฝ้าดู",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
+        }
+      }
     }
   },
   "marketing": {
@@ -638,7 +690,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "ฝากขั้นต่ำบน Hyperliquid",
         "startBotValue": "$20",
-        "startBotLabel": "เพื่อเริ่มบอท"
+        "startBotLabel": "เพื่อเริ่มบอท",
+        "doNotUseItems": [
+          "BNB / BSC (Binance Smart Chain)",
+          "ETH บน Ethereum mainnet",
+          "USDT หรือ USDC บน Polygon, Base, Optimism, Solana",
+          "เฉพาะ USDC.e bridged — สลับเป็น native USDC บน Arbitrum ก่อน",
+          "ถอนจาก exchange? เครือข่าย: Arbitrum · เหรียญ: USDC (native)"
+        ]
       },
       "stepsTitle": "ตั้งค่า 4 ขั้นตอน",
       "stepsSub": "ตั้งค่าครั้งเดียวในแอป HyperGain",
@@ -1407,7 +1466,12 @@
     "minsAgo": "{{n}}น. ที่แล้ว",
     "hoursAgo": "{{n}}ชม. ที่แล้ว",
     "daysAgo": "{{n}}ว. ที่แล้ว",
-    "live": "สด"
+    "live": "สด",
+    "onChain": "on-chain",
+    "faqRealQ": "ลีดเดอร์บอร์ดของจริงไหม?",
+    "faqRealA": "ใช่ เป็น fill สดบน Hyperliquid L1 จากวอลเล็ตเอเจนต์ HyperGain ไม่ใช่ฐานข้อมูลส่วนตัว วอลเล็ตถูกปกปิดที่นี่ ตรวจได้บน HypurrScan ผลในอดีตไม่การันตีอนาคต",
+    "faqFeesQ": "ค่าธรรมเนียมแพลตฟอร์มคิดเมื่อไหร่?",
+    "faqFeesA": "เฉพาะเมื่อเอเจนต์ปิดทำกำไร — ไม่คิดตอนฝาก ขาดทุน หรือเทรดมือ จ่ายเป็น USDC บน Arbitrum ตามเงื่อนไข"
   },
   "welcomeWalkthrough": {
     "languageLabel": "ภาษา",
@@ -1444,6 +1508,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "เนื้อหาเอกสารยังเป็นภาษาอังกฤษ ส่วน UI ตามภาษาที่เลือก",
+    "sections": {
+      "introduction": "บทนำ",
+      "getting-started": "เริ่มต้น",
+      "agent": "เอเจนต์เทรด",
+      "funds": "เงินและค่าธรรมเนียม",
+      "betting": "เดิมพัน"
+    }
   }
 }

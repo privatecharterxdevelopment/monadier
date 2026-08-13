@@ -162,22 +162,22 @@
     },
     "howShowcase": {
       "title": "یہ کیسے کام کرتا ہے",
-      "lead": "بائیں: اصل ایپ۔ دائیں: آپ واقعی کیا کرتے ہیں۔",
+      "lead": "بائیں: اصل ایپ۔ دائیں: آپ کیا کرتے ہیں۔",
       "steps": {
         "funds": {
           "title": "آپ کا پیسہ <0>Hyperliquid پر رہتا ہے</0>",
-          "text": "ٹریڈنگ بیلنس، نکالا جا سکنے والا USDC، کھلی ٹریڈز میں مارجن — ایک Funds ٹیب۔ کسی بھی وقت جمع اور نکاسی۔ ہمارے پاس کچھ نہیں رہتا۔",
-          "alt": "HyperGain بوٹ Funds ٹیب جس میں Hyperliquid USDC ٹریڈنگ بیلنس، نکالی جا سکنے والی رقم، اور Deposit USDC / Withdraw USDC بٹن دکھتے ہیں",
+          "text": "بیلنس، نکاسی کے قابل USDC، مارجن — ایک Funds ٹیب۔ جب چاہیں جمع/نکاسی۔ ہمارے پاس کچھ نہیں رہتا۔",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
           "badges": [
-            "نان-کسٹوڈیل",
-            "Funds ٹیب",
-            "کسی بھی وقت نکاسی"
+            "نان کسٹوڈیل",
+            "Funds",
+            "جب چاہیں نکاسی"
           ]
         },
         "settings": {
-          "title": "<0>بوٹ سیٹنگز</0>، ایپ جتنی سادہ",
-          "text": "رسک۔ لیوریج۔ پرافٹ ٹریل۔ چند کارڈز، پھر بوٹ شروع کریں۔ سیکھنے کے لیے ڈیش بورڈ نہیں، سنبھالنے کے لیے حکمت عملی مینو نہیں۔",
-          "alt": "سادہ سیٹنگز کے ساتھ چلتا HyperGain بوٹ: رسک، لیوریج، پرافٹ ٹریل اسٹاپ لاس، اور بوٹ روکیں",
+          "title": "<0>ایجنٹ سیٹنگز</0>، ایپ جتنی آسان",
+          "text": "رسک۔ لیوریج۔ پرافٹ ٹریل۔ چند کارڈز، پھر Start agent۔",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
           "badges": [
             "رسک",
             "لیوریج",
@@ -186,29 +186,29 @@
         },
         "slots": {
           "title": "آپ فیصلہ کریں: <0>2 یا 3 سلاٹس</0>",
-          "text": "منتخب کریں کتنی ٹریڈز ایک ساتھ کھلی رہ سکتی ہیں۔ رسک سلاٹس پر بٹتا ہے۔ دو یا تین — کنٹرول آپ کے پاس۔",
-          "alt": "HyperGain بوٹ Settings: Hyperliquid پر 2 سلاٹس اور 3 سلاٹس کے درمیان اوپن ٹریڈ سلاٹس ٹوگل",
+          "text": "ایک ساتھ کتنے ٹریڈ۔ رسک تقسیم۔ کنٹرول آپ کے پاس۔",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
           "badges": [
-            "2 یا 3 سلاٹس",
-            "رسک بانٹیں",
-            "آپ کنٹرول"
+            "2 یا 3",
+            "رسک تقسیم",
+            "آپ کا کنٹرول"
           ]
         },
         "deposit": {
-          "title": "<0>کسی بھی وقت</0> جمع اور نکاسی",
-          "text": "کوئی API کنکشن نہیں۔ کوئی ایکسچینج لاگ ان نہیں۔ کوئی مشکوک کسٹڈی نہیں۔ Hyperliquid پر نیٹو USDC — ہر قدم آپ سائن کرتے ہیں۔",
-          "alt": "Arbitrum والیٹ سے HyperGain میں Hyperliquid USDC ڈیپازٹ — Hyperliquid پر جمع، کوئی ایکسچینج API نہیں",
+          "title": "جب چاہیں جمع/نکاسی",
+          "text": "کوئی API نہیں۔ کوئی ایکسچینج لاگ اِن نہیں۔ Hyperliquid نیٹو USDC — ہر حرکت پر آپ سائن کرتے ہیں۔",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
           "badges": [
-            "کوئی API نہیں",
-            "کوئی ایکسچینج نہیں",
+            "بغیر API",
+            "بغیر ایکسچینج",
             "نیٹو USDC"
           ]
         },
         "auto": {
-          "title": "بوٹ کو خود ٹریڈ کرتے دیکھیں",
-          "text": "بوٹ خود کھولتا، منظم کرتا اور منافع میں ٹریل کرتا ہے — بغیر رکے۔ انٹیلیجنٹ ٹریلنگ اسٹاپ لاس۔ آپ نگرانی کرتے ہیں۔ جیت آپ کے پاس۔",
-          "alt": "BTC پرپیچوئل چارٹ، انٹری لائن، منافع میں انٹیلیجنٹ ٹریلنگ اسٹاپ لاس، اور لائیو Hyperliquid پوزیشنز کے ساتھ HyperGain آٹو ٹریڈنگ ڈیش بورڈ",
-          "caption": "Hyperliquid پر منافع میں انٹیلیجنٹ ٹریلنگ اسٹاپ لاس کے ساتھ HyperGain آٹو ٹریڈنگ"
+          "title": "ایجنٹ خود ٹریڈ کرتا دیکھیں",
+          "text": "کھولتا، سنبھالتا اور منافع میں ٹریل کرتا ہے۔ آپ مانیٹر کریں۔",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
         }
       }
     },
@@ -716,7 +716,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "کم از کم ڈیپازٹ",
         "startBotValue": "$20",
-        "startBotLabel": "بوٹ شروع کرنے کے لیے"
+        "startBotLabel": "بوٹ شروع کرنے کے لیے",
+        "doNotUseItems": [
+          "BNB / BSC (Binance Smart Chain)",
+          "Ethereum mainnet پر ETH",
+          "Polygon, Base, Optimism, Solana پر USDT یا USDC",
+          "صرف bridged USDC.e — پہلے Arbitrum native USDC میں سوآپ کریں",
+          "ایکسچینج نکاسی؟ نیٹ ورک: Arbitrum · کوائن: USDC (native)"
+        ]
       },
       "stepsTitle": "سیٹ اپ",
       "stepsSub": "چار قدم۔ ایک بار۔",
@@ -1637,7 +1644,12 @@
     "minsAgo": "{{n}}م پہلے",
     "hoursAgo": "{{n}}گھ پہلے",
     "daysAgo": "{{n}}د پہلے",
-    "live": "LIVE"
+    "live": "LIVE",
+    "onChain": "آن چین",
+    "faqRealQ": "کیا لیڈر بورڈ حقیقی ہے؟",
+    "faqRealA": "ہاں۔ قطاریں HyperGain ایجنٹ والیٹس کی لائیو Hyperliquid L1 فلز ہیں — نجی ڈیٹابیس نہیں۔ والیٹس یہاں ماسک ہیں؛ HypurrScan پر ایڈریس، فل اور P/L دیکھیں۔ ماضی نتائج مستقبل کی ضمانت نہیں۔",
+    "faqFeesQ": "پلیٹ فارم فیس کب؟",
+    "faqFeesA": "صرف کامیاب ایجنٹ کلوز پر — ڈپازٹ، نقصان یا مینوئل ٹریڈ پر نہیں۔ Arbitrum USDC سے ادائیگی۔ تفصیل شرائط میں۔"
   },
   "blog": {
     "title": "Blog",
@@ -1652,6 +1664,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "ڈاکس مضامین فی الحال انگریزی میں ہیں۔ UI آپ کی زبان میں ہے۔",
+    "sections": {
+      "introduction": "تعارف",
+      "getting-started": "شروع کریں",
+      "agent": "ٹریڈنگ ایجنٹ",
+      "funds": "فنڈز اور فیس",
+      "betting": "بیٹنگ"
+    }
   }
 }

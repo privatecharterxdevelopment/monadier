@@ -729,7 +729,14 @@
         "minDepositValue": "$5",
         "minDepositLabel": "Minimum deposit",
         "startBotValue": "$20",
-        "startBotLabel": "To start the agent"
+        "startBotLabel": "To start the agent",
+        "doNotUseItems": [
+          "BNB / BSC (Binance Smart Chain)",
+          "ETH on Ethereum mainnet",
+          "USDT or USDC on Polygon, Base, Optimism, Solana",
+          "Bridged USDC.e only — swap to native USDC on Arbitrum first",
+          "Exchange withdrawal? Network: Arbitrum · Coin: USDC (native)"
+        ]
       },
       "stepsTitle": "Setup",
       "stepsSub": "Four steps. One time.",
@@ -1652,7 +1659,12 @@
     "minsAgo": "{{n}}m ago",
     "hoursAgo": "{{n}}h ago",
     "daysAgo": "{{n}}d ago",
-    "live": "LIVE"
+    "live": "LIVE",
+    "onChain": "on chain",
+    "faqRealQ": "Is the leaderboard real?",
+    "faqRealA": "Yes. Rows are live Hyperliquid L1 fills for HyperGain agent wallets — not a private database. Wallets are masked on this page; HypurrScan shows the full address, fill, and P/L. Past results do not predict future performance.",
+    "faqFeesQ": "When do platform fees apply?",
+    "faqFeesA": "Only on successful agent closes — not on deposits, losses, or manual trades. You keep trading until fees are due; pay on Arbitrum USDC when prompted. See Terms of Service for current fee terms."
   },
   "blog": {
     "title": "Blog",
@@ -1667,6 +1679,14 @@
     "familiar": "Get familiar with HyperGain",
     "browse": "Browse docs",
     "learnMore": "Learn more",
-    "back": "All docs"
+    "back": "All docs",
+    "englishOnlyNote": "Docs articles are currently in English. UI chrome follows your language.",
+    "sections": {
+      "introduction": "Introduction",
+      "getting-started": "Getting started",
+      "agent": "Trading agent",
+      "funds": "Funds & fees",
+      "betting": "Betting"
+    }
   }
 }
