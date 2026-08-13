@@ -158,10 +158,10 @@ export async function validatePerpMarketContext(opts: {
         };
       }
     } else {
-      // SHORT: only block extreme washout bottoms — not "anything below mid".
-      const minShortRange = Number(process.env.HL_PERP_MIN_SHORT_RANGE || 0.08);
-      const minShort24hRange = Number(process.env.HL_PERP_MIN_SHORT_24H_RANGE || 0.12);
-      const maxShort24hDumpPct = Number(process.env.HL_PERP_MAX_SHORT_24H_DUMP || 4.5);
+      // SHORT: block washout bottoms (was 0.08 — still let flush shorts through).
+      const minShortRange = Number(process.env.HL_PERP_MIN_SHORT_RANGE || 0.22);
+      const minShort24hRange = Number(process.env.HL_PERP_MIN_SHORT_24H_RANGE || 0.28);
+      const maxShort24hDumpPct = Number(process.env.HL_PERP_MAX_SHORT_24H_DUMP || 3.5);
       if (ctx.rangePosition <= minShortRange) {
         return {
           ok: false,

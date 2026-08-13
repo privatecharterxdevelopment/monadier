@@ -42,7 +42,7 @@ export const BULL_MARKET: HlDirectionProfile = {
     minConfidence: 70,
     minDirectionalTfs: 2,
     minTrendAlignment: 60,
-    /** Strong MTF SHORT skips volume-fade / perp sell-low secondaries. */
+    /** Skips volume-fade secondaries only — entry-momentum still always runs for SHORT. */
     relaxSecondaryGates: true,
     trustMtfScan: true,
     /** Trusted MTF dump: don't re-kill with tiny 1h noise (+0.18% was blocking). */

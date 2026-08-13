@@ -25,6 +25,15 @@ function pctChangeClosed(candles: Candle[], bars: number): number {
   return ((end.close - start.close) / start.close) * 100;
 }
 
+/** Includes forming candle — catch live flush bottoms closed bars miss. */
+function pctChangeLive(candles: Candle[], bars: number): number {
+  if (candles.length < bars + 1) return 0;
+  const end = candles[candles.length - 1];
+  const start = candles[candles.length - 1 - bars];
+  if (!start?.close || !end?.close || start.close <= 0) return 0;
+  return ((end.close - start.close) / start.close) * 100;
+}
+
 function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHORT'): boolean {
   const closed = candles.slice(-n - 1, -1);
   if (closed.length < n) return false;
@@ -34,12 +43,13 @@ function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHO
   return closed.every((c) => c.close <= c.open * 1.0001);
 }
 
+/** Live-aware range position (includes forming high/low) so dump bottoms aren't mid-range. */
 function rangePosition(candles: Candle[]): number {
-  const closed = candles.slice(0, -1).slice(-24);
-  if (closed.length < 4) return 0.5;
-  const price = closed[closed.length - 1]?.close ?? 0;
-  const hi = Math.max(...closed.map((c) => c.high));
-  const lo = Math.min(...closed.map((c) => c.low));
+  const window = candles.slice(-25);
+  if (window.length < 4) return 0.5;
+  const price = window[window.length - 1]?.close ?? 0;
+  const hi = Math.max(...window.map((c) => c.high));
+  const lo = Math.min(...window.map((c) => c.low));
   const span = hi - lo;
   if (span <= 0 || price <= 0) return 0.5;
   return (price - lo) / span;
@@ -62,6 +72,8 @@ export async function validateEntryMomentum(opts: {
     const change5mPct = 0;
     const change15mPct = pctChangeClosed(c15m, 1);
     const change1hPct = pctChangeClosed(c1h, 1);
+    const live15mPct = pctChangeLive(c15m, 1);
+    const live1hPct = pctChangeLive(c1h, 1);
     const rangePos = rangePosition(c1h);
 
     const macro = await evaluateMacroBetaAlignment({ coin, direction: opts.direction });
@@ -111,9 +123,16 @@ export async function validateEntryMomentum(opts: {
           `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% bounce`;
       }
     } else {
-      if (change15mPct <= cfg.maxChaseShort15mPct && change1hPct <= cfg.maxChaseShort1hPct) {
+      // Chase / flush bottom — OR on live OR closed (AND on closed alone missed FIL dump).
+      const chase15 =
+        Math.min(change15mPct, live15mPct) <= cfg.maxChaseShort15mPct;
+      const chase1h =
+        Math.min(change1hPct, live1hPct) <= cfg.maxChaseShort1hPct;
+      if (chase15 || chase1h) {
         reason =
-          `SHORT blocked — ${coin} already extended down (15m ${change15mPct.toFixed(2)}%, 1h ${change1hPct.toFixed(2)}%) — wait for bounce, sell high`;
+          `SHORT blocked — ${coin} already extended down ` +
+          `(15m ${Math.min(change15mPct, live15mPct).toFixed(2)}%, 1h ${Math.min(change1hPct, live1hPct).toFixed(2)}%) ` +
+          `— wait for bounce, sell high`;
       } else if (rangePos < cfg.shortMinRangePosition) {
         reason =
           `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;

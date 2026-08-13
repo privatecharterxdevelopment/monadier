@@ -1825,10 +1825,14 @@ export class HyperliquidTradingService {
         }
       }
 
-      const momentumGate = relaxSecondaryGates
+      // NEVER skip entry-momentum on SHORT — sell high / no flush-bottom chase.
+      // Regression: 23bd6b8 (2026-08-12) “allow SHORT continuation” + relaxSecondaryGates
+      // skipped this gate and dropped shortMinRange to 0.12 → FIL bottom shorts. Do not repeat.
+      const momentumGate =
+        relaxSecondaryGates && opts.direction === 'LONG'
           ? {
               ok: true as const,
-              reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,
+              reason: `Scan pick — LONG momentum confirm skipped (${opts.pick.confidence}%)`,
               change5mPct: 0,
               change15mPct: 0,
               change1hPct: 0,
