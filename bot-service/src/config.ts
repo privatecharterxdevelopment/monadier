@@ -152,7 +152,7 @@ export const config = {
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
-     * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD user-banned; CC thin junk.
+     * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD user-banned; CC thin junk; EIGEN HL max 5x / banned.
      * Add more via HL_EXCLUDED_COINS="FOO,BAR" (merged with hard bans).
      */
     excludedCoins: [
@@ -164,6 +164,7 @@ export const config = {
         'VVV',
         'WLD',
         'CC',
+        'EIGEN',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
