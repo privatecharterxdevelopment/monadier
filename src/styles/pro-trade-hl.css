@@ -9743,6 +9743,31 @@ html[dir='rtl'] .hl-book {
   font-weight: 500;
 }
 
+.hl-buy-usdc__coming-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 4px !important;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3dd68c !important;
+  background: rgba(61, 214, 140, 0.12);
+  border: 1px solid rgba(61, 214, 140, 0.28);
+}
+
+.hl-buy-usdc__coming-soon > p:last-child {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--hl-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
 .hl-buy-usdc__empty-note,
 .hl-buy-usdc__hint {
   margin: 0 !important;
