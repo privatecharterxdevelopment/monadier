@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import ProTradeShell from '../../components/protrade/ProTradeShell';
 import MonadierWalletAccountSheet from '../../components/wallet/MonadierWalletAccountSheet';
@@ -28,7 +29,7 @@ import ProTradeDepositModal from '../../components/protrade/ProTradeDepositModal
 import ProTradeTransferModal from '../../components/protrade/ProTradeTransferModal';
 import ProTradePortfolio from '../../components/protrade/ProTradePortfolio';
 import ProTradeSupport from '../../components/protrade/ProTradeSupport';
-import ProTradeBuyCryptoPage from '../../components/protrade/ProTradeBuyCryptoPage';
+import BuyUsdcModal from '../../components/protrade/BuyUsdcModal';
 import ProTradeSportsbets from '../../components/protrade/ProTradeSportsbets';
 import ProTradeAffiliate from '../../components/protrade/ProTradeAffiliate';
 import ProTradeLeaderboard from '../../components/protrade/ProTradeLeaderboard';
@@ -97,6 +98,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, sessionReady } = useAuth();
   const { address, isConnected } = useMonadierWallet();
+  const { open: openWallet } = useMonadierAppKit();
   const { wallet: hlActiveWallet, walletMismatch } = useHlActiveWallet();
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
@@ -107,7 +109,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (initialSection === 'leaderboard') return 'leaderboard';
     if (initialSection === 'sportsbets' || initialSection === 'spot') return 'sportsbets';
     if (initialSection === 'support') return 'support';
-    if (initialSection === 'buy') return 'buy';
+    if (initialSection === 'buy') return 'bot';
     if (initialSection === 'portfolio') return 'portfolio';
     if (initialSection === 'affiliate') return 'affiliate';
     if (initialSection === 'profile' || initialSection === 'history') return 'profile';
@@ -118,6 +120,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [interval, setInterval] = useState<HlInterval>(DEFAULT_PRO_INTERVAL);
   const [limitPrice, setLimitPrice] = useState('');
   const [fundsModal, setFundsModal] = useState<'deposit' | 'withdraw' | null>(null);
+  const [buyUsdcOpen, setBuyUsdcOpen] = useState(() => initialSection === 'buy');
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
   const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
@@ -500,7 +503,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       target === 'bot' ||
       target === 'sportsbets' ||
       target === 'support' ||
-      target === 'buy' ||
       target === 'leaderboard' ||
       target === 'affiliate'
     ) {
@@ -530,7 +532,8 @@ const Dashboard2ProPageContent: React.FC = () => {
       } else if (urlSection === 'support') {
         setSection('support');
       } else if (urlSection === 'buy') {
-        setSection('buy');
+        setSection('bot');
+        setBuyUsdcOpen(true);
       } else if (
         urlSection === 'community' ||
         urlSection === 'news' ||
@@ -561,7 +564,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     } else if (urlSection === 'support') {
       setSection('support');
     } else if (urlSection === 'buy') {
-      setSection('buy');
+      setSection('bot');
+      setBuyUsdcOpen(true);
     } else if (
       urlSection === 'community' ||
       urlSection === 'news' ||
@@ -888,6 +892,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         onRequireSignIn={promptSignIn}
         onOpenRegister={switchToRegister}
         onViewNotificationHistory={openNotificationHistory}
+        onOpenBuyUsdc={() => setBuyUsdcOpen(true)}
         walletAddress={address ?? undefined}
         walletConnected={isConnected}
       />
@@ -927,11 +932,6 @@ const Dashboard2ProPageContent: React.FC = () => {
       {section === 'support' ? (
         <div className="hl-terminal hl-terminal--support">
           <ProTradeSupport onRequireSignIn={promptSignIn} />
-        </div>
-      ) : null}
-      {section === 'buy' ? (
-        <div className="hl-terminal hl-terminal--buy">
-          <ProTradeBuyCryptoPage />
         </div>
       ) : null}
       {section === 'portfolio' ? (
@@ -986,6 +986,20 @@ const Dashboard2ProPageContent: React.FC = () => {
           }}
         />
       ) : null}
+
+      <BuyUsdcModal
+        open={buyUsdcOpen}
+        onClose={() => {
+          setBuyUsdcOpen(false);
+          if (searchParams.get('section') === 'buy') {
+            const params = new URLSearchParams(searchParams);
+            params.set('section', 'bot');
+            setSearchParams(params, { replace: true });
+          }
+        }}
+        walletAddress={address}
+        onRequireWallet={() => openWallet({ view: 'Connect' })}
+      />
 
       {authModal
         ? createPortal(

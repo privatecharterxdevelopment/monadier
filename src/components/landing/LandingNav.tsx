@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpRight, Headphones } from 'lucide-react';
+import { ArrowUpRight, CreditCard, Headphones } from 'lucide-react';
 import Logo from '../ui/Logo';
 import MobileMenu from '../ui/MobileMenu';
 import OpenAppLink from '../layout/OpenAppLink';
@@ -90,6 +90,14 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
           </div>
 
           <div className="landing-al-nav-right">
+            <Link
+              to="/buy-crypto"
+              className="landing-al-nav-support"
+              aria-label={t('app.buyCrypto.navLabel')}
+              title={t('app.buyCrypto.navLabel')}
+            >
+              <CreditCard size={18} strokeWidth={2.15} aria-hidden />
+            </Link>
             <Link
               to="/support"
               className="landing-al-nav-support"

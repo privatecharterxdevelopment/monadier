@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Copy, CreditCard, ExternalLink, Loader2, ShieldCheck, X } from 'lucide-react';
+import { Check, Copy, CreditCard, ExternalLink, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 import {
   onrampProviderLabel,
   resolveOnrampBuyUrl,
 } from '../../lib/onramp/buyUsdc';
+import PaymentMethodMarks from './PaymentMethodMarks';
 
 type Props = {
   open: boolean;
@@ -130,6 +131,7 @@ const BuyUsdcModal: React.FC<Props> = ({
               <h2 id="buy-usdc-title" className="hl-modal-title">
                 {t('app.buyUsdc.title')}
               </h2>
+              <PaymentMethodMarks className="hl-buy-usdc__marks" />
               <p className="hl-buy-usdc__sub">{t('app.buyUsdc.sub', { provider })}</p>
             </div>
           </div>
@@ -139,14 +141,9 @@ const BuyUsdcModal: React.FC<Props> = ({
         </div>
 
         <div className="hl-buy-usdc__body">
-          <div className="hl-buy-usdc__trust">
-            <ShieldCheck size={14} aria-hidden />
-            <p>{t('app.buyUsdc.trust', { provider })}</p>
-          </div>
-
           {!walletAddress ? (
             <div className="hl-buy-usdc__empty">
-              <p>{t('app.buyUsdc.connectFirst')}</p>
+              <p>{t('app.buyUsdc.connectFirst', { provider })}</p>
               <button
                 type="button"
                 className="hl-funds-overview__btn hl-funds-overview__btn--primary"
@@ -158,10 +155,11 @@ const BuyUsdcModal: React.FC<Props> = ({
           ) : loadError && !widgetUrl ? (
             <div className="hl-buy-usdc__empty">
               <p>{t('app.buyUsdc.notConfigured')}</p>
-              <p className="hl-buy-usdc__hint">{t('app.buyUsdc.notConfiguredHint')}</p>
+              <p className="hl-buy-usdc__empty-note">{t('app.buyUsdc.notConfiguredHint')}</p>
             </div>
           ) : (
             <>
+              <p className="hl-buy-usdc__note">{t('app.buyUsdc.trust', { provider })}</p>
               {needsPasteAddress && walletAddress ? (
                 <div className="hl-buy-usdc__wallet">
                   <p>{t('app.buyUsdc.pasteWallet')}</p>

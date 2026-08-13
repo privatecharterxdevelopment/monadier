@@ -672,6 +672,24 @@
       "label": "दैनिक ट्रेडिंग वॉल्यूम",
       "labelAccent": "HG बॉट द्वारा प्रबंधित",
       "live": "लाइव"
+    },
+    "buyPage": {
+      "eyebrow": "Card on-ramp",
+      "titleBefore": "Buy ",
+      "titleAccent": "USDC",
+      "titleAfter": " with {{provider}}",
+      "lead": "Connect your wallet, pay by card or Apple Pay, then optionally register and start the HyperGain bot — USDC lands on Arbitrum in your wallet.",
+      "stepConnect": "Connect wallet",
+      "stepBuy": "Buy USDC",
+      "stepTrade": "Register & trade",
+      "connectFirst": "Connect a wallet first — checkout sends USDC to that Arbitrum address.",
+      "connectCta": "Connect wallet",
+      "connectHint": "No HyperGain account needed to buy. Register after if you want the bot.",
+      "afterTitle": "Ready to trade?",
+      "afterLead": "After USDC arrives, register (optional) and open the app to deposit on Hyperliquid and start the agent.",
+      "registerCta": "Register now",
+      "startBotCta": "Start bot trading",
+      "stepsLabel": "How it works"
     }
   },
   "marketing": {
@@ -876,14 +894,14 @@
   "app": {
     "buyUsdc": {
       "title": "Buy USDC",
-      "sub": "Card or Apple Pay via {{provider}} · lands in your wallet on Arbitrum",
-      "trust": "HyperGain never holds your card or crypto. Purchase goes straight to your connected wallet as native USDC on Arbitrum One — then deposit to Hyperliquid.",
-      "connectFirst": "Connect your wallet so we can send USDC to the right address.",
+      "sub": "USDC on Arbitrum via {{provider}}",
+      "trust": "{{provider}} takes the payment. We never see your card.",
+      "connectFirst": "Connect your wallet — {{provider}} sends USDC there.",
       "notConfigured": "Card buy is not enabled yet on this environment.",
       "notConfiguredHint": "Set VITE_MOONPAY_API_KEY (or VITE_RAMP_HOST_API_KEY) in your deploy env.",
       "loading": "Loading secure checkout…",
       "openExternal": "Open in new tab",
-      "afterBuy": "After purchase, wait for USDC in MetaMask on Arbitrum, then Deposit to Hyperliquid.",
+      "afterBuy": "Then deposit USDC to Hyperliquid.",
       "cta": "Buy USDC with card",
       "ctaShort": "Buy with card",
       "pasteWallet": "Paste this Arbitrum address in checkout if asked:",

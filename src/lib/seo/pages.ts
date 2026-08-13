@@ -44,6 +44,16 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     priority: 1.0,
     sitemap: true,
   },
+  '/buy-crypto': {
+    path: '/buy-crypto',
+    title: `Buy USDC with card | MoonPay on Arbitrum — ${SITE_NAME}`,
+    description:
+      'Buy USDC with Visa, Mastercard or Apple Pay via MoonPay. Connect wallet, fund on Arbitrum, then register and start the HyperGain Hyperliquid agent.',
+    keywords: `buy USDC card, MoonPay Hyperliquid, buy crypto Arbitrum USDC, HyperGain on-ramp, ${BOT_KEYWORDS}`,
+    changefreq: 'monthly',
+    priority: 0.8,
+    sitemap: true,
+  },
   '/how-it-works': {
     path: '/how-it-works',
     title: `How it works | Deposit, Approve, Trade 24/7 — ${SITE_NAME}`,

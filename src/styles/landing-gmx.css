@@ -17726,3 +17726,322 @@ html[data-landing-theme='dark'] .hg-docs-sidebar__link.is-on,
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Buy crypto marketing page ── */
+.hg-buy-land {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 28px 0 48px;
+  text-align: center;
+}
+
+.hg-buy-land__eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lg-accent, #3dd68c);
+}
+
+.hg-buy-land__title {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: #0a0a0a;
+}
+
+.hg-buy-land__accent {
+  color: var(--lg-accent, #3dd68c);
+}
+
+.hg-buy-land__lead {
+  margin: 0 auto 18px;
+  max-width: 34rem;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #52525b;
+}
+
+.hg-buy-land__marks {
+  justify-content: center;
+  margin: 0 auto 22px;
+}
+
+.hg-buy-land__steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.hg-buy-land__steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 550;
+  color: #71717a;
+}
+
+.hg-buy-land__steps li.is-active {
+  color: #0a0a0a;
+}
+
+.hg-buy-land__steps li.is-done {
+  color: var(--lg-accent, #3dd68c);
+}
+
+.hg-buy-land__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hg-buy-land__panel {
+  text-align: left;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04);
+}
+
+.hg-buy-land__secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #71717a;
+}
+
+.hg-buy-land__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 16px;
+  text-align: center;
+  color: #3f3f46;
+}
+
+.hg-buy-land__primary,
+.hg-buy-land__secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.hg-buy-land__primary {
+  background: var(--lg-accent, #3dd68c);
+  color: #0b1210;
+}
+
+.hg-buy-land__primary:hover {
+  filter: brightness(0.97);
+}
+
+.hg-buy-land__secondary {
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0a0a0a;
+}
+
+.hg-buy-land__secondary:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.hg-buy-land__hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #71717a;
+  text-align: center;
+}
+
+.hg-buy-land__paste {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 12px;
+  color: #52525b;
+}
+
+.hg-buy-land__paste-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.hg-buy-land__paste-row code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+
+.hg-buy-land__paste-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--lg-accent, #3dd68c);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hg-buy-land__frame-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 520px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.hg-buy-land__frame {
+  width: 100%;
+  height: 560px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.hg-buy-land__frame-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #71717a;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.hg-buy-land__spin {
+  animation: hg-buy-spin 0.9s linear infinite;
+}
+
+@keyframes hg-buy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hg-buy-land__external {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #52525b;
+  text-decoration: none;
+}
+
+.hg-buy-land__external:hover {
+  color: #0a0a0a;
+}
+
+.hg-buy-land__next {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.hg-buy-land__next-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0a0a0a;
+}
+
+.hg-buy-land__next-lead {
+  margin: 0 auto 16px;
+  max-width: 28rem;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #52525b;
+}
+
+.hg-buy-land__next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.hg-buy-land__foot {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: #71717a;
+}
+
+.hg-buy-land__foot a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__title,
+html[data-landing-theme='dark'] .hg-buy-land__next-title,
+html[data-landing-theme='dark'] .hg-buy-land__steps li.is-active,
+html[data-landing-theme='dark'] .hg-buy-land__secondary {
+  color: #f4f4f5;
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__lead,
+html[data-landing-theme='dark'] .hg-buy-land__next-lead,
+html[data-landing-theme='dark'] .hg-buy-land__hint,
+html[data-landing-theme='dark'] .hg-buy-land__secure,
+html[data-landing-theme='dark'] .hg-buy-land__foot {
+  color: #a1a1aa;
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__panel {
+  background: #18181b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__secondary {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__frame-wrap {
+  background: #09090b;
+}
+
+html[data-landing-theme='dark'] .hg-buy-land__next {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}

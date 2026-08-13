@@ -81,6 +81,8 @@ type Props = {
   onRequireSignIn?: (reason: string) => void;
   onOpenRegister?: () => void;
   onViewNotificationHistory?: (notification?: ActivityNotification) => void;
+  /** Opens Buy USDC modal (same as Funds → Buy USDC). */
+  onOpenBuyUsdc?: () => void;
   walletAddress?: string;
   walletConnected?: boolean;
 };
@@ -97,6 +99,7 @@ const ProTradeTopNav: React.FC<Props> = ({
   onRequireSignIn,
   onOpenRegister,
   onViewNotificationHistory,
+  onOpenBuyUsdc,
   walletAddress,
   walletConnected = false,
 }) => {
@@ -202,13 +205,11 @@ const ProTradeTopNav: React.FC<Props> = ({
         <ProTradeThemeIcon />
         <button
           type="button"
-          className={`hl-topnav-buy-btn${section === 'buy' ? ' hl-topnav-buy-btn--on' : ''}`}
-          aria-label={t('app.buyCrypto.navLabel')}
-          aria-current={section === 'buy' ? 'page' : undefined}
-          onClick={() => pickNavSection('buy', true)}
+          className="hl-topnav-icon-btn"
+          aria-label={t('app.buyUsdc.cta')}
+          onClick={() => onOpenBuyUsdc?.()}
         >
-          <CreditCard size={15} strokeWidth={2.25} aria-hidden />
-          <span className="hl-topnav-buy-btn__label">{t('app.buyCrypto.navShort')}</span>
+          <CreditCard size={16} aria-hidden />
         </button>
         <button
           type="button"
@@ -293,12 +294,15 @@ const ProTradeTopNav: React.FC<Props> = ({
               ))}
               <button
                 type="button"
-                className={`hl-mobile-nav-link ${section === 'buy' ? 'hl-mobile-nav-link--on' : ''}`}
-                onClick={() => pickSection('buy', true)}
+                className="hl-mobile-nav-link"
+                onClick={() => {
+                  onOpenBuyUsdc?.();
+                  setMobileNavOpen(false);
+                }}
               >
                 <span className="hl-mobile-nav-link-main">
                   <CreditCard size={16} aria-hidden />
-                  {t('app.buyCrypto.navLabel')}
+                  {t('app.buyUsdc.cta')}
                 </span>
               </button>
               <button

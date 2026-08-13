@@ -95,6 +95,13 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                 <Link to="/docs" onClick={() => setIsOpen(false)} className={itemClass(isActive('/docs'))}>
                   {t('footer.docs')}
                 </Link>
+                <Link
+                  to="/buy-crypto"
+                  onClick={() => setIsOpen(false)}
+                  className={itemClass(isActive('/buy-crypto'))}
+                >
+                  {t('app.buyCrypto.navLabel')}
+                </Link>
                 <Link to="/support" onClick={() => setIsOpen(false)} className={itemClass(isActive('/support'))}>
                   {t('common.helpCenter')}
                 </Link>

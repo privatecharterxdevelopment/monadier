@@ -17,6 +17,7 @@ import RedirectToApp from './components/app/RedirectToApp';
 import SiteRootRoute from './components/app/SiteRootRoute';
 import HowItWorksPage from './pages/HowItWorksPage';
 import CardPage from './pages/CardPage';
+import BuyCryptoLandingPage from './pages/BuyCryptoLandingPage';
 import BotTradingPage from './pages/BotTradingPage';
 import LeaderboardLandingPage from './pages/LeaderboardLandingPage';
 import SportsBettingPage from './pages/SportsBettingPage';
@@ -87,6 +88,12 @@ function App() {
               <CardPage />
             </PageTransition>
           } />
+          <Route path="/buy-crypto" element={
+            <PageTransition>
+              <BuyCryptoLandingPage />
+            </PageTransition>
+          } />
+          <Route path="/buy-usdc" element={<Navigate to="/buy-crypto" replace />} />
           <Route path="/trading-bot" element={
             <PageTransition>
               <BotTradingPage />
