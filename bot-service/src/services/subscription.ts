@@ -107,6 +107,22 @@ export class SubscriptionService {
     );
   }
 
+  /** Resolve profile email for a wallet (admin desk labels). */
+  async getEmailFromWallet(walletAddress: string): Promise<string | null> {
+    try {
+      const userId = await this.getUserIdFromWallet(walletAddress);
+      if (!userId) return null;
+      const { data } = await this.supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+      return data?.email?.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Get user_id from user_wallets table (supports multiple wallets per user)
    */
