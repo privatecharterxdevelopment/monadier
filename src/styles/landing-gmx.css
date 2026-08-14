@@ -16960,41 +16960,47 @@ html[data-landing-theme='dark'] .landing-assist-cta--ghost:hover {
   position: relative;
   margin: 0;
   min-width: 0;
-  isolation: isolate;
+  overflow: visible;
+  /* Room for the soft green wash to bloom past the mockup edges */
+  padding: 28px 20px;
 }
 
-/* Soft app-green wash behind mockups — same hue as hero, smaller / finer */
+.hiw-showcase-row,
+.hiw-showcase-list {
+  overflow: visible;
+}
+
+/* Soft app-green wash behind mockups — readable on light AND dark */
 .hiw-showcase-glow {
   position: absolute;
   z-index: 0;
   left: 50%;
-  top: 48%;
-  width: min(520px, 118%);
-  height: min(420px, 108%);
+  top: 50%;
+  width: min(640px, 170%);
+  height: min(560px, 155%);
   transform: translate(-50%, -50%);
   pointer-events: none;
   background:
     radial-gradient(
-      ellipse 70% 58% at 50% 45%,
-      rgba(61, 214, 140, 0.28) 0%,
-      rgba(61, 214, 140, 0.12) 38%,
-      rgba(61, 214, 140, 0.04) 58%,
-      transparent 74%
+      ellipse 58% 52% at 50% 46%,
+      rgba(61, 214, 140, 0.55) 0%,
+      rgba(61, 214, 140, 0.28) 34%,
+      rgba(61, 214, 140, 0.1) 58%,
+      transparent 76%
     ),
     radial-gradient(
-      ellipse 78% 62% at 50% 62%,
-      rgba(61, 214, 140, 0.1) 0%,
-      transparent 68%
+      ellipse 72% 64% at 50% 60%,
+      rgba(61, 214, 140, 0.22) 0%,
+      transparent 70%
     );
-  filter: blur(36px);
-  opacity: 0.72;
+  filter: blur(42px);
+  opacity: 1;
 }
 
 .hiw-showcase-figure--portrait .hiw-showcase-glow {
-  width: min(320px, 140%);
-  height: min(380px, 115%);
-  filter: blur(32px);
-  opacity: 0.68;
+  width: min(420px, 210%);
+  height: min(520px, 175%);
+  filter: blur(38px);
 }
 
 .hiw-showcase-figure picture {
@@ -17012,44 +17018,60 @@ html[data-landing-theme='dark'] .landing-assist-cta--ghost:hover {
   border-radius: 16px;
   border: 1px solid var(--lg-border);
   background: #fff;
-  box-shadow: 0 22px 48px -28px rgb(0 0 0 / 0.4);
+  box-shadow:
+    0 22px 48px -28px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgb(61 214 140 / 0.08),
+    0 0 64px 8px rgb(61 214 140 / 0.18);
 }
 
 .hiw-showcase-figure--portrait .hiw-showcase-shot {
   max-width: 220px;
   margin-inline: auto;
   border-radius: 22px;
+  box-shadow:
+    0 22px 48px -28px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgb(61 214 140 / 0.1),
+    0 0 72px 12px rgb(61 214 140 / 0.22);
 }
 
 html[data-landing-theme='dark'] .hiw-showcase-glow,
 .landing-gmx--dark .hiw-showcase-glow {
   background:
     radial-gradient(
-      ellipse 70% 58% at 50% 45%,
-      rgba(61, 214, 140, 0.22) 0%,
-      rgba(61, 214, 140, 0.09) 40%,
-      rgba(61, 214, 140, 0.03) 58%,
-      transparent 74%
+      ellipse 58% 52% at 50% 46%,
+      rgba(61, 214, 140, 0.42) 0%,
+      rgba(61, 214, 140, 0.18) 38%,
+      rgba(61, 214, 140, 0.06) 58%,
+      transparent 76%
     ),
     radial-gradient(
-      ellipse 78% 62% at 50% 62%,
-      rgba(61, 214, 140, 0.08) 0%,
-      transparent 68%
+      ellipse 72% 64% at 50% 60%,
+      rgba(61, 214, 140, 0.16) 0%,
+      transparent 70%
     );
-  opacity: 0.78;
+}
+
+html[data-landing-theme='dark'] .hiw-showcase-shot,
+.landing-gmx--dark .hiw-showcase-shot {
+  box-shadow:
+    0 22px 48px -28px rgb(0 0 0 / 0.55),
+    0 0 72px 10px rgb(61 214 140 / 0.2);
 }
 
 @media (max-width: 639px) {
+  .hiw-showcase-figure {
+    padding: 22px 12px;
+  }
+
   .hiw-showcase-glow {
-    width: min(420px, 130%);
-    height: min(340px, 110%);
-    filter: blur(28px);
-    opacity: 0.62;
+    width: min(480px, 185%);
+    height: min(420px, 150%);
+    filter: blur(32px);
   }
 
   .hiw-showcase-figure--portrait .hiw-showcase-glow {
-    width: min(280px, 150%);
-    height: min(320px, 120%);
+    width: min(340px, 220%);
+    height: min(420px, 165%);
   }
 }
 
