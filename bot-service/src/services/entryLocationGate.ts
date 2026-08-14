@@ -10,7 +10,6 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
-import { isLongAllowedCoin } from './longAllowlist';
 import { logger } from '../utils/logger';
 import {
   computeResistanceZone,
@@ -413,22 +412,17 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Floor reverse: confirmed support bounce → LONG for majors only.
-  // Blind SHORT→LONG without bounce was the falling-knife bug — zoneGate only sets
-  // flipTo LONG after zoneReversalConfirmed. Dump tape still runs in hlTrading.
+  // Floor reverse: confirmed support bounce → LONG on ANY coin (user: not majors-only).
+  // Dump tape (incl. BTC) still hard-blocks in hlTrading — no knife into red tape.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
     zoneGate.flipTo !== opts.direction
   ) {
-    if (
-      zoneGate.flipTo === 'LONG' &&
-      (!config.hyperliquid.directionProfile.allowLongOpens ||
-        !isLongAllowedCoin(opts.coin ?? ''))
-    ) {
+    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
       return {
         ok: false,
-        reason: `${zoneGate.reason} — floor LONG only BTC/ETH/SOL when dump-tape clear (no alt knife); no floor SHORT`,
+        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
         analysis: sr,
       };
     }
@@ -463,11 +457,10 @@ export async function validateEntryLocation(opts: {
   const classic = evaluateEntryLocation(opts.direction, sr);
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
-  // Floor reverse (classic): scan arrived SHORT at S, bounce confirmed → LONG majors only.
+  // Floor reverse (classic): SHORT at S + bounce → LONG any coin when LONGs enabled.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     config.hyperliquid.directionProfile.allowLongOpens &&
-    isLongAllowedCoin(opts.coin ?? '') &&
     opts.direction === 'SHORT' &&
     !classic.ok &&
     sr.nearSupport &&

@@ -1625,13 +1625,18 @@ export class HyperliquidTradingService {
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
+        const floorReverseLong =
+          flipped === 'LONG' &&
+          zoneFlipFrom === 'SHORT' &&
+          /support-zone bounce|floor reverse|flip SHORT→LONG/i.test(locationGate.reason);
 
-        // Floor reverse: bounce at S may flip SHORT→LONG — majors only + dump tape always.
-        // Never skip dump-tape (BTC dump → OP/SNX knife LONGs). Memes stay SHORT-only.
+        // Floor reverse LONG: any coin (not majors-only). Dump tape always required.
+        // Non-floor SHORT→LONG on SHORT-only alts: keep SHORT (no random mid-range LONGs).
         if (
           flipped === 'LONG' &&
           zoneFlipFrom === 'SHORT' &&
-          !isLongAllowedCoin(coin)
+          !isLongAllowedCoin(coin) &&
+          !floorReverseLong
         ) {
           logger.info('HL zone flip SHORT→LONG skipped — coin SHORT-only, keeping SHORT', {
             user: opts.userAddress.slice(0, 10),
@@ -1654,14 +1659,15 @@ export class HyperliquidTradingService {
               'LONG disabled at source'
             );
           }
-          if (!isLongAllowedCoin(coin)) {
+          // Allowlist only for non-floor flips. Floor reverse = any coin + dump tape.
+          if (!floorReverseLong && !isLongAllowedCoin(coin)) {
             return rejectOpen(
               'long_allowlist',
               `LONG flip blocked — ${longAllowlistReason(coin)}`,
               'LONG majors only'
             );
           }
-          // Always dump-tape — floor bounce does NOT waive BTC/coin red tape.
+          // Always dump-tape (coin + BTC) — no knife into red dump.
           const dumpTape = await validateLongDumpTapeGate({ coin });
           if (!dumpTape.ok) {
             return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
