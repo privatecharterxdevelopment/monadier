@@ -1503,7 +1503,7 @@
   },
   "docs": {
     "navLabel": "Documentación",
-    "title": "Documentación de HyperGain",
+    "title": "<0>Documentación</0> de HyperGain",
     "lead": "Todo para operar el agente AI non-custodial de Hyperliquid: depósitos con USDC en Arbitrum, aprobación única del agente, trailing, comisiones, leaderboard on-chain y apuestas AI — sin entregar tus keys.",
     "familiar": "Conoce HyperGain",
     "browse": "Explorar docs",

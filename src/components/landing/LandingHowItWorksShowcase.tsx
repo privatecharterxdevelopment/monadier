@@ -40,6 +40,7 @@ const LandingHowItWorksShowcase: React.FC<Props> = ({ variant = 'landing' }) => 
             }`}
           >
             <figure className={`hiw-showcase-figure hiw-showcase-figure--${img.layout}`}>
+              <div className="hiw-showcase-glow" aria-hidden />
               <picture>
                 <source type="image/webp" srcSet={img.webpSrcSet} sizes={img.sizes} />
                 <img

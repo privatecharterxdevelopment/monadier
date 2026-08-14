@@ -17522,6 +17522,11 @@ html[dir='rtl'] .hl-book {
   color: var(--hl-text);
 }
 
+.hl-help-docs__em {
+  font-style: normal;
+  color: #3dd68c;
+}
+
 .hl-help-docs__hero p {
   margin: 0;
   max-width: 62ch;

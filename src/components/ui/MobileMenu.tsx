@@ -89,7 +89,11 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ onDownloadClick, variant = 'dar
                 >
                   {t('common.howItWorks')}
                 </Link>
-                <Link to="/docs" onClick={() => setIsOpen(false)} className={itemClass(isActive('/docs'))}>
+                <Link
+                  to="/docs"
+                  onClick={() => setIsOpen(false)}
+                  className={`${itemClass(isActive('/docs'))} landing-al-nav-link--docs`}
+                >
                   {t('footer.docs')}
                 </Link>
                 <Link

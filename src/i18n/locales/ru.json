@@ -1503,7 +1503,7 @@
   },
   "docs": {
     "navLabel": "Документация",
-    "title": "Документация HyperGain",
+    "title": "<0>Документация</0> HyperGain",
     "lead": "Всё для non-custodial AI-агента Hyperliquid: депозиты USDC на Arbitrum, разовое одобрение агента, трейлинг, комиссии, on-chain лидерборд и AI-ставки — без передачи ключей.",
     "familiar": "Познакомьтесь с HyperGain",
     "browse": "Смотреть docs",

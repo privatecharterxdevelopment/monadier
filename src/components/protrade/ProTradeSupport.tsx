@@ -16,7 +16,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { submitSupportMessage } from '../../lib/supportMessage';
 import {
@@ -448,7 +448,13 @@ const ProTradeSupport: React.FC<Props> = ({ onRequireSignIn }) => {
                 </button>
 
                 <header className="hl-help-docs__hero">
-                  <h1>{t('docs.title', { defaultValue: 'HyperGain Documentation' })}</h1>
+                  <h1>
+                    <Trans
+                      i18nKey="docs.title"
+                      defaults="HyperGain <0>Documentation</0>"
+                      components={[<em className="hl-help-docs__em" key="em" />]}
+                    />
+                  </h1>
                   <p>{t('docs.lead', { defaultValue: 'Guides for the non-custodial Hyperliquid AI trading agent.' })}</p>
                 </header>
 

@@ -9,7 +9,7 @@ import {
   Shield,
   Sparkles,
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import MarketingPageLayout from '../components/layout/MarketingPageLayout';
 import {
   DOCS_FAMILIAR,
@@ -99,7 +99,12 @@ const DocsPage: React.FC = () => {
           </Link>
 
           <header className="hg-docs-hero">
-            <h1>{t('docs.title')}</h1>
+            <h1>
+              <Trans
+                i18nKey="docs.title"
+                components={[<em className="hg-docs-em" key="em" />]}
+              />
+            </h1>
             <p>{t('docs.lead')}</p>
           </header>
 

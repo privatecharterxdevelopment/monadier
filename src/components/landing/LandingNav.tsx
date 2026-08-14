@@ -84,7 +84,7 @@ const LandingNav: React.FC<LandingNavProps> = ({ variant, layout = 'pill' }) => 
             <Link to="/how-it-works" className={`landing-al-nav-link ${linkClass}`}>
               {t('common.howItWorks')}
             </Link>
-            <Link to="/docs" className={`landing-al-nav-link ${linkClass}`}>
+            <Link to="/docs" className={`landing-al-nav-link landing-al-nav-link--docs ${linkClass}`}>
               {t('footer.docs')}
             </Link>
           </div>
