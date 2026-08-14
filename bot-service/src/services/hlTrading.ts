@@ -1625,19 +1625,13 @@ export class HyperliquidTradingService {
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
-        const floorReverseLong =
-          flipped === 'LONG' &&
-          zoneFlipFrom === 'SHORT' &&
-          /support-zone bounce|floor reverse|flip SHORT→LONG/i.test(locationGate.reason);
 
-        // Floor reverse LONGs are allowed on memes too (don't short the shelf).
-        // Non-floor SHORT→LONG on SHORT-only alts: keep original SHORT only if
-        // still an R-fade / upper-range short — never a floor continuation.
+        // Floor reverse: bounce at S may flip SHORT→LONG — majors only + dump tape always.
+        // Never skip dump-tape (BTC dump → OP/SNX knife LONGs). Memes stay SHORT-only.
         if (
           flipped === 'LONG' &&
           zoneFlipFrom === 'SHORT' &&
-          !isLongAllowedCoin(coin) &&
-          !floorReverseLong
+          !isLongAllowedCoin(coin)
         ) {
           logger.info('HL zone flip SHORT→LONG skipped — coin SHORT-only, keeping SHORT', {
             user: opts.userAddress.slice(0, 10),
@@ -1660,27 +1654,17 @@ export class HyperliquidTradingService {
               'LONG disabled at source'
             );
           }
-          // Floor reverse = bounce already confirmed at S. Skip majors-only allowlist.
-          if (!floorReverseLong && !isLongAllowedCoin(coin)) {
+          if (!isLongAllowedCoin(coin)) {
             return rejectOpen(
               'long_allowlist',
               `LONG flip blocked — ${longAllowlistReason(coin)}`,
               'LONG majors only'
             );
           }
-          // Dump tape: skip on confirmed floor bounce (anti-knife is the bounce itself).
-          // Still block blind / non-bounce LONG flips into red tape.
-          if (!floorReverseLong) {
-            const dumpTape = await validateLongDumpTapeGate({ coin });
-            if (!dumpTape.ok) {
-              return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
-            }
-          } else {
-            logger.info('HL floor reverse LONG — dump-tape skipped (bounce confirmed)', {
-              user: opts.userAddress.slice(0, 10),
-              coin,
-              reason: locationGate.reason,
-            });
+          // Always dump-tape — floor bounce does NOT waive BTC/coin red tape.
+          const dumpTape = await validateLongDumpTapeGate({ coin });
+          if (!dumpTape.ok) {
+            return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
           }
         }
         if (flipped === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {

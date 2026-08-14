@@ -10,6 +10,7 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { isLongAllowedCoin } from './longAllowlist';
 import { logger } from '../utils/logger';
 import {
   computeResistanceZone,
@@ -412,18 +413,22 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Floor reverse: confirmed support bounce → LONG (even under SHORT-primary / memes).
+  // Floor reverse: confirmed support bounce → LONG for majors only.
   // Blind SHORT→LONG without bounce was the falling-knife bug — zoneGate only sets
-  // flipTo LONG after zoneReversalConfirmed (pierce + close back above mid).
+  // flipTo LONG after zoneReversalConfirmed. Dump tape still runs in hlTrading.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
     zoneGate.flipTo !== opts.direction
   ) {
-    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
+    if (
+      zoneGate.flipTo === 'LONG' &&
+      (!config.hyperliquid.directionProfile.allowLongOpens ||
+        !isLongAllowedCoin(opts.coin ?? ''))
+    ) {
       return {
         ok: false,
-        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
+        reason: `${zoneGate.reason} — floor LONG only BTC/ETH/SOL when dump-tape clear (no alt knife); no floor SHORT`,
         analysis: sr,
       };
     }
@@ -458,11 +463,11 @@ export async function validateEntryLocation(opts: {
   const classic = evaluateEntryLocation(opts.direction, sr);
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
-  // Floor reverse (classic): scan arrived SHORT at S, bounce confirmed → LONG.
-  // Works for majors + memes when LONGs are enabled — do NOT short the shelf.
+  // Floor reverse (classic): scan arrived SHORT at S, bounce confirmed → LONG majors only.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     config.hyperliquid.directionProfile.allowLongOpens &&
+    isLongAllowedCoin(opts.coin ?? '') &&
     opts.direction === 'SHORT' &&
     !classic.ok &&
     sr.nearSupport &&
