@@ -30,6 +30,8 @@ export type PublicLeaderboardRow = {
   opened_at: string | null;
   closed_at: string;
   exit_tx_hash: string | null;
+  /** From trade_history when matched — e.g. manual, trailing_stop. */
+  close_reason: string | null;
 };
 
 type HlFill = {
@@ -54,6 +56,7 @@ type CloseRow = {
   closedAtMs: number;
   openedAtMs: number | null;
   hash: string | null;
+  closeReason: string | null;
 };
 
 type FillCache = { at: number; fills: HlFill[] };
@@ -182,6 +185,7 @@ function closesFromFills(wallet: string, fills: HlFill[]): CloseRow[] {
       closedAtMs: t,
       openedAtMs: lastOpenMs.get(openKey) ?? null,
       hash: hash || null,
+      closeReason: null,
     });
   }
 
@@ -210,6 +214,70 @@ function closesFromFills(wallet: string, fills: HlFill[]): CloseRow[] {
   return merged;
 }
 
+type HistoryCloseHint = {
+  wallet: string;
+  coin: string;
+  closedAtMs: number;
+  hash: string | null;
+  reason: string;
+};
+
+async function loadCloseReasonHints(): Promise<HistoryCloseHint[]> {
+  const since = new Date(Date.now() - RECENT_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('trade_history')
+    .select('wallet_address, token_symbol, closed_at, close_reason, exit_tx_hash')
+    .not('closed_at', 'is', null)
+    .not('close_reason', 'is', null)
+    .gte('closed_at', since)
+    .or('execution_venue.eq.hyperliquid,execution_venue.is.null')
+    .order('closed_at', { ascending: false })
+    .limit(800);
+
+  if (error) {
+    logger.warn('HL leaderboard close_reason read failed', { error: error.message });
+    return [];
+  }
+
+  const out: HistoryCloseHint[] = [];
+  for (const row of data ?? []) {
+    const reason = String(row.close_reason ?? '').trim();
+    if (!reason) continue;
+    const wallet = String(row.wallet_address ?? '').trim().toLowerCase();
+    const coin = String(row.token_symbol ?? '').trim().toUpperCase();
+    const closedAtMs = Date.parse(String(row.closed_at ?? ''));
+    if (!wallet.startsWith('0x') || !coin || !Number.isFinite(closedAtMs)) continue;
+    const hash = String(row.exit_tx_hash ?? '').trim() || null;
+    out.push({ wallet, coin, closedAtMs, hash, reason });
+  }
+  return out;
+}
+
+function attachCloseReasons(rows: CloseRow[], hints: HistoryCloseHint[]): CloseRow[] {
+  if (hints.length === 0) return rows;
+  const MATCH_MS = 90_000;
+  return rows.map((row) => {
+    let best: HistoryCloseHint | null = null;
+    let bestDelta = Number.POSITIVE_INFINITY;
+    for (const h of hints) {
+      if (h.wallet !== row.wallet) continue;
+      if (h.coin !== row.coin) continue;
+      if (row.hash && h.hash && row.hash.toLowerCase() === h.hash.toLowerCase()) {
+        best = h;
+        bestDelta = 0;
+        break;
+      }
+      const delta = Math.abs(h.closedAtMs - row.closedAtMs);
+      if (delta <= MATCH_MS && delta < bestDelta) {
+        best = h;
+        bestDelta = delta;
+      }
+    }
+    if (!best) return row;
+    return { ...row, closeReason: best.reason };
+  });
+}
+
 async function loadAllCloses(): Promise<CloseRow[]> {
   if (boardCache && Date.now() - boardCache.at < BOARD_CACHE_MS) {
     return boardCache.rows;
@@ -217,7 +285,10 @@ async function loadAllCloses(): Promise<CloseRow[]> {
   if (boardInflight) return boardInflight;
 
   boardInflight = (async () => {
-    const wallets = await listLeaderboardWallets();
+    const [wallets, hints] = await Promise.all([
+      listLeaderboardWallets(),
+      loadCloseReasonHints(),
+    ]);
     const perWallet = await mapPool(wallets, FILLS_CONCURRENCY, async (wallet) => {
       try {
         const fills = await fetchUserFills(wallet);
@@ -230,7 +301,10 @@ async function loadAllCloses(): Promise<CloseRow[]> {
         return [] as CloseRow[];
       }
     });
-    const rows = perWallet.flat().sort((a, b) => b.closedAtMs - a.closedAtMs);
+    const rows = attachCloseReasons(
+      perWallet.flat().sort((a, b) => b.closedAtMs - a.closedAtMs),
+      hints
+    );
     boardCache = { at: Date.now(), rows };
     return rows;
   })();
@@ -254,6 +328,7 @@ function toApiRow(row: CloseRow): PublicLeaderboardRow {
     opened_at: row.openedAtMs ? new Date(row.openedAtMs).toISOString() : null,
     closed_at: new Date(row.closedAtMs).toISOString(),
     exit_tx_hash: hash,
+    close_reason: row.closeReason,
   };
 }
 

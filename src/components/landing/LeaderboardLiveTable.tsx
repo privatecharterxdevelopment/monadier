@@ -2,6 +2,11 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBotPublicRecentCloses } from '../../hooks/useBotPublicLeaderboard';
+import {
+  formatHlBotCloseReason,
+  isManualCloseReason,
+  leaderboardCloseLabel,
+} from '../../lib/hlBotReasonLabels';
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '−';
@@ -53,6 +58,7 @@ const LeaderboardLiveTable: React.FC<Props> = ({
           <tr>
             <th scope="col">{t('leaderboard.wallet')}</th>
             <th scope="col">{t('leaderboard.pair')}</th>
+            <th scope="col">{t('leaderboard.exit')}</th>
             <th scope="col">{t('leaderboard.opened')}</th>
             <th scope="col">{t('leaderboard.closed')}</th>
             <th scope="col" className="is-num">
@@ -64,42 +70,59 @@ const LeaderboardLiveTable: React.FC<Props> = ({
           </tr>
         </thead>
         <tbody>
-          {rows.map((trade) => (
-            <tr key={trade.id}>
-              <td className="is-mono">
-                0x{trade.walletLabel}
-                {trade.isLive ? (
-                  <span className="landing-leaderboard-live-pill" aria-label={t('leaderboard.live')}>
-                    {t('leaderboard.live')}
+          {rows.map((trade) => {
+            const exitLabel = leaderboardCloseLabel(trade.closeReason);
+            const exitTitle = formatHlBotCloseReason(trade.closeReason) ?? undefined;
+            const manual = isManualCloseReason(trade.closeReason);
+            return (
+              <tr key={trade.id}>
+                <td className="is-mono">
+                  0x{trade.walletLabel}
+                  {trade.isLive ? (
+                    <span className="landing-leaderboard-live-pill" aria-label={t('leaderboard.live')}>
+                      {t('leaderboard.live')}
+                    </span>
+                  ) : null}
+                </td>
+                <td>
+                  {trade.pair}{' '}
+                  <span
+                    className={`landing-leaderboard-side landing-leaderboard-side--${trade.direction.toLowerCase()}`}
+                  >
+                    {trade.direction}
                   </span>
-                ) : null}
-              </td>
-              <td>
-                {trade.pair}{' '}
-                <span
-                  className={`landing-leaderboard-side landing-leaderboard-side--${trade.direction.toLowerCase()}`}
-                >
-                  {trade.direction}
-                </span>
-              </td>
-              <td className="is-time">{fmtWhen(trade.openedAt)}</td>
-              <td className="is-time">{fmtWhen(trade.closedAt)}</td>
-              <td className={`is-num ${trade.profitUsd >= 0 ? 'is-profit' : 'is-loss'}`}>
-                {fmtUsd(trade.profitUsd)}
-              </td>
-              <td className="is-action">
-                <a
-                  href={trade.verifyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="landing-leaderboard-verify"
-                >
-                  {t('leaderboard.hypurrScan')}
-                  <ExternalLink size={12} aria-hidden />
-                </a>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td>
+                  {exitLabel ? (
+                    <span
+                      className={`landing-leaderboard-exit${manual ? ' is-manual' : ''}`}
+                      title={exitTitle}
+                    >
+                      {manual ? t('leaderboard.manual') : exitLabel}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td className="is-time">{fmtWhen(trade.openedAt)}</td>
+                <td className="is-time">{fmtWhen(trade.closedAt)}</td>
+                <td className={`is-num ${trade.profitUsd >= 0 ? 'is-profit' : 'is-loss'}`}>
+                  {fmtUsd(trade.profitUsd)}
+                </td>
+                <td className="is-action">
+                  <a
+                    href={trade.verifyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="landing-leaderboard-verify"
+                  >
+                    {t('leaderboard.hypurrScan')}
+                    <ExternalLink size={12} aria-hidden />
+                  </a>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

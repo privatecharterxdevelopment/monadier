@@ -13,6 +13,8 @@ export type BotPublicTradeRow = {
   closedAt: string;
   verifyUrl: string;
   isLive: boolean;
+  /** Raw close_reason from trade_history when matched (manual, trailing_stop, …). */
+  closeReason: string | null;
 };
 
 type RpcRow = {
@@ -25,6 +27,7 @@ type RpcRow = {
   opened_at: string | null;
   closed_at: string;
   exit_tx_hash: string | null;
+  close_reason?: string | null;
 };
 
 export function mapBotPublicLeaderboardRow(row: RpcRow): BotPublicTradeRow | null {
@@ -51,6 +54,7 @@ export function mapBotPublicLeaderboardRow(row: RpcRow): BotPublicTradeRow | nul
     closedAt,
     verifyUrl,
     isLive,
+    closeReason: row.close_reason?.trim() || null,
   };
 }
 

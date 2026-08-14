@@ -1605,6 +1605,8 @@
     "wallet": "Wallet",
     "pair": "Paar",
     "side": "Seite",
+    "exit": "Exit",
+    "manual": "Manuell",
     "opened": "Eröffnet",
     "closed": "Geschlossen",
     "pnl": "P/L",

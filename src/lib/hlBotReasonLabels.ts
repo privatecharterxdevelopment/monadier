@@ -1,3 +1,32 @@
+/** True when close was user/ops manual (not bot trail/TP). */
+export function isManualCloseReason(code: string | null | undefined): boolean {
+  const key = code?.trim().toLowerCase() ?? '';
+  if (!key) return false;
+  const base = key.split(' ‖ ')[0]?.trim() ?? key;
+  return (
+    base === 'manual' ||
+    base === 'user_requested' ||
+    base.startsWith('manual') ||
+    base.startsWith('user_') ||
+    base.startsWith('ops_') ||
+    base.startsWith('admin_')
+  );
+}
+
+/** Short leaderboard pill label for a close reason. */
+export function leaderboardCloseLabel(code: string | null | undefined): string | null {
+  if (!code?.trim()) return null;
+  if (isManualCloseReason(code)) return 'Manual';
+  const key = code.trim().toLowerCase().split(' ‖ ')[0] ?? '';
+  if (key.includes('trailing') || key === 'trailing_stop') return 'Trail';
+  if (key.includes('profit_lock') || key.includes('peak') || key.includes('profit_grab'))
+    return 'Trail';
+  if (key.includes('take_profit')) return 'TP';
+  if (key.includes('stop_loss')) return 'SL';
+  if (key.includes('signal_reversal')) return 'Reversal';
+  return null;
+}
+
 /** Human-readable bot close reason (matches bot-service hlTrading closeMarketPosition). */
 export function formatHlBotCloseReason(code: string | null | undefined): string | null {
   const raw = code?.trim();

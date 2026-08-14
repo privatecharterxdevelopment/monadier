@@ -1650,6 +1650,8 @@
     "wallet": "Wallet",
     "pair": "Pair",
     "side": "Side",
+    "exit": "Exit",
+    "manual": "Manual",
     "opened": "Opened",
     "closed": "Closed",
     "pnl": "P/L",

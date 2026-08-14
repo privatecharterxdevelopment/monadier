@@ -3,6 +3,11 @@ import { ExternalLink, Loader2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BotPublicTradeRow } from '../../lib/api/botPublicLeaderboard';
 import { useBotPublicRecentCloses } from '../../hooks/useBotPublicLeaderboard';
+import {
+  formatHlBotCloseReason,
+  isManualCloseReason,
+  leaderboardCloseLabel,
+} from '../../lib/hlBotReasonLabels';
 
 function fmtUsd(n: number): string {
   const sign = n >= 0 ? '+' : '−';
@@ -27,20 +32,25 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
   const { t } = useTranslation();
   return (
     <div className="hl-leaderboard-table-wrap">
-      <table className="hl-dock-table hl-leaderboard-table">
-        <thead>
-          <tr>
-            <th>{t('leaderboard.wallet')}</th>
-            <th>{t('leaderboard.pair')}</th>
-            <th>{t('leaderboard.side')}</th>
-            <th className="is-hide-narrow">{t('leaderboard.opened')}</th>
-            <th className="is-hide-narrow">{t('leaderboard.closed')}</th>
-            <th className="is-num">{t('leaderboard.pnl')}</th>
-            <th className="is-action">{t('leaderboard.verify')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trades.map((trade) => (
+    <table className="hl-dock-table hl-leaderboard-table">
+      <thead>
+        <tr>
+          <th>{t('leaderboard.wallet')}</th>
+          <th>{t('leaderboard.pair')}</th>
+          <th>{t('leaderboard.side')}</th>
+          <th>{t('leaderboard.exit')}</th>
+          <th className="is-hide-narrow">{t('leaderboard.opened')}</th>
+          <th className="is-hide-narrow">{t('leaderboard.closed')}</th>
+          <th className="is-num">{t('leaderboard.pnl')}</th>
+          <th className="is-action">{t('leaderboard.verify')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {trades.map((trade) => {
+          const exitLabel = leaderboardCloseLabel(trade.closeReason);
+          const exitTitle = formatHlBotCloseReason(trade.closeReason) ?? undefined;
+          const manual = isManualCloseReason(trade.closeReason);
+          return (
             <tr key={trade.id}>
               <td className="is-mono" title={`0x${trade.wallet.slice(2, 6)}…${trade.wallet.slice(-4)}`}>
                 0x{trade.walletLabel}
@@ -57,6 +67,18 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
                 >
                   {trade.direction}
                 </span>
+              </td>
+              <td>
+                {exitLabel ? (
+                  <span
+                    className={`hl-leaderboard-exit${manual ? ' hl-leaderboard-exit--manual' : ''}`}
+                    title={exitTitle}
+                  >
+                    {manual ? t('leaderboard.manual') : exitLabel}
+                  </span>
+                ) : (
+                  <span className="hl-leaderboard-exit hl-leaderboard-exit--muted">—</span>
+                )}
               </td>
               <td className="is-time is-hide-narrow">{fmtWhen(trade.openedAt)}</td>
               <td className="is-time is-hide-narrow">{fmtWhen(trade.closedAt)}</td>
@@ -75,9 +97,10 @@ function TradeTable({ trades }: { trades: BotPublicTradeRow[] }) {
                 </a>
               </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          );
+        })}
+      </tbody>
+    </table>
     </div>
   );
 }
