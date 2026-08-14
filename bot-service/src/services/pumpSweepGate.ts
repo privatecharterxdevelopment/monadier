@@ -66,20 +66,22 @@ function gateForDirection(
   }
   if (a.phase === 'at_sweep_low') {
     return {
-      ok: true,
-      reason: `Pump sweep OK — ${coin} continuation flush at sweep low $${a.sweepLow.toFixed(2)}`,
+      ok: false,
+      reason:
+        `SHORT blocked — ${coin} at sweep low $${a.sweepLow.toFixed(2)} (dump floor) — wait for bounce-fade or breakdown` +
+        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago)`,
     };
   }
-  // Only block the earliest bounce scrapes; mid-range post-dump is a valid fade.
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.12) {
+  // Block early bounce scrapes AND lower-half post-dump shelves (Open S at floor).
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.5) {
     return {
       ok: false,
       reason:
-        `SHORT blocked — ${coin} still scraping sweep low after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
-        `sweep $${a.sweepLow.toFixed(2)}) — wait for a real bounce before fade`,
+        `SHORT blocked — ${coin} still in lower half after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
+        `sweep $${a.sweepLow.toFixed(2)}) — wait for real bounce before fade`,
     };
   }
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.18) {
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.5) {
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} post-dump rally fade zone (${(a.positionInSweep * 100).toFixed(0)}% of range)`,

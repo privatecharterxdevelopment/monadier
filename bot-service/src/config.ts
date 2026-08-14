@@ -324,7 +324,7 @@ export const config = {
     entryLocation: {
       /** Price in top X of range = near resistance. */
       rangeTopBlock: Number(process.env.HL_ENTRY_RANGE_TOP || 0.65),
-      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.35),
+      rangeBottomBlock: Number(process.env.HL_ENTRY_RANGE_BOTTOM || 0.5),
       /** Pullback long allowed below this position in range (0.52 = lower half). */
       pullbackMaxPosition: Number(process.env.HL_ENTRY_PULLBACK_MAX || 0.52),
       /** Close must exceed resistance by this fraction to count as breakout. */
@@ -388,12 +388,12 @@ export const config = {
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
       /**
-       * SHORT range floor — block flush bottoms, allow dump-continuation (PEOPLE/ZRO/SUI era).
-       * 0.12 → FIL bottoms; 0.45 → drought. Floor ≥0.18 keeps extreme washouts out.
+       * SHORT range floor — sell high / R-fade only. Lower half = dump shelf (TRUMP floor).
+       * Env can raise further; floor hard-capped at ≥0.5 so mid-range dump shorts stay dead.
        */
       shortMinRangePosition: Math.max(
-        0.18,
-        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.22)
+        0.5,
+        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.5)
       ),
     },
     /**

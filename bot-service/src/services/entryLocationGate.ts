@@ -223,8 +223,9 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
     (supportZone != null &&
       price <= supportZone.zoneHigh * (1 + Math.max(cfg.nearLevelPct, 0.008)) &&
       price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
-    // Floor band only — NOT the whole lower half (0.5 starved dump-continuation SHORTs).
-    pos <= cfg.rangeBottomBlock ||
+    // Entire lower half = floor risk (chart S / dump shelf). Narrow 0.35 band
+    // let TRUMP-style Open S sit on consolidation low while pos looked "mid".
+    pos <= Math.max(cfg.rangeBottomBlock, 0.5) ||
     distToSupPct <= Math.max(cfg.nearLevelPct, 0.008) ||
     price <= support * (1 + Math.max(cfg.nearLevelPct, 0.008));
 
@@ -309,7 +310,7 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is always valid continuation.
+  // Breakdown through the floor is the only valid way to short the lows.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -318,8 +319,9 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Only block when truly hugging support (bounce risk) — NOT the whole lower half.
-  if (analysis.nearSupport) {
+  // Hard: never short the floor / lower half without breakdown (user: dump shelf Open S).
+  const floorReject = Math.max(cfg.rangeBottomBlock, 0.5);
+  if (analysis.nearSupport || analysis.pricePosition <= floorReject) {
     const zone =
       analysis.supportZone != null
         ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
@@ -327,11 +329,11 @@ export function evaluateEntryLocation(
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — hugging support ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}%); need breakdown or R-fade`,
+      reason: `SHORT blocked — at/near range floor ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤${(floorReject * 100).toFixed(0)}%); need breakdown or R-fade`,
     };
   }
 
-  // Resistance-zone fade.
+  // Resistance-zone / upper-range fade only.
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
@@ -344,19 +346,10 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Continuation / mid-range short OK when not at support.
-  if (analysis.pricePosition > cfg.rangeBottomBlock) {
-    return {
-      ok: true,
-      analysis,
-      reason: `Continuation short — pos ${(analysis.pricePosition * 100).toFixed(0)}% (clear of support)`,
-    };
-  }
-
   return {
     ok: false,
     analysis,
-    reason: `SHORT blocked — at range floor ${(analysis.pricePosition * 100).toFixed(0)}% without breakdown`,
+    reason: `SHORT blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need R ≥${(cfg.rangeTopBlock * 100).toFixed(0)}% or confirmed breakdown)`,
   };
 }
 
@@ -434,12 +427,18 @@ export async function validateEntryLocation(opts: {
       (config.hyperliquid.directionProfile.primaryDirection === 'SHORT' ||
         !isLongAllowedCoin(opts.coin ?? ''));
     if (longFlipBlocked) {
-      // Fall through — do not return flipTo LONG for SHORT-only / bear profiles.
-      logger.info('HL zone flip SHORT→LONG suppressed at location gate', {
+      // At support under SHORT-primary: do NOT fall through to classic continuation
+      // SHORT (that re-opened dump-shelf shorts). Wait — no LONG flip, no floor SHORT.
+      logger.info('HL zone flip SHORT→LONG suppressed — blocking floor SHORT', {
         coin: opts.coin,
         reason: zoneGate.reason,
         profile: config.hyperliquid.directionProfile.name,
       });
+      return {
+        ok: false,
+        reason: `${zoneGate.reason} — SHORT→LONG flip suppressed; no floor SHORT`,
+        analysis: sr,
+      };
     } else {
       return {
         ok: true,
