@@ -17168,7 +17168,9 @@ html[data-landing-theme='dark'] .hiw-showcase-badge,
 html[data-landing-theme='dark'] .hiw-showcase-shot,
 .landing-gmx--dark .hiw-showcase-shot {
   border-color: rgb(255 255 255 / 0.1);
-  box-shadow: 0 22px 48px -24px rgb(0 0 0 / 0.7);
+  box-shadow:
+    0 22px 48px -24px rgb(0 0 0 / 0.7),
+    0 0 72px 10px rgb(61 214 140 / 0.2);
 }
 
 @media (max-width: 800px) {
