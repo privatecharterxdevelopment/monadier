@@ -61,17 +61,25 @@ function buildSnapshot(
     (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
     0
   );
-  // Equity = HL account value only. Never floor to marginUsed — underwater
-  // books have marginUsed > equity and that inflated the header Balance.
-  const totalUsd = Math.max(funding.totalUsd, funding.accountEquityUsd, 0);
+  // Equity = HL accountValue only. Prefer live clearinghouse over funding math.
+  // Never floor to marginUsed — underwater books have marginUsed > equity.
+  const acctEquity = Math.max(
+    Number(acct?.margin?.accountValue ?? 0) || 0,
+    Number(acct?.crossMargin?.accountValue ?? 0) || 0,
+    0
+  );
+  const totalUsd = Math.max(funding.totalUsd, funding.accountEquityUsd, acctEquity, 0);
   return {
     wallet,
-    accountUsd: Math.max(funding.perpUsd, 0),
+    accountUsd: Math.max(funding.perpUsd, acctEquity, 0),
     tradablePerpUsd: Math.max(funding.tradablePerpUsd, 0),
     unifiedAccount: funding.unifiedAccount,
     spotUsdcUsd: funding.spotUsdcUsd,
     totalUsd,
-    withdrawableUsd: funding.withdrawableUsd,
+    withdrawableUsd: Math.max(
+      0,
+      Number(acct?.withdrawable ?? funding.withdrawableUsd) || funding.withdrawableUsd
+    ),
     totalMarginUsedUsd: marginUsed,
     openPositionsCount: openPositions.length,
     openNotionalUsd: openNotional,

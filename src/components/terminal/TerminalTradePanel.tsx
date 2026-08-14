@@ -72,6 +72,7 @@ import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
+import { fmtClosedPnl } from '../../lib/hyperliquid/format';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -166,13 +167,15 @@ const TerminalTradePanel: React.FC<Props> = ({
   );
 
   const hlFundingUsd = hlSetup.hlLoaded
-    ? Math.max(hlSetup.perpUsd, hlSetup.accountUsd)
+    ? Math.max(hlSetup.accountUsd, hlSetup.rawPerpUsd, 0)
     : metrics.hasHlSnapshot
       ? metrics.hlBalanceUsd
       : 0;
+  const hlEquityUsd = Math.max(hlFundingUsd, hlSetup.accountUsd, 0);
   const hlPerpUsd = hlSetup.perpUsd;
   const hlSpotUsd = hlSetup.spotUsdcUsd;
   const hlUnifiedAccount = hlSetup.unifiedAccount;
+  const hlWithdrawableLive = Math.max(0, hlSetup.withdrawableUsd);
   const hlNeedsSpotTransfer = needsSpotToPerpTransfer(
     hlSetup.rawPerpUsd,
     hlSpotUsd,
@@ -203,9 +206,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
 
   const hasOpenPosition = metrics.openPositionsCount > 0;
-  const marginLockedUsd = hasOpenPosition
-    ? Math.max(0, hlSetup.totalMarginUsedUsd)
-    : 0;
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
@@ -896,12 +896,26 @@ const TerminalTradePanel: React.FC<Props> = ({
               ) : null}
               <div className="term-funds-breakdown">
                 <div className="term-field-row">
-                  <span>
-                    {hlUnifiedAccount
-                      ? t('tradePanel.tradingBalance')
-                      : t('tradePanel.totalBalance')}
-                  </span>
-                  <strong>{fmt(hlPerpUsd)}</strong>
+                  <span>Equity</span>
+                  <strong>{fmt(hlEquityUsd)}</strong>
+                </div>
+                <div className="term-field-row">
+                  <span>{t('tradePanel.open')}</span>
+                  <strong>{metrics.openPositionsCount}</strong>
+                </div>
+                <div className="term-field-row">
+                  <span>{t('tradePanel.upnl')}</span>
+                  <strong
+                    className={
+                      metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
+                    }
+                  >
+                    {fmtClosedPnl(metrics.unrealizedPnlUsd)}
+                  </strong>
+                </div>
+                <div className="term-field-row">
+                  <span>{t('tradePanel.withdrawable')}</span>
+                  <strong>{fmt(hlWithdrawableLive)}</strong>
                 </div>
                 {!hlUnifiedAccount ? (
                   <>
@@ -915,27 +929,19 @@ const TerminalTradePanel: React.FC<Props> = ({
                     </div>
                   </>
                 ) : null}
-                <div className="term-field-row">
-                  <span>{t('tradePanel.withdrawable')}</span>
-                  <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
-                </div>
-                <div className="term-field-row term-field-row--fee">
-                  <span>Bot fees owed</span>
-                  <button
-                    type="button"
-                    className="term-fee-owed-btn"
-                    onClick={platformFees.openPayModal}
-                  >
-                    <strong>{fmt(platformFees.accruedUsd)}</strong>
-                    <span className="term-fee-owed-sub">
-                      {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
-                    </span>
-                  </button>
-                </div>
-                {hasOpenPosition && marginLockedUsd > 0.01 ? (
-                  <div className="term-field-row term-field-row--hint">
-                    <span>Margin in open trade</span>
-                    <strong>{fmt(marginLockedUsd)}</strong>
+                {platformFees.accruedUsd > 0.000_001 ? (
+                  <div className="term-field-row term-field-row--fee">
+                    <span>Bot fees owed</span>
+                    <button
+                      type="button"
+                      className="term-fee-owed-btn"
+                      onClick={platformFees.openPayModal}
+                    >
+                      <strong>{fmt(platformFees.accruedUsd)}</strong>
+                      <span className="term-fee-owed-sub">
+                        {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
+                      </span>
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -1001,19 +1007,13 @@ const TerminalTradePanel: React.FC<Props> = ({
 
       <div className="term-trade-footer term-trade-footer--stable">
         <div className="term-field-row">
-          <span>{t('tradePanel.hlBalance')}</span>
-          <strong>{fmt(metrics.hlBalanceUsd)}</strong>
+          <span>Equity</span>
+          <strong>{fmt(hlEquityUsd)}</strong>
         </div>
         <div className="term-field-row">
-          <span>{t('tradePanel.withdrawable')}</span>
-          <strong>{fmt(metrics.hlWithdrawableUsd)}</strong>
+          <span>{t('tradePanel.open')}</span>
+          <strong>{metrics.openPositionsCount}</strong>
         </div>
-        {hasOpenPosition && marginLockedUsd > 0.01 ? (
-          <div className="term-field-row term-field-row--hint">
-            <span>{t('tradePanel.marginLocked')}</span>
-            <strong>{fmt(marginLockedUsd)}</strong>
-          </div>
-        ) : null}
         <div className="term-field-row">
           <span>{t('tradePanel.upnl')}</span>
           <strong
@@ -1021,23 +1021,15 @@ const TerminalTradePanel: React.FC<Props> = ({
               metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
             }
           >
-            {`${metrics.unrealizedPnlUsd >= 0 ? '+' : ''}${fmt(metrics.unrealizedPnlUsd)}`}
+            {fmtClosedPnl(metrics.unrealizedPnlUsd)}
           </strong>
         </div>
-        <div className="term-field-row">
-          <span>{t('tradePanel.totalPnl')}</span>
-          <strong
-            className={
-              metrics.totalPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-            }
-          >
-            {fmt(metrics.totalPnlUsd)}
-          </strong>
-        </div>
-        <div className="term-field-row">
-          <span>{t('tradePanel.open')}</span>
-          <strong>{metrics.openPositionsCount}</strong>
-        </div>
+        {hlWithdrawableLive + 0.5 < hlEquityUsd ? (
+          <div className="term-field-row term-field-row--hint">
+            <span>{t('tradePanel.withdrawable')}</span>
+            <strong>{fmt(hlWithdrawableLive)}</strong>
+          </div>
+        ) : null}
       </div>
 
       {showFundsModal && !useGlobalFundsModal ? (

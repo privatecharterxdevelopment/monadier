@@ -100,8 +100,6 @@ const ProTradeStatusBar: React.FC<Props> = ({
   if (mode === 'bot' && botMetrics) {
     const running = liveConnected && botRunning;
     const showMoney = liveConnected;
-    const totalPnl = showMoney ? botMetrics.totalPnlUsd : 0;
-    const pnlUp = totalPnl >= 0;
     const openCount = showMoney
       ? positions.length > 0
         ? positions.length
@@ -113,7 +111,6 @@ const ProTradeStatusBar: React.FC<Props> = ({
         : botMetrics.unrealizedPnlUsd
       : 0;
     const hlBal = showMoney ? botMetrics.hlBalanceUsd : 0;
-    const hlWd = showMoney ? botMetrics.hlWithdrawableUsd : 0;
     return (
       <footer className="hl-status">
         <div className="hl-status-left">
@@ -131,13 +128,9 @@ const ProTradeStatusBar: React.FC<Props> = ({
             )}
           </span>
           <span>HL {fmtUsd(hlBal)}</span>
-          <span>Withdraw {fmtUsd(hlWd)}</span>
           <span>Open {openCount}</span>
           <span className={botUpnl >= 0 ? 'hl-up' : 'hl-down'}>
             uPnL {fmtUpnl(botUpnl)}
-          </span>
-          <span className={pnlUp ? 'hl-up' : 'hl-down'}>
-            Total P/L {fmtUpnl(totalPnl)}
           </span>
         </div>
         <div className="hl-status-right">

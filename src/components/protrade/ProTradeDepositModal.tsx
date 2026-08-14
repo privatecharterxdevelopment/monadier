@@ -93,7 +93,6 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const withdrawableUsd =
     liveFunding?.withdrawableUsd ?? hlSnap?.withdrawableUsd ?? toNum(withdrawable);
   const openCount = hlSnap?.openPositionsCount ?? 0;
-  const openNotionalUsd = hlSnap?.openNotionalUsd ?? 0;
   const unrealizedPnlUsd = hlSnap?.unrealizedPnlUsd ?? 0;
   const fundsPlacementHint = describeHlFundsPlacement(
     liveFunding ?? {
@@ -459,11 +458,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
               </div>
               <div className="hl-funds-summary__row hl-funds-summary__row--open">
                 <span>Open trades</span>
-                <strong>
-                  {openCount > 0
-                    ? `${openCount} · ${fmtUsdSymbol(openNotionalUsd)}`
-                    : '0'}
-                </strong>
+                <strong>{openCount}</strong>
               </div>
               {openCount > 0 ? (
                 <div

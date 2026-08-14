@@ -69,11 +69,7 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
           </div>
           <div className="hl-funds-overview__row">
             <span>Open trades</span>
-            <strong>
-              {(snapshot?.openPositionsCount ?? metrics.openPositionsCount) > 0
-                ? `${snapshot?.openPositionsCount ?? metrics.openPositionsCount} · ${fmt(snapshot?.openNotionalUsd ?? 0)}`
-                : '0'}
-            </strong>
+            <strong>{snapshot?.openPositionsCount ?? metrics.openPositionsCount}</strong>
           </div>
           {(snapshot?.openPositionsCount ?? 0) > 0 ? (
             <div

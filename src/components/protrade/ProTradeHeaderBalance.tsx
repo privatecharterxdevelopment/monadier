@@ -65,13 +65,17 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     () => scopedHlPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
     [scopedHlPositions]
   );
-  const scopedOpenNotionalUsd = useMemo(
-    () => scopedHlPositions.reduce((s, p) => s + Math.abs(toNum(p.positionValue)), 0),
-    [scopedHlPositions]
-  );
 
-  /** Account equity (HL accountValue) — never marginUsed / inflated tradable. */
-  const balanceUsd = snapshot?.totalUsd ?? betStats.balanceUsd ?? 0;
+  /** Live HL accountValue — never marginUsed / notional. */
+  const liveEquityUsd = Math.max(
+    toNum(account?.margin?.accountValue),
+    toNum(account?.crossMargin?.accountValue),
+    0
+  );
+  const balanceUsd =
+    liveEquityUsd > 1
+      ? liveEquityUsd
+      : snapshot?.totalUsd ?? betStats.balanceUsd ?? 0;
   const showExtended = !compact && section !== 'other';
 
   const balancePill = (
@@ -177,16 +181,12 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     section === 'perps' || section === 'bot'
       ? scopedUnrealizedPnlUsd
       : snapshot?.unrealizedPnlUsd ?? 0;
-  const openNotionalUsd =
-    section === 'perps' || section === 'bot'
-      ? scopedOpenNotionalUsd
-      : snapshot?.openNotionalUsd ?? 0;
   const openTitle =
     section === 'bot' ? 'Open bot positions' : 'Open manual perp positions';
 
   const feesOwed = platformFees.accruedUsd;
   const showFees =
-    !platformFees.feesWaived && (feesOwed > 0 || platformFees.successWinCount > 0);
+    !platformFees.feesWaived && feesOwed > 0.000_001;
   const feeGateActive = platformFees.opensBlocked;
 
   return (
@@ -195,9 +195,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
       {openCount > 0 ? (
         <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title={openTitle}>
           <span className="hl-topnav-bet-label">Open</span>
-          <strong>
-            {openCount} · {fmtUsdSymbol(openNotionalUsd)}
-          </strong>
+          <strong>{openCount}</strong>
           <span
             className={
               unrealizedPnlUsd >= 0 ? 'hl-topnav-bet-pnl hl-pos' : 'hl-topnav-bet-pnl hl-neg'
@@ -219,15 +217,12 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
           title={
             feeGateActive
               ? 'Pay platform fees to continue bot trading'
-              : 'Platform fees on winning closes — pay early to reset the win counter'
+              : 'Platform fees on winning closes'
           }
-          onClick={feesOwed > 0 ? platformFees.openPayModal : undefined}
+          onClick={platformFees.openPayModal}
         >
-          <span className="hl-topnav-bet-label">Bot fees</span>
+          <span className="hl-topnav-bet-label">Fees</span>
           <strong>{fmtUsdSymbol(feesOwed)}</strong>
-          <span className="hl-topnav-bet-pnl hl-topnav-bet-pnl--muted">
-            {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
-          </span>
         </button>
       ) : null}
     </div>
