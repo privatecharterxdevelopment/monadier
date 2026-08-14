@@ -2312,12 +2312,16 @@ export class HyperliquidTradingService {
           userAddress,
           config.arbitrum.chainId
         );
-        const state = await fetchHlClearinghouseState(userAddress);
+        let state = await fetchHlClearinghouseState(userAddress);
         if (!state) {
           skipped += 1;
           results.push({ wallet: userAddress, success: false, error: 'No HL account state' });
           return;
         }
+
+        // Same as processUser — flatten sub-$1 leftovers before slot math.
+        await this.sweepResidualDust(userAddress, state);
+        state = (await fetchHlClearinghouseState(userAddress)) ?? state;
 
         const openCoins = hlOpenPerpCoins(state);
         const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
@@ -2339,7 +2343,7 @@ export class HyperliquidTradingService {
           results.push({
             wallet: userAddress,
             success: false,
-            error: `slots full (${slotsLabel})`,
+            error: `slots full (${slotsLabel}: ${openCoins.join(',') || 'none'})`,
             slots: slotsLabel,
           });
           return;

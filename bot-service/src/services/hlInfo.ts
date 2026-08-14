@@ -297,11 +297,11 @@ export function hlIsMeaningfulPerpPosition(
   minNotionalUsd = 1
 ): boolean {
   if (!Number.isFinite(size) || Math.abs(size) <= 1e-12) return false;
-  const notional =
-    Math.abs(size) * (Number.isFinite(entryPx) && entryPx > 0 ? entryPx : 0);
-  // Residual dust after partial closes (e.g. 1e-5 BTC ≈ $0.64) must not eat a slot.
-  if (notional > 0) return notional >= minNotionalUsd;
-  return Math.abs(size) >= 1e-6;
+  // Missing/zero entry → ghost/dust. Never consume a user slot (force-open
+  // used to report "2/2 full" while the UI showed empty books).
+  if (!Number.isFinite(entryPx) || entryPx <= 0) return false;
+  const notional = Math.abs(size) * entryPx;
+  return notional >= minNotionalUsd;
 }
 
 /** Tiny leftover size after a partial/floored close — must be flattened, not counted as a slot. */
