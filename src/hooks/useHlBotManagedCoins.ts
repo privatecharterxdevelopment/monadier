@@ -12,6 +12,7 @@ type LatestMarker = { type: 'open' | 'close'; ms: number };
  * Primary: latest hl_bot_chart_markers event is open.
  * Fallback: still-open HL size after a close marker when a later Open fill exists
  * (reopen without open marker — previously hid the live position under “scanning”).
+ * Also: live HL size with no markers at all (force-open / ghost) so Open N matches the table.
  */
 export function useHlBotManagedCoins(
   wallet: string | undefined,
@@ -74,13 +75,18 @@ export function useHlBotManagedCoins(
       if (row.type === 'open') open.add(coin);
     }
 
-    // Reconcile: HL still has size, markers say closed, but a later Open fill exists
-    // (bot reopened without a recorded open marker).
+    // Reconcile live HL size with markers so bot Positions never goes empty while
+    // the status bar still shows Open N (force-open / missing marker / ghost).
     for (const raw of openPositionCoins) {
       const coin = normalizeHlPerpCoin(raw);
       if (!coin || open.has(coin)) continue;
       const latest = latestByCoin.get(coin);
-      if (!latest || latest.type !== 'close' || latest.ms <= 0) continue;
+      // No open/close marker at all — still live on HL (force-open, residual, etc.).
+      if (!latest) {
+        open.add(coin);
+        continue;
+      }
+      if (latest.type !== 'close' || latest.ms <= 0) continue;
       const reopen = fills.some((f) => {
         if (normalizeHlPerpCoin(f.coin) !== coin) return false;
         if (!isHlFillOpen(f.dir)) return false;

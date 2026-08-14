@@ -47,6 +47,7 @@ import {
   filterFundingByScope,
   filterOrdersByScope,
 } from '../../lib/hyperliquid/splitHlActivity';
+import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
 import { trailStopForOpenPosition, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
 import { fetchHlLetRunPrefs, setHlLetRunPref } from '../../lib/hyperliquid/hlLetRun';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
@@ -58,7 +59,6 @@ import PositionStopEditModal from './PositionStopEditModal';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
-import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
@@ -226,24 +226,15 @@ const ProTradeDock: React.FC<Props> = ({
     toNum(account?.margin?.accountValue),
     toNum(account?.crossMargin?.accountValue)
   );
-  /** Live equity — never let a stale snap $0 win over account / open margin. */
+  /** Live equity — accountValue / spot only. Never floor to marginUsed (underwater > equity). */
   const hlEquityUsd = Math.max(
     toNum(botHlBalanceUsd),
     toNum(hlSnap?.totalUsd),
-    toNum(hlSnap?.tradablePerpUsd),
     toNum(hlSnap?.accountUsd),
-    toNum(hlSnap?.withdrawableUsd),
     accountEquityUsd,
-    spotUsdcUsd,
-    toNum(hlSnap?.totalMarginUsedUsd),
-    toNum(account?.margin?.totalMarginUsed),
-    toNum(account?.withdrawable)
+    unifiedAccount ? spotUsdcUsd : accountEquityUsd + spotUsdcUsd
   );
-  const tradableHlUsd = Math.max(
-    toNum(hlSnap?.tradablePerpUsd),
-    accountEquityUsd + (unifiedAccount ? 0 : spotUsdcUsd),
-    hlEquityUsd
-  );
+  const tradableHlUsd = Math.max(toNum(hlSnap?.tradablePerpUsd), hlEquityUsd);
   const rawPerpUsd = Math.max(toNum(hlSnap?.accountUsd), accountEquityUsd);
   const hlWithdrawableUsd = Math.max(
     toNum(hlSnap?.withdrawableUsd),
@@ -276,18 +267,10 @@ const ProTradeDock: React.FC<Props> = ({
     if (activeTab == null) setInternalTab(next);
   };
 
-  const scopedPositions = useMemo(() => {
-    const list = account?.positions ?? [];
-    return list.filter((p) => {
-      if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
-      // Always show dust leftovers — hide = support tickets about "ghost" 3/3 slots.
-      if (isHlDustPosition(p.szi, p.entryPx)) return true;
-      if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
-      const coin = normalizeHlPerpCoin(p.coin);
-      const isBot = managedCoins.has(coin);
-      return scope === 'bot' ? isBot : !isBot;
-    });
-  }, [account?.positions, managedCoins, scope]);
+  const scopedPositions = useMemo(
+    () => filterHlPositions(account?.positions, managedCoins, scope),
+    [account?.positions, managedCoins, scope]
+  );
 
   const dustPositions = useMemo(
     () => scopedPositions.filter((p) => isHlDustPosition(p.szi, p.entryPx)),

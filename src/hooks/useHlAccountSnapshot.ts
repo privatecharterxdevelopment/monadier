@@ -61,14 +61,13 @@ function buildSnapshot(
     (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
     0
   );
-  // Never publish $0 equity while positions/margin prove capital is locked.
-  const floorFromOpen = openPositions.length > 0 ? Math.max(marginUsed, 0.01) : 0;
-  const totalUsd = Math.max(funding.totalUsd, funding.accountEquityUsd, floorFromOpen);
-  const tradablePerpUsd = Math.max(funding.tradablePerpUsd, floorFromOpen);
+  // Equity = HL account value only. Never floor to marginUsed — underwater
+  // books have marginUsed > equity and that inflated the header Balance.
+  const totalUsd = Math.max(funding.totalUsd, funding.accountEquityUsd, 0);
   return {
     wallet,
-    accountUsd: Math.max(funding.perpUsd, floorFromOpen),
-    tradablePerpUsd,
+    accountUsd: Math.max(funding.perpUsd, 0),
+    tradablePerpUsd: Math.max(funding.tradablePerpUsd, 0),
     unifiedAccount: funding.unifiedAccount,
     spotUsdcUsd: funding.spotUsdcUsd,
     totalUsd,

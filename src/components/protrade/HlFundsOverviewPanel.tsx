@@ -9,7 +9,7 @@ import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
-import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import BuyUsdcCta from './BuyUsdcCta';
 import BuyUsdcModal from './BuyUsdcModal';
 
@@ -45,8 +45,6 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
   const hlSpotUsd = snapshot?.spotUsdcUsd ?? 0;
   const withdrawable = snapshot?.withdrawableUsd ?? metrics.hlWithdrawableUsd;
   const unified = snapshot?.unifiedAccount ?? false;
-  const marginLocked = snapshot?.totalMarginUsedUsd ?? 0;
-  const hasOpenPosition = (snapshot?.openPositionsCount ?? metrics.openPositionsCount) > 0;
 
   const requireAccount = (reason: string, next: () => void) => {
     if (!isDemoUser && !isAuthenticated) {
@@ -66,8 +64,30 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
       <div className="hl-funds-overview__card">
         <div className="hl-funds-overview__breakdown">
           <div className="hl-funds-overview__row">
-            <span>{unified ? 'Trading balance' : 'HL balance'}</span>
-            <strong>{fmt(hlPerpUsd)}</strong>
+            <span>Equity</span>
+            <strong>{fmt(snapshot?.totalUsd ?? hlPerpUsd)}</strong>
+          </div>
+          <div className="hl-funds-overview__row">
+            <span>Open trades</span>
+            <strong>
+              {(snapshot?.openPositionsCount ?? metrics.openPositionsCount) > 0
+                ? `${snapshot?.openPositionsCount ?? metrics.openPositionsCount} · ${fmt(snapshot?.openNotionalUsd ?? 0)}`
+                : '0'}
+            </strong>
+          </div>
+          {(snapshot?.openPositionsCount ?? 0) > 0 ? (
+            <div
+              className={`hl-funds-overview__row hl-funds-overview__row--hint${
+                (snapshot?.unrealizedPnlUsd ?? 0) >= 0 ? ' hl-pos' : ' hl-neg'
+              }`}
+            >
+              <span>Unrealized P/L</span>
+              <strong>{fmtClosedPnl(snapshot?.unrealizedPnlUsd ?? 0)}</strong>
+            </div>
+          ) : null}
+          <div className="hl-funds-overview__row">
+            <span>Withdrawable</span>
+            <strong>{fmt(withdrawable)}</strong>
           </div>
           {!unified && hlSpotUsd > 0.005 ? (
             <div className="hl-funds-overview__row hl-funds-overview__row--hint">
@@ -75,25 +95,22 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
               <strong>{fmt(hlSpotUsd)}</strong>
             </div>
           ) : null}
-          <div className="hl-funds-overview__row">
-            <span>Withdrawable</span>
-            <strong>{fmt(withdrawable)}</strong>
-          </div>
-          <div className="hl-funds-overview__row hl-funds-overview__row--fee">
-            <span>Bot fees owed</span>
-            <button
-              type="button"
-              className="hl-funds-overview__fee-btn"
-              onClick={() => platformFees.openPayModal()}
-              disabled={platformFees.feesWaived}
-            >
-              <strong>{fmt(platformFees.accruedUsd)}</strong>
-              <span>
-                {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
-              </span>
-            </button>
-          </div>
-          {!bettingFees.feesWaived ? (
+          {platformFees.accruedUsd > 0.000_001 && !platformFees.feesWaived ? (
+            <div className="hl-funds-overview__row hl-funds-overview__row--fee">
+              <span>Bot fees owed</span>
+              <button
+                type="button"
+                className="hl-funds-overview__fee-btn"
+                onClick={() => platformFees.openPayModal()}
+              >
+                <strong>{fmt(platformFees.accruedUsd)}</strong>
+                <span>
+                  {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
+                </span>
+              </button>
+            </div>
+          ) : null}
+          {!bettingFees.feesWaived && bettingFees.accruedUsd > 0.000_001 ? (
             <div className="hl-funds-overview__row hl-funds-overview__row--fee">
               <span>Betting fees owed</span>
               <button
@@ -106,12 +123,6 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
                   {bettingFees.successWinCount}/{bettingFees.winsBeforeBlock} win · pay before next bet
                 </span>
               </button>
-            </div>
-          ) : null}
-          {hasOpenPosition && marginLocked > 0.01 ? (
-            <div className="hl-funds-overview__row hl-funds-overview__row--hint">
-              <span>Margin in open trade</span>
-              <strong>{fmt(marginLocked)}</strong>
             </div>
           ) : null}
         </div>

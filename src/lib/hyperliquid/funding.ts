@@ -62,6 +62,11 @@ export function hlTotalAccountEquityUsd(
   account: HlAccountState | null = null
 ): number {
   const combined = unifiedAccount ? Math.max(perpUsd, spotUsdcUsd) : perpUsd + spotUsdcUsd;
+  const base = Math.max(combined, crossAccountValueUsd, perpUsd, spotUsdcUsd);
+  // Prefer HL equity. Only reconstruct when accountValue/spot look empty (unified flake).
+  // Never floor equity with marginUsed + withdrawable — underwater books have
+  // marginUsed > accountValue, which inflated "On Hyperliquid" past real equity.
+  if (base >= 1) return base;
   const marginSummaryN = toNum(account?.margin?.totalMarginUsed);
   const marginCrossN = toNum(account?.crossMargin?.totalMarginUsed);
   let positionsMargin = 0;
@@ -71,8 +76,7 @@ export function hlTotalAccountEquityUsd(
   }
   const marginUsed = Math.max(marginSummaryN, marginCrossN, positionsMargin);
   const withdrawable = toNum(account?.withdrawable);
-  const reconstructed = withdrawable + marginUsed;
-  return Math.max(combined, crossAccountValueUsd, perpUsd, reconstructed, spotUsdcUsd);
+  return Math.max(base, withdrawable + marginUsed);
 }
 
 export function hlTradablePerpUsd(
@@ -124,9 +128,10 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     tradablePerpUsd = Math.max(spotUsdcUsd, perpUsd);
   }
   const perpWithdrawable = toNum(account?.withdrawable);
-  const withdrawableUsd = unifiedAccount
-    ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
-    : perpWithdrawable;
+  // Always trust HL's withdrawable — never inflate with spot/equity.
+  // Unified accounts still report free-to-bridge USDC here; open margin → $0
+  // even when spotClearinghouse shows the same equity as accountValue.
+  const withdrawableUsd = Math.max(0, perpWithdrawable);
   const totalUsd = accountEquityUsd;
   return {
     perpUsd,

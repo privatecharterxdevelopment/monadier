@@ -151,6 +151,8 @@ export function fmtSize(value: unknown, decimals = 4): string {
 /**
  * Residual sizes after partial closes (e.g. 1e-5 BTC ≈ $0.64) are not real
  * positions — hide them from UI counts/lists so slots match what the user sees.
+ * Must stay aligned with bot-service `hlIsMeaningfulPerpPosition` (zero entryPx
+ * = ghost; never count as Open).
  */
 export const HL_DUST_NOTIONAL_USD = 1;
 
@@ -162,9 +164,9 @@ export function isMeaningfulHlPosition(
   const size = toNum(szi);
   if (!Number.isFinite(size) || Math.abs(size) <= 1e-12) return false;
   const px = toNum(entryPx);
-  const notional = Math.abs(size) * (Number.isFinite(px) && px > 0 ? px : 0);
-  if (notional > 0) return notional >= minNotionalUsd;
-  return Math.abs(size) >= 1e-6;
+  // Missing/zero entry → HL leftover / ghost. Do not inflate Open / uPnL.
+  if (!Number.isFinite(px) || px <= 0) return false;
+  return Math.abs(size) * px >= minNotionalUsd;
 }
 
 /** Non-zero leftover that is too small to be a real trade (< $1 notional). */

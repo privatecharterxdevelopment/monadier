@@ -13,7 +13,7 @@ import HlDepositFlowOverlay, { type HlDepositFlowState } from './HlDepositFlowOv
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
 import { HL_MIN_DEPOSIT_USDC } from '../../lib/hyperliquid/hlApp';
-import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import {
   describeHlFundsPlacement,
@@ -28,6 +28,7 @@ import { useProTradeThemeOptional } from '../../contexts/ProTradeThemeContext';
 import { useBettingFeeGate } from '../../contexts/BettingFeeContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 
 const ARBITRUM_USDC_E = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8' as const;
 
@@ -67,6 +68,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { deposit, withdraw, busy, error, walletReady, transferUsdClass } = useHyperliquidTrading();
+  const { snapshot: hlSnap, refresh: refreshHlSnap } = useHlAccountSnapshot(address);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>(initialTab);
   const [amount, setAmount] = useState('');
   const [localMsg, setLocalMsg] = useState<string | null>(null);
@@ -83,16 +85,25 @@ const ProTradeDepositModal: React.FC<Props> = ({
   const usdcNum = parseFloat(usdcBalance) || 0;
   const usdceNum = parseFloat(usdceBalance) || 0;
 
-  const perpUsd = liveFunding?.tradablePerpUsd ?? liveFunding?.perpUsd ?? hlBalanceUsd;
-  const spotUsd = liveFunding?.spotUsdcUsd ?? spotUsdc;
-  const unifiedAccount = liveFunding?.unifiedAccount ?? false;
-  const totalHlUsd = liveFunding?.totalUsd ?? Math.max(perpUsd, spotUsd);
+  const perpUsd = liveFunding?.perpUsd ?? hlSnap?.accountUsd ?? hlBalanceUsd;
+  const spotUsd = liveFunding?.spotUsdcUsd ?? hlSnap?.spotUsdcUsd ?? spotUsdc;
+  const unifiedAccount = liveFunding?.unifiedAccount ?? hlSnap?.unifiedAccount ?? false;
+  const totalHlUsd =
+    liveFunding?.totalUsd ?? hlSnap?.totalUsd ?? Math.max(perpUsd, spotUsd);
+  const withdrawableUsd =
+    liveFunding?.withdrawableUsd ?? hlSnap?.withdrawableUsd ?? toNum(withdrawable);
+  const openCount = hlSnap?.openPositionsCount ?? 0;
+  const openNotionalUsd = hlSnap?.openNotionalUsd ?? 0;
+  const unrealizedPnlUsd = hlSnap?.unrealizedPnlUsd ?? 0;
   const fundsPlacementHint = describeHlFundsPlacement(
     liveFunding ?? {
       perpUsd,
       spotUsdcUsd: spotUsd,
-      withdrawableUsd: toNum(withdrawable),
-      totalUsd: perpUsd + spotUsd,
+      tradablePerpUsd: liveFunding?.tradablePerpUsd ?? hlSnap?.tradablePerpUsd ?? perpUsd,
+      accountEquityUsd: totalHlUsd,
+      unifiedAccount,
+      withdrawableUsd,
+      totalUsd: totalHlUsd,
       stateLoaded: true,
     }
   );
@@ -155,12 +166,15 @@ const ProTradeDepositModal: React.FC<Props> = ({
     if (!address) return;
     setRefreshBusy(true);
     try {
-      const snap = await fetchHlFundingSnapshot(address);
+      const [snap] = await Promise.all([
+        fetchHlFundingSnapshot(address),
+        refreshHlSnap(),
+      ]);
       setLiveFunding(snap);
       onSuccess?.();
       setLocalMsg(
         snap.stateLoaded
-          ? `HL total ${fmtUsdSymbol(snap.totalUsd)} (Perps ${fmtUsdSymbol(snap.perpUsd)} · Spot ${fmtUsdSymbol(snap.spotUsdcUsd)})`
+          ? `Equity ${fmtUsdSymbol(snap.totalUsd)} · withdrawable ${fmtUsdSymbol(snap.withdrawableUsd)}`
           : 'Could not read Hyperliquid balance — try again in a moment.'
       );
     } finally {
@@ -440,51 +454,61 @@ const ProTradeDepositModal: React.FC<Props> = ({
           <div className={depositFlowActive ? 'hl-funds-content hl-funds-content--dimmed' : 'hl-funds-content'}>
             <div className="hl-funds-summary">
               <div className="hl-funds-summary__row">
-                <span>On Hyperliquid</span>
+                <span>Equity</span>
                 <strong>{fmtUsdSymbol(totalHlUsd)}</strong>
               </div>
-              {!unifiedAccount ? (
+              <div className="hl-funds-summary__row hl-funds-summary__row--open">
+                <span>Open trades</span>
+                <strong>
+                  {openCount > 0
+                    ? `${openCount} · ${fmtUsdSymbol(openNotionalUsd)}`
+                    : '0'}
+                </strong>
+              </div>
+              {openCount > 0 ? (
+                <div
+                  className={`hl-funds-summary__sub hl-funds-summary__pnl${
+                    unrealizedPnlUsd >= 0 ? ' hl-pos' : ' hl-neg'
+                  }`}
+                >
+                  Unrealized P/L {fmtClosedPnl(unrealizedPnlUsd)}
+                </div>
+              ) : null}
+              {tab === 'withdraw' ? (
+                <div className="hl-funds-summary__sub">
+                  Withdrawable {fmtUsdSymbol(withdrawableUsd)}
+                  {withdrawableUsd + 0.5 < totalHlUsd && openCount > 0
+                    ? ' · rest in open margin'
+                    : ''}
+                </div>
+              ) : null}
+              {!unifiedAccount && tab === 'deposit' ? (
                 <div className="hl-funds-summary__sub">
                   Perps {fmtUsdSymbol(perpUsd)} · Spot {fmtUsdSymbol(spotUsd)}
                 </div>
               ) : null}
-              <div className="hl-funds-summary__sub">
-                Withdrawable {fmtUsdSymbol(withdrawable)} · perps, bot &amp; betting
-              </div>
 
-              {!platformFees.feesWaived ? (
-                <div
-                  className={`hl-funds-summary__fee${
-                    platformAccruedUsd > 0.000_001 ? ' hl-funds-summary__fee--due' : ''
-                  }`}
-                >
+              {!platformFees.feesWaived && platformAccruedUsd > 0.000_001 ? (
+                <div className="hl-funds-summary__fee hl-funds-summary__fee--due">
                   <div className="hl-funds-summary__fee-copy">
-                    <span>Bot / trading fees owed</span>
+                    <span>Bot fees owed</span>
                     <em>
                       {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win closes
                       {platformFees.opensBlocked ? ' · opens blocked until paid' : ''}
                     </em>
                   </div>
-                  {platformAccruedUsd > 0.000_001 ? (
-                    <button
-                      type="button"
-                      className="hl-funds-summary__fee-pay"
-                      onClick={openPlatformPayModal}
-                    >
-                      {fmtUsdSymbol(platformAccruedUsd)} · Pay
-                    </button>
-                  ) : (
-                    <strong className="hl-funds-summary__fee-zero">{fmtUsdSymbol(0)}</strong>
-                  )}
+                  <button
+                    type="button"
+                    className="hl-funds-summary__fee-pay"
+                    onClick={openPlatformPayModal}
+                  >
+                    {fmtUsdSymbol(platformAccruedUsd)} · Pay
+                  </button>
                 </div>
               ) : null}
 
-              {!bettingFees.feesWaived ? (
-                <div
-                  className={`hl-funds-summary__fee${
-                    bettingAccruedUsd > 0.000_001 ? ' hl-funds-summary__fee--due' : ''
-                  }`}
-                >
+              {!bettingFees.feesWaived && bettingAccruedUsd > 0.000_001 ? (
+                <div className="hl-funds-summary__fee hl-funds-summary__fee--due">
                   <div className="hl-funds-summary__fee-copy">
                     <span>Betting fees owed</span>
                     <em>
@@ -494,17 +518,13 @@ const ProTradeDepositModal: React.FC<Props> = ({
                         : ''}
                     </em>
                   </div>
-                  {bettingAccruedUsd > 0.000_001 ? (
-                    <button
-                      type="button"
-                      className="hl-funds-summary__fee-pay"
-                      onClick={openBettingPayModal}
-                    >
-                      {fmtUsdSymbol(bettingAccruedUsd)} · Pay
-                    </button>
-                  ) : (
-                    <strong className="hl-funds-summary__fee-zero">{fmtUsdSymbol(0)}</strong>
-                  )}
+                  <button
+                    type="button"
+                    className="hl-funds-summary__fee-pay"
+                    onClick={openBettingPayModal}
+                  >
+                    {fmtUsdSymbol(bettingAccruedUsd)} · Pay
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -612,7 +632,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
               <>
                 <p className="hl-funds-withdraw-hint">
                   To your Arbitrum wallet · available{' '}
-                  <strong>{fmtUsdSymbol(withdrawable)}</strong>
+                  <strong>{fmtUsdSymbol(withdrawableUsd)}</strong>
                 </p>
                 {withdrawBlocked ? (
                   <p className="term-profile-err hl-funds-inline-err">

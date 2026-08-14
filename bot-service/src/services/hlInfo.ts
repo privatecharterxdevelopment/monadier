@@ -200,9 +200,7 @@ export async function fetchHlPerpFundingSnapshot(
     spotUsdcUsd,
     tradablePerpUsd,
     unifiedAccount,
-    withdrawableUsd: unifiedAccount
-      ? Math.max(perpWithdrawable, spotUsdcUsd, tradablePerpUsd)
-      : perpWithdrawable,
+    withdrawableUsd: Math.max(0, perpWithdrawable),
     stateLoaded,
   };
 }

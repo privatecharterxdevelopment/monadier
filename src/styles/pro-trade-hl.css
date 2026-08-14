@@ -1426,36 +1426,50 @@ html[dir='rtl'] .hl-book {
   border-radius: 0;
 }
 
-/* ── Ticker strip ── */
+/* ── Ticker strip (slow right→left marquee) ── */
 .hl-ticker {
+  display: block;
+  height: 28px;
+  padding: 0;
+  border-bottom: 1px solid var(--hl-border);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.hl-ticker-track {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 28px;
+  width: max-content;
+  height: 100%;
   padding: 0 8px;
-  border-bottom: 1px solid var(--hl-border);
-  overflow-y: hidden;
-  flex-shrink: 0;
+  will-change: transform;
+  animation: hl-ticker-marquee 90s linear infinite;
 }
 
-@media (min-width: 901px) {
-  .hl-ticker {
-    overflow-x: hidden;
-  }
+.hl-ticker-dup {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 
-  .hl-ticker-item {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-  }
+.hl-ticker:hover .hl-ticker-track,
+.hl-ticker:focus-within .hl-ticker-track {
+  animation-play-state: paused;
+}
 
-  .hl-ticker-item span {
-    overflow: hidden;
-    text-overflow: ellipsis;
+@keyframes hl-ticker-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Track is [items][clone] — shift by half for a seamless loop */
+    transform: translateX(-50%);
   }
 }
 
-@media (max-width: 900px) {
+@media (prefers-reduced-motion: reduce) {
   .hl-ticker {
     overflow-x: auto;
     scrollbar-width: none;
@@ -1463,6 +1477,28 @@ html[dir='rtl'] .hl-book {
 
   .hl-ticker::-webkit-scrollbar {
     display: none;
+  }
+
+  .hl-ticker-track {
+    animation: none;
+  }
+
+  .hl-ticker-dup {
+    display: none;
+  }
+}
+
+@media (min-width: 901px) {
+  .hl-ticker-item {
+    flex: 0 0 auto;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .hl-ticker {
+    height: 36px;
   }
 }
 
@@ -9401,11 +9437,32 @@ html[dir='rtl'] .hl-book {
   color: var(--hl-text);
 }
 
+.hl-funds-summary__row--open {
+  margin-top: 4px;
+}
+
+.hl-funds-summary__row--open strong {
+  font-size: 13px;
+}
+
 .hl-funds-summary__sub {
   margin-top: 3px;
   font-size: 10px;
   line-height: 1.35;
   color: var(--hl-text-muted);
+}
+
+.hl-funds-summary__pnl {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hl-funds-summary__pnl.hl-pos {
+  color: var(--hl-green-bright, #3dd68c);
+}
+
+.hl-funds-summary__pnl.hl-neg {
+  color: var(--hl-red, #ff6b6b);
 }
 
 .hl-funds-summary__fee {
@@ -12401,18 +12458,14 @@ html[dir='rtl'] .hl-book {
   .hl-terminal > .hl-ticker {
     flex: 0 0 auto;
     flex-shrink: 0;
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
+    display: block;
     width: 100%;
     height: 36px;
     min-height: 36px;
     max-height: 36px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
     position: relative;
     z-index: 2;
-    scrollbar-width: none;
   }
 
   .hl-terminal > .hl-ticker::-webkit-scrollbar {
