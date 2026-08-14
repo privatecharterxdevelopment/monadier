@@ -73,7 +73,20 @@ function pickPreferredCandidate(
   const edge = primary === 'SHORT' ? 18 : 8;
 
   if (longC && shortC) {
-    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) return longC;
+    // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
+    // just because bull_market is LONG-primary (that opens longs into dumps).
+    const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
+    if (
+      shortH1Down &&
+      shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
+    ) {
+      return shortC;
+    }
+    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
+      // Still require LONG h1 UP when both sides print under bull.
+      if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return shortC;
+      return longC;
+    }
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;
   }
@@ -82,6 +95,11 @@ function pickPreferredCandidate(
     const loneLongMin = 85;
     if (longC.confidence < loneLongMin) return null;
     return longC;
+  }
+
+  // Lone LONG under bull still needs UP 1h — otherwise skip (wait for SHORT / bounce).
+  if (longC && !shortC && primary === 'LONG') {
+    if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return null;
   }
 
   return longC ?? shortC;

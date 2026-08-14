@@ -37,22 +37,23 @@ export const BULL_MARKET: HlDirectionProfile = {
   allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
-    minConfidence: 48,
+    minConfidence: 55,
     minDirectionalTfs: 2,
-    minTrendAlignment: 40,
+    minTrendAlignment: 50,
+    /** No LONGs while 1h is DOWN — dump = shorts, not dip-buy blind. */
+    requiredH1Trend: 'UP',
     trustMtfScan: true,
     relaxSecondaryGates: true,
     enforceHtfSr: false,
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    minConfidence: 62,
+    minConfidence: 58,
     minDirectionalTfs: 2,
-    minTrendAlignment: 50,
+    minTrendAlignment: 45,
     relaxSecondaryGates: true,
     trustMtfScan: true,
     bypassPumpShortWhenTrusted: true,
-    /** Shadow HTF only — hard enforce starved dump shorts. */
     enforceHtfSr: false,
   },
 };
