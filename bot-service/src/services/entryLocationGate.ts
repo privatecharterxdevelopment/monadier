@@ -1,14 +1,15 @@
 /**
  * Entry location gate — resistance/support awareness before HL bot opens.
  *
- * Blocks LONG into a ceiling that already rejected price multiple times.
- * Allows LONG only on confirmed breakout above resistance or pullback toward support.
- * SHORT: only in/near resistance (fade) or confirmed support breakdown — no mid-range shorts.
- * In-house resistance/support *bands*: opens inside a zone require reversal/breakout first.
+ * Floor detection: swing-low clusters → support level/zone; nearSupport when
+ * price is in the lower half of the S–R box or hugging the S band.
+ *
+ * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
+ * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
+ * LONG: support / lower range, or confirmed breakout above R.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
-import { isLongAllowedCoin } from './longAllowlist';
 import { logger } from '../utils/logger';
 import {
   computeResistanceZone,
@@ -411,42 +412,34 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Zone flip ON by default — counter-open when zone confirms the other side.
-  // SHORT-primary (bear_market): NEVER flip SHORT→LONG at "support" — that is the
-  // falling-knife bug (ETH/SOL 2026-08-03). Wait for breakdown or skip.
-  // SHORT-only alts (not BTC/ETH/SOL): same — never propose LONG flip; fall through
-  // to classic SHORT eval (breakdown / R-fade / continuation) instead of
-  // "ok+flip LONG" → long_allowlist kill of the SHORT.
+  // Floor reverse: confirmed support bounce → LONG (even under SHORT-primary / memes).
+  // Blind SHORT→LONG without bounce was the falling-knife bug — zoneGate only sets
+  // flipTo LONG after zoneReversalConfirmed (pierce + close back above mid).
   if (
     config.hyperliquid.zoneFlipEnabled &&
     zoneGate.flipTo &&
     zoneGate.flipTo !== opts.direction
   ) {
-    const longFlipBlocked =
-      zoneGate.flipTo === 'LONG' &&
-      (config.hyperliquid.directionProfile.primaryDirection === 'SHORT' ||
-        !isLongAllowedCoin(opts.coin ?? ''));
-    if (longFlipBlocked) {
-      // At support under SHORT-primary: do NOT fall through to classic continuation
-      // SHORT (that re-opened dump-shelf shorts). Wait — no LONG flip, no floor SHORT.
-      logger.info('HL zone flip SHORT→LONG suppressed — blocking floor SHORT', {
-        coin: opts.coin,
-        reason: zoneGate.reason,
-        profile: config.hyperliquid.directionProfile.name,
-      });
+    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
       return {
         ok: false,
-        reason: `${zoneGate.reason} — SHORT→LONG flip suppressed; no floor SHORT`,
+        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
         analysis: sr,
-      };
-    } else {
-      return {
-        ok: true,
-        reason: zoneGate.reason,
-        analysis: sr,
-        flipTo: zoneGate.flipTo,
       };
     }
+    logger.info('HL floor/R zone flip proposed', {
+      coin: opts.coin,
+      from: opts.direction,
+      to: zoneGate.flipTo,
+      reason: zoneGate.reason,
+      profile: config.hyperliquid.directionProfile.name,
+    });
+    return {
+      ok: true,
+      reason: zoneGate.reason,
+      analysis: sr,
+      flipTo: zoneGate.flipTo,
+    };
   }
 
   // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).
@@ -465,27 +458,21 @@ export async function validateEntryLocation(opts: {
   const classic = evaluateEntryLocation(opts.direction, sr);
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
-  // A: clear support bounce — scan often arrives SHORT; don't dead-end, flip to LONG.
-  // DISABLED under SHORT-primary — that path opened ETH/SOL LONG into red dumps.
-  const longAllowed = (() => {
-    if (config.hyperliquid.directionProfile.primaryDirection === 'SHORT') return false;
-    if (!config.hyperliquid.directionProfile.allowLongOpens) return false;
-    return isLongAllowedCoin(opts.coin ?? '');
-  })();
-
+  // Floor reverse (classic): scan arrived SHORT at S, bounce confirmed → LONG.
+  // Works for majors + memes when LONGs are enabled — do NOT short the shelf.
   if (
     config.hyperliquid.zoneFlipEnabled &&
+    config.hyperliquid.directionProfile.allowLongOpens &&
     opts.direction === 'SHORT' &&
     !classic.ok &&
     sr.nearSupport &&
     !sr.confirmedBreakdown &&
     sr.supportZone != null &&
-    longAllowed &&
     zoneReversalConfirmed(revCandles, sr.supportZone, 4)
   ) {
     return {
       ok: true,
-      reason: `Support-zone bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
+      reason: `Floor reverse — support bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
       analysis: sr,
       flipTo: 'LONG',
     };

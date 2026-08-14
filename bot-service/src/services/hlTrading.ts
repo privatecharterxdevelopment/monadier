@@ -1625,14 +1625,19 @@ export class HyperliquidTradingService {
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
+        const floorReverseLong =
+          flipped === 'LONG' &&
+          zoneFlipFrom === 'SHORT' &&
+          /support-zone bounce|floor reverse|flip SHORT→LONG/i.test(locationGate.reason);
 
-        // SHORT-only alts (not BTC/ETH/SOL): zone often wants SHORT→LONG at support.
-        // Rejecting that flip used to kill the SHORT entirely ("LONG majors only") —
-        // keep the original SHORT instead (memes are SHORT-primary by design).
+        // Floor reverse LONGs are allowed on memes too (don't short the shelf).
+        // Non-floor SHORT→LONG on SHORT-only alts: keep original SHORT only if
+        // still an R-fade / upper-range short — never a floor continuation.
         if (
           flipped === 'LONG' &&
           zoneFlipFrom === 'SHORT' &&
-          !isLongAllowedCoin(coin)
+          !isLongAllowedCoin(coin) &&
+          !floorReverseLong
         ) {
           logger.info('HL zone flip SHORT→LONG skipped — coin SHORT-only, keeping SHORT', {
             user: opts.userAddress.slice(0, 10),
@@ -1648,13 +1653,6 @@ export class HyperliquidTradingService {
               'excluded coin'
             );
           }
-          if (config.hyperliquid.directionProfile.primaryDirection === 'SHORT') {
-            return rejectOpen(
-              'sr_zone_flip',
-              `SHORT→LONG flip blocked — ${config.hyperliquid.directionProfile.name} SHORT-primary (no long into support/dump)`,
-              'no SHORT→LONG in bear'
-            );
-          }
           if (!config.hyperliquid.directionProfile.allowLongOpens) {
             return rejectOpen(
               'direction_profile',
@@ -1662,16 +1660,27 @@ export class HyperliquidTradingService {
               'LONG disabled at source'
             );
           }
-          if (!isLongAllowedCoin(coin)) {
+          // Floor reverse = bounce already confirmed at S. Skip majors-only allowlist.
+          if (!floorReverseLong && !isLongAllowedCoin(coin)) {
             return rejectOpen(
               'long_allowlist',
               `LONG flip blocked — ${longAllowlistReason(coin)}`,
               'LONG majors only'
             );
           }
-          const dumpTape = await validateLongDumpTapeGate({ coin });
-          if (!dumpTape.ok) {
-            return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
+          // Dump tape: skip on confirmed floor bounce (anti-knife is the bounce itself).
+          // Still block blind / non-bounce LONG flips into red tape.
+          if (!floorReverseLong) {
+            const dumpTape = await validateLongDumpTapeGate({ coin });
+            if (!dumpTape.ok) {
+              return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
+            }
+          } else {
+            logger.info('HL floor reverse LONG — dump-tape skipped (bounce confirmed)', {
+              user: opts.userAddress.slice(0, 10),
+              coin,
+              reason: locationGate.reason,
+            });
           }
         }
         if (flipped === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
@@ -2291,20 +2300,31 @@ export class HyperliquidTradingService {
       freeMarginUsd?: number;
       leverage?: number;
       notionalUsd?: number;
+      email?: string | null;
+      openCoins?: string[];
     }> = [];
     let opened = 0;
     let eligible = 0;
     let skipped = 0;
     let failed = 0;
 
+    const emailCache = new Map<string, string | null>();
+    const resolveEmail = async (wallet: string): Promise<string | null> => {
+      if (emailCache.has(wallet)) return emailCache.get(wallet) ?? null;
+      const email = await subscriptionService.getEmailFromWallet(wallet);
+      emailCache.set(wallet, email);
+      return email;
+    };
+
     const { mapPool } = await import('../utils/asyncPool');
     await mapPool(wallets, config.scaling.userProcessConcurrency, async (walletRaw) => {
       const userAddress = walletRaw.toLowerCase() as `0x${string}`;
+      const email = await resolveEmail(userAddress);
       try {
         const gate = await this.canTrade(userAddress);
         if (!gate.ok) {
           skipped += 1;
-          results.push({ wallet: userAddress, success: false, error: gate.reason });
+          results.push({ wallet: userAddress, success: false, error: gate.reason, email });
           return;
         }
 
@@ -2315,7 +2335,12 @@ export class HyperliquidTradingService {
         let state = await fetchHlClearinghouseState(userAddress);
         if (!state) {
           skipped += 1;
-          results.push({ wallet: userAddress, success: false, error: 'No HL account state' });
+          results.push({
+            wallet: userAddress,
+            success: false,
+            error: 'No HL account state',
+            email,
+          });
           return;
         }
 
@@ -2334,6 +2359,8 @@ export class HyperliquidTradingService {
             success: false,
             error: `${coin} already open`,
             slots: slotsLabel,
+            email,
+            openCoins,
           });
           return;
         }
@@ -2345,6 +2372,8 @@ export class HyperliquidTradingService {
             success: false,
             error: `slots full (${slotsLabel}: ${openCoins.join(',') || 'none'})`,
             slots: slotsLabel,
+            email,
+            openCoins,
           });
           return;
         }
@@ -2367,6 +2396,8 @@ export class HyperliquidTradingService {
             error: `margin too small ($${collateral.toFixed(2)})`,
             slots: slotsLabel,
             freeMarginUsd: freeMargin,
+            email,
+            openCoins,
           });
           return;
         }
@@ -2390,6 +2421,8 @@ export class HyperliquidTradingService {
             error: `notional below floor ($${notionalUsd.toFixed(2)})`,
             slots: slotsLabel,
             freeMarginUsd: freeMargin,
+            email,
+            openCoins,
           });
           return;
         }
@@ -2403,6 +2436,8 @@ export class HyperliquidTradingService {
             freeMarginUsd: freeMargin,
             leverage,
             notionalUsd,
+            email,
+            openCoins,
           });
           return;
         }
@@ -2432,6 +2467,8 @@ export class HyperliquidTradingService {
             freeMarginUsd: freeMargin,
             leverage,
             notionalUsd,
+            email,
+            openCoins,
           });
         } else {
           failed += 1;
@@ -2443,6 +2480,8 @@ export class HyperliquidTradingService {
             freeMarginUsd: freeMargin,
             leverage,
             notionalUsd,
+            email,
+            openCoins,
           });
         }
       } catch (err: unknown) {
@@ -2451,6 +2490,7 @@ export class HyperliquidTradingService {
           wallet: userAddress,
           success: false,
           error: err instanceof Error ? err.message : String(err),
+          email,
         });
       }
     });
