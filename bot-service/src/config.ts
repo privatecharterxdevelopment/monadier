@@ -205,8 +205,14 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min continuous ms in profit before arming profit protection (5m — fees kill scratch exits). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 300_000),
+      /**
+       * Min continuous ms in profit before arming profit protection.
+       * Default 2m. Legacy Railway `300000` (5m) is treated as stale → 2m.
+       */
+      armMinProfitHoldMs: (() => {
+        const n = Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000);
+        return n === 300_000 ? 120_000 : n;
+      })(),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 300_000),
       /** Min ROE before breakeven+fees lock (stage 1 — must clear fee drag). */
