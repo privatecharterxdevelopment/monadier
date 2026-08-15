@@ -1247,8 +1247,8 @@ export class HyperliquidTradingService {
         );
       }
 
-      // LONG only BTC/ETH/SOL — VVV and other memes are SHORT-only.
-      if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
+      // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.
+      if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
       }
 
@@ -2225,25 +2225,7 @@ export class HyperliquidTradingService {
           ],
         };
       }
-      if (!isLongAllowedCoin(coin)) {
-        return {
-          coin,
-          direction,
-          dryRun,
-          leverage: leverageOverride,
-          opened: 0,
-          eligible: 0,
-          skipped: 0,
-          failed: 1,
-          results: [
-            {
-              wallet: 'n/a',
-              success: false,
-              error: longAllowlistReason(coin),
-            },
-          ],
-        };
-      }
+      // Admin force-open may LONG any non-excluded coin — skip BTC/ETH/SOL allowlist.
     }
     if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
       return {
