@@ -232,24 +232,25 @@ export const config = {
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 3.2),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 3.6),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
       /** Stage-2 ATR/% trail distance — wider so winners can breathe before stop catches. */
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.055),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.048),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.062),
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.068),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.058),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.072),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
-       * LONG trail distance vs SHORT. >1 widens LONG stops so winners aren't sniped.
+       * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
+       * after the trade runs (stage-1 BE lock unchanged).
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.7),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 2.15),
       /**
-       * LONG peak-floor drop — independent of SHORT. 0.70 → lock ~30% of peak
-       * (was 0.45 → lock 55%, which sniped explosions too early).
+       * LONG peak-floor giveback after a real run. 0.78 → lock ~22% of peak
+       * (more air than 0.65 while still securing a chunk of the explosion).
        */
-      longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.7),
+      longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.78),
       /** Stretch min-active time before a LONG trail/floor close. */
       longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.5),
       /**
@@ -257,19 +258,20 @@ export const config = {
        */
       longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 300_000),
       /**
-       * If true, LONGs skip stage-1 breakeven lock closes (legacy). Default OFF —
-       * stages stay: stage 1 BE lock, then stage 2 ATR trail that ratchets with price.
+       * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
+       * bottom BE lock stays; only stage-2 ATR trail gets more room.
        */
       longSkipBreakevenLockClose: process.env.HL_TRAIL_LONG_SKIP_BE_CLOSE === 'true',
       /**
-       * Stage-2 ATR trail arm ROE for LONGs (higher than SHORT so winners can run).
+       * Stage-2 ATR trail arm ROE for LONGs (higher than SHORT so BE holds
+       * while it pumps, then the trail slowly ratchets).
        */
-      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 18),
+      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 22),
       /**
        * Min peak ROE before LONG trail/floor/peak closes.
        */
       longMinPeakRoePctBeforeTrailClose: Number(
-        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 18
+        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 20
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */

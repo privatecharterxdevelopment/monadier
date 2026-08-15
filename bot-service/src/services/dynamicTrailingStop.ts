@@ -386,11 +386,11 @@ function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): bool
   return minMs > 0 && rec.timeInProfitMs < minMs;
 }
 
-/** LONGs must not die on the stage-1 breakeven sniper. */
+/** LONGs skip stage-1 BE close only when explicitly enabled. */
 function longBlocksBreakevenLockClose(direction: 'LONG' | 'SHORT'): boolean {
   return (
     direction === 'LONG' &&
-    config.hyperliquid.dynamicTrail.longSkipBreakevenLockClose !== false
+    config.hyperliquid.dynamicTrail.longSkipBreakevenLockClose === true
   );
 }
 
@@ -398,8 +398,8 @@ function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: numbe
   const cfg = config.hyperliquid.dynamicTrail;
   const longRoom =
     direction === 'LONG' ? Math.max(1, cfg.longTrailDistanceMult || 1) : 1;
-  // Same cap for LONG and SHORT so a mult of 1 tracks the peak identically.
-  return Math.max(0.75, Math.min(2.4, biasMult * longRoom));
+  // Cap leaves room for LONG dist mult ~2.15 × mild bias widen.
+  return Math.max(0.75, Math.min(2.8, biasMult * longRoom));
 }
 
 export async function evaluateDynamicTrail(
