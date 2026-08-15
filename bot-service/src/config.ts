@@ -173,7 +173,8 @@ export const config = {
     ],
     /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
-     * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL"
+     * Bull profile ignores this (any non-excluded coin may LONG).
+     * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL" or "*" / "ALL" for unrestricted.
      * (PUMP/VVV/WLD are hard-excluded — not tradable even if listed here.)
      */
     longOnlyCoins: [

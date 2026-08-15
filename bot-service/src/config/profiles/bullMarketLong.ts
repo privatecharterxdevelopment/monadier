@@ -7,15 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-primary with high trade throughput.
+ * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
  *
- * Goal: many opens, dip-buy LONGs (room up), dump SHORTs allowed,
- * multi-stage profit trail handles exits — stop over-waiting on soft gates/LLM.
+ * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs only on
+ * high-conviction dumps (not equal-weight with LONGs).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary throughput: dip LONGs + dump SHORTs; no LLM candle waits.',
+    'LONG-primary bull: dip/continuation LONGs; SHORTs only high-conviction dumps.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -34,12 +34,13 @@ export const BULL_MARKET: HlDirectionProfile = {
   /** LLM disagreement waits starved opens — trail manages risk after entry. */
   enableLlmConfirm: false,
   allowLongOpens: true,
+  /** Keep true so dump SHORTs exist — bars below make them rare vs LONGs. */
   allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
-    minConfidence: 55,
+    minConfidence: 52,
     minDirectionalTfs: 2,
-    minTrendAlignment: 50,
+    minTrendAlignment: 45,
     /** No LONGs while 1h is DOWN — dump = shorts, not dip-buy blind. */
     requiredH1Trend: 'UP',
     trustMtfScan: true,
@@ -48,12 +49,13 @@ export const BULL_MARKET: HlDirectionProfile = {
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    minConfidence: 58,
-    minDirectionalTfs: 2,
-    minTrendAlignment: 45,
-    relaxSecondaryGates: true,
-    trustMtfScan: true,
-    bypassPumpShortWhenTrusted: true,
-    enforceHtfSr: false,
+    // Stay strict — do not relax to LONG-parity bars in a bull run.
+    minConfidence: 78,
+    minDirectionalTfs: 3,
+    minTrendAlignment: 65,
+    trustMtfScan: false,
+    relaxSecondaryGates: false,
+    bypassPumpShortWhenTrusted: false,
+    enforceHtfSr: true,
   },
 };
