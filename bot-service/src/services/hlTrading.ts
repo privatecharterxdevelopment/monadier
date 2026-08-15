@@ -3219,6 +3219,8 @@ export class HyperliquidTradingService {
       entryPx: number;
       unrealizedPnlUsd: number;
       size: number;
+      /** When set with size — manual Close can fire without waiting on clearinghouse. */
+      isLong?: boolean;
       leverage: number;
       holdMs?: number;
     },
@@ -3227,37 +3229,55 @@ export class HyperliquidTradingService {
     try {
       const coinUpper = coin.toUpperCase();
       const userInitiated = isUserInitiatedClose(reason);
+      const ctxSizeAbs =
+        closeCtx != null && Number.isFinite(closeCtx.size) && Math.abs(closeCtx.size) > 1e-12
+          ? Math.abs(closeCtx.size)
+          : 0;
+      const fastManual =
+        userInitiated && ctxSizeAbs > 0 && typeof closeCtx?.isLong === 'boolean';
 
-      // Manual Close is sacred — retry HL state; never lie with "No HL position" on a flake.
-      let state = await fetchHlClearinghouseState(userAddress, {
-        critical: userInitiated,
-      });
-      if (!state && userInitiated) {
-        for (let i = 0; i < 5 && !state; i += 1) {
-          await new Promise((r) => setTimeout(r, 400 * (i + 1)));
-          state = await fetchHlClearinghouseState(userAddress, { critical: true });
-        }
-      } else if (!state) {
-        for (let i = 0; i < 3 && !state; i += 1) {
-          await new Promise((r) => setTimeout(r, 200 * (i + 1)));
-          state = await fetchHlClearinghouseState(userAddress);
-        }
-      }
-      if (!state) {
-        return {
-          success: false,
-          error: userInitiated
-            ? 'Hyperliquid unreachable — retry Close'
-            : 'No HL position',
-        };
-      }
+      // Manual Close with UI size: fire the reduce-only order immediately.
+      // Do NOT await clearinghouse — that was the multi-second "unreachable" stall.
+      let state: Awaited<ReturnType<typeof fetchHlClearinghouseState>> = null;
+      let row:
+        | {
+            coin?: string;
+            szi?: string | number;
+            entryPx?: string | number;
+            unrealizedPnl?: string | number;
+            leverage?: { value?: number };
+          }
+        | undefined;
+      let size = 0;
 
-      const row = state.assetPositions?.find(
-        (p) => p.position?.coin?.toUpperCase() === coinUpper
-      )?.position;
-      const size = Number(row?.szi ?? 0);
-      const flat =
-        !row || !Number.isFinite(size) || Math.abs(size) < 1e-12;
+      if (fastManual) {
+        size = closeCtx!.isLong ? ctxSizeAbs : -ctxSizeAbs;
+      } else {
+        state = await fetchHlClearinghouseState(userAddress, {
+          critical: userInitiated,
+        });
+        if (!state) {
+          for (let i = 0; i < (userInitiated ? 2 : 3) && !state; i += 1) {
+            await new Promise((r) => setTimeout(r, 150 * (i + 1)));
+            state = await fetchHlClearinghouseState(userAddress, {
+              critical: userInitiated,
+            });
+          }
+        }
+        if (!state) {
+          return {
+            success: false,
+            error: userInitiated
+              ? 'Hyperliquid unreachable — retry Close'
+              : 'No HL position',
+          };
+        }
+        row = state.assetPositions?.find(
+          (p) => p.position?.coin?.toUpperCase() === coinUpper
+        )?.position;
+        size = Number(row?.szi ?? 0);
+      }
+      const flat = !Number.isFinite(size) || Math.abs(size) < 1e-12;
 
       // Idempotent manual close: UI often shows a ghost after the fill already landed.
       // Returning an error here makes traders think Close is broken.
@@ -3273,10 +3293,10 @@ export class HyperliquidTradingService {
         return { success: false, error: 'No HL position' };
       }
 
-      const entryPx = closeCtx?.entryPx ?? Number(row!.entryPx ?? 0);
+      const entryPx = closeCtx?.entryPx ?? Number(row?.entryPx ?? 0);
       const pnlUsd =
-        closeCtx?.unrealizedPnlUsd ?? Number(row!.unrealizedPnl ?? 0);
-      const leverage = closeCtx?.leverage ?? row!.leverage?.value ?? 10;
+        closeCtx?.unrealizedPnlUsd ?? Number(row?.unrealizedPnl ?? 0);
+      const leverage = closeCtx?.leverage ?? row?.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
       // profitOnlyExits governs the bot's AUTO exits only. A user clicking "Close"
@@ -3315,7 +3335,7 @@ export class HyperliquidTradingService {
         'take_profit',
       ]);
       if (!userInitiated && profitExitReasons.has(reason) && pnlUsd > 0) {
-        const notional = absSize * (Number(row.entryPx ?? 0) || entryPx || 0);
+        const notional = absSize * (Number(row?.entryPx ?? 0) || entryPx || 0);
         const feesUsd = estimateRoundTripFeesUsd(Math.max(notional, 1));
         if (!profitClearsFeeGate(pnlUsd, feesUsd)) {
           const mult = Math.max(1, config.hyperliquid.dynamicTrail.minProfitCloseFeesMult || 4);
@@ -3354,8 +3374,7 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Stop loss skipped while in profit' };
       }
 
-      const meta = await fetchHlMeta();
-      const mids = await fetchHlAllMids();
+      const [meta, mids] = await Promise.all([fetchHlMeta(), fetchHlAllMids()]);
       const assetIndex = coinToAssetIndex(meta, coinUpper);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
       const markPx = Number(mids[coinUpper] ?? mids[coin] ?? 0);
@@ -3386,7 +3405,9 @@ export class HyperliquidTradingService {
       let feeSkipReason: string | null = null;
       // Capture before order so fill closedPnl lookup includes the close fills.
       const closeStartedMs = Date.now();
-      if (pnlUsd > 0) {
+      // Manual Close: skip builder gate on the first shot — speed > fee attach.
+      // Bot auto-exits still attach builder when profitable.
+      if (pnlUsd > 0 && !userInitiated) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
           feeSkipReason = 'platform_wallet_underfunded';
@@ -3403,6 +3424,8 @@ export class HyperliquidTradingService {
             feeSkipReason = 'builder_fee_calc_zero';
           }
         }
+      } else if (userInitiated && pnlUsd > 0) {
+        feeSkipReason = 'manual_close_fast_path';
       }
 
       let result = await client.order({
@@ -3439,7 +3462,7 @@ export class HyperliquidTradingService {
 
       if (closeBuilder) {
         viaHlBuilder = true;
-      } else if (pnlUsd > 0 && feeSkipReason) {
+      } else if (pnlUsd > 0 && feeSkipReason && feeSkipReason !== 'manual_close_fast_path') {
         logger.error('HL success fee not auto-collected on close', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
@@ -3453,6 +3476,43 @@ export class HyperliquidTradingService {
                 ? 'User must approve builder fee in bot setup'
                 : undefined,
         });
+      }
+
+      hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+      rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
+
+      // Manual Close: ACK the fill immediately. Fee ledger / fill PnL / dust
+      // must not block dozens of concurrent user closes.
+      if (userInitiated) {
+        void this.finalizeCloseBookkeeping({
+          userAddress,
+          coinUpper,
+          reason,
+          reasonDetail,
+          isLong,
+          entryPx,
+          markPx,
+          absSize,
+          leverage,
+          pnlUsd,
+          notionalUsd,
+          viaHlBuilder,
+          closeBuilder,
+          closeStartedMs,
+        }).catch((err: unknown) => {
+          logger.warn('HL close bookkeeping failed (position already closed)', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        logger.info('HL position closed (manual fast ACK)', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+          pnl: pnlUsd.toFixed(4),
+        });
+        return { success: true };
       }
 
       const collateralUsd =
@@ -3521,8 +3581,6 @@ export class HyperliquidTradingService {
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });
-      hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
-      rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
 
       // If floor/round left a micro residual, flatten it immediately.
       if (reason !== 'dust_flatten') {
@@ -3534,6 +3592,85 @@ export class HyperliquidTradingService {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn('HL close failed', { user: userAddress.slice(0, 10), error: msg });
       return { success: false, error: msg };
+    }
+  }
+
+  private async finalizeCloseBookkeeping(opts: {
+    userAddress: `0x${string}`;
+    coinUpper: string;
+    reason: string;
+    reasonDetail?: string;
+    isLong: boolean;
+    entryPx: number;
+    markPx: number;
+    absSize: number;
+    leverage: number;
+    pnlUsd: number;
+    notionalUsd: number;
+    viaHlBuilder: boolean;
+    closeBuilder: { b: `0x${string}`; f: number } | undefined;
+    closeStartedMs: number;
+  }): Promise<void> {
+    const {
+      userAddress,
+      coinUpper,
+      reason,
+      reasonDetail,
+      isLong,
+      entryPx,
+      markPx,
+      absSize,
+      leverage,
+      pnlUsd,
+      notionalUsd,
+      viaHlBuilder,
+      closeBuilder,
+      closeStartedMs,
+    } = opts;
+
+    let realizedPnlUsd = pnlUsd;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 250 * attempt));
+      }
+      const fromFills = await fetchHlCloseRealizedPnlUsd({
+        userAddress,
+        coin: coinUpper,
+        sinceMs: closeStartedMs,
+      });
+      if (fromFills != null) {
+        realizedPnlUsd = fromFills;
+        break;
+      }
+    }
+
+    const collateralUsd = entryPx > 0 ? (absSize * entryPx) / leverage : 0;
+    const snapshot: HlCloseSnapshot = {
+      coin: coinUpper,
+      direction: isLong ? 'LONG' : 'SHORT',
+      entryPx,
+      exitPx: markPx,
+      size: absSize,
+      leverage,
+      unrealizedPnlUsd: realizedPnlUsd,
+      collateralUsd,
+    };
+    const collectedFee =
+      realizedPnlUsd > 0
+        ? viaHlBuilder && closeBuilder
+          ? estimateCollectedSuccessFee(realizedPnlUsd, notionalUsd, closeBuilder.f)
+          : calculateHlSuccessFee(realizedPnlUsd)
+        : 0;
+
+    if (reason !== 'dust_flatten') {
+      await recordHlBotClose({
+        walletAddress: userAddress,
+        reason: reasonDetail ?? reason,
+        snapshot,
+        collectedFeeUsd: collectedFee,
+        viaHlBuilder,
+      });
+      await this.flattenCloseResidual(userAddress, coinUpper);
     }
   }
 

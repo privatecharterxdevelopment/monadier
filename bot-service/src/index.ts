@@ -443,6 +443,10 @@ const healthServer = http.createServer(async (req, res) => {
       // (body.reason is kept only as log detail).
       const reasonNote = String(body.reason ?? '').trim();
       const reason = 'manual';
+      const sizeAbs = Number(body.size);
+      const isLongBody = body.isLong;
+      const entryPxBody = Number(body.entryPx);
+      const unrealizedPnlBody = Number(body.unrealizedPnlUsd);
 
       if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
         res.writeHead(400, corsHeaders);
@@ -456,19 +460,21 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      const agents = await fetchHlExtraAgents(wallet);
-      const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
-      const live =
-        agents.find(
-          (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
-        ) ??
-        agents.find(
-          (a) =>
-            isHlExtraAgentActive(a) && a.name.toLowerCase().startsWith(agentNamePrefix)
-        );
-      // Chain extraAgents can flake empty — DB approval is enough to attempt close.
-      const dbApproved =
-        live != null || (await hlAgentApprovalService.isApproved(wallet, agentAddr));
+      // Fast path: DB approval first — never wait on HL extraAgents for Close.
+      let dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
+      if (!dbApproved) {
+        const agents = await fetchHlExtraAgents(wallet);
+        const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
+        const live =
+          agents.find(
+            (a) => a.address.toLowerCase() === agentAddr.toLowerCase() && isHlExtraAgentActive(a)
+          ) ??
+          agents.find(
+            (a) =>
+              isHlExtraAgentActive(a) && a.name.toLowerCase().startsWith(agentNamePrefix)
+          );
+        dbApproved = live != null;
+      }
       if (!dbApproved) {
         res.writeHead(400, corsHeaders);
         res.end(
@@ -481,11 +487,22 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
+      const closeCtx =
+        Number.isFinite(sizeAbs) && sizeAbs > 1e-12
+          ? {
+              size: sizeAbs,
+              isLong: typeof isLongBody === 'boolean' ? isLongBody : undefined,
+              entryPx: Number.isFinite(entryPxBody) ? entryPxBody : 0,
+              unrealizedPnlUsd: Number.isFinite(unrealizedPnlBody) ? unrealizedPnlBody : 0,
+              leverage: 10,
+            }
+          : undefined;
+
       const result = await hyperliquidTradingService.closeMarketPosition(
         wallet as `0x${string}`,
         coin,
         reason,
-        undefined,
+        closeCtx,
         reasonNote && reasonNote.toLowerCase() !== 'manual' ? reasonNote : undefined
       );
       if (!result.success) {

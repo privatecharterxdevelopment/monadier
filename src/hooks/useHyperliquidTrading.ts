@@ -290,9 +290,13 @@ export function useHyperliquidTrading() {
         }
 
         // HyperGain HL agent — one-time approve at Start bot, no MetaMask per close.
+        // Pass live size so Railway can fire the order without waiting on clearinghouse.
         await closeHlPositionViaAgent({
           walletAddress: wallet,
           coin: opts.coin,
+          size: opts.size,
+          isLong: opts.isLong,
+          unrealizedPnlUsd: opts.profitUsd,
         });
       }, 'Close position failed'),
     [resolveWallet, withBusy]
