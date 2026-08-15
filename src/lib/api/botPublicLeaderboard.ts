@@ -83,7 +83,7 @@ async function fetchViaBotApi(
 ): Promise<BotPublicTradeRow[]> {
   const res = await fetchBotApi(
     `/api/public-leaderboard?sort=${sort}&limit=${limit}`,
-    { timeoutMs: 20_000, retries: 1 }
+    { timeoutMs: 35_000, retries: 2 }
   );
   if (!res.ok) {
     throw new Error(`leaderboard ${res.status}`);
@@ -98,12 +98,23 @@ async function fetchLeaderboard(
   sort: 'top' | 'recent' | 'recent_all',
   limit: number
 ): Promise<BotPublicTradeRow[]> {
-  try {
-    return await fetchViaBotApi(sort, limit);
-  } catch (err) {
-    console.warn('[botPublicLeaderboard] bot API fallback to RPC', err);
-    return fetchViaRpc(sort, limit);
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const rows = await fetchViaBotApi(sort, limit);
+      if (rows.length > 0 || attempt === 1) return rows;
+      // Empty can be a transient wallet/fill flake — one quick retry before RPC.
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+    }
   }
+  console.warn('[botPublicLeaderboard] bot API fallback to RPC', lastErr);
+  return fetchViaRpc(sort, limit);
 }
 
 /** Public HL wins — top by profit (live HL + DB). */

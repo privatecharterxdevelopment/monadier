@@ -11,9 +11,11 @@ import { subscriptionService } from './subscription';
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
 const FILL_CACHE_MS = 25_000;
-const BOARD_CACHE_MS = 8_000;
+const BOARD_CACHE_MS = 12_000;
+const BOARD_EMPTY_RETRY_MS = 2_000;
 const WALLET_CAP = 48;
-const FILLS_CONCURRENCY = 8;
+/** Keep concurrency modest — stampeding HL userFills → 429 → empty board. */
+const FILLS_CONCURRENCY = 4;
 const RECENT_HISTORY_DAYS = 14;
 const MERGE_GAP_MS = 8_000;
 const MIN_ABS_PNL = 0.005;
@@ -133,22 +135,39 @@ async function fetchUserFills(wallet: string): Promise<HlFill[]> {
   const cached = fillCache.get(wallet);
   if (cached && Date.now() - cached.at < FILL_CACHE_MS) return cached.fills;
 
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'userFills',
-      user: wallet,
-      aggregateByTime: true,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`userFills ${res.status}`);
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'userFills',
+          user: wallet,
+          aggregateByTime: true,
+        }),
+      });
+      lastStatus = res.status;
+      if (res.status === 429 || res.status >= 500) {
+        if (cached) return cached.fills;
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1) * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(`userFills ${res.status}`);
+      }
+      const json = (await res.json()) as unknown;
+      const fills = Array.isArray(json) ? (json as HlFill[]) : [];
+      fillCache.set(wallet, { at: Date.now(), fills });
+      return fills;
+    } catch (err) {
+      if (cached) return cached.fills;
+      if (attempt >= 2) throw err;
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
   }
-  const json = (await res.json()) as unknown;
-  const fills = Array.isArray(json) ? (json as HlFill[]) : [];
-  fillCache.set(wallet, { at: Date.now(), fills });
-  return fills;
+  if (cached) return cached.fills;
+  throw new Error(`userFills ${lastStatus || 'network'}`);
 }
 
 function closesFromFills(wallet: string, fills: HlFill[]): CloseRow[] {
@@ -282,18 +301,40 @@ async function loadAllCloses(): Promise<CloseRow[]> {
   if (boardCache && Date.now() - boardCache.at < BOARD_CACHE_MS) {
     return boardCache.rows;
   }
+  // Empty board is often a transient HL/Supabase flake — don't pin it for full TTL.
+  if (
+    boardCache &&
+    boardCache.rows.length === 0 &&
+    Date.now() - boardCache.at < BOARD_EMPTY_RETRY_MS
+  ) {
+    return boardCache.rows;
+  }
   if (boardInflight) return boardInflight;
 
+  const prevGood =
+    boardCache && boardCache.rows.length > 0 ? boardCache.rows : null;
+
   boardInflight = (async () => {
-    const [wallets, hints] = await Promise.all([
-      listLeaderboardWallets(),
-      loadCloseReasonHints(),
-    ]);
+    let wallets = await listLeaderboardWallets();
+    if (wallets.length === 0) {
+      // One quick retry — empty wallet set is almost never real while bots run.
+      await new Promise((r) => setTimeout(r, 400));
+      wallets = await listLeaderboardWallets();
+    }
+    if (wallets.length === 0 && prevGood) {
+      logger.warn('HL leaderboard wallet list empty — keeping previous board');
+      boardCache = { at: Date.now(), rows: prevGood };
+      return prevGood;
+    }
+
+    const hints = await loadCloseReasonHints();
+    let fillFailures = 0;
     const perWallet = await mapPool(wallets, FILLS_CONCURRENCY, async (wallet) => {
       try {
         const fills = await fetchUserFills(wallet);
         return closesFromFills(wallet, fills);
       } catch (err) {
+        fillFailures += 1;
         logger.warn('HL leaderboard fills failed', {
           wallet: wallet.slice(0, 10),
           error: err instanceof Error ? err.message : String(err),
@@ -305,6 +346,17 @@ async function loadAllCloses(): Promise<CloseRow[]> {
       perWallet.flat().sort((a, b) => b.closedAtMs - a.closedAtMs),
       hints
     );
+
+    // Never replace a good board with an empty one after partial HL outage.
+    if (rows.length === 0 && prevGood) {
+      logger.warn('HL leaderboard refresh empty — keeping previous board', {
+        wallets: wallets.length,
+        fillFailures,
+      });
+      boardCache = { at: Date.now(), rows: prevGood };
+      return prevGood;
+    }
+
     boardCache = { at: Date.now(), rows };
     return rows;
   })();

@@ -3229,9 +3229,16 @@ export class HyperliquidTradingService {
       const userInitiated = isUserInitiatedClose(reason);
 
       // Manual Close is sacred — retry HL state; never lie with "No HL position" on a flake.
-      let state = await fetchHlClearinghouseState(userAddress);
-      if (!state) {
-        for (let i = 0; i < 4 && !state; i += 1) {
+      let state = await fetchHlClearinghouseState(userAddress, {
+        critical: userInitiated,
+      });
+      if (!state && userInitiated) {
+        for (let i = 0; i < 5 && !state; i += 1) {
+          await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+          state = await fetchHlClearinghouseState(userAddress, { critical: true });
+        }
+      } else if (!state) {
+        for (let i = 0; i < 3 && !state; i += 1) {
           await new Promise((r) => setTimeout(r, 200 * (i + 1)));
           state = await fetchHlClearinghouseState(userAddress);
         }

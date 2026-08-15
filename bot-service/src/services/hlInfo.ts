@@ -26,6 +26,9 @@ export type HlUserAbstraction =
   | 'default'
   | 'dexAbstraction';
 
+type ClearinghouseCacheEntry = { at: number; data: HlClearinghouseState };
+const clearinghouseCache = new Map<string, ClearinghouseCacheEntry>();
+
 export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
   if (raw == null) return null;
   let mode = typeof raw === 'string' ? raw.trim() : String(raw);
@@ -98,10 +101,19 @@ export async function fetchHlUserAbstraction(
 }
 
 export async function fetchHlClearinghouseState(
-  userAddress: string
+  userAddress: string,
+  opts?: { critical?: boolean }
 ): Promise<HlClearinghouseState | null> {
   const user = userAddress.toLowerCase();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const ttlMs = opts?.critical ? 1_500 : 3_000;
+  const attempts = opts?.critical ? 6 : 3;
+
+  const hit = clearinghouseCache.get(user);
+  if (hit && Date.now() - hit.at < ttlMs) {
+    return hit.data;
+  }
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const res = await fetch(config.hyperliquid.infoUrl, {
         method: 'POST',
@@ -110,24 +122,48 @@ export async function fetchHlClearinghouseState(
           type: 'clearinghouseState',
           user,
         }),
+        signal: AbortSignal.timeout(opts?.critical ? 12_000 : 8_000),
       });
-      if (!res.ok) {
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      if (res.status === 429 || res.status >= 500) {
+        if (hit) {
+          logger.warn('HL clearinghouse rate-limited — serving stale', {
+            user: user.slice(0, 10),
+            status: res.status,
+          });
+          return hit.data;
+        }
+        await new Promise((r) => setTimeout(r, 350 * (attempt + 1) * (attempt + 1)));
         continue;
       }
-      return (await res.json()) as HlClearinghouseState;
+      if (!res.ok) {
+        if (attempt < attempts - 1) {
+          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+        break;
+      }
+      const data = (await res.json()) as HlClearinghouseState;
+      clearinghouseCache.set(user, { at: Date.now(), data });
+      return data;
     } catch (err: unknown) {
-      if (attempt === 2) {
+      if (hit && attempt >= attempts - 1) {
+        logger.warn('HL clearinghouse error — serving stale', {
+          user: user.slice(0, 10),
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return hit.data;
+      }
+      if (attempt < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      } else {
         logger.debug('HL clearinghouseState failed', {
           user: user.slice(0, 10),
           error: err instanceof Error ? err.message : String(err),
         });
-      } else {
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
       }
     }
   }
-  return null;
+  return hit ? hit.data : null;
 }
 
 /** USDC sitting in HL spot — on unified accounts this is the tradable perp balance too. */

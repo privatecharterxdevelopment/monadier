@@ -52,12 +52,20 @@ export async function fetchBotApi(
   const { timeoutMs = 25_000, retries = 2, ...fetchInit } = opts;
   let lastErr: unknown;
 
+  const timeoutSignal = (): AbortSignal | undefined => {
+    if (fetchInit.signal) return undefined;
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(timeoutMs);
+    }
+    return undefined;
+  };
+
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       const res = await fetch(url, {
         cache: 'no-store',
         ...fetchInit,
-        signal: fetchInit.signal ?? AbortSignal.timeout(timeoutMs),
+        signal: fetchInit.signal ?? timeoutSignal(),
       });
       if (res.status >= 502 && res.status <= 504 && attempt < retries) {
         await sleep(400 * (attempt + 1));
