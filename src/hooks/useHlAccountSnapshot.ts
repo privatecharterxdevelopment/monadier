@@ -78,7 +78,8 @@ function buildSnapshot(
     totalUsd,
     withdrawableUsd: Math.max(
       0,
-      Number(acct?.withdrawable ?? funding.withdrawableUsd) || funding.withdrawableUsd
+      funding.withdrawableUsd,
+      Number(acct?.withdrawable) || 0
     ),
     totalMarginUsedUsd: marginUsed,
     openPositionsCount: openPositions.length,

@@ -110,9 +110,11 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     toNum(account?.crossMargin?.accountValue)
   );
   const crossAccountValueUsd = toNum(account?.crossMargin?.accountValue);
-  const spotUsdcUsd = toNum(
-    spotBalances.find((b) => b.coin.toUpperCase() === 'USDC')?.total
-  );
+  const spotUsdcRow = spotBalances.find((b) => b.coin.toUpperCase() === 'USDC');
+  const spotUsdcUsd = toNum(spotUsdcRow?.total);
+  const spotUsdcHoldUsd = toNum(spotUsdcRow?.hold);
+  /** Spot USDC not locked as perp margin — bridgeable on unified books. */
+  const spotFreeUsd = Math.max(0, spotUsdcUsd - spotUsdcHoldUsd);
   const unifiedAccount =
     isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   let tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
@@ -128,10 +130,14 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     tradablePerpUsd = Math.max(spotUsdcUsd, perpUsd);
   }
   const perpWithdrawable = toNum(account?.withdrawable);
-  // Always trust HL's withdrawable — never inflate with spot/equity.
-  // Unified accounts still report free-to-bridge USDC here; open margin → $0
-  // even when spotClearinghouse shows the same equity as accountValue.
-  const withdrawableUsd = Math.max(0, perpWithdrawable);
+  // Unified: perp `withdrawable` often reads $0 while Spot total−hold is free
+  // (e.g. equity ~$260, LINK margin ~$8 → ~$252 still withdrawable).
+  // Classic split: only trust perp withdrawable; Spot is shown separately.
+  const withdrawableUsd = Math.max(
+    0,
+    perpWithdrawable,
+    unifiedAccount ? spotFreeUsd : 0
+  );
   const totalUsd = accountEquityUsd;
   return {
     perpUsd,
