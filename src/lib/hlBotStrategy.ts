@@ -8,40 +8,42 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Trail: +2.5%→+5% ROE (≤39×); +8%→+12% at 40×.',
+    'Standard: MTF trend-only. Trail arms after 2m green +8% ROE; full trail +15% ROE.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same leverage-aware trail (+2.5%/+5%, or +8%/+12% at 40×).',
+    'Aggressive: 1m scalp entries. Same 2m green hold and ROE trail gates.',
 };
 
-/** Must match bot-service base dynamicTrail (≤39×). 40× uses high-lev profile. */
+/** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinProfitHoldMs: 420_000,
+  armMinProfitHoldMs: 120_000,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 300_000,
-  breakevenArmRoePct: 2.5,
+  trailMinActiveBeforeCloseMs: 120_000,
+  longMinGreenHoldMs: 120_000,
+  longTrailMinActiveMult: 1,
+  breakevenArmRoePct: 8,
   armMinProfitUsd: 0,
-  armMinRoePct: 2.5,
-  trailGapRoePct: 1.5,
-  fullTrailArmRoePct: 5,
-  armFeesMultiplier: 2,
+  armMinRoePct: 15,
+  trailGapRoePct: 3,
+  fullTrailArmRoePct: 15,
+  longTrailArmRoePct: 22,
+  armFeesMultiplier: 4,
   estimatedFeeBpsPerSide: 3.5,
-  majorTrailPct: 0.028,
-  midTrailPct: 0.024,
-  cautiousTrailPct: 0.038,
+  majorTrailPct: 0.068,
+  midTrailPct: 0.058,
+  cautiousTrailPct: 0.072,
   breakevenBufferPct: 0.02,
 } as const;
 
-/** 40×+ trail profile — matches bot-service dynamicTrailHighLev. */
+/** High-leverage ROE gates only — hold times stay 2m (same as bot). */
 export const HL_DYNAMIC_TRAIL_40X = {
   breakevenArmRoePct: 8,
-  armMinRoePct: 8,
-  fullTrailArmRoePct: 12,
-  trailGapRoePct: 4,
-  majorTrailPct: 0.035,
-  midTrailPct: 0.03,
-  cautiousTrailPct: 0.045,
-  armMinProfitHoldMs: 720_000,
-  trailMinActiveBeforeCloseMs: 480_000,
+  armMinRoePct: 15,
+  fullTrailArmRoePct: 15,
+  trailGapRoePct: 3,
+  longTrailArmRoePct: 22,
+  majorTrailPct: 0.068,
+  midTrailPct: 0.058,
+  cautiousTrailPct: 0.072,
 } as const;
 
 export function trailProfileForLeverage(leverage: number) {
@@ -63,7 +65,7 @@ export function profitLockDisplayForStrategy(_strategy: HlBotStrategy): {
     activateUsd: 0,
     floorUsd: 0,
     trailBufferUsd: 0,
-    minHoldMs: 0,
+    minHoldMs: HL_DYNAMIC_TRAIL.armMinProfitHoldMs,
   };
 }
 
@@ -84,6 +86,12 @@ export function shouldArmDynamicTrail(
   if (HL_DYNAMIC_TRAIL.armMinProfitUsd > 0 && peak < HL_DYNAMIC_TRAIL.armMinProfitUsd) {
     return false;
   }
+  const timeInProfitMs = opts?.timeInProfitMs ?? 0;
+  const totalHoldMs = opts?.holdMs ?? 0;
+  const holdOk =
+    timeInProfitMs >= HL_DYNAMIC_TRAIL.armMinProfitHoldMs ||
+    totalHoldMs >= HL_DYNAMIC_TRAIL.maxHoldBeforeSlTrailMs;
+  if (!holdOk) return false;
   const roe = (peak / collateralUsd) * 100;
   return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
 }

@@ -103,6 +103,8 @@ export function computeDynamicTrailStopPx(opts: {
   coin: string;
   notionalUsd: number;
   collateralUsd: number;
+  holdMs?: number;
+  timeInProfitMs?: number;
 }): { stopPx: number | null; armed: boolean; breached: boolean; lockRoePct: number } {
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const absSize = Math.abs(opts.szi);
@@ -111,7 +113,11 @@ export function computeDynamicTrailStopPx(opts: {
     opts.unrealizedPnlUsd,
     opts.collateralUsd,
     opts.notionalUsd,
-    { peakPnlUsd: peakPnl }
+    {
+      peakPnlUsd: peakPnl,
+      holdMs: opts.holdMs,
+      timeInProfitMs: opts.timeInProfitMs ?? (opts.unrealizedPnlUsd > 0 ? opts.holdMs : 0),
+    }
   );
   if (!armed) {
     return { stopPx: null, armed: false, breached: false, lockRoePct: 0 };
@@ -334,6 +340,8 @@ export function trailStopForOpenPosition(opts: {
     coin: opts.coin,
     notionalUsd: notional,
     collateralUsd: collateral,
+    holdMs: opts.holdMs,
+    timeInProfitMs: opts.unrealizedPnlUsd > 0 ? opts.holdMs : 0,
   });
 
   if (trail.armed && trail.stopPx != null) {
@@ -355,7 +363,7 @@ export function trailStopForOpenPosition(opts: {
       armed: false,
       kind: 'arming',
       label: lossPx != null ? fmtStopPx(lossPx) : '—',
-      title: `Max loss at ${lossPx != null ? fmtStopPx(lossPx) : '—'} until profit SL arms (+${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE, now ${roe.toFixed(2)}%).`,
+      title: `Profit SL arms after 2m green +${HL_DYNAMIC_TRAIL.breakevenArmRoePct}% ROE (now ${roe.toFixed(2)}%).`,
     };
   }
 

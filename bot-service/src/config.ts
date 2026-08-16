@@ -208,7 +208,7 @@ export const config = {
       /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
-      maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 300_000),
+      maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /** Min ROE before breakeven+fees lock (stage 1 — must clear fee drag). */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
       /** Min ROE before full ATR/% trail ratchet (stage 2). */
@@ -252,7 +252,7 @@ export const config = {
        */
       longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.78),
       /** Stretch min-active time before a LONG trail/floor close. */
-      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1.5),
+      longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1),
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
