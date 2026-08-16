@@ -44,6 +44,12 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
   const hlPerpUsd = snapshot?.tradablePerpUsd ?? metrics.hlBalanceUsd;
   const hlSpotUsd = snapshot?.spotUsdcUsd ?? 0;
   const withdrawable = snapshot?.withdrawableUsd ?? metrics.hlWithdrawableUsd;
+  const equityUsd = snapshot?.totalUsd ?? hlPerpUsd;
+  const openCount = snapshot?.openPositionsCount ?? metrics.openPositionsCount;
+  const marginInUse = Math.max(
+    snapshot?.totalMarginUsedUsd ?? 0,
+    openCount > 0 ? Math.max(0, equityUsd - withdrawable) : 0
+  );
   const unified = snapshot?.unifiedAccount ?? false;
 
   const requireAccount = (reason: string, next: () => void) => {
@@ -65,15 +71,15 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
         <div className="hl-funds-overview__breakdown">
           <div className="hl-funds-overview__row">
             <span>Equity</span>
-            <strong>{fmt(snapshot?.totalUsd ?? hlPerpUsd)}</strong>
+            <strong>{fmt(equityUsd)}</strong>
           </div>
           <div className="hl-funds-overview__row">
             <span>Open trades</span>
-            <strong>{snapshot?.openPositionsCount ?? metrics.openPositionsCount}</strong>
+            <strong>{openCount}</strong>
           </div>
-          {(snapshot?.openPositionsCount ?? 0) > 0 ? (
+          {openCount > 0 ? (
             <div
-              className={`hl-funds-overview__row hl-funds-overview__row--hint${
+              className={`hl-funds-overview__row${
                 (snapshot?.unrealizedPnlUsd ?? 0) >= 0 ? ' hl-pos' : ' hl-neg'
               }`}
             >
@@ -81,10 +87,10 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
               <strong>{fmtClosedPnl(snapshot?.unrealizedPnlUsd ?? 0)}</strong>
             </div>
           ) : null}
-          {(snapshot?.totalMarginUsedUsd ?? 0) > 0.005 ? (
-            <div className="hl-funds-overview__row hl-funds-overview__row--hint">
+          {marginInUse > 0.005 ? (
+            <div className="hl-funds-overview__row">
               <span>Margin in use</span>
-              <strong>{fmt(snapshot?.totalMarginUsedUsd ?? 0)}</strong>
+              <strong>{fmt(marginInUse)}</strong>
             </div>
           ) : null}
           <div className="hl-funds-overview__row">

@@ -94,6 +94,11 @@ const ProTradeDepositModal: React.FC<Props> = ({
     liveFunding?.withdrawableUsd ?? hlSnap?.withdrawableUsd ?? toNum(withdrawable);
   const openCount = hlSnap?.openPositionsCount ?? 0;
   const unrealizedPnlUsd = hlSnap?.unrealizedPnlUsd ?? 0;
+  const marginUsedUsd = Math.max(
+    liveFunding?.marginUsedUsd ?? 0,
+    hlSnap?.totalMarginUsedUsd ?? 0,
+    openCount > 0 ? Math.max(0, totalHlUsd - withdrawableUsd) : 0
+  );
   const fundsPlacementHint = describeHlFundsPlacement(
     liveFunding ?? {
       perpUsd,
@@ -468,6 +473,11 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   }`}
                 >
                   Unrealized P/L {fmtClosedPnl(unrealizedPnlUsd)}
+                </div>
+              ) : null}
+              {marginUsedUsd > 0.005 ? (
+                <div className="hl-funds-summary__sub">
+                  Margin in use {fmtUsdSymbol(marginUsedUsd)}
                 </div>
               ) : null}
               {tab === 'withdraw' ? (

@@ -176,6 +176,14 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hlSpotUsd = hlSetup.spotUsdcUsd;
   const hlUnifiedAccount = hlSetup.unifiedAccount;
   const hlWithdrawableLive = Math.max(0, hlSetup.withdrawableUsd);
+  const hlMarginUsedUsd = Math.max(
+    0,
+    hlSetup.totalMarginUsedUsd,
+    // Fallback if snapshot margin lagged: equity − withdrawable while positioned.
+    metrics.openPositionsCount > 0
+      ? Math.max(0, hlEquityUsd - hlWithdrawableLive)
+      : 0
+  );
   const hlNeedsSpotTransfer = needsSpotToPerpTransfer(
     hlSetup.rawPerpUsd,
     hlSpotUsd,
@@ -913,6 +921,12 @@ const TerminalTradePanel: React.FC<Props> = ({
                     {fmtClosedPnl(metrics.unrealizedPnlUsd)}
                   </strong>
                 </div>
+                {hlMarginUsedUsd > 0.005 ? (
+                  <div className="term-field-row">
+                    <span>Margin in use</span>
+                    <strong>{fmt(hlMarginUsedUsd)}</strong>
+                  </div>
+                ) : null}
                 <div className="term-field-row">
                   <span>{t('tradePanel.withdrawable')}</span>
                   <strong>{fmt(hlWithdrawableLive)}</strong>
