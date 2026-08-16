@@ -66,16 +66,25 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     [scopedHlPositions]
   );
 
-  /** Live HL accountValue — never marginUsed / notional. */
-  const liveEquityUsd = Math.max(
+  /**
+   * Account equity for the pill — same number Funds/footer use.
+   * On unified books, clearinghouse `accountValue` is often just the margin
+   * slice on open perps (~$8) while Spot USDC is the real equity (~$260).
+   * Never prefer raw perp AV alone when the funding snapshot has Spot.
+   */
+  const livePerpEquityUsd = Math.max(
     toNum(account?.margin?.accountValue),
     toNum(account?.crossMargin?.accountValue),
     0
   );
-  const balanceUsd =
-    liveEquityUsd > 1
-      ? liveEquityUsd
-      : snapshot?.totalUsd ?? betStats.balanceUsd ?? 0;
+  const balanceUsd = Math.max(
+    snapshot?.totalUsd ?? 0,
+    snapshot?.tradablePerpUsd ?? 0,
+    snapshot?.spotUsdcUsd ?? 0,
+    livePerpEquityUsd,
+    betStats.balanceUsd ?? 0,
+    0
+  );
   const showExtended = !compact && section !== 'other';
 
   const balancePill = (
