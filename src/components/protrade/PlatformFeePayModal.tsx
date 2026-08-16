@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Loader2, Wallet } from 'lucide-react';
-import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
+import { usePublicClient, useSwitchChain } from 'wagmi';
 import type { PlatformFeeTrade } from '../../lib/platformFeesApi';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
@@ -11,7 +12,8 @@ import {
   transferArbitrumUsdc,
 } from '../../lib/arbitrumUsdcTransfer';
 import { HL_ARBITRUM_CHAIN_ID } from '../../lib/hyperliquid/bridge';
-import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useWeb3 } from '../../contexts/Web3Context';
 
 function shortAddr(addr: string): string {
   const a = addr.trim();
@@ -39,6 +41,11 @@ type Props = {
 const VISIBLE_ROWS = 5;
 const SUCCESS_CLOSE_MS = 2400;
 
+/**
+ * Fee pay uses the same wallet stack as Deposit (useMonadierWallet + useWeb3.walletClient).
+ * Do NOT route Connect through useMonadierAppKit — that wrapper opens the USDC sheet and
+ * makes MetaMask look "disconnected" for fee payment.
+ */
 const PlatformFeePayModal: React.FC<Props> = ({
   open,
   onClose,
@@ -53,11 +60,12 @@ const PlatformFeePayModal: React.FC<Props> = ({
   onPaid,
   onPaymentSuccess,
 }) => {
-  const { data: walletClient } = useWalletClient();
-  const { address: connectedAddress, isConnected } = useAccount();
+  const { address: liveAddress, isConnected } = useMonadierWallet();
+  const { walletClient } = useWeb3();
   const publicClient = usePublicClient({ chainId: HL_ARBITRUM_CHAIN_ID });
   const { switchChainAsync } = useSwitchChain();
-  const { open: openWalletModal } = useMonadierAppKit();
+  // Raw AppKit Connect — bypasses wrapMonadierAppKitOpen (USDC-sheet intercept).
+  const { open: openAppKitConnect } = useAppKit();
   const [phase, setPhase] = useState<PayPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -72,10 +80,13 @@ const PlatformFeePayModal: React.FC<Props> = ({
     return raw;
   })();
   const treasury = treasuryDisplay.toLowerCase();
-  const payer = payerWallet?.trim().toLowerCase() as `0x${string}` | undefined;
-  const connected = connectedAddress?.trim().toLowerCase();
-  const walletReady = Boolean(walletClient && isConnected);
-  const wrongAccount = Boolean(walletReady && payer && connected && connected !== payer);
+  const payer = (payerWallet ?? liveAddress)?.trim().toLowerCase() as `0x${string}` | undefined;
+  const connected = liveAddress?.trim().toLowerCase();
+  const hasSigner = Boolean(walletClient);
+  const walletReady = Boolean(isConnected && hasSigner);
+  const wrongAccount = Boolean(
+    walletReady && payer && connected && connected !== payer
+  );
 
   const winTrades = useMemo(
     () => (trades ?? []).filter((t) => t.totalFeeUsd > 0 && t.grossProfitUsd > 0),
@@ -129,12 +140,12 @@ const PlatformFeePayModal: React.FC<Props> = ({
     arbitrumUsdc != null && accruedUsd > 0 && arbitrumUsdc + 0.001 < accruedUsd;
 
   const openConnect = useCallback(() => {
-    openWalletModal({ view: 'Connect' });
-  }, [openWalletModal]);
+    openAppKitConnect({ view: 'Connect' });
+  }, [openAppKitConnect]);
 
   const handlePay = useCallback(async () => {
     if (!payer || accruedUsd <= 0 || busy) return;
-    if (!walletReady || !walletClient) {
+    if (!walletClient) {
       setError('Connect MetaMask (same wallet as your bot) to pay on Arbitrum.');
       openConnect();
       return;
@@ -194,7 +205,6 @@ const PlatformFeePayModal: React.FC<Props> = ({
     }
   }, [
     walletClient,
-    walletReady,
     wrongAccount,
     payer,
     accruedUsd,
@@ -241,7 +251,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
           : null;
 
   const arbiscanTxUrl = txHash ? `https://arbiscan.io/tx/${txHash}` : null;
-  const needsWalletCta = !walletReady || wrongAccount;
+  const needsWalletCta = !hasSigner || wrongAccount;
 
   return (
     <div className="hl-fee-modal-backdrop" role="dialog" aria-modal aria-labelledby="hl-fee-modal-title">
@@ -356,7 +366,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
           </p>
         ) : null}
 
-        {!walletReady ? (
+        {!hasSigner ? (
           <p className="hl-fee-modal-error" role="alert">
             Connect MetaMask to pay — fees are sent as native USDC on Arbitrum from your bot wallet.
           </p>
@@ -389,7 +399,7 @@ const PlatformFeePayModal: React.FC<Props> = ({
               disabled={busy || accruedUsd <= 0}
             >
               <Wallet size={16} />
-              {!walletReady ? 'Connect MetaMask to pay' : 'Switch wallet to pay'}
+              {!hasSigner ? 'Connect MetaMask to pay' : 'Switch wallet to pay'}
             </button>
           ) : (
             <button
