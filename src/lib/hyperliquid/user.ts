@@ -115,6 +115,8 @@ export type HlAccountState = {
 
 export type HlSpotAccountState = {
   balances: HlSpotBalance[];
+  /** token index → available after maintenance (unified source of truth). */
+  availableAfterMaintenanceByToken?: Record<number, number>;
 };
 
 async function hlInfo<T>(body: Record<string, unknown>): Promise<T> {
@@ -391,20 +393,40 @@ export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFu
 }
 
 export async function fetchHlSpotBalances(user: string): Promise<HlSpotBalance[]> {
-  const data = await hlInfo<{ balances?: HlSpotBalance[] }>({
+  const state = await fetchHlSpotAccountState(user);
+  return state.balances;
+}
+
+/** Full spot clearinghouse — balances + available-after-maintenance map. */
+export async function fetchHlSpotAccountState(user: string): Promise<HlSpotAccountState> {
+  const data = await hlInfo<{
+    balances?: HlSpotBalance[];
+    tokenToAvailableAfterMaintenance?: Array<[number | string, string | number]>;
+  }>({
     type: 'spotClearinghouseState',
     user: user.toLowerCase(),
   });
-  if (!Array.isArray(data.balances)) return [];
-  return data.balances
-    .map((b) => ({
-      coin: String(b.coin ?? ''),
-      token: toNum(b.token),
-      total: String(b.total ?? '0'),
-      hold: String(b.hold ?? '0'),
-      entryNtl: String(b.entryNtl ?? '0'),
-    }))
-    .filter((b) => toNum(b.total) > 0 || toNum(b.hold) > 0);
+  const balances = Array.isArray(data.balances)
+    ? data.balances
+        .map((b) => ({
+          coin: String(b.coin ?? ''),
+          token: toNum(b.token),
+          total: String(b.total ?? '0'),
+          hold: String(b.hold ?? '0'),
+          entryNtl: String(b.entryNtl ?? '0'),
+        }))
+        .filter((b) => toNum(b.total) > 0 || toNum(b.hold) > 0)
+    : [];
+  const availableAfterMaintenanceByToken: Record<number, number> = {};
+  for (const row of data.tokenToAvailableAfterMaintenance ?? []) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    const token = Number(row[0]);
+    const avail = Number(row[1]);
+    if (Number.isFinite(token) && Number.isFinite(avail)) {
+      availableAfterMaintenanceByToken[token] = avail;
+    }
+  }
+  return { balances, availableAfterMaintenanceByToken };
 }
 
 export async function fetchHlHistoricalOrders(user: string, limit = 50): Promise<HlHistoricalOrder[]> {

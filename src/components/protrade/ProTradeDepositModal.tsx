@@ -98,6 +98,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
     liveFunding ?? {
       perpUsd,
       spotUsdcUsd: spotUsd,
+      marginUsedUsd: hlSnap?.totalMarginUsedUsd ?? 0,
       tradablePerpUsd: liveFunding?.tradablePerpUsd ?? hlSnap?.tradablePerpUsd ?? perpUsd,
       accountEquityUsd: totalHlUsd,
       unifiedAccount,

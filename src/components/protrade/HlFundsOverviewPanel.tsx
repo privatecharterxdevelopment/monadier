@@ -81,8 +81,16 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
               <strong>{fmtClosedPnl(snapshot?.unrealizedPnlUsd ?? 0)}</strong>
             </div>
           ) : null}
+          {(snapshot?.totalMarginUsedUsd ?? 0) > 0.005 ? (
+            <div className="hl-funds-overview__row hl-funds-overview__row--hint">
+              <span>Margin in use</span>
+              <strong>{fmt(snapshot?.totalMarginUsedUsd ?? 0)}</strong>
+            </div>
+          ) : null}
           <div className="hl-funds-overview__row">
-            <span>Withdrawable</span>
+            <span title="USDC you can withdraw or redeploy after HL margin rules (open positions keep required margin locked).">
+              Withdrawable
+            </span>
             <strong>{fmt(withdrawable)}</strong>
           </div>
           {!unified && hlSpotUsd > 0.005 ? (

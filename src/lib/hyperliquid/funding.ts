@@ -1,6 +1,10 @@
 import { toNum } from './parse';
 import type { HlAccountState, HlUserAbstraction } from './user';
-import { fetchHlAccountState, fetchHlSpotBalances, fetchHlUserAbstraction } from './user';
+import {
+  fetchHlAccountState,
+  fetchHlSpotAccountState,
+  fetchHlUserAbstraction,
+} from './user';
 import { clearHlInfoCache } from './hlInfoClient';
 import { MIN_HL_BOT_USD } from './hlBotAgent';
 
@@ -8,6 +12,8 @@ export type HlFundingSnapshot = {
   /** Raw perp clearinghouse account value (often $0 on unified accounts). */
   perpUsd: number;
   spotUsdcUsd: number;
+  /** USDC locked as perp margin (Spot hold / clearinghouse marginUsed). */
+  marginUsedUsd: number;
   /** USDC available for perp trading — includes spot on unified / portfolio margin. */
   tradablePerpUsd: number;
   /** Total account equity for min-deposit gates — not free margin alone. */
@@ -99,9 +105,9 @@ export function isHlUnifiedTransferDisabledError(err: unknown): boolean {
 }
 
 async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnapshot> {
-  const [account, spotBalances, abstraction] = await Promise.all([
+  const [account, spotState, abstraction] = await Promise.all([
     fetchHlAccountState(wallet),
-    fetchHlSpotBalances(wallet),
+    fetchHlSpotAccountState(wallet),
     fetchHlUserAbstraction(wallet),
   ]);
   /** accountValue only — totalRawUsd double-counts isolated position collateral. */
@@ -110,11 +116,32 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     toNum(account?.crossMargin?.accountValue)
   );
   const crossAccountValueUsd = toNum(account?.crossMargin?.accountValue);
+  const spotBalances = spotState.balances;
   const spotUsdcRow = spotBalances.find((b) => b.coin.toUpperCase() === 'USDC');
   const spotUsdcUsd = toNum(spotUsdcRow?.total);
   const spotUsdcHoldUsd = toNum(spotUsdcRow?.hold);
-  /** Spot USDC not locked as perp margin — bridgeable on unified books. */
+  const usdcToken = spotUsdcRow?.token ?? 0;
+  const availableAfterMaintenanceUsd = toNum(
+    spotState.availableAfterMaintenanceByToken?.[usdcToken]
+  );
+  const perpMarginUsed = Math.max(
+    toNum(account?.margin?.totalMarginUsed),
+    toNum(account?.crossMargin?.totalMarginUsed)
+  );
+  const marginUsedUsd = Math.max(spotUsdcHoldUsd, perpMarginUsed);
+  /** Spot USDC not locked as position margin (HL hold). */
   const spotFreeUsd = Math.max(0, spotUsdcUsd - spotUsdcHoldUsd);
+  const notionalUsd = Math.max(
+    toNum(account?.margin?.totalNtlPos),
+    toNum(account?.crossMargin?.totalNtlPos)
+  );
+  // HL transfer/withdraw rule: keep max(initial margin, 10% of notional).
+  const transferFloorUsd = Math.max(marginUsedUsd, notionalUsd * 0.1);
+  const transferSafeUsd =
+    spotUsdcUsd >= 1
+      ? Math.max(0, spotUsdcUsd - transferFloorUsd)
+      : Math.max(0, perpUsd - transferFloorUsd);
+
   const unifiedAccount =
     isHlUnifiedMargin(abstraction) || inferHlUnifiedMargin(perpUsd, spotUsdcUsd, abstraction);
   let tradablePerpUsd = hlTradablePerpUsd(perpUsd, spotUsdcUsd, unifiedAccount);
@@ -130,18 +157,24 @@ async function fetchHlFundingSnapshotOnce(wallet: string): Promise<HlFundingSnap
     tradablePerpUsd = Math.max(spotUsdcUsd, perpUsd);
   }
   const perpWithdrawable = toNum(account?.withdrawable);
-  // Unified: perp `withdrawable` often reads $0 while Spot total−hold is free
-  // (e.g. equity ~$260, LINK margin ~$8 → ~$252 still withdrawable).
-  // Classic split: only trust perp withdrawable; Spot is shown separately.
+  // Withdrawable = what can leave the book under HL margin rules — not a naive
+  // "equity − hold" label alone. Prefer transfer-safe; also respect HL's
+  // available-after-maintenance when it is the tighter bound.
+  const unifiedWithdrawable = Math.min(
+    spotFreeUsd,
+    transferSafeUsd,
+    availableAfterMaintenanceUsd > 0 ? availableAfterMaintenanceUsd : spotFreeUsd
+  );
   const withdrawableUsd = Math.max(
     0,
     perpWithdrawable,
-    unifiedAccount ? spotFreeUsd : 0
+    unifiedAccount ? unifiedWithdrawable : 0
   );
   const totalUsd = accountEquityUsd;
   return {
     perpUsd,
     spotUsdcUsd,
+    marginUsedUsd,
     tradablePerpUsd,
     accountEquityUsd,
     unifiedAccount,
@@ -173,6 +206,7 @@ export async function fetchHlFundingSnapshot(
     return {
       perpUsd: 0,
       spotUsdcUsd: 0,
+      marginUsedUsd: 0,
       tradablePerpUsd: 0,
       accountEquityUsd: 0,
       unifiedAccount: false,

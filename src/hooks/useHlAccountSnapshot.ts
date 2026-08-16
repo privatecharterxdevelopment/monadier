@@ -81,7 +81,7 @@ function buildSnapshot(
       funding.withdrawableUsd,
       Number(acct?.withdrawable) || 0
     ),
-    totalMarginUsedUsd: marginUsed,
+    totalMarginUsedUsd: Math.max(marginUsed, funding.marginUsedUsd || 0),
     openPositionsCount: openPositions.length,
     openNotionalUsd: openNotional,
     unrealizedPnlUsd: unrealized,
@@ -114,6 +114,7 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
             perpUsd: prev.accountUsd,
             tradablePerpUsd: prev.tradablePerpUsd,
             spotUsdcUsd: prev.spotUsdcUsd,
+            marginUsedUsd: prev.totalMarginUsedUsd,
             accountEquityUsd: prev.totalUsd,
             unifiedAccount: prev.unifiedAccount,
             withdrawableUsd: prev.withdrawableUsd,
