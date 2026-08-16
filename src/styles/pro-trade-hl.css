@@ -15784,7 +15784,136 @@ html[dir='rtl'] .hl-book {
   }
 }
 
-.hl-topnav-bet-stat--fee-due strong {
+.hl-fee-due-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.hl-fee-due-popup {
+  position: relative;
+  width: min(360px, 100%);
+  padding: 22px 20px 18px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--hl-green-bright, #26a69a) 35%, var(--hl-border, #2a2e39));
+  background: var(--hl-panel, #12151c);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.hl-fee-due-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--hl-text-muted, #9aa0a6);
+  cursor: pointer;
+}
+
+.hl-fee-due-close:hover {
+  color: var(--hl-text, #e8eaed);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hl-fee-due-popup h2 {
+  margin: 0 28px 8px 0;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--hl-text, #e8eaed);
+}
+
+.hl-fee-due-popup p {
+  margin: 0 0 16px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--hl-text-muted, #9aa0a6);
+}
+
+.hl-fee-due-pay,
+.hl-dock-fee-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 9px;
+  background: var(--hl-green-bright, #26a69a);
+  color: #0b1210;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hl-fee-due-pay:hover,
+.hl-dock-fee-pay:hover {
+  filter: brightness(1.06);
+}
+
+.hl-dock-fee-pay {
+  margin-top: 12px;
+  width: auto;
+  min-width: 180px;
+}
+
+.term-btn-sm--fee-pay {
+  gap: 8px;
+}
+
+.term-fee-pay-count {
+  margin-left: auto;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.term-fee-owed-btn--pay strong {
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-funds-summary__fee-pay--green,
+.hl-funds-summary__fee--due .hl-funds-summary__fee-pay--green {
+  border-color: color-mix(in srgb, var(--hl-green-bright, #26a69a) 45%, transparent);
+  background: color-mix(in srgb, var(--hl-green-bright, #26a69a) 18%, transparent);
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-funds-summary__fee-pay--green:hover {
+  background: color-mix(in srgb, var(--hl-green-bright, #26a69a) 28%, transparent);
+}
+
+.hl-funds-overview__fee-btn--pay strong {
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-topnav-bet-stat--fee-pay strong {
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-topnav-bet-stat--fee-due.hl-topnav-bet-stat--fee-pay {
+  border-color: color-mix(in srgb, var(--hl-green-bright, #26a69a) 45%, var(--hl-border));
+  background: color-mix(in srgb, var(--hl-green-bright, #26a69a) 12%, transparent);
+}
+
+.hl-topnav-bet-stat--fee-due.hl-topnav-bet-stat--fee-pay strong,
+.hl-topnav-bet-stat--fee-pay strong {
+  color: var(--hl-green-bright, #26a69a);
+}
+
+.hl-topnav-bet-stat--fee-due:not(.hl-topnav-bet-stat--fee-pay) strong {
   color: #f59e0b;
 }
 

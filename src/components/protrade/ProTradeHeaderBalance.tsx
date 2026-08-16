@@ -222,15 +222,15 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
       {showFees ? (
         <button
           type="button"
-          className={`hl-topnav-bet-stat hl-topnav-bet-stat--btn${feeGateActive ? ' hl-topnav-bet-stat--fee-due' : ''}`}
+          className={`hl-topnav-bet-stat hl-topnav-bet-stat--btn hl-topnav-bet-stat--fee-pay${feeGateActive ? ' hl-topnav-bet-stat--fee-due' : ''}`}
           title={
             feeGateActive
-              ? 'Pay platform fees to continue bot trading'
-              : 'Platform fees on winning closes'
+              ? 'Pay fees now and reactivate the bot'
+              : 'Pay 10% success fees anytime after a winning close'
           }
           onClick={platformFees.openPayModal}
         >
-          <span className="hl-topnav-bet-label">Fees</span>
+          <span className="hl-topnav-bet-label">Pay Fees</span>
           <strong>{fmtUsdSymbol(feesOwed)}</strong>
         </button>
       ) : null}

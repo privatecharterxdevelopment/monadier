@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import PlatformFeeDuePopup from '../components/protrade/PlatformFeeDuePopup';
 import PlatformFeePayModal from '../components/protrade/PlatformFeePayModal';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 import { useAuth } from './AuthContext';
@@ -55,6 +56,7 @@ export const PlatformFeeProvider: React.FC<{
   const fees = usePlatformFees(wallet, enabled && Boolean(wallet) && !feeExempt);
   const { showToast } = useTermAuthToast();
   const [modalOpen, setModalOpen] = useState(false);
+  const [blockedPromptOpen, setBlockedPromptOpen] = useState(false);
   const [autoPrompted, setAutoPrompted] = useState(false);
   const refreshFees = fees.refresh;
 
@@ -69,28 +71,33 @@ export const PlatformFeeProvider: React.FC<{
 
   const openPayModal = useCallback(() => {
     if (feeExempt) return;
+    setBlockedPromptOpen(false);
     setModalOpen(true);
   }, [feeExempt]);
 
   const handlePaymentSuccess = useCallback(() => {
     showToast('Fees paid — win counter reset', 3200);
+    setBlockedPromptOpen(false);
     void refreshFees();
   }, [showToast, refreshFees]);
 
+  // Auto-prompt only when the 20-win open block hits — early pay uses the green Pay Fees button.
   useEffect(() => {
     if (feeExempt) {
       setModalOpen(false);
+      setBlockedPromptOpen(false);
       setAutoPrompted(false);
       return;
     }
-    if (feesDue && !autoPrompted) {
-      setModalOpen(true);
+    if (botTradingBlocked && !autoPrompted) {
+      setBlockedPromptOpen(true);
       setAutoPrompted(true);
     }
-    if (!feesDue) {
+    if (!botTradingBlocked) {
       setAutoPrompted(false);
+      setBlockedPromptOpen(false);
     }
-  }, [feeExempt, feesDue, autoPrompted]);
+  }, [feeExempt, botTradingBlocked, autoPrompted]);
 
   useEffect(() => {
     if (feeExempt || fees.loading) return;
@@ -146,6 +153,14 @@ export const PlatformFeeProvider: React.FC<{
   return (
     <Ctx.Provider value={value}>
       {children}
+      <PlatformFeeDuePopup
+        open={blockedPromptOpen && !modalOpen}
+        accruedUsd={fees.accruedUsd}
+        successWinCount={fees.successWinCount}
+        winsBeforeBlock={fees.winsBeforeBlock}
+        onClose={() => setBlockedPromptOpen(false)}
+        onPay={openPayModal}
+      />
       <PlatformFeePayModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

@@ -739,6 +739,21 @@ const TerminalTradePanel: React.FC<Props> = ({
             )}
 
             <div className="term-bot-action-stack flex flex-col gap-2">
+              {platformFees.feesDue ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary term-btn-sm--fee-pay w-full justify-center"
+                  onClick={platformFees.openPayModal}
+                >
+                  <Wallet size={14} aria-hidden />
+                  {platformFees.botTradingBlocked
+                    ? `Pay Fees · ${fmt(platformFees.accruedUsd)} · Reactivate bot`
+                    : `Pay Fees · ${fmt(platformFees.accruedUsd)}`}
+                  <span className="term-fee-pay-count">
+                    {platformFees.successWinCount}/{platformFees.winsBeforeBlock}
+                  </span>
+                </button>
+              ) : null}
               {needsAgentRenew ? (
                 <div
                   className="rounded border border-amber-600/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
@@ -943,15 +958,15 @@ const TerminalTradePanel: React.FC<Props> = ({
                     </div>
                   </>
                 ) : null}
-                {platformFees.accruedUsd > 0.000_001 ? (
+                {platformFees.feesDue ? (
                   <div className="term-field-row term-field-row--fee">
                     <span>Bot fees owed</span>
                     <button
                       type="button"
-                      className="term-fee-owed-btn"
+                      className="term-fee-owed-btn term-fee-owed-btn--pay"
                       onClick={platformFees.openPayModal}
                     >
-                      <strong>{fmt(platformFees.accruedUsd)}</strong>
+                      <strong>Pay Fees · {fmt(platformFees.accruedUsd)}</strong>
                       <span className="term-fee-owed-sub">
                         {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
                       </span>

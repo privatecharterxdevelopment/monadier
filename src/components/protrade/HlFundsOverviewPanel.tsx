@@ -110,10 +110,10 @@ const HlFundsOverviewPanel: React.FC<Props> = ({
               <span>Bot fees owed</span>
               <button
                 type="button"
-                className="hl-funds-overview__fee-btn"
+                className="hl-funds-overview__fee-btn hl-funds-overview__fee-btn--pay"
                 onClick={() => platformFees.openPayModal()}
               >
-                <strong>{fmt(platformFees.accruedUsd)}</strong>
+                <strong>Pay Fees · {fmt(platformFees.accruedUsd)}</strong>
                 <span>
                   {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
                 </span>

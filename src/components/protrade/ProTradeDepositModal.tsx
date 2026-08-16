@@ -505,10 +505,10 @@ const ProTradeDepositModal: React.FC<Props> = ({
                   </div>
                   <button
                     type="button"
-                    className="hl-funds-summary__fee-pay"
+                    className="hl-funds-summary__fee-pay hl-funds-summary__fee-pay--green"
                     onClick={openPlatformPayModal}
                   >
-                    {fmtUsdSymbol(platformAccruedUsd)} · Pay
+                    Pay Fees · {fmtUsdSymbol(platformAccruedUsd)}
                   </button>
                 </div>
               ) : null}

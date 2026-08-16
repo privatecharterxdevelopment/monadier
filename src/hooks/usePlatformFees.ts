@@ -67,6 +67,7 @@ export function usePlatformFees(wallet?: string | null, enabled = true) {
     loading,
     refresh,
     confirmPayment,
+    feesWaived: false,
     accruedUsd: status?.accruedUsd ?? 0,
     opensBlocked: status?.opensBlocked ?? false,
     withdrawBlocked: status?.withdrawBlocked ?? false,

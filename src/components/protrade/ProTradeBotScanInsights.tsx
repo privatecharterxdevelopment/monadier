@@ -129,9 +129,16 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     return (
       <div className="hl-dock-bot-scan-insights" role="status">
         <p className="hl-dock-bot-scan-detail">
-          Bot fees due — pay {fmtUsdSymbol(platformFees.accruedUsd)} to resume scanning (
+          Pay fees now and reactivate the bot — {fmtUsdSymbol(platformFees.accruedUsd)} owed (
           {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins).
         </p>
+        <button
+          type="button"
+          className="hl-dock-fee-pay"
+          onClick={platformFees.openPayModal}
+        >
+          Pay Fees · {fmtUsdSymbol(platformFees.accruedUsd)}
+        </button>
       </div>
     );
   }

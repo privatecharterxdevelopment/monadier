@@ -872,11 +872,18 @@ const ProTradeDock: React.FC<Props> = ({
             </>
           ) : isBotMode && platformFees.botTradingBlocked ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
-              <span className="hl-dock-bot-scan-title">Bot fees due</span>
+              <span className="hl-dock-bot-scan-title">Pay fees now and reactivate the bot</span>
               <p className="hl-dock-bot-scan-sub">
-                Pay {fmtUsdSymbol(platformFees.accruedUsd)} to resume bot trading and market analysis (
-                {platformFees.successWinCount}/{platformFees.winsBeforeBlock} wins).
+                {platformFees.successWinCount}/{platformFees.winsBeforeBlock} winning closes — new opens
+                paused until you pay {fmtUsdSymbol(platformFees.accruedUsd)}.
               </p>
+              <button
+                type="button"
+                className="hl-dock-fee-pay"
+                onClick={platformFees.openPayModal}
+              >
+                Pay Fees · {fmtUsdSymbol(platformFees.accruedUsd)}
+              </button>
             </div>
           ) : isBotMode && botManagedCoinsLoading && hlOpenPositionCount > 0 ? (
             <p className="hl-dock-empty" role="status">
