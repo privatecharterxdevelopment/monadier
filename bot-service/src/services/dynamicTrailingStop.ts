@@ -90,28 +90,50 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay green vs entry. Scratch-vs-fees is not a close block. */
-export function profitClearsFeeGate(pnlUsd: number, _feesUsd: number): boolean {
-  return pnlUsd > 0;
+/** Profit exits must stay net green after fees — never harvest a 1-cent stub. */
+export function profitCloseNeedUsd(feesUsd: number): number {
+  const trail = config.hyperliquid.dynamicTrail;
+  const raw = trail.minProfitCloseFeesMult;
+  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
+  const minUsd = Math.max(0.05, config.hyperliquid.minProfitCloseUsd || 0.05);
+  return Math.max(minUsd, Math.max(0, feesUsd) * mult);
+}
+
+export function profitClearsFeeGate(
+  pnlUsd: number,
+  feesUsd: number,
+  peakPnlUsd = 0
+): boolean {
+  if (!(pnlUsd > 0)) return false;
+  const need = profitCloseNeedUsd(feesUsd);
+  if (pnlUsd < need) return false;
+  const peak = Math.max(0, peakPnlUsd);
+  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.15;
+  // Only after a real run — tiny stall peaks still close once they clear fees.
+  if (peak >= need * 4 && remainFrac > 0) {
+    const remainNeed = Math.max(need, peak * remainFrac);
+    if (pnlUsd < remainNeed) return false;
+  }
+  return true;
 }
 
 function blockIfFeesNotCleared(
   result: TrailTickResult,
   pnlUsd: number,
   feesUsd: number,
-  coin: string
+  coin: string,
+  peakPnlUsd: number
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
-  if (profitClearsFeeGate(pnlUsd, feesUsd)) return result;
-  const mult = config.hyperliquid.dynamicTrail.minProfitCloseFeesMult;
-  logger.info('HL profit close blocked — uPnL does not clear fees', {
+  if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd)) return result;
+  logger.info('HL profit close blocked — leftover too small vs fees/peak', {
     coin,
     reason: result.exitReason,
     pnlUsd: pnlUsd.toFixed(4),
     feesUsd: feesUsd.toFixed(4),
-    needUsd: (feesUsd * Math.max(0, mult)).toFixed(4),
-    mult,
+    needUsd: profitCloseNeedUsd(feesUsd).toFixed(4),
+    peakPnlUsd: peakPnlUsd.toFixed(4),
   });
   return {
     record: result.record,
@@ -399,7 +421,12 @@ export async function evaluateDynamicTrail(
 ): Promise<TrailTickResult> {
   const result = await evaluateDynamicTrailInner(input);
   const feesUsd = estimateRoundTripFeesUsd(input.notionalUsd);
-  return blockIfFeesNotCleared(result, input.pnlUsd, feesUsd, input.coin);
+  const peakPnlUsd = Math.max(
+    result.record.highestPnlSinceEntry,
+    input.pnlUsd,
+    0
+  );
+  return blockIfFeesNotCleared(result, input.pnlUsd, feesUsd, input.coin, peakPnlUsd);
 }
 
 async function evaluateDynamicTrailInner(
@@ -483,7 +510,7 @@ async function evaluateDynamicTrailInner(
         holdMs: input.totalHoldMs,
       });
       if (
-        input.pnlUsd > 0 &&
+        profitClearsFeeGate(input.pnlUsd, feesUsd, rec.highestPnlSinceEntry) &&
         isTrailStopCrossed(input.direction, input.markPrice, initialStop) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd)
       ) {
@@ -591,14 +618,28 @@ async function evaluateDynamicTrailInner(
       rec.highestPnlSinceEntry
     );
     if (floorStop != null) {
-      rec.currentTrailStop = ratchetStop(
+      const ratcheted = ratchetStop(
         input.direction,
         rec.currentTrailStop ?? floorStop,
         floorStop
       );
-      const activeFloor = rec.currentTrailStop;
+      const wouldCross = isTrailStopCrossed(
+        input.direction,
+        input.markPrice,
+        ratcheted
+      );
+      const closeSafe = profitClearsFeeGate(
+        input.pnlUsd,
+        feesUsd,
+        rec.highestPnlSinceEntry
+      );
+      // Don't snap the floor through mark on a 1-cent leftover (VINE after $1 peak).
+      if (!wouldCross || closeSafe) {
+        rec.currentTrailStop = ratcheted;
+      }
+      const activeFloor = rec.currentTrailStop ?? ratcheted;
       if (
-        input.pnlUsd > 0 &&
+        closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd) &&
         (rec.phase === 'armed' || !trailTooYoungToClose(rec, input.nowMs, 1)) &&

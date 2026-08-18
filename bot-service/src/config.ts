@@ -230,10 +230,17 @@ export const config = {
       /** After trail arms — min ms before trail/peak can close (2m). */
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 120_000),
       /**
-       * 0 = any green profit exit is allowed (2m stall floor).
-       * >0 = still require uPnL ≥ round-trip fees × this.
+       * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
+       * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
        */
-      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 0),
+      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 1.5),
+      /**
+       * After a real peak, leftover uPnL must still be at least this fraction of peak.
+       * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
+       */
+      minPeakRemainFracBeforeClose: Number(
+        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.15
+      ),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 4),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),

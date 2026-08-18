@@ -94,6 +94,7 @@ import {
   isTrailStopCrossed,
   markFromPosition,
   profitClearsFeeGate,
+  profitCloseNeedUsd,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -3301,8 +3302,14 @@ export class HyperliquidTradingService {
       }
 
       const entryPx = closeCtx?.entryPx ?? Number(row?.entryPx ?? 0);
-      const pnlUsd =
-        closeCtx?.unrealizedPnlUsd ?? Number(row?.unrealizedPnl ?? 0);
+      const livePnl = Number(row?.unrealizedPnl ?? NaN);
+      const ctxPnl = closeCtx?.unrealizedPnlUsd;
+      // Auto-exits: trust live HL uPnL. Stale green ctx is how VINE filled red.
+      const pnlUsd = userInitiated
+        ? (Number.isFinite(ctxPnl as number) ? Number(ctxPnl) : livePnl)
+        : Number.isFinite(livePnl)
+          ? livePnl
+          : Number(ctxPnl ?? 0);
       const leverage = closeCtx?.leverage ?? row?.leverage?.value ?? 10;
       const absSize = Math.abs(size);
 
@@ -3344,19 +3351,23 @@ export class HyperliquidTradingService {
       if (!userInitiated && profitExitReasons.has(reason) && pnlUsd > 0) {
         const notional = absSize * (Number(row?.entryPx ?? 0) || entryPx || 0);
         const feesUsd = estimateRoundTripFeesUsd(Math.max(notional, 1));
-        if (!profitClearsFeeGate(pnlUsd, feesUsd)) {
-          const mult = config.hyperliquid.dynamicTrail.minProfitCloseFeesMult;
-          logger.warn('HL close rejected — fees would wipe the win', {
+        const trailPeak =
+          getDynamicTrailRecord(`${userAddress.toLowerCase()}:${coinUpper}`)
+            ?.highestPnlSinceEntry ?? 0;
+        if (!profitClearsFeeGate(pnlUsd, feesUsd, trailPeak)) {
+          const needUsd = profitCloseNeedUsd(feesUsd);
+          logger.warn('HL close rejected — leftover too small vs fees/peak', {
             user: userAddress.slice(0, 10),
             coin: coinUpper,
             reason,
             pnlUsd: pnlUsd.toFixed(4),
             feesUsd: feesUsd.toFixed(4),
-            needUsd: (feesUsd * mult).toFixed(4),
+            needUsd: needUsd.toFixed(4),
+            peakPnlUsd: trailPeak.toFixed(4),
           });
           return {
             success: false,
-            error: `Profit too small vs fees (need ≥ ${mult}× round-trip)`,
+            error: `Profit too small vs fees/peak (need ≥ $${needUsd.toFixed(2)})`,
           };
         }
       }
