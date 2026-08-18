@@ -210,23 +210,30 @@ export const config = {
       armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
-      /** Min ROE before breakeven+fees lock (stage 1 — must clear fee drag). */
+      /**
+       * Legacy stage-1 ROE (unused for arm). Stage 1 now: 2m continuous green
+       * → in-profit peak floor. Kept so status/UI can still show the old number.
+       */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
       /** Min ROE before full ATR/% trail ratchet (stage 2). */
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 15),
       /**
-       * Hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets up with the peak.
+       * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
+       * 0.35 → lock ~65% of peak uPnL. Stop stays on the profit side of entry.
+       */
+      stallFloorPeakDropFrac: Number(process.env.HL_TRAIL_STALL_FLOOR_DROP_FRAC || 0.35),
+      /**
+       * Stage-2 hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets with the peak.
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
-       * Only engages once peak ROE reaches breakevenArmRoePct (stage 1 still required).
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
       /** After trail arms — min ms before trail/peak can close (2m). */
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 120_000),
       /**
-       * Never profit-close unless uPnL ≥ round-trip fees × this (default 4×).
-       * Stops +$5 closes that get nuked by ~$5 open+close fees.
+       * 0 = any green profit exit is allowed (2m stall floor).
+       * >0 = still require uPnL ≥ round-trip fees × this.
        */
-      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 4),
+      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 0),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 4),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),

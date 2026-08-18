@@ -2800,7 +2800,10 @@ export class HyperliquidTradingService {
           trailExitReason === 'profit_lock' &&
           /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
         const tooYoung = greenHoldMs > 0 && (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
-        const peakTooSmall = minPeakRoe > 0 && peakRoe < minPeakRoe;
+        const peakTooSmall =
+          trailExitReason !== 'profit_lock' &&
+          minPeakRoe > 0 &&
+          peakRoe < minPeakRoe;
         if (beSniper || tooYoung || peakTooSmall) {
           shouldCloseTrail = false;
           logger.info('HL LONG profit exit blocked — let winner run', {
@@ -3342,7 +3345,7 @@ export class HyperliquidTradingService {
         const notional = absSize * (Number(row?.entryPx ?? 0) || entryPx || 0);
         const feesUsd = estimateRoundTripFeesUsd(Math.max(notional, 1));
         if (!profitClearsFeeGate(pnlUsd, feesUsd)) {
-          const mult = Math.max(1, config.hyperliquid.dynamicTrail.minProfitCloseFeesMult || 4);
+          const mult = config.hyperliquid.dynamicTrail.minProfitCloseFeesMult;
           logger.warn('HL close rejected — fees would wipe the win', {
             user: userAddress.slice(0, 10),
             coin: coinUpper,

@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Trail arms after 2m green +8% ROE; full trail +15% ROE.',
+    'Standard: MTF trend-only. Profit floor after 2m green (stays in plus); full trail +15% ROE.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same 2m green hold and ROE trail gates.',
+    'Aggressive: 1m scalp entries. Same 2m green profit floor and ROE trail gates.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
@@ -87,13 +87,8 @@ export function shouldArmDynamicTrail(
     return false;
   }
   const timeInProfitMs = opts?.timeInProfitMs ?? 0;
-  const totalHoldMs = opts?.holdMs ?? 0;
-  const holdOk =
-    timeInProfitMs >= HL_DYNAMIC_TRAIL.armMinProfitHoldMs ||
-    totalHoldMs >= HL_DYNAMIC_TRAIL.maxHoldBeforeSlTrailMs;
-  if (!holdOk) return false;
-  const roe = (peak / collateralUsd) * 100;
-  return roe >= HL_DYNAMIC_TRAIL.breakevenArmRoePct;
+  if (timeInProfitMs < HL_DYNAMIC_TRAIL.armMinProfitHoldMs) return false;
+  return true;
 }
 
 export function defaultTrailPctForCoin(coin: string): number {
