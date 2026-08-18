@@ -1681,7 +1681,7 @@ export class HyperliquidTradingService {
           );
         }
 
-        // LONG-primary: zone-fade SHORT must clear counter-trend bar — no lazy shorts into bull.
+        // At resistance → SHORT even in bull / 1h UP. Only block lazy mid-range fades.
         if (
           flipped === 'SHORT' &&
           config.hyperliquid.directionProfile.primaryDirection === 'LONG'
@@ -1690,24 +1690,28 @@ export class HyperliquidTradingService {
           const conf = Number(opts.pick.confidence) || 0;
           const shortMin = config.hyperliquid.directionProfile.short.minConfidence;
           const rangePos = locationGate.analysis.pricePosition;
-          if (h1 === 'UP') {
+          const atResistance =
+            locationGate.analysis.nearResistance ||
+            rangePos >= config.hyperliquid.entryLocation.rangeTopBlock ||
+            /resistance/i.test(locationGate.reason);
+          if (!atResistance && h1 === 'UP') {
             return rejectOpen(
               'sr_zone_flip',
-              `LONG→SHORT blocked in ${config.hyperliquid.directionProfile.name} — 1h still UP (fade needs 1h DOWN/SIDEWAYS + strict zone)`,
+              `LONG→SHORT blocked in ${config.hyperliquid.directionProfile.name} — 1h still UP and not at R`,
               'no short flip vs 1h UP'
             );
           }
-          if (conf < shortMin) {
+          if (!atResistance && conf < shortMin) {
             return rejectOpen(
               'sr_zone_flip',
               `LONG→SHORT blocked — confidence ${conf}% < ${shortMin}% counter-trend bar in ${config.hyperliquid.directionProfile.name}`,
               'short flip conf too low'
             );
           }
-          if (rangePos < 0.75) {
+          if (!atResistance && rangePos < 0.75) {
             return rejectOpen(
               'sr_zone_flip',
-              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥75% resistance fade)`,
+              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥75% or R-tag)`,
               'short flip not at range top'
             );
           }

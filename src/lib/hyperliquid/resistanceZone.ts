@@ -409,53 +409,20 @@ export function evaluateZoneReversalGate(
   const insideSupport = support != null && priceInsideZone(price, support);
 
   if (insideResistance && resistance) {
-    const rejected = zoneReversalConfirmed(candles, resistance, lookbackBars);
-    const brokeOut = confirmedBreakAboveZone(
-      candles,
-      resistance,
-      breakoutBufferPct,
-      breakoutBars
-    );
-
-    if (rejected) {
-      if (direction === 'SHORT') {
-        return {
-          ok: true,
-          reason: `Resistance-zone fade confirmed ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
-          insideResistance,
-          insideSupport,
-        };
-      }
+    // User rule: arriving at the resistance band = SHORT, never LONG.
+    // Breakout-LONG while still inside the zone is longing the peak.
+    if (direction === 'SHORT') {
       return {
         ok: true,
-        flipTo: 'SHORT',
-        reason: `Resistance-zone rejection → flip LONG→SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
+        reason: `At resistance zone → SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
         insideResistance,
         insideSupport,
       };
     }
-
-    if (brokeOut) {
-      if (direction === 'LONG') {
-        return {
-          ok: true,
-          reason: `Resistance-zone breakout confirmed above $${resistance.zoneHigh.toFixed(4)}`,
-          insideResistance,
-          insideSupport,
-        };
-      }
-      return {
-        ok: true,
-        flipTo: 'LONG',
-        reason: `Resistance-zone breakout → flip SHORT→LONG above $${resistance.zoneHigh.toFixed(4)}`,
-        insideResistance,
-        insideSupport,
-      };
-    }
-
     return {
-      ok: false,
-      reason: `Inside resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}; wait for rejection (→SHORT) or breakout (→LONG)`,
+      ok: true,
+      flipTo: 'SHORT',
+      reason: `At resistance zone → flip LONG→SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
       insideResistance,
       insideSupport,
     };

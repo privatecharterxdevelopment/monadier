@@ -6,7 +6,8 @@
  *
  * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
- * LONG: support / lower range, or confirmed breakout above R.
+ * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
+ * At resistance → SHORT, never LONG.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -271,16 +272,8 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    // 1) Confirmed breakout above R — only valid way to buy the ceiling.
-    if (analysis.confirmedBreakoutUp) {
-      return {
-        ok: true,
-        analysis,
-        reason: `Breakout above resistance ${fmtLevel(analysis.resistance)} confirmed`,
-      };
-    }
-
-    // 2) Upper line / near R → NEVER LONG (that's a SHORT fade).
+    // At the resistance line → NEVER LONG (that's a SHORT). Breakout LONG only
+    // after price has left the R band, not while hugging / tagging it.
     if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
@@ -290,6 +283,17 @@ export function evaluateEntryLocation(
         ok: false,
         analysis,
         reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
+      };
+    }
+
+    const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
+    const clearedAboveR =
+      ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
+    if (analysis.confirmedBreakoutUp && clearedAboveR) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Breakout through resistance ${fmtLevel(ceiling)} confirmed`,
       };
     }
 
@@ -476,35 +480,24 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Symmetric: resistance rejection when scan arrived LONG → SHORT (top of range).
-  // Disabled under LONG-only bull (allowShortOpens=false).
-  // LONG-primary (bull): stricter — upper-range only, more rejection proof, longer confirm.
-  // Lazy mid-range "resistance" fades caused BTC SHORT into bull buildup (2026-08-09).
+  // At resistance → SHORT. Do not wait for extra rejection bars / 1h DOWN.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     config.hyperliquid.directionProfile.allowShortOpens &&
     opts.direction === 'LONG' &&
     !classic.ok &&
-    sr.nearResistance &&
-    !sr.confirmedBreakoutUp &&
-    sr.resistanceZone != null
+    (sr.nearResistance || sr.pricePosition >= config.hyperliquid.entryLocation.rangeTopBlock)
   ) {
-    const longPrimary = config.hyperliquid.directionProfile.primaryDirection === 'LONG';
-    const confirmBars = longPrimary ? 6 : 4;
-    const minRangePos = longPrimary ? 0.75 : 0;
-    const minResRejections = longPrimary ? 5 : 2;
-    if (
-      sr.pricePosition >= minRangePos &&
-      sr.resistanceRejections >= minResRejections &&
-      zoneReversalConfirmed(revCandles, sr.resistanceZone, confirmBars)
-    ) {
-      return {
-        ok: true,
-        reason: `Resistance-zone rejection → flip LONG→SHORT ($${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)})`,
-        analysis: sr,
-        flipTo: 'SHORT',
-      };
-    }
+    const zone =
+      sr.resistanceZone != null
+        ? `$${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)}`
+        : `$${sr.resistance.toFixed(4)}`;
+    return {
+      ok: true,
+      reason: `At resistance ${zone} → flip LONG→SHORT`,
+      analysis: sr,
+      flipTo: 'SHORT',
+    };
   }
 
   return classic;
