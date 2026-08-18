@@ -84,6 +84,7 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'PUMP',
   'VVV',
   'WLD',
+  'XLM',
 ]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
@@ -106,7 +107,8 @@ export function isHiddenFromBotUi(coin: string): boolean {
     compact === 'ZEC' ||
     compact === 'PUMP' ||
     compact === 'VVV' ||
-    compact === 'WLD'
+    compact === 'WLD' ||
+    compact === 'XLM'
   );
 }
 
