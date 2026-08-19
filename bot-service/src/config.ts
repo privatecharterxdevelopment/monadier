@@ -399,7 +399,7 @@ export const config = {
       flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.1),
       minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
       minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),
-      /** Live 1h bar that counts as "pump happening now" for majors (forming candle). */
+      /** Forming OR last-closed 1h that counts as "pump still live". */
       majorLivePump1hPct: Number(process.env.HL_MAJOR_LIVE_PUMP_1H || 0.22),
       majorLivePump15mPct: Number(process.env.HL_MAJOR_LIVE_PUMP_15M || 0.15),
     },

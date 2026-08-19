@@ -13,6 +13,10 @@ export type MacroMomentum = {
   change15mPct: number;
   change1hPct: number;
   live1hBarPct: number;
+  /** Last fully closed 1h candle — the pump after the hour rolls. */
+  closed1hBarPct: number;
+  closed15mBarPct: number;
+  live5mBarPct: number;
   trend15m: 'UP' | 'DOWN' | 'FLAT';
   trend1h: 'UP' | 'DOWN' | 'FLAT';
   consecutiveGreen15m: number;
@@ -70,6 +74,9 @@ export function emptyMacroMomentum(): MacroMomentum {
     change15mPct: 0,
     change1hPct: 0,
     live1hBarPct: 0,
+    closed1hBarPct: 0,
+    closed15mBarPct: 0,
+    live5mBarPct: 0,
     trend15m: 'FLAT',
     trend1h: 'FLAT',
     consecutiveGreen15m: 0,
@@ -117,16 +124,30 @@ function pctChange(candles: Candle[], bars: number): number {
   return ((end.close - start.close) / start.close) * 100;
 }
 
-function buildMomentum(c15m: Candle[], c1h: Candle[], flatThreshold: number): MacroMomentum {
+function lastClosedBarPct(candles: Candle[]): number {
+  if (candles.length < 2) return 0;
+  const c = candles[candles.length - 2];
+  if (!c?.open || c.open <= 0) return 0;
+  return ((c.close - c.open) / c.open) * 100;
+}
+
+function buildMomentum(c15m: Candle[], c1h: Candle[], c5m: Candle[], flatThreshold: number): MacroMomentum {
   const change15mPct = pctChange(c15m, 1);
   const change1hPct = pctChange(c15m, 4);
   const live1hBarPct = liveBarPct(c1h);
+  const closed1hBarPct = lastClosedBarPct(c1h);
+  const closed15mBarPct = lastClosedBarPct(c15m);
+  const live5mBarPct = liveBarPct(c5m);
+  const pump1h = Math.max(live1hBarPct, closed1hBarPct);
   return {
     change15mPct,
     change1hPct,
     live1hBarPct,
-    trend15m: trendFromPct(change15mPct, flatThreshold),
-    trend1h: trendFromPct(Math.max(change1hPct, live1hBarPct), flatThreshold * 1.5),
+    closed1hBarPct,
+    closed15mBarPct,
+    live5mBarPct,
+    trend15m: trendFromPct(Math.max(change15mPct, closed15mBarPct), flatThreshold),
+    trend1h: trendFromPct(Math.max(change1hPct, pump1h), flatThreshold * 1.5),
     consecutiveGreen15m: countConsecutive(c15m, true),
     consecutiveRed15m: countConsecutive(c15m, false),
   };
@@ -137,6 +158,7 @@ function fmtMom(label: string, m: MacroMomentum): string {
     `${label} 15m ${m.change15mPct >= 0 ? '+' : ''}${m.change15mPct.toFixed(2)}% (${m.trend15m})` +
     ` · 1h ${m.change1hPct >= 0 ? '+' : ''}${m.change1hPct.toFixed(2)}% (${m.trend1h})` +
     ` · live 1h ${m.live1hBarPct >= 0 ? '+' : ''}${m.live1hBarPct.toFixed(2)}%` +
+    ` · closed 1h ${m.closed1hBarPct >= 0 ? '+' : ''}${m.closed1hBarPct.toFixed(2)}%` +
     (m.consecutiveGreen15m >= 2 ? ` · ${m.consecutiveGreen15m}× green 15m` : '') +
     (m.consecutiveRed15m >= 2 ? ` · ${m.consecutiveRed15m}× red 15m` : '')
   );
@@ -144,12 +166,13 @@ function fmtMom(label: string, m: MacroMomentum): string {
 
 async function fetchMomentum(symbol: string): Promise<MacroMomentum> {
   const flat = config.hyperliquid.macroBeta.flatTrendPct;
-  const [c15m, c1h] = await Promise.all([
+  const [c15m, c1h, c5m] = await Promise.all([
     signalEngine.fetchCandles(symbol, '15m', 30),
-    signalEngine.fetchCandles(symbol, '1h', 4),
+    signalEngine.fetchCandles(symbol, '1h', 6),
+    signalEngine.fetchCandles(symbol, '5m', 8),
   ]);
   if (c15m.length < 6) return emptyMacroMomentum();
-  return buildMomentum(c15m, c1h, flat);
+  return buildMomentum(c15m, c1h, c5m, flat);
 }
 
 function isPumping(m: MacroMomentum, label: string, require15mConfirmForClosed1h = false): string[] {
@@ -165,8 +188,8 @@ function isPumping(m: MacroMomentum, label: string, require15mConfirmForClosed1h
   ) {
     hits.push(`${label} ${m.consecutiveGreen15m}× green 15m candles`);
   }
-  if (m.live1hBarPct >= pump1h) {
-    hits.push(`${label} live 1h bar +${m.live1hBarPct.toFixed(2)}%`);
+  if (Math.max(m.live1hBarPct, m.closed1hBarPct) >= pump1h) {
+    hits.push(`${label} 1h bar +${Math.max(m.live1hBarPct, m.closed1hBarPct).toFixed(2)}%`);
   }
   if (m.change1hPct >= pump1h) {
     const confirmed =
@@ -227,23 +250,38 @@ export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
   return btcLeadInFlight;
 }
 
-function isLivePumpHappening(m: MacroMomentum): boolean {
-  const cfg = config.hyperliquid.macroBeta;
-  return (
-    m.live1hBarPct >= cfg.majorLivePump1hPct ||
-    m.change15mPct >= cfg.majorLivePump15mPct ||
-    (m.consecutiveGreen15m >= 2 && m.change15mPct >= Math.max(0.08, cfg.flatTrendPct * 0.8))
-  );
-}
-
 export function isPumpFollowMajor(coin: string): boolean {
   return config.hyperliquid.noShortPumpMajors.has(coin.toUpperCase());
 }
 
-/** BTC 1h/15m pump is live — majors follow, do not fade them. */
+function isLivePumpHappening(m: MacroMomentum): boolean {
+  const cfg = config.hyperliquid.macroBeta;
+  const h1 = Math.max(m.live1hBarPct, m.closed1hBarPct);
+  const m15 = Math.max(m.change15mPct, m.closed15mBarPct);
+  const m5 = m.live5mBarPct;
+  return (
+    h1 >= cfg.majorLivePump1hPct ||
+    m15 >= cfg.majorLivePump15mPct ||
+    m5 >= Math.max(0.12, cfg.majorLivePump15mPct * 0.8) ||
+    (m.consecutiveGreen15m >= 2 && m15 >= Math.max(0.08, cfg.flatTrendPct * 0.8))
+  );
+}
+
+function btcTapeUnknown(m: MacroMomentum | null): boolean {
+  if (!m) return true;
+  return (
+    m.live1hBarPct === 0 &&
+    m.closed1hBarPct === 0 &&
+    m.change15mPct === 0 &&
+    m.change1hPct === 0 &&
+    m.live5mBarPct === 0
+  );
+}
+
+/** BTC pump live (forming OR last closed hour). Unknown tape → treat as pump (no shorts). */
 export function btcLeadIsPumping(): boolean {
-  if (!btcLeadMom) return false;
-  return isLivePumpHappening(btcLeadMom) || isPumping(btcLeadMom, 'BTC', false).length > 0;
+  if (btcTapeUnknown(btcLeadMom)) return true;
+  return isLivePumpHappening(btcLeadMom!) || isPumping(btcLeadMom!, 'BTC', false).length > 0;
 }
 
 /**
@@ -306,7 +344,7 @@ export async function evaluateMacroBetaAlignment(opts: {
       (isLivePumpHappening(btc) || isPumping(btc, 'BTC', false).length > 0)
     ) {
       blockers.push(
-        `No SHORT ${coin} — BTC pump is live (1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%)`
+        `No SHORT ${coin} — BTC pump is live (1h ${Math.max(btc.live1hBarPct, btc.closed1hBarPct) >= 0 ? '+' : ''}${Math.max(btc.live1hBarPct, btc.closed1hBarPct).toFixed(2)}%)`
       );
     }
   } else {
