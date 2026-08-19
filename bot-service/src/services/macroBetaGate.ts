@@ -247,6 +247,28 @@ export function btcLeadIsPumping(): boolean {
   return isLivePumpHappening(btcLeadMom) || isPumping(btcLeadMom, 'BTC', false).length > 0;
 }
 
+/**
+ * Pump is live on BTC or this major → OPEN LONG (continuation), do not fade.
+ * Short-block alone left the bot flat; this is the long-focus half.
+ */
+export async function majorPumpPrefersLong(coin: string): Promise<boolean> {
+  const c = coin.toUpperCase();
+  if (!isPumpFollowMajor(c)) return false;
+  const btc = await refreshBtcLeadMomentum();
+  if (btcLeadIsPumping()) return true;
+  try {
+    const mom =
+      c === 'BTC'
+        ? btc
+        : c === 'ETH'
+          ? await fetchMomentum('ETHUSDT')
+          : await fetchMomentum(hlCoinToBinanceSymbol(c));
+    return isLivePumpHappening(mom) || isPumping(mom, c, true).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function evaluateMacroBetaAlignment(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';

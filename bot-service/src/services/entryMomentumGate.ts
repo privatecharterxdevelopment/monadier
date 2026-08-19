@@ -5,7 +5,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { evaluateMacroBetaAlignment } from './macroBetaGate';
+import { evaluateMacroBetaAlignment, majorPumpPrefersLong } from './macroBetaGate';
 
 export type EntryMomentumResult = {
   ok: boolean;
@@ -75,6 +75,17 @@ export async function validateEntryMomentum(opts: {
     const live15mPct = pctChangeLive(c15m, 1);
     const live1hPct = pctChangeLive(c1h, 1);
     const rangePos = rangePosition(c1h);
+
+    if (opts.direction === 'LONG' && (await majorPumpPrefersLong(coin))) {
+      return {
+        ok: true,
+        reason: `Live pump continuation LONG ${coin} — ride majors (15m ${live15mPct >= 0 ? '+' : ''}${live15mPct.toFixed(2)}%, 1h ${live1hPct >= 0 ? '+' : ''}${live1hPct.toFixed(2)}%)`,
+        change5mPct,
+        change15mPct,
+        change1hPct,
+        momentumAligned: true,
+      };
+    }
 
     const macro = await evaluateMacroBetaAlignment({
       coin,

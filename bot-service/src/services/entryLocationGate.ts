@@ -7,11 +7,12 @@
  * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
  * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At resistance → SHORT, never LONG.
+ * At resistance → SHORT, never LONG — EXCEPT live major pump = continuation LONG.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
+import { majorPumpPrefersLong } from './macroBetaGate';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -394,6 +395,18 @@ export async function validateEntryLocation(opts: {
   }
 
   const sr = analyzeSrZones(candles1h, candles15);
+
+  if (
+    opts.direction === 'LONG' &&
+    opts.coin &&
+    (await majorPumpPrefersLong(opts.coin))
+  ) {
+    return {
+      ok: true,
+      analysis: sr,
+      reason: `Live pump continuation LONG ${opts.coin.toUpperCase()} — ride majors, do not fade R (${(sr.pricePosition * 100).toFixed(0)}% range)`,
+    };
+  }
 
   // In-house zone bands: no blind opens inside resistance/support — require reversal first.
   const zoneGate = evaluateZoneReversalGate(

@@ -46,7 +46,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, isPumpFollowMajor, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, isPumpFollowMajor, majorPumpPrefersLong, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1789,8 +1789,11 @@ export class HyperliquidTradingService {
         });
       }
       if (htfSrGate?.wouldBlock) {
+        const pumpLong =
+          opts.direction === 'LONG' && (await majorPumpPrefersLong(coin));
         const hardBlockLong =
-          opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr;
+          !pumpLong &&
+          (opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr);
         logger.info(
           hardBlockLong
             ? 'HL open blocked — HTF S/R gate'
