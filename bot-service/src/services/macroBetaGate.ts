@@ -250,10 +250,6 @@ export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
   return btcLeadInFlight;
 }
 
-export function isPumpFollowMajor(coin: string): boolean {
-  return config.hyperliquid.noShortPumpMajors.has(coin.toUpperCase());
-}
-
 function isLivePumpHappening(m: MacroMomentum): boolean {
   const cfg = config.hyperliquid.macroBeta;
   const h1 = Math.max(m.live1hBarPct, m.closed1hBarPct);
@@ -282,28 +278,6 @@ function btcTapeUnknown(m: MacroMomentum | null): boolean {
 export function btcLeadIsPumping(): boolean {
   if (btcTapeUnknown(btcLeadMom)) return true;
   return isLivePumpHappening(btcLeadMom!) || isPumping(btcLeadMom!, 'BTC', false).length > 0;
-}
-
-/**
- * Pump is live on BTC or this major → OPEN LONG (continuation), do not fade.
- * Short-block alone left the bot flat; this is the long-focus half.
- */
-export async function majorPumpPrefersLong(coin: string): Promise<boolean> {
-  const c = coin.toUpperCase();
-  if (!isPumpFollowMajor(c)) return false;
-  const btc = await refreshBtcLeadMomentum();
-  if (btcLeadIsPumping()) return true;
-  try {
-    const mom =
-      c === 'BTC'
-        ? btc
-        : c === 'ETH'
-          ? await fetchMomentum('ETHUSDT')
-          : await fetchMomentum(hlCoinToBinanceSymbol(c));
-    return isLivePumpHappening(mom) || isPumping(mom, c, true).length > 0;
-  } catch {
-    return false;
-  }
 }
 
 export async function evaluateMacroBetaAlignment(opts: {

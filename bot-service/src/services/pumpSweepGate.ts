@@ -8,7 +8,6 @@ import {
   fetchMegaPairPumpSweep,
   type PumpSweepAnalysis,
 } from './pumpSweepAnalytics';
-import { majorPumpPrefersLong } from './macroBetaGate';
 
 export type PumpSweepGateResult = {
   ok: boolean;
@@ -113,13 +112,6 @@ export async function validatePumpSweepGate(opts: {
   direction: 'LONG' | 'SHORT';
 }): Promise<PumpSweepGateResult> {
   const coin = opts.coin.toUpperCase();
-  if (opts.direction === 'LONG' && (await majorPumpPrefersLong(coin))) {
-    return {
-      ok: true,
-      reason: `Live pump continuation LONG ${coin} — apex is the move, not a fade`,
-      analysis: null,
-    };
-  }
   if (!shouldApply(coin)) {
     return { ok: true, reason: 'Pump sweep gate — not applicable', analysis: null };
   }

@@ -4,7 +4,6 @@
 import { config } from '../config';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { majorPumpPrefersLong } from './macroBetaGate';
 
 export type PerpMarketContext = {
   coin: string;
@@ -130,13 +129,6 @@ export async function validatePerpMarketContext(opts: {
     ].join(' · ');
 
     if (opts.direction === 'LONG') {
-      if (await majorPumpPrefersLong(opts.coin)) {
-        return {
-          ok: true,
-          reason: `Live pump continuation LONG — range-high OK · ${summary}`,
-          ctx,
-        };
-      }
       if (ctx.rangePosition >= cfg.maxLongRangePosition) {
         return {
           ok: false,
