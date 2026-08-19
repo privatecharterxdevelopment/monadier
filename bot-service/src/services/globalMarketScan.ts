@@ -10,7 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { btcLeadIsPumping, isPumpFollowMajor, refreshBtcLeadMomentum } from './macroBetaGate';
+import { btcLeadIsPumping, refreshBtcLeadMomentum } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -73,7 +73,7 @@ function pickPreferredCandidate(
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
   const btcPump = btcLeadIsPumping();
-  if (btcPump && shortC && isPumpFollowMajor(shortC.coin)) {
+  if (btcPump) {
     shortC = null;
   }
 
@@ -281,7 +281,7 @@ async function scanStandardCoinDirection(
   if (wantedDirection === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
     return null;
   }
-  if (wantedDirection === 'SHORT' && isPumpFollowMajor(coin) && btcLeadIsPumping()) {
+  if (wantedDirection === 'SHORT' && btcLeadIsPumping()) {
     return null;
   }
   try {
@@ -446,7 +446,7 @@ async function scanAggressiveCoin(
     if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
       return null;
     }
-    if (direction === 'SHORT' && isPumpFollowMajor(coin) && btcLeadIsPumping()) {
+    if (direction === 'SHORT' && btcLeadIsPumping()) {
       return null;
     }
 

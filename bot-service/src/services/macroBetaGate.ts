@@ -1,8 +1,7 @@
 /**
  * BTC lead + major pump tape.
  *
- * SOL / ETH / all listed majors: no SHORT while a pump is happening
- * (live BTC 1h or the coin's own live 15m/1h). Alts can still short dumps.
+ * BTC pump live → no new SHORTs on any coin. Majors get continuation LONGs.
  * Thesis on already-open books stays per-coin (hands-off).
  */
 import { config } from '../config';
@@ -302,28 +301,13 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
-    if (scope === 'open' && isPumpFollowMajor(coin)) {
-      const liveHits: string[] = [];
-      if (isLivePumpHappening(btc) || isPumping(btc, 'BTC', false).length > 0) {
-        liveHits.push(
-          `BTC live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%`
-        );
-      }
-      if (isLivePumpHappening(snapshot.coinMom) || isPumping(snapshot.coinMom, coin, true).length > 0) {
-        liveHits.push(
-          `${coin} live 1h ${snapshot.coinMom.live1hBarPct >= 0 ? '+' : ''}${snapshot.coinMom.live1hBarPct.toFixed(2)}%`
-        );
-      }
-      if (liveHits.length > 0) {
-        blockers.push(`No SHORT ${coin} while pump is live — ${liveHits.join('; ')}`);
-      }
-    } else if (scope === 'open' && isPumping(btc, 'BTC', false).length > 0) {
-      const coinDumping = isDumping(snapshot.coinMom, coin, true).length > 0;
-      if (!coinDumping) {
-        blockers.push(
-          `BTC pumping (live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%) — ${coin} not dumping`
-        );
-      }
+    if (
+      scope === 'open' &&
+      (isLivePumpHappening(btc) || isPumping(btc, 'BTC', false).length > 0)
+    ) {
+      blockers.push(
+        `No SHORT ${coin} — BTC pump is live (1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%)`
+      );
     }
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));
@@ -352,7 +336,7 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   const reason =
     opts.direction === 'SHORT'
-      ? `BTC lead OK SHORT ${coin} — ${isPumping(btc, 'BTC', false).length ? `${coin} dumping vs BTC pump` : 'BTC not pumping'} ‖ ${macroSummary.join(' ‖ ')}`
+      ? `BTC lead OK SHORT ${coin} — BTC not pumping ‖ ${macroSummary.join(' ‖ ')}`
       : `Per-coin momentum OK LONG ${coin} — ${coin} chart not dumping ‖ ${macroSummary.join(' ‖ ')}`;
 
   return { ok: true, reason, snapshot, blockers: [] };

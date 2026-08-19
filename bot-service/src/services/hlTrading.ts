@@ -46,7 +46,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, isPumpFollowMajor, majorPumpPrefersLong, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, majorPumpPrefersLong, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1249,11 +1249,11 @@ export class HyperliquidTradingService {
       }
 
       await refreshBtcLeadMomentum();
-      if (!force && opts.direction === 'SHORT' && isPumpFollowMajor(coin) && btcLeadIsPumping()) {
+      if (!force && opts.direction === 'SHORT' && btcLeadIsPumping()) {
         return rejectOpen(
           'macro_beta',
-          `No SHORT ${coin} — BTC pump is live, majors follow`,
-          'no major SHORT into live pump'
+          'No SHORT — BTC pump is live',
+          'no SHORT into BTC pump'
         );
       }
 
