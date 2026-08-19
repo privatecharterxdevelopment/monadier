@@ -33,16 +33,21 @@ export async function recordHlBotClose(params: {
   snapshot: HlCloseSnapshot;
   collectedFeeUsd?: number;
   viaHlBuilder?: boolean;
+  /** Exchange liquidation / backfill — keep the fill timestamp, not "now". */
+  closedAt?: string;
+  /** Never accrue platform success fee (liquidations, even if one leg is green). */
+  skipSuccessFee?: boolean;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const { snapshot } = params;
   const profitUsd = snapshot.unrealizedPnlUsd;
   const feeExempt = await isFeeExemptWallet(wallet);
-  const successFee = feeExempt
-    ? 0
-    : params.collectedFeeUsd != null && params.collectedFeeUsd > 0
-      ? params.collectedFeeUsd
-      : calculateHlSuccessFee(profitUsd);
+  const successFee =
+    feeExempt || params.skipSuccessFee
+      ? 0
+      : params.collectedFeeUsd != null && params.collectedFeeUsd > 0
+        ? params.collectedFeeUsd
+        : calculateHlSuccessFee(profitUsd);
   const feeStatus =
     successFee > 0
       ? params.viaHlBuilder
@@ -51,7 +56,7 @@ export async function recordHlBotClose(params: {
       : 'none';
   const pnlPct =
     snapshot.collateralUsd > 0 ? (profitUsd / snapshot.collateralUsd) * 100 : 0;
-  const closedAt = new Date().toISOString();
+  const closedAt = params.closedAt ?? new Date().toISOString();
   const entryAmount = snapshot.collateralUsd;
   const exitAmount = entryAmount + profitUsd;
 

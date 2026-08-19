@@ -39,6 +39,7 @@ import {
 } from './hlBotStrategy';
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
+import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
@@ -620,6 +621,7 @@ export class HyperliquidTradingService {
       await this.monitorOpenPositions(userAddress, stateAfterDust, settings, { fast: false });
     } else {
       forgetOpenPositionMonitor(userAddress);
+      await syncWalletLiquidations(userAddress);
     }
 
     const gate = await this.canTrade(userAddress);
@@ -3191,6 +3193,7 @@ export class HyperliquidTradingService {
             const stateAfter = (await fetchHlClearinghouseState(wallet)) ?? state;
             const openCoins = hlOpenPerpCoins(stateAfter);
             if (openCoins.length === 0) {
+              await syncWalletLiquidations(wallet);
               if (hlResidualDustPositions(stateAfter).length === 0) {
                 forgetOpenPositionMonitor(wallet);
               }

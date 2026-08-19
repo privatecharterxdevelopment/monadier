@@ -1646,6 +1646,15 @@ healthServer.listen(Number(PORT), HOST, () => {
   logger.info('  GET /api/global-signals - Top HL perp signals from last scan');
   logger.info('  GET /api/token-prices - Spot prices for vault PnL (Binance proxy)');
   logger.info('  GET /api/timeframe?symbol=ETHUSDT&tf=15m - Single timeframe analysis');
+  setTimeout(() => {
+    void import('./services/hlLiquidationSync')
+      .then((m) => m.backfillApprovedWalletLiquidations())
+      .catch((err: unknown) => {
+        logger.warn('HL liquidation backfill failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, 8_000);
 });
 
 // Default trading strategy - can be configured per user later
