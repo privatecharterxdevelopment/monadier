@@ -164,7 +164,6 @@ export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'):
 
   const inflow = snap.pairs.filter((p) => p.flow === 'INFLOW');
   const outflow = snap.pairs.filter((p) => p.flow === 'OUTFLOW');
-
   if (direction === 'SHORT' && inflow.length >= 2) {
     return {
       ok: false,

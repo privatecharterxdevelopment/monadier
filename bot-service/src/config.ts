@@ -378,7 +378,7 @@ export const config = {
       swingClusterPct: Number(process.env.HL_HTF_SR_CLUSTER || 0.005),
       touchTolerancePct: Number(process.env.HL_HTF_SR_TOUCH_TOL || 0.003),
     },
-    /** BTC/ETH beta — block counter-trend alt entries (SHORT while pumping, LONG while dumping). */
+    /** BTC lead: hard spike → bullish bias (majors follow). Not a SHORT ban. */
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */
       pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.35),

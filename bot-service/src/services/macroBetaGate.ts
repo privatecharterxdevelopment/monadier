@@ -1,6 +1,9 @@
 /**
- * BTC/ETH beta gate — alts move with their anchor.
- * Blocks counter-beta entries (e.g. SHORT WLD while BTC/ETH/coin are pumping).
+ * BTC lead + per-coin momentum.
+ *
+ * Hard BTC spike → bullish bias (majors follow). Not a SHORT ban:
+ * fade a coin only if that coin is actually dumping. Forming 15m/1h bars
+ * count so a live BTC spike is visible. Thesis on open books stays per-coin.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -10,6 +13,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 export type MacroMomentum = {
   change15mPct: number;
   change1hPct: number;
+  live1hBarPct: number;
   trend15m: 'UP' | 'DOWN' | 'FLAT';
   trend1h: 'UP' | 'DOWN' | 'FLAT';
   consecutiveGreen15m: number;
@@ -32,7 +36,6 @@ export type MacroBetaResult = {
   blockers: string[];
 };
 
-/** HL perps that correlate more with ETH than BTC (L2 / ETH ecosystem). */
 const ETH_BETA_COINS = new Set([
   'WLD',
   'OP',
@@ -57,6 +60,24 @@ const ETH_BETA_COINS = new Set([
   'APE',
 ]);
 
+const BTC_LEAD_CACHE_MS = Number(process.env.HL_BTC_LEAD_CACHE_MS || 15_000);
+
+let btcLeadMom: MacroMomentum | null = null;
+let btcLeadAt = 0;
+let btcLeadInFlight: Promise<MacroMomentum> | null = null;
+
+export function emptyMacroMomentum(): MacroMomentum {
+  return {
+    change15mPct: 0,
+    change1hPct: 0,
+    live1hBarPct: 0,
+    trend15m: 'FLAT',
+    trend1h: 'FLAT',
+    consecutiveGreen15m: 0,
+    consecutiveRed15m: 0,
+  };
+}
+
 function classifyAnchor(coin: string): 'BTC' | 'ETH' | 'SELF' {
   const c = coin.toUpperCase();
   if (c === 'BTC') return 'SELF';
@@ -71,11 +92,17 @@ function trendFromPct(pct: number, threshold: number): 'UP' | 'DOWN' | 'FLAT' {
   return 'FLAT';
 }
 
+function liveBarPct(candles: Candle[]): number {
+  if (candles.length < 1) return 0;
+  const last = candles[candles.length - 1];
+  if (!last?.open || last.open <= 0) return 0;
+  return ((last.close - last.open) / last.open) * 100;
+}
+
 function countConsecutive(candles: Candle[], bullish: boolean): number {
-  const closed = candles.slice(0, -1);
   let n = 0;
-  for (let i = closed.length - 1; i >= 0; i -= 1) {
-    const c = closed[i];
+  for (let i = candles.length - 1; i >= 0; i -= 1) {
+    const c = candles[i];
     const match = bullish ? c.close > c.open : c.close < c.open;
     if (!match) break;
     n += 1;
@@ -84,24 +111,25 @@ function countConsecutive(candles: Candle[], bullish: boolean): number {
 }
 
 function pctChange(candles: Candle[], bars: number): number {
-  const closed = candles.slice(0, -1);
-  if (closed.length < bars + 1) return 0;
-  const end = closed[closed.length - 1];
-  const start = closed[closed.length - 1 - bars];
+  if (candles.length < bars + 1) return 0;
+  const end = candles[candles.length - 1];
+  const start = candles[candles.length - 1 - bars];
   if (!start?.close || !end?.close || start.close <= 0) return 0;
   return ((end.close - start.close) / start.close) * 100;
 }
 
-function buildMomentum(candles: Candle[], flatThreshold: number): MacroMomentum {
-  const change15mPct = pctChange(candles, 1);
-  const change1hPct = pctChange(candles, 4);
+function buildMomentum(c15m: Candle[], c1h: Candle[], flatThreshold: number): MacroMomentum {
+  const change15mPct = pctChange(c15m, 1);
+  const change1hPct = pctChange(c15m, 4);
+  const live1hBarPct = liveBarPct(c1h);
   return {
     change15mPct,
     change1hPct,
+    live1hBarPct,
     trend15m: trendFromPct(change15mPct, flatThreshold),
-    trend1h: trendFromPct(change1hPct, flatThreshold * 1.5),
-    consecutiveGreen15m: countConsecutive(candles, true),
-    consecutiveRed15m: countConsecutive(candles, false),
+    trend1h: trendFromPct(Math.max(change1hPct, live1hBarPct), flatThreshold * 1.5),
+    consecutiveGreen15m: countConsecutive(c15m, true),
+    consecutiveRed15m: countConsecutive(c15m, false),
   };
 }
 
@@ -109,42 +137,122 @@ function fmtMom(label: string, m: MacroMomentum): string {
   return (
     `${label} 15m ${m.change15mPct >= 0 ? '+' : ''}${m.change15mPct.toFixed(2)}% (${m.trend15m})` +
     ` · 1h ${m.change1hPct >= 0 ? '+' : ''}${m.change1hPct.toFixed(2)}% (${m.trend1h})` +
+    ` · live 1h ${m.live1hBarPct >= 0 ? '+' : ''}${m.live1hBarPct.toFixed(2)}%` +
     (m.consecutiveGreen15m >= 2 ? ` · ${m.consecutiveGreen15m}× green 15m` : '') +
     (m.consecutiveRed15m >= 2 ? ` · ${m.consecutiveRed15m}× red 15m` : '')
   );
 }
 
-async function fetch15mMomentum(symbol: string): Promise<MacroMomentum> {
-  const candles = await signalEngine.fetchCandles(symbol, '15m', 30);
+async function fetchMomentum(symbol: string): Promise<MacroMomentum> {
   const flat = config.hyperliquid.macroBeta.flatTrendPct;
-  if (candles.length < 6) {
-    return {
-      change15mPct: 0,
-      change1hPct: 0,
-      trend15m: 'FLAT',
-      trend1h: 'FLAT',
-      consecutiveGreen15m: 0,
-      consecutiveRed15m: 0,
-    };
+  const [c15m, c1h] = await Promise.all([
+    signalEngine.fetchCandles(symbol, '15m', 30),
+    signalEngine.fetchCandles(symbol, '1h', 4),
+  ]);
+  if (c15m.length < 6) return emptyMacroMomentum();
+  return buildMomentum(c15m, c1h, flat);
+}
+
+function isPumping(m: MacroMomentum, label: string, require15mConfirmForClosed1h = false): string[] {
+  const cfg = config.hyperliquid.macroBeta;
+  const pump15 = cfg.pumpBlock15mPct;
+  const pump1h = cfg.pumpBlock1hPct;
+  const minGreen = cfg.minConsecutiveGreen15m;
+  const hits: string[] = [];
+  if (m.change15mPct >= pump15) hits.push(`${label} 15m +${m.change15mPct.toFixed(2)}%`);
+  if (
+    m.consecutiveGreen15m >= minGreen &&
+    m.change15mPct >= Math.max(pump15 * 0.45, cfg.flatTrendPct)
+  ) {
+    hits.push(`${label} ${m.consecutiveGreen15m}× green 15m candles`);
   }
-  return buildMomentum(candles, flat);
+  if (m.live1hBarPct >= pump1h) {
+    hits.push(`${label} live 1h bar +${m.live1hBarPct.toFixed(2)}%`);
+  }
+  if (m.change1hPct >= pump1h) {
+    const confirmed =
+      !require15mConfirmForClosed1h ||
+      m.trend15m === 'UP' ||
+      m.change15mPct >= pump15 * 0.5 ||
+      m.live1hBarPct >= pump1h * 0.5;
+    if (confirmed) {
+      hits.push(`${label} 1h +${m.change1hPct.toFixed(2)}%`);
+    }
+  }
+  return hits;
+}
+
+function isDumping(m: MacroMomentum, label: string, require15mConfirmFor1h = false): string[] {
+  const cfg = config.hyperliquid.macroBeta;
+  const dump15 = cfg.dumpBlock15mPct;
+  const dump1h = cfg.dumpBlock1hPct;
+  const minRed = cfg.minConsecutiveRed15m;
+  const hits: string[] = [];
+  if (m.change15mPct <= -dump15) hits.push(`${label} 15m ${m.change15mPct.toFixed(2)}%`);
+  if (
+    m.consecutiveRed15m >= minRed &&
+    m.change15mPct <= -Math.max(dump15 * 0.45, cfg.flatTrendPct)
+  ) {
+    hits.push(`${label} ${m.consecutiveRed15m}× red 15m candles`);
+  }
+  if (m.live1hBarPct <= -dump1h) {
+    hits.push(`${label} live 1h bar ${m.live1hBarPct.toFixed(2)}%`);
+  }
+  if (m.change1hPct <= -dump1h) {
+    const confirmed =
+      !require15mConfirmFor1h ||
+      m.trend15m === 'DOWN' ||
+      m.change15mPct <= -dump15 * 0.5 ||
+      m.live1hBarPct <= -dump1h * 0.5;
+    if (confirmed) {
+      hits.push(`${label} 1h ${m.change1hPct.toFixed(2)}%`);
+    }
+  }
+  return hits;
+}
+
+export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
+  const now = Date.now();
+  if (btcLeadMom && now - btcLeadAt < BTC_LEAD_CACHE_MS) return btcLeadMom;
+  if (btcLeadInFlight) return btcLeadInFlight;
+  btcLeadInFlight = (async () => {
+    try {
+      const mom = await fetchMomentum('BTCUSDT');
+      btcLeadMom = mom;
+      btcLeadAt = Date.now();
+      return mom;
+    } finally {
+      btcLeadInFlight = null;
+    }
+  })();
+  return btcLeadInFlight;
+}
+
+/** BTC 1h/15m is pumping — treat tape as bullish; majors tend to follow. */
+export function btcLeadIsPumping(): boolean {
+  if (!btcLeadMom) return false;
+  return isPumping(btcLeadMom, 'BTC', false).length > 0;
 }
 
 export async function evaluateMacroBetaAlignment(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
+  /** `open` = new entries (BTC lead applies). `thesis` = open books, per-coin only. */
+  scope?: 'open' | 'thesis';
 }): Promise<MacroBetaResult> {
   const coin = opts.coin.toUpperCase();
   const anchor = classifyAnchor(coin);
-  const cfg = config.hyperliquid.macroBeta;
+  const scope = opts.scope ?? 'thesis';
 
   const [btc, eth, altMom] = await Promise.all([
-    fetch15mMomentum('BTCUSDT'),
-    fetch15mMomentum('ETHUSDT'),
+    fetchMomentum('BTCUSDT'),
+    fetchMomentum('ETHUSDT'),
     coin === 'BTC' || coin === 'ETH'
       ? Promise.resolve(null)
-      : fetch15mMomentum(hlCoinToBinanceSymbol(coin)),
+      : fetchMomentum(hlCoinToBinanceSymbol(coin)),
   ]);
+  btcLeadMom = btc;
+  btcLeadAt = Date.now();
 
   const snapshot: MacroBetaSnapshot = {
     coin,
@@ -155,73 +263,39 @@ export async function evaluateMacroBetaAlignment(opts: {
     checkedAt: new Date().toISOString(),
   };
 
-  // Majors used to skip this gate entirely → ETH/BTC SHORTs opened into their own pumps
-  // (Jul 28 ETH SHORT 1872→1909 −$65). Always check the coin's own momentum.
-
   const blockers: string[] = [];
-  const pump15 = cfg.pumpBlock15mPct;
-  const pump1h = cfg.pumpBlock1hPct;
-  const dump15 = cfg.dumpBlock15mPct;
-  const dump1h = cfg.dumpBlock1hPct;
-  const minGreen = cfg.minConsecutiveGreen15m;
-  const minRed = cfg.minConsecutiveRed15m;
-
-  const isPumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
-    const hits: string[] = [];
-    if (m.change15mPct >= pump15) hits.push(`${label} 15m +${m.change15mPct.toFixed(2)}%`);
-    // Consecutive greens alone are noise on majors — need a real 15m lift too.
-    if (m.consecutiveGreen15m >= minGreen && m.change15mPct >= Math.max(pump15 * 0.45, cfg.flatTrendPct)) {
-      hits.push(`${label} ${m.consecutiveGreen15m}× green 15m candles`);
-    }
-    if (m.change1hPct >= pump1h) {
-      const confirmed =
-        !require15mConfirmFor1h ||
-        m.trend15m === 'UP' ||
-        m.change15mPct >= pump15 * 0.5;
-      if (confirmed) {
-        hits.push(`${label} 1h +${m.change1hPct.toFixed(2)}%`);
-      }
-    }
-    return hits;
-  };
-
-  const isDumping = (m: MacroMomentum, label: string, require15mConfirmFor1h = false) => {
-    const hits: string[] = [];
-    if (m.change15mPct <= -dump15) hits.push(`${label} 15m ${m.change15mPct.toFixed(2)}%`);
-    // 3 tiny red dojis must not block ETH/BTC LONGs — require meaningful 15m dump too.
-    if (m.consecutiveRed15m >= minRed && m.change15mPct <= -Math.max(dump15 * 0.45, cfg.flatTrendPct)) {
-      hits.push(`${label} ${m.consecutiveRed15m}× red 15m candles`);
-    }
-    if (m.change1hPct <= -dump1h) {
-      const confirmed =
-        !require15mConfirmFor1h ||
-        m.trend15m === 'DOWN' ||
-        m.change15mPct <= -dump15 * 0.5;
-      if (confirmed) {
-        hits.push(`${label} 1h ${m.change1hPct.toFixed(2)}%`);
-      }
-    }
-    return hits;
-  };
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
+    // BTC spike = bullish. Don't fade SOL/ETH/alts that aren't dumping.
+    // Independent dump (coin red while BTC green) can still SHORT.
+    if (scope === 'open' && isPumping(btc, 'BTC', false).length > 0) {
+      const coinDumping = isDumping(snapshot.coinMom, coin, true).length > 0;
+      if (!coinDumping) {
+        blockers.push(
+          `BTC pumping (live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%) — ${coin} not dumping, majors follow`
+        );
+      }
+    }
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));
   }
 
   const macroSummary = [fmtMom(coin, snapshot.coinMom)];
+  if (coin !== 'BTC') macroSummary.push(fmtMom('BTC', btc));
 
   if (blockers.length > 0) {
     const reason =
-      `Per-coin momentum BLOCK ${opts.direction} ${coin} — ` +
-      `${blockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`;
+      opts.direction === 'SHORT' && blockers.some((b) => b.startsWith('BTC '))
+        ? `BTC lead BLOCK SHORT ${coin} — ${blockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`
+        : `Per-coin momentum BLOCK ${opts.direction} ${coin} — ${blockers.join('; ')} ‖ ${macroSummary.join(' ‖ ')}`;
     logger.info('Macro beta gate blocked entry', {
       coin,
       direction: opts.direction,
       anchor,
       blockers,
       btc15m: btc.change15mPct,
+      btcLive1h: btc.live1hBarPct,
       eth15m: eth.change15mPct,
       coin15m: snapshot.coinMom.change15mPct,
     });
@@ -229,8 +303,9 @@ export async function evaluateMacroBetaAlignment(opts: {
   }
 
   const reason =
-    `Per-coin momentum OK ${opts.direction} ${coin} — ` +
-    `${coin} chart not ${opts.direction === 'SHORT' ? 'pumping' : 'dumping'} ‖ ${macroSummary.join(' ‖ ')}`;
+    opts.direction === 'SHORT'
+      ? `BTC lead OK SHORT ${coin} — ${isPumping(btc, 'BTC', false).length ? `${coin} dumping vs BTC pump` : 'BTC not pumping'} ‖ ${macroSummary.join(' ‖ ')}`
+      : `Per-coin momentum OK LONG ${coin} — ${coin} chart not dumping ‖ ${macroSummary.join(' ‖ ')}`;
 
   return { ok: true, reason, snapshot, blockers: [] };
 }
@@ -240,7 +315,7 @@ export async function validateMacroBetaAlignment(opts: {
   direction: 'LONG' | 'SHORT';
 }): Promise<MacroBetaResult> {
   try {
-    return await evaluateMacroBetaAlignment(opts);
+    return await evaluateMacroBetaAlignment({ ...opts, scope: 'open' });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn('Macro beta gate error — fail closed for alts', {
@@ -249,32 +324,26 @@ export async function validateMacroBetaAlignment(opts: {
       error: msg,
     });
     const coin = opts.coin.toUpperCase();
+    const emptySnap = {
+      coin,
+      anchor: classifyAnchor(coin),
+      btc: emptyMacroMomentum(),
+      eth: emptyMacroMomentum(),
+      coinMom: emptyMacroMomentum(),
+      checkedAt: new Date().toISOString(),
+    };
     if (coin === 'BTC' || coin === 'ETH') {
       return {
         ok: true,
         reason: 'Macro beta check failed — majors allowed',
-        snapshot: {
-          coin,
-          anchor: 'SELF',
-          btc: buildMomentum([], 0.1),
-          eth: buildMomentum([], 0.1),
-          coinMom: buildMomentum([], 0.1),
-          checkedAt: new Date().toISOString(),
-        },
+        snapshot: emptySnap,
         blockers: [],
       };
     }
     return {
       ok: false,
       reason: `Macro beta check failed — entry blocked (${msg.slice(0, 80)})`,
-      snapshot: {
-        coin,
-        anchor: classifyAnchor(coin),
-        btc: buildMomentum([], 0.1),
-        eth: buildMomentum([], 0.1),
-        coinMom: buildMomentum([], 0.1),
-        checkedAt: new Date().toISOString(),
-      },
+      snapshot: emptySnap,
       blockers: ['macro data unavailable'],
     };
   }

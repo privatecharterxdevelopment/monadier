@@ -76,7 +76,11 @@ export async function validateEntryMomentum(opts: {
     const live1hPct = pctChangeLive(c1h, 1);
     const rangePos = rangePosition(c1h);
 
-    const macro = await evaluateMacroBetaAlignment({ coin, direction: opts.direction });
+    const macro = await evaluateMacroBetaAlignment({
+      coin,
+      direction: opts.direction,
+      scope: 'open',
+    });
     if (!macro.ok) {
       return {
         ok: false,

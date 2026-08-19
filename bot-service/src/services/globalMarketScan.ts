@@ -10,6 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { btcLeadIsPumping, refreshBtcLeadMomentum } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -71,8 +72,11 @@ function pickPreferredCandidate(
 
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
+  const btcPump = btcLeadIsPumping();
 
   if (longC && shortC) {
+    // BTC spike = bullish. Don't steal the slot with a 1h-dip SHORT (SOL-in-pump).
+    if (btcPump) return longC;
     // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
     // just because bull_market is LONG-primary (that opens longs into dumps).
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
@@ -97,9 +101,14 @@ function pickPreferredCandidate(
     return longC;
   }
 
-  // Lone LONG under bull still needs UP 1h — otherwise skip (wait for SHORT / bounce).
+  // Lone LONG under bull still needs UP 1h — unless BTC lead is already pumping.
   if (longC && !shortC && primary === 'LONG') {
-    if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return null;
+    if (
+      !btcLeadIsPumping() &&
+      !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
+    ) {
+      return null;
+    }
   }
 
   return longC ?? shortC;
@@ -174,7 +183,13 @@ function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
   if (opts.confidence < rules.minConfidence) return false;
   if (opts.directionalTfCount < rules.minDirectionalTfs) return false;
   if (opts.trendAlignment < rules.minTrendAlignment) return false;
-  if (!h1TrendMatchesRequired(opts.h1Trend, rules.requiredH1Trend)) return false;
+  const skipCoinH1Up =
+    direction === 'LONG' &&
+    rules.requiredH1Trend === 'UP' &&
+    btcLeadIsPumping();
+  if (!skipCoinH1Up && !h1TrendMatchesRequired(opts.h1Trend, rules.requiredH1Trend)) {
+    return false;
+  }
   return true;
 }
 
@@ -277,6 +292,7 @@ async function scanStandardCoinDirection(
     // Peak may flip LONG→SHORT; kill that when shorts are hard-disabled.
     if (wantedDirection === 'SHORT' && direction !== 'SHORT') return null;
     if (wantedDirection === 'LONG' && direction === 'SHORT') {
+      if (btcLeadIsPumping()) return null;
       if (!config.hyperliquid.directionProfile.allowShortOpens || !peakLiquidityGrab) {
         return null;
       }
@@ -567,7 +583,10 @@ export async function scanGlobalHlSignals(
     return lastGlobalScanResult;
   }
 
-  await refreshMegaPairVolumeMonitor(universe);
+  await Promise.all([
+    refreshMegaPairVolumeMonitor(universe),
+    refreshBtcLeadMomentum(),
+  ]);
 
   const [standardRaw, aggressiveRaw] = await Promise.all([
     mapPool(coins, concurrency, async (coin) => {

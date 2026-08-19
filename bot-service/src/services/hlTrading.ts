@@ -46,7 +46,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1248,6 +1248,8 @@ export class HyperliquidTradingService {
         );
       }
 
+      await refreshBtcLeadMomentum();
+
       // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.
       if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
@@ -1361,11 +1363,13 @@ export class HyperliquidTradingService {
           : h1Trend.includes('DOWN') ||
             h1Trend.includes('SHORT') ||
             h1Trend === 'STRONG_DOWNTREND');
+      const btcLeadWaivesLongH1 =
+        opts.direction === 'LONG' && required === 'UP' && btcLeadIsPumping();
       if (
         opts.pick.confidence < directionRules.minConfidence ||
         directionalTfs < directionRules.minDirectionalTfs ||
         trendAlignment < directionRules.minTrendAlignment ||
-        !h1Matches
+        (!h1Matches && !btcLeadWaivesLongH1)
       ) {
         return rejectOpen(
           'direction_profile',
@@ -1508,30 +1512,9 @@ export class HyperliquidTradingService {
               snapshot: {
                 coin,
                 anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
-                btc: {
-                  change15mPct: 0,
-                  change1hPct: 0,
-                  trend15m: 'FLAT' as const,
-                  trend1h: 'FLAT' as const,
-                  consecutiveGreen15m: 0,
-                  consecutiveRed15m: 0,
-                },
-                eth: {
-                  change15mPct: 0,
-                  change1hPct: 0,
-                  trend15m: 'FLAT' as const,
-                  trend1h: 'FLAT' as const,
-                  consecutiveGreen15m: 0,
-                  consecutiveRed15m: 0,
-                },
-                coinMom: {
-                  change15mPct: 0,
-                  change1hPct: 0,
-                  trend15m: 'FLAT' as const,
-                  trend1h: 'FLAT' as const,
-                  consecutiveGreen15m: 0,
-                  consecutiveRed15m: 0,
-                },
+                btc: emptyMacroMomentum(),
+                eth: emptyMacroMomentum(),
+                coinMom: emptyMacroMomentum(),
                 checkedAt: new Date().toISOString(),
               },
               blockers: [] as string[],
@@ -1681,6 +1664,13 @@ export class HyperliquidTradingService {
             'SHORT disabled at source'
           );
         }
+        if (flipped === 'SHORT' && btcLeadIsPumping()) {
+          logger.info('HL zone flip LONG→SHORT skipped — BTC pumping, stay LONG', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            reason: locationGate.reason,
+          });
+        } else {
 
         // At resistance → SHORT even in bull / 1h UP. Only block lazy mid-range fades.
         if (
@@ -1776,6 +1766,7 @@ export class HyperliquidTradingService {
           );
         }
         (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
+        } // skip LONG→SHORT apply while BTC is pumping
         } // end else (flip allowed)
       }
 
