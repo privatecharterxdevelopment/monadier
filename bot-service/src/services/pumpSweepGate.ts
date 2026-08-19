@@ -3,7 +3,7 @@
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
-import { btcLeadIsPumping } from './macroBetaGate';
+import { btcLeadIsPumping, btcTapeIsGreen } from './macroBetaGate';
 import {
   fetchPumpSweepAnalysis,
   fetchMegaPairPumpSweep,
@@ -33,10 +33,10 @@ function gateForDirection(
 
   if (direction === 'LONG') {
     // BTC still pushing: LONG-only. Don't sit out the spike waiting for a fade.
-    if (btcLeadIsPumping() && (a.phase === 'at_apex' || a.phase === 'post_pump_fade')) {
+    if (btcTapeIsGreen() && (a.phase === 'at_apex' || a.phase === 'post_pump_fade')) {
       return {
         ok: true,
-        reason: `Pump sweep waived — BTC inflow LONG-only (${coin} ${a.phase.replace(/_/g, ' ')})`,
+        reason: `Pump sweep waived — green tape LONG-only (${coin} ${a.phase.replace(/_/g, ' ')})`,
       };
     }
     if (a.phase === 'at_apex') {

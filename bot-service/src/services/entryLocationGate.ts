@@ -7,13 +7,13 @@
  * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
  * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At resistance → SHORT, never LONG — except during BTC inflow (LONG-only through R).
- * After the 2–3 candle BTC peak fades, R-fade shorts are allowed again.
+ * At resistance → SHORT only when BTC is not green. If the tape is green,
+ * stay LONG through R — never fade a green market.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
-import { btcLeadIsPumping } from './macroBetaGate';
+import { btcTapeIsGreen } from './macroBetaGate';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -274,15 +274,15 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    // BTC still pushing: LONG only — don't sit at local R waiting for a fade.
+    // BTC / majors still green: LONG through local R. Never fade a green tape.
     if (
-      btcLeadIsPumping() &&
+      btcTapeIsGreen() &&
       (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock)
     ) {
       return {
         ok: true,
         analysis,
-        reason: `BTC inflow LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
+        reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
       };
     }
     // At the resistance line → NEVER LONG (that's a SHORT). Breakout LONG only
@@ -351,8 +351,15 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Resistance-zone / upper-range fade only.
+  // Resistance-zone / upper-range fade only when BTC is NOT green.
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
+    if (btcTapeIsGreen()) {
+      return {
+        ok: false,
+        analysis,
+        reason: `SHORT blocked — BTC tape still green, no R-fade`,
+      };
+    }
     const zone =
       analysis.resistanceZone != null
         ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
@@ -493,12 +500,12 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // At resistance → SHORT. Only after BTC inflow is done (post_peak / quiet).
+  // At resistance → SHORT only after the green tape is gone.
   if (
     config.hyperliquid.zoneFlipEnabled &&
     config.hyperliquid.directionProfile.allowShortOpens &&
     opts.direction === 'LONG' &&
-    !btcLeadIsPumping() &&
+    !btcTapeIsGreen() &&
     !classic.ok &&
     (sr.nearResistance || sr.pricePosition >= config.hyperliquid.entryLocation.rangeTopBlock)
   ) {

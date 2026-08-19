@@ -207,7 +207,7 @@ export const config = {
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
       /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 30_000),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
@@ -221,7 +221,7 @@ export const config = {
        * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
        * 0.35 → lock ~65% of peak uPnL. Stop stays on the profit side of entry.
        */
-      stallFloorPeakDropFrac: Number(process.env.HL_TRAIL_STALL_FLOOR_DROP_FRAC || 0.35),
+      stallFloorPeakDropFrac: Number(process.env.HL_TRAIL_STALL_FLOOR_DROP_FRAC || 0.2),
       /**
        * Stage-2 hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets with the peak.
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
@@ -260,7 +260,7 @@ export const config = {
        * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
        * after the trade runs (stage-1 BE lock unchanged).
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 2.15),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1),
       /**
        * LONG peak-floor giveback after a real run. 0.78 → lock ~22% of peak
        * (more air than 0.65 while still securing a chunk of the explosion).
@@ -271,7 +271,7 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 120_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 30_000),
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
@@ -281,12 +281,12 @@ export const config = {
        * Stage-2 ATR trail arm ROE for LONGs (higher than SHORT so BE holds
        * while it pumps, then the trail slowly ratchets).
        */
-      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 22),
+      longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 15),
       /**
        * Min peak ROE before LONG trail/floor/peak closes.
        */
       longMinPeakRoePctBeforeTrailClose: Number(
-        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 20
+        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 0
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
@@ -305,7 +305,7 @@ export const config = {
     /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */
     trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 120_000),
     /** Max defer attempts per floor level before forced profit_lock close. */
-    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 4),
+    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 0),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
     /** Fraction of peak uPnL retrace before peak-grab close (0.70 = need 70% giveback). */

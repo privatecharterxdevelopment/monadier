@@ -364,6 +364,20 @@ export function btcLeadIsPumping(): boolean {
   return lastBtcPhase === 'inflow';
 }
 
+/** Live BTC still green — any meaningful green 5m/15m/1h. R-shorts are banned. */
+export function btcTapeIsGreen(): boolean {
+  if (lastBtcPhase === 'inflow') return true;
+  const m = btcLeadMom;
+  if (!m) return true;
+  return (
+    m.live1hBarPct >= 0.08 ||
+    m.live5mBarPct >= 0.05 ||
+    m.closed15mBarPct >= 0.08 ||
+    m.change15mPct >= 0.08 ||
+    (m.consecutiveGreen15m >= 2 && m.live1hBarPct >= 0)
+  );
+}
+
 export async function evaluateMacroBetaAlignment(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';

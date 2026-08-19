@@ -161,7 +161,9 @@ export function shouldArmBreakevenProtection(
   _totalHoldMs: number
 ): boolean {
   if (pnlUsd <= 0) return false;
-  return timeInProfitMs >= config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+  const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+  const armMs = Math.min(30_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 30_000));
+  return timeInProfitMs >= armMs;
 }
 
 export function lossStopPricePx(
@@ -243,19 +245,11 @@ function breakevenPlusFeesStopPx(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
-function peakFloorDropFrac(direction: 'LONG' | 'SHORT', peakRoe: number): number {
+function peakFloorDropFrac(_direction: 'LONG' | 'SHORT', _peakRoe: number): number {
   const cfg = config.hyperliquid.dynamicTrail;
-  const stage2Roe =
-    direction === 'LONG'
-      ? Math.max(cfg.armMinRoePct, cfg.longTrailArmRoePct || 0)
-      : cfg.armMinRoePct;
-  if (peakRoe < stage2Roe) {
-    return Math.min(0.95, Math.max(0.05, cfg.stallFloorPeakDropFrac ?? 0.35));
-  }
-  const baseDrop = cfg.profitFloorPeakDropFrac;
-  const dropRaw =
-    direction === 'LONG' ? cfg.longProfitFloorPeakDropFrac || baseDrop : baseDrop;
-  return Math.min(0.95, Math.max(0.05, dropRaw));
+  // Always lock ~80% of peak so the stop follows price. Stage-2 used to
+  // WIDEN the floor (lock 22%) — that is "not pulling the SL".
+  return Math.min(0.95, Math.max(0.05, cfg.stallFloorPeakDropFrac ?? 0.2));
 }
 
 /**
@@ -404,7 +398,10 @@ function trailTooYoungToClose(
 /** LONGs: once green, breathe for longMinGreenHoldMs before any profit exit. */
 function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
   if (rec.direction !== 'LONG' || pnlUsd <= 0) return false;
-  const minMs = Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0);
+  const minMs = Math.min(
+    30_000,
+    Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
+  );
   return minMs > 0 && rec.timeInProfitMs < minMs;
 }
 

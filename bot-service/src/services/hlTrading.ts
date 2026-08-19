@@ -47,7 +47,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, getBtcTapePhase, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcTapeIsGreen, getBtcTapePhase, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1677,20 +1677,30 @@ export class HyperliquidTradingService {
             'SHORT disabled at source'
           );
         }
-        if (flipped === 'SHORT' && btcLeadIsPumping()) {
-          logger.info('HL zone flip LONG→SHORT skipped — BTC inflow, not post-peak fade', {
+        const h1ForFlip = String(opts.pick.h1Trend || '').toUpperCase();
+        const h1StillUp =
+          h1ForFlip.includes('UP') ||
+          h1ForFlip.includes('LONG') ||
+          h1ForFlip === 'STRONG_UPTREND';
+        if (
+          flipped === 'SHORT' &&
+          (btcLeadIsPumping() || btcTapeIsGreen() || h1StillUp)
+        ) {
+          logger.info('HL zone flip LONG→SHORT skipped — tape/h1 still green', {
             user: opts.userAddress.slice(0, 10),
             coin,
             reason: locationGate.reason,
+            h1: h1ForFlip || 'unknown',
+            btcGreen: btcTapeIsGreen(),
           });
         } else {
 
-        // At resistance → SHORT even in bull / 1h UP. Only block lazy mid-range fades.
+        // At resistance → SHORT only if 1h is not UP. Green tape never fades.
         if (
           flipped === 'SHORT' &&
           config.hyperliquid.directionProfile.primaryDirection === 'LONG'
         ) {
-          const h1 = String(opts.pick.h1Trend || '').toUpperCase();
+          const h1 = h1ForFlip;
           const conf = Number(opts.pick.confidence) || 0;
           const shortMin = config.hyperliquid.directionProfile.short.minConfidence;
           const rangePos = locationGate.analysis.pricePosition;
@@ -1698,6 +1708,13 @@ export class HyperliquidTradingService {
             locationGate.analysis.nearResistance ||
             rangePos >= config.hyperliquid.entryLocation.rangeTopBlock ||
             /resistance/i.test(locationGate.reason);
+          if (h1StillUp) {
+            return rejectOpen(
+              'sr_zone_flip',
+              `LONG→SHORT blocked — 1h still UP (${h1 || 'UP'}), no R-fade on green`,
+              'no short flip vs 1h UP'
+            );
+          }
           if (!atResistance && h1 === 'UP') {
             return rejectOpen(
               'sr_zone_flip',
