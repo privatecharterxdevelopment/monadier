@@ -1428,8 +1428,10 @@ html[dir='rtl'] .hl-book {
 
 /* ── Ticker strip (slow right→left marquee) ── */
 .hl-ticker {
-  display: block;
-  height: 28px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 32px;
   padding: 0;
   border-bottom: 1px solid var(--hl-border);
   overflow: hidden;
@@ -1440,18 +1442,22 @@ html[dir='rtl'] .hl-book {
 .hl-ticker-track {
   display: flex;
   align-items: center;
-  gap: 2px;
+  flex-wrap: nowrap;
+  gap: 0;
   width: max-content;
   height: 100%;
-  padding: 0 8px;
   will-change: transform;
-  animation: hl-ticker-marquee 90s linear infinite;
+  animation: hl-ticker-marquee var(--hl-ticker-duration, 120s) linear infinite;
 }
 
-.hl-ticker-dup {
-  display: inline-flex;
+.hl-ticker-group {
+  display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 2px;
+  height: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .hl-ticker:hover .hl-ticker-track,
@@ -1464,7 +1470,7 @@ html[dir='rtl'] .hl-book {
     transform: translateX(0);
   }
   to {
-    /* Track is [items][clone] — shift by half for a seamless loop */
+    /* Track is [group][group] — shift by half for a seamless loop */
     transform: translateX(-50%);
   }
 }
@@ -1483,7 +1489,7 @@ html[dir='rtl'] .hl-book {
     animation: none;
   }
 
-  .hl-ticker-dup {
+  .hl-ticker-group[aria-hidden='true'] {
     display: none;
   }
 }
@@ -1506,13 +1512,16 @@ html[dir='rtl'] .hl-book {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px;
+  height: 100%;
+  margin: 0;
+  padding: 0 10px;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--hl-text-muted);
   font-size: 11px;
   font-weight: 500;
+  line-height: 1;
   cursor: pointer;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -12458,7 +12467,8 @@ html[dir='rtl'] .hl-book {
   .hl-terminal > .hl-ticker {
     flex: 0 0 auto;
     flex-shrink: 0;
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
     height: 36px;
     min-height: 36px;
@@ -12696,7 +12706,7 @@ html[dir='rtl'] .hl-book {
 
   .hl-ticker-item {
     flex: 0 0 auto;
-    padding: 4px 10px;
+    padding: 0 10px;
     font-size: 12px;
   }
 
