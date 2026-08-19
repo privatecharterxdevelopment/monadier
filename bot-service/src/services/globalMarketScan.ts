@@ -10,7 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { btcLeadIsPumping, refreshBtcLeadMomentum } from './macroBetaGate';
+import { btcLeadIsPumping, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -72,14 +72,14 @@ function pickPreferredCandidate(
 
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
-  const btcPump = btcLeadIsPumping();
-  if (btcPump) {
+  const btcInflow = btcLeadIsPumping();
+  if (btcInflow) {
     shortC = null;
   }
 
   if (longC && shortC) {
-    // BTC spike = bullish. Don't steal the slot with a 1h-dip SHORT (SOL-in-pump).
-    if (btcPump) return longC;
+    // BTC still pushing = LONG only. R-fade shorts wait for post_peak.
+    if (btcInflow) return longC;
     // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
     // just because bull_market is LONG-primary (that opens longs into dumps).
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
@@ -99,15 +99,15 @@ function pickPreferredCandidate(
   }
 
   if (longC && !shortC && primary === 'SHORT') {
-    const loneLongMin = 85;
-    if (longC.confidence < loneLongMin) return null;
+    // Inflow is LONG-only — don't starve longs behind the 85% SHORT-primary floor.
+    if (!btcInflow && longC.confidence < 85) return null;
     return longC;
   }
 
-  // Lone LONG under bull still needs UP 1h — unless BTC lead is already pumping.
+  // Lone LONG under bull still needs UP 1h — unless BTC is still inflowing.
   if (longC && !shortC && primary === 'LONG') {
     if (
-      !btcLeadIsPumping() &&
+      !btcInflow &&
       !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
     ) {
       return null;
@@ -596,6 +596,8 @@ export async function scanGlobalHlSignals(
     refreshMegaPairVolumeMonitor(universe),
     refreshBtcLeadMomentum(),
   ]);
+  const tape = getBtcTapePhase();
+  logger.info('BTC tape for scan', { phase: tape.phase, reason: tape.reason });
 
   const [standardRaw, aggressiveRaw] = await Promise.all([
     mapPool(coins, concurrency, async (coin) => {

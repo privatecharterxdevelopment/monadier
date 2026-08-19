@@ -1,8 +1,9 @@
 /**
- * BTC lead + major pump tape.
- *
- * BTC pump live → no new SHORTs on any coin. Majors get continuation LONGs.
- * Thesis on already-open books stays per-coin (hands-off).
+ * BTC tape phases (profitable sequence, not guesswork):
+ *   inflow    — big green + volume: LONG only, no shorts
+ *   post_peak — 2–3 large candles already in, push fading: shorts OK (R-fade)
+ *   quiet     — normal profile
+ * Open books are never closed from here.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -68,6 +69,11 @@ const BTC_LEAD_CACHE_MS = Number(process.env.HL_BTC_LEAD_CACHE_MS || 15_000);
 let btcLeadMom: MacroMomentum | null = null;
 let btcLeadAt = 0;
 let btcLeadInFlight: Promise<MacroMomentum> | null = null;
+
+export type BtcTapePhase = 'inflow' | 'post_peak' | 'quiet';
+
+let lastBtcPhase: BtcTapePhase = 'inflow';
+let lastBtcPhaseReason = 'BTC tape pending — no SHORT until classified';
 
 export function emptyMacroMomentum(): MacroMomentum {
   return {
@@ -171,8 +177,107 @@ async function fetchMomentum(symbol: string): Promise<MacroMomentum> {
     signalEngine.fetchCandles(symbol, '1h', 6),
     signalEngine.fetchCandles(symbol, '5m', 8),
   ]);
-  if (c15m.length < 6) return emptyMacroMomentum();
-  return buildMomentum(c15m, c1h, c5m, flat);
+  if (c15m.length < 6) {
+    if (symbol === 'BTCUSDT') {
+      lastBtcPhase = 'inflow';
+      lastBtcPhaseReason = 'BTC tape unavailable — no SHORT until classified';
+    }
+    return emptyMacroMomentum();
+  }
+  const mom = buildMomentum(c15m, c1h, c5m, flat);
+  if (symbol === 'BTCUSDT') {
+    const tape = classifyBtcTape(c15m, c1h, c5m);
+    if (tape.phase !== lastBtcPhase) {
+      logger.info('BTC tape phase', { from: lastBtcPhase, to: tape.phase, reason: tape.reason });
+    }
+    lastBtcPhase = tape.phase;
+    lastBtcPhaseReason = tape.reason;
+  }
+  return mom;
+}
+
+function meanVol(cs: Candle[]): number {
+  if (cs.length === 0) return 0;
+  return cs.reduce((s, c) => s + (Number(c.volume) || 0), 0) / cs.length;
+}
+
+function bodyPct(c: Candle | undefined): number {
+  if (!c?.open || c.open <= 0) return 0;
+  return ((c.close - c.open) / c.open) * 100;
+}
+
+function isLargeGreenPush(c: Candle | undefined, prior: Candle[], bodyMin: number, volMin: number): boolean {
+  if (!c || c.close <= c.open) return false;
+  const body = bodyPct(c);
+  if (body < bodyMin) return false;
+  const avg = meanVol(prior);
+  const vr = avg > 0 ? (Number(c.volume) || 0) / avg : 1;
+  // Huge body still counts even if vol is only average; otherwise need volume inflow.
+  return vr >= volMin || body >= bodyMin * 2;
+}
+
+function classifyBtcTape(c15m: Candle[], c1h: Candle[], c5m: Candle[]): { phase: BtcTapePhase; reason: string } {
+  const bodyMin15 = 0.2;
+  const bodyMin1h = 0.35;
+  const bodyMin5 = 0.12;
+  const volMin = 1.15;
+
+  let largeGreenClosed = 0;
+  for (let i = c15m.length - 2; i >= 0 && largeGreenClosed < 6; i -= 1) {
+    const c = c15m[i];
+    const prior = c15m.slice(Math.max(0, i - 12), i);
+    if (isLargeGreenPush(c, prior, bodyMin15, volMin)) {
+      largeGreenClosed += 1;
+    } else {
+      break;
+    }
+  }
+
+  const live15 = c15m[c15m.length - 1];
+  const live15Prior = c15m.slice(Math.max(0, c15m.length - 13), c15m.length - 1);
+  const live15Inflow = isLargeGreenPush(live15, live15Prior, bodyMin15, volMin);
+  const live15Body = bodyPct(live15);
+  const live15Avg = meanVol(live15Prior);
+  const live15Vr = live15Avg > 0 ? (Number(live15?.volume) || 0) / live15Avg : 1;
+
+  const live5 = c5m[c5m.length - 1];
+  const live5Prior = c5m.slice(Math.max(0, c5m.length - 9), c5m.length - 1);
+  const live5Inflow = isLargeGreenPush(live5, live5Prior, bodyMin5, volMin);
+
+  const h1Live = c1h[c1h.length - 1];
+  const h1Closed = c1h.length >= 2 ? c1h[c1h.length - 2] : undefined;
+  const h1LivePrior = c1h.slice(0, Math.max(0, c1h.length - 1));
+  const h1ClosedPrior = c1h.slice(0, Math.max(0, c1h.length - 2));
+  const h1LiveInflow = isLargeGreenPush(h1Live, h1LivePrior, bodyMin1h, volMin);
+  const h1ClosedPush = isLargeGreenPush(h1Closed, h1ClosedPrior, bodyMin1h, volMin);
+  const h1LiveBody = bodyPct(h1Live);
+
+  // Still pushing (live 5m / 15m / 1h with size+volume) → LONG only. Do not
+  // call this post-peak just because 2–3 closed greens already printed.
+  if (live15Inflow || live5Inflow || h1LiveInflow) {
+    return {
+      phase: 'inflow',
+      reason:
+        `BTC inflow LONG-only — live 15m ${live15Body >= 0 ? '+' : ''}${live15Body.toFixed(2)}% vol ${live15Vr.toFixed(2)}x` +
+        (live5Inflow ? ` · 5m +${bodyPct(live5).toFixed(2)}%` : '') +
+        (h1LiveInflow ? ` · 1h ${h1LiveBody >= 0 ? '+' : ''}${h1LiveBody.toFixed(2)}%` : ''),
+    };
+  }
+
+  // Massive 2–3 candle push is in, live tape no longer expanding → R shorts.
+  if (largeGreenClosed >= 2) {
+    return {
+      phase: 'post_peak',
+      reason: `BTC ${largeGreenClosed}× large green 15m done, volume/body fading — R shorts allowed`,
+    };
+  }
+  if (h1ClosedPush && largeGreenClosed >= 1) {
+    return {
+      phase: 'post_peak',
+      reason: `BTC last 1h +${bodyPct(h1Closed).toFixed(2)}% done, live hour not pushing — R shorts allowed`,
+    };
+  }
+  return { phase: 'quiet', reason: 'BTC tape quiet' };
 }
 
 function isPumping(m: MacroMomentum, label: string, require15mConfirmForClosed1h = false): string[] {
@@ -250,34 +355,13 @@ export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
   return btcLeadInFlight;
 }
 
-function isLivePumpHappening(m: MacroMomentum): boolean {
-  const cfg = config.hyperliquid.macroBeta;
-  const h1 = Math.max(m.live1hBarPct, m.closed1hBarPct);
-  const m15 = Math.max(m.change15mPct, m.closed15mBarPct);
-  const m5 = m.live5mBarPct;
-  return (
-    h1 >= cfg.majorLivePump1hPct ||
-    m15 >= cfg.majorLivePump15mPct ||
-    m5 >= Math.max(0.12, cfg.majorLivePump15mPct * 0.8) ||
-    (m.consecutiveGreen15m >= 2 && m15 >= Math.max(0.08, cfg.flatTrendPct * 0.8))
-  );
+export function getBtcTapePhase(): { phase: BtcTapePhase; reason: string } {
+  return { phase: lastBtcPhase, reason: lastBtcPhaseReason };
 }
 
-function btcTapeUnknown(m: MacroMomentum | null): boolean {
-  if (!m) return true;
-  return (
-    m.live1hBarPct === 0 &&
-    m.closed1hBarPct === 0 &&
-    m.change15mPct === 0 &&
-    m.change1hPct === 0 &&
-    m.live5mBarPct === 0
-  );
-}
-
-/** BTC pump live (forming OR last closed hour). Unknown tape → treat as pump (no shorts). */
+/** True only while BTC is still pushing (big candle + volume). After the 2–3 candle peak, false. */
 export function btcLeadIsPumping(): boolean {
-  if (btcTapeUnknown(btcLeadMom)) return true;
-  return isLivePumpHappening(btcLeadMom!) || isPumping(btcLeadMom!, 'BTC', false).length > 0;
+  return lastBtcPhase === 'inflow';
 }
 
 export async function evaluateMacroBetaAlignment(opts: {
@@ -313,13 +397,8 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
-    if (
-      scope === 'open' &&
-      (isLivePumpHappening(btc) || isPumping(btc, 'BTC', false).length > 0)
-    ) {
-      blockers.push(
-        `No SHORT ${coin} — BTC pump is live (1h ${Math.max(btc.live1hBarPct, btc.closed1hBarPct) >= 0 ? '+' : ''}${Math.max(btc.live1hBarPct, btc.closed1hBarPct).toFixed(2)}%)`
-      );
+    if (scope === 'open' && btcLeadIsPumping()) {
+      blockers.push(`No SHORT ${coin} — ${lastBtcPhaseReason}`);
     }
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));
@@ -348,7 +427,7 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   const reason =
     opts.direction === 'SHORT'
-      ? `BTC lead OK SHORT ${coin} — BTC not pumping ‖ ${macroSummary.join(' ‖ ')}`
+      ? `BTC tape OK SHORT ${coin} — ${lastBtcPhase} · ${lastBtcPhaseReason} ‖ ${macroSummary.join(' ‖ ')}`
       : `Per-coin momentum OK LONG ${coin} — ${coin} chart not dumping ‖ ${macroSummary.join(' ‖ ')}`;
 
   return { ok: true, reason, snapshot, blockers: [] };

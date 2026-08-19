@@ -46,7 +46,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, getBtcTapePhase, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1252,8 +1252,8 @@ export class HyperliquidTradingService {
       if (!force && opts.direction === 'SHORT' && btcLeadIsPumping()) {
         return rejectOpen(
           'macro_beta',
-          'No SHORT — BTC pump is live',
-          'no SHORT into BTC pump'
+          `No SHORT — ${getBtcTapePhase().reason}`,
+          'no SHORT into BTC inflow'
         );
       }
 
@@ -1285,9 +1285,13 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = SHORT liquidity grab. Never open LONG at apex; allow SHORT even
-      // when the active regime is LONG-primary (bull_market).
-      if (opts.direction === 'LONG' && peakAnalysis?.phase === 'at_apex') {
+      // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
+      // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
+      if (
+        opts.direction === 'LONG' &&
+        peakAnalysis?.phase === 'at_apex' &&
+        !btcLeadIsPumping()
+      ) {
         return rejectOpen(
           'pump_sweep',
           `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
@@ -1672,7 +1676,7 @@ export class HyperliquidTradingService {
           );
         }
         if (flipped === 'SHORT' && btcLeadIsPumping()) {
-          logger.info('HL zone flip LONG→SHORT skipped — BTC pumping, stay LONG', {
+          logger.info('HL zone flip LONG→SHORT skipped — BTC inflow, not post-peak fade', {
             user: opts.userAddress.slice(0, 10),
             coin,
             reason: locationGate.reason,
@@ -1788,7 +1792,7 @@ export class HyperliquidTradingService {
           direction: opts.direction,
         });
       }
-      if (htfSrGate?.wouldBlock) {
+      if (htfSrGate?.wouldBlock && !(opts.direction === 'LONG' && btcLeadIsPumping())) {
         const hardBlockLong =
           opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr;
         logger.info(

@@ -10,6 +10,7 @@ import {
   type PumpSweepAnalysis,
   type PumpSweepPhase,
 } from './pumpSweepAnalytics';
+import { btcLeadIsPumping } from './macroBetaGate';
 
 export function isPeakShortGrabPhase(phase: PumpSweepPhase | string | null | undefined): boolean {
   return phase === 'at_apex';
@@ -37,7 +38,8 @@ export async function resolvePeakAwareDirection(
   signalDirection: 'LONG' | 'SHORT'
 ): Promise<PeakDirectionResolution> {
   const analysis = await fetchPumpSweepAnalysis(coin);
-  if (analysis && isPeakShortGrabPhase(analysis.phase)) {
+  // BTC still inflowing → keep LONG. Apex fade / R-short waits for post_peak.
+  if (analysis && isPeakShortGrabPhase(analysis.phase) && !btcLeadIsPumping()) {
     return {
       direction: 'SHORT',
       peakLiquidityGrab: true,

@@ -3,6 +3,7 @@
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
+import { btcLeadIsPumping } from './macroBetaGate';
 import {
   fetchPumpSweepAnalysis,
   fetchMegaPairPumpSweep,
@@ -31,6 +32,13 @@ function gateForDirection(
   const coin = a.coin;
 
   if (direction === 'LONG') {
+    // BTC still pushing: LONG-only. Don't sit out the spike waiting for a fade.
+    if (btcLeadIsPumping() && (a.phase === 'at_apex' || a.phase === 'post_pump_fade')) {
+      return {
+        ok: true,
+        reason: `Pump sweep waived — BTC inflow LONG-only (${coin} ${a.phase.replace(/_/g, ' ')})`,
+      };
+    }
     if (a.phase === 'at_apex') {
       return {
         ok: false,
@@ -126,7 +134,12 @@ export async function validatePumpSweepGate(opts: {
     if (!MAJOR_COINS.has(coin) && config.hyperliquid.pumpSweep.blockAltsOnMegaFade) {
       const mega = await fetchMegaPairPumpSweep();
       macro = mega.BTC ?? mega.ETH ?? null;
-      if (opts.direction === 'LONG' && macro && (macro.phase === 'at_apex' || macro.phase === 'post_pump_fade')) {
+      if (
+        opts.direction === 'LONG' &&
+        !btcLeadIsPumping() &&
+        macro &&
+        (macro.phase === 'at_apex' || macro.phase === 'post_pump_fade')
+      ) {
         return {
           ok: false,
           reason:

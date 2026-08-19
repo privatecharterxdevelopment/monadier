@@ -7,6 +7,7 @@ import { signalEngine } from './signalEngine';
 import { detectLiquiditySweep } from './liquiditySweepGate';
 import type { HlLiquidUniverse } from './hlLiquidity';
 import { getHlLiquidityForCoin } from './hlLiquidity';
+import { btcLeadIsPumping } from './macroBetaGate';
 
 export type MegaPairRow = {
   coin: 'BTC' | 'ETH';
@@ -164,7 +165,7 @@ export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'):
 
   const inflow = snap.pairs.filter((p) => p.flow === 'INFLOW');
   const outflow = snap.pairs.filter((p) => p.flow === 'OUTFLOW');
-  if (direction === 'SHORT' && inflow.length >= 2) {
+  if (direction === 'SHORT' && inflow.length >= 2 && btcLeadIsPumping()) {
     return {
       ok: false,
       reason: `Mega pair INFLOW blocks SHORT — ${snap.summary}`,
