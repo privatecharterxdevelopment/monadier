@@ -10,7 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { btcLeadIsPumping, refreshBtcLeadMomentum } from './macroBetaGate';
+import { btcLeadIsPumping, isPumpFollowMajor, refreshBtcLeadMomentum } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -73,6 +73,9 @@ function pickPreferredCandidate(
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
   const btcPump = btcLeadIsPumping();
+  if (btcPump && shortC && isPumpFollowMajor(shortC.coin)) {
+    shortC = null;
+  }
 
   if (longC && shortC) {
     // BTC spike = bullish. Don't steal the slot with a 1h-dip SHORT (SOL-in-pump).
@@ -278,6 +281,9 @@ async function scanStandardCoinDirection(
   if (wantedDirection === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
     return null;
   }
+  if (wantedDirection === 'SHORT' && isPumpFollowMajor(coin) && btcLeadIsPumping()) {
+    return null;
+  }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
@@ -438,6 +444,9 @@ async function scanAggressiveCoin(
       if (!isLongAllowedCoin(coin)) return null;
     }
     if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+      return null;
+    }
+    if (direction === 'SHORT' && isPumpFollowMajor(coin) && btcLeadIsPumping()) {
       return null;
     }
 

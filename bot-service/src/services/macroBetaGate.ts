@@ -1,9 +1,9 @@
 /**
- * BTC lead + per-coin momentum.
+ * BTC lead + major pump tape.
  *
- * Hard BTC spike → bullish bias (majors follow). Not a SHORT ban:
- * fade a coin only if that coin is actually dumping. Forming 15m/1h bars
- * count so a live BTC spike is visible. Thesis on open books stays per-coin.
+ * SOL / ETH / all listed majors: no SHORT while a pump is happening
+ * (live BTC 1h or the coin's own live 15m/1h). Alts can still short dumps.
+ * Thesis on already-open books stays per-coin (hands-off).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -228,10 +228,23 @@ export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
   return btcLeadInFlight;
 }
 
-/** BTC 1h/15m is pumping — treat tape as bullish; majors tend to follow. */
+function isLivePumpHappening(m: MacroMomentum): boolean {
+  const cfg = config.hyperliquid.macroBeta;
+  return (
+    m.live1hBarPct >= cfg.majorLivePump1hPct ||
+    m.change15mPct >= cfg.majorLivePump15mPct ||
+    (m.consecutiveGreen15m >= 2 && m.change15mPct >= Math.max(0.08, cfg.flatTrendPct * 0.8))
+  );
+}
+
+export function isPumpFollowMajor(coin: string): boolean {
+  return config.hyperliquid.noShortPumpMajors.has(coin.toUpperCase());
+}
+
+/** BTC 1h/15m pump is live — majors follow, do not fade them. */
 export function btcLeadIsPumping(): boolean {
   if (!btcLeadMom) return false;
-  return isPumping(btcLeadMom, 'BTC', false).length > 0;
+  return isLivePumpHappening(btcLeadMom) || isPumping(btcLeadMom, 'BTC', false).length > 0;
 }
 
 export async function evaluateMacroBetaAlignment(opts: {
@@ -267,13 +280,26 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
-    // BTC spike = bullish. Don't fade SOL/ETH/alts that aren't dumping.
-    // Independent dump (coin red while BTC green) can still SHORT.
-    if (scope === 'open' && isPumping(btc, 'BTC', false).length > 0) {
+    if (scope === 'open' && isPumpFollowMajor(coin)) {
+      const liveHits: string[] = [];
+      if (isLivePumpHappening(btc) || isPumping(btc, 'BTC', false).length > 0) {
+        liveHits.push(
+          `BTC live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%`
+        );
+      }
+      if (isLivePumpHappening(snapshot.coinMom) || isPumping(snapshot.coinMom, coin, true).length > 0) {
+        liveHits.push(
+          `${coin} live 1h ${snapshot.coinMom.live1hBarPct >= 0 ? '+' : ''}${snapshot.coinMom.live1hBarPct.toFixed(2)}%`
+        );
+      }
+      if (liveHits.length > 0) {
+        blockers.push(`No SHORT ${coin} while pump is live — ${liveHits.join('; ')}`);
+      }
+    } else if (scope === 'open' && isPumping(btc, 'BTC', false).length > 0) {
       const coinDumping = isDumping(snapshot.coinMom, coin, true).length > 0;
       if (!coinDumping) {
         blockers.push(
-          `BTC pumping (live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%) — ${coin} not dumping, majors follow`
+          `BTC pumping (live 1h ${btc.live1hBarPct >= 0 ? '+' : ''}${btc.live1hBarPct.toFixed(2)}%) — ${coin} not dumping`
         );
       }
     }

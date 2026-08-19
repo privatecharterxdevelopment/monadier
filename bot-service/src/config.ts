@@ -378,7 +378,18 @@ export const config = {
       swingClusterPct: Number(process.env.HL_HTF_SR_CLUSTER || 0.005),
       touchTolerancePct: Number(process.env.HL_HTF_SR_TOUCH_TOL || 0.003),
     },
-    /** BTC lead: hard spike → bullish bias (majors follow). Not a SHORT ban. */
+    /**
+     * Majors: never SHORT while a pump is live (BTC lead or the coin's own tape).
+     * SOL/ETH/BTC plus liquid followers. Override: HL_NO_SHORT_PUMP_MAJORS.
+     */
+    noShortPumpMajors: new Set(
+      (process.env.HL_NO_SHORT_PUMP_MAJORS ||
+        'BTC,ETH,SOL,BNB,XRP,DOGE,AVAX,LINK,SUI,HYPE,ADA,UNI,NEAR,APT,LTC,BCH,DOT,TON,TRX,POL,ARB,OP')
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+    ),
+    /** BTC lead: hard spike → bullish bias (majors follow). */
     macroBeta: {
       /** 15m % move that counts as "pumping" (blocks alt SHORT). */
       pumpBlock15mPct: Number(process.env.HL_MACRO_PUMP_15M || 0.35),
@@ -388,8 +399,9 @@ export const config = {
       flatTrendPct: Number(process.env.HL_MACRO_FLAT_PCT || 0.1),
       minConsecutiveGreen15m: Number(process.env.HL_MACRO_MIN_GREEN_15M || 3),
       minConsecutiveRed15m: Number(process.env.HL_MACRO_MIN_RED_15M || 3),
-      /** Non-anchor major must exceed this 15m % before it can block an alt. */
-      strongCrossAnchor15mPct: Number(process.env.HL_MACRO_STRONG_CROSS_15M || 0.5),
+      /** Live 1h bar that counts as "pump happening now" for majors (forming candle). */
+      majorLivePump1hPct: Number(process.env.HL_MAJOR_LIVE_PUMP_1H || 0.22),
+      majorLivePump15mPct: Number(process.env.HL_MAJOR_LIVE_PUMP_15M || 0.15),
     },
     /** Pre-open — price must confirm bounce/rejection at good level (not chase extended moves). */
     entryMomentum: {
