@@ -37,7 +37,7 @@ import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
 } from './hlBotStrategy';
-import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
+import { resolveHlOrderBuilderIfCharged, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
@@ -1319,7 +1319,7 @@ export class HyperliquidTradingService {
         });
         const isLong = tradeDirection === 'LONG';
         const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
-        const builder = resolveHlOrderBuilder({
+        const builder = await resolveHlOrderBuilderIfCharged(opts.userAddress, {
           notionalUsd: opts.notionalUsd,
           isClose: false,
         });
@@ -2104,7 +2104,7 @@ export class HyperliquidTradingService {
       const isLong = tradeDirection === 'LONG';
       const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
 
-      const builder = resolveHlOrderBuilder({
+      const builder = await resolveHlOrderBuilderIfCharged(opts.userAddress, {
         notionalUsd: opts.notionalUsd,
         isClose: false,
       });
@@ -3455,10 +3455,10 @@ export class HyperliquidTradingService {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
           feeSkipReason = 'platform_wallet_underfunded';
-        } else if (!builderGate.approved) {
-          feeSkipReason = 'user_builder_not_approved';
+        } else if (!builderGate.feeCollectionActive) {
+          feeSkipReason = builderGate.required ? 'user_builder_not_approved' : 'fee_exempt';
         } else {
-          closeBuilder = resolveHlOrderBuilder({
+          closeBuilder = await resolveHlOrderBuilderIfCharged(userAddress, {
             notionalUsd,
             profitUsd: pnlUsd,
             isClose: true,
@@ -3815,7 +3815,7 @@ export class HyperliquidTradingService {
           : (opts.price ?? markPx);
       const notionalUsd = opts.size * markPx;
       const builderGate = await checkHlBuilderFeeApproved(opts.userAddress);
-      const builder = resolveHlOrderBuilder({
+      const builder = await resolveHlOrderBuilderIfCharged(opts.userAddress, {
         notionalUsd,
         isClose: false,
         approvedMaxTenthsBps: builderGate.approvedMax,

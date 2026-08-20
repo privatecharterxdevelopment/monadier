@@ -7,10 +7,14 @@ const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 /** Keep in sync with src/lib/admin.ts — Lorenzo only. */
 const BUILTIN_FEE_EXEMPT_WALLETS = new Set([
   '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
+  '0x492402bd607a72cbf0a90280aae9b7905372829c',
 ]);
 
 /** Keep in sync with src/lib/admin.ts FEE_EXEMPT_EMAILS — Lorenzo only. */
-const BUILTIN_FEE_EXEMPT_EMAILS = new Set(['lorenzo.vanza@hotmail.com']);
+const BUILTIN_FEE_EXEMPT_EMAILS = new Set([
+  'lorenzo.vanza@hotmail.com',
+  'ipsunlorem@gmail.com',
+]);
 
 const waiverCache = new Map<string, boolean>();
 let cacheLoadedAt = 0;

@@ -35,7 +35,6 @@ export function successFeeToCloseBuilderTenthsBps(
   return Math.min(Math.max(1, raw), maxTenthsBps);
 }
 
-/** Attach Monadier builder on opens (optional flat) and profitable closes (10% success fee). */
 export function resolveHlOrderBuilder(opts: {
   notionalUsd: number;
   profitUsd?: number;
@@ -66,6 +65,21 @@ export function resolveHlOrderBuilder(opts: {
   const openFee = config.hyperliquid.openBuilderFeePerp;
   if (openFee <= 0) return undefined;
   return { b: addr, f: Math.min(openFee, approvedCap) };
+}
+
+/** Never attach builder on Lorenzo / fee-exempt wallets. */
+export async function resolveHlOrderBuilderIfCharged(
+  wallet: string,
+  opts: {
+    notionalUsd: number;
+    profitUsd?: number;
+    isClose: boolean;
+    approvedMaxTenthsBps?: number;
+  }
+): Promise<{ b: `0x${string}`; f: number } | undefined> {
+  const { isFeeExemptWallet } = await import('./feeExempt');
+  if (await isFeeExemptWallet(wallet)) return undefined;
+  return resolveHlOrderBuilder(opts);
 }
 
 export function estimateCollectedSuccessFee(

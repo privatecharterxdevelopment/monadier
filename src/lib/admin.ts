@@ -28,11 +28,13 @@ export function isAdminEmail(email: string | undefined | null): boolean {
 /** Wallets with unlimited bot access — no platform fees (Lorenzo only). */
 export const FEE_EXEMPT_WALLETS = [
   '0xf7351a5c63e0403f6f7fc77d31b5e17a229c469c',
+  '0x492402bd607a72cbf0a90280aae9b7905372829c',
 ] as const;
 
 /** Emails that never pay platform fees — Lorenzo only. Everyone else pays. */
 export const FEE_EXEMPT_EMAILS = [
   'lorenzo.vanza@hotmail.com',
+  'ipsunlorem@gmail.com',
 ] as const;
 
 export function isFeeExemptWallet(wallet: string | undefined | null): boolean {
@@ -47,7 +49,7 @@ export function isFeeExemptEmail(email: string | undefined | null): boolean {
   return FEE_EXEMPT_EMAILS.some((a) => a === e);
 }
 
-/** Lorenzo only — all other users pay platform fees (admins included except Lorenzo). */
+/** Lorenzo only — both admin emails. Nobody else is fee-exempt. */
 export function isFeeExemptUser(
   email: string | undefined | null,
   wallet?: string | undefined | null

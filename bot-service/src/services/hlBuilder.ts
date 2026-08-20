@@ -2,6 +2,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { fetchHlClearinghouseState, hlAccountValueUsd } from './hlInfo';
 import { parseMaxBuilderTenthsBps } from './hlBuilderFee';
+import { isFeeExemptWallet } from './feeExempt';
 
 /** Hyperliquid requires the builder wallet to hold this much perps account value. */
 export const HL_BUILDER_MIN_PLATFORM_USD = 100;
@@ -91,6 +92,20 @@ export async function checkHlBuilderFeeApproved(userAddress: string): Promise<{
       approvedMax: 0,
       requiredFee: 0,
       builderAddress: null,
+      platformReady: true,
+      platformAccountUsd: 0,
+      platformMinUsd: HL_BUILDER_MIN_PLATFORM_USD,
+      feeCollectionActive: false,
+    };
+  }
+
+  if (await isFeeExemptWallet(userAddress)) {
+    return {
+      required: false,
+      approved: true,
+      approvedMax: 0,
+      requiredFee: 0,
+      builderAddress,
       platformReady: true,
       platformAccountUsd: 0,
       platformMinUsd: HL_BUILDER_MIN_PLATFORM_USD,
