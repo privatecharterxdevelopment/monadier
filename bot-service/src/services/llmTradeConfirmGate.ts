@@ -6,13 +6,12 @@
  *   SHORT → vision ONLY 1m + 5m
  *
  * Verdicts: allow | block | flip.
- * Hard rule (when model responds): at_apex + LONG → flip to SHORT.
+ * No apex/resistance SHORT flips — dump shorts come from the SHORT stack.
  * Timeout/network errors always fail-open (no auto flip).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import type { PumpSweepAnalysis } from './pumpSweepAnalytics';
-import { isPeakShortGrabPhase } from './peakShortLiquidity';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
@@ -151,25 +150,10 @@ export function buildGeminiRequestPayload(input: LlmTradeConfirmInput): {
 }
 
 function applyHardApexRules(
-  input: LlmTradeConfirmInput,
+  _input: LlmTradeConfirmInput,
   parsed: ParsedLlmJson
 ): { result: ParsedLlmJson; hardRuleApplied: boolean } {
-  const atApex = isPeakShortGrabPhase(input.pumpPhase);
-  if (atApex && (input.direction === 'LONG' || parsed.direction === 'LONG')) {
-    return {
-      hardRuleApplied: true,
-      result: {
-        verdict: 'flip',
-        direction: 'SHORT',
-        confidence: Math.max(parsed.confidence, 80),
-        reason:
-          parsed.verdict === 'flip' && parsed.direction === 'SHORT'
-            ? parsed.reason
-            : `HARD RULE: ${input.coin} at pump apex — LONG forbidden, flip to SHORT liquidity grab` +
-              (parsed.reason ? ` (model: ${parsed.reason})` : ''),
-      },
-    };
-  }
+  // No resistance / apex SHORT flips — dump shorts come from the SHORT stack.
   return { result: parsed, hardRuleApplied: false };
 }
 
@@ -371,38 +355,6 @@ export async function confirmTradeWithLlm(
   }
 
   if (!cfg.apiKey) {
-    const atApex = isPeakShortGrabPhase(enriched.pumpPhase);
-    if (atApex && enriched.direction === 'LONG') {
-      const result: LlmTradeConfirmResult = {
-        ok: cfg.mode !== 'enforce',
-        verdict: 'flip',
-        direction: 'SHORT',
-        enforce: cfg.mode === 'enforce',
-        shadow: cfg.mode === 'shadow',
-        confidence: 90,
-        reason: `Gemini key missing — HARD RULE at apex: flip LONG→SHORT for ${enriched.coin}`,
-        latencyMs: 0,
-        provider: cfg.provider,
-        model: cfg.model,
-        hardRuleApplied: true,
-        timedOut: false,
-        visionTimeframes: visionTfs,
-      };
-      remember({
-        at: new Date().toISOString(),
-        coin: enriched.coin,
-        proposedDirection: enriched.direction,
-        verdict: result.verdict,
-        direction: result.direction,
-        reason: result.reason,
-        latencyMs: 0,
-        shadow: result.shadow,
-        hardRuleApplied: true,
-        timedOut: false,
-        visionTimeframes: visionTfs,
-      });
-      return result;
-    }
     return {
       ok: true,
       verdict: 'allow',
@@ -410,7 +362,7 @@ export async function confirmTradeWithLlm(
       enforce: false,
       shadow: cfg.mode === 'shadow',
       confidence: 0,
-      reason: 'LLM gate enabled but GEMINI_API_KEY missing — fail-open',
+      reason: 'LLM/vision key missing — fail-open (no apex SHORT flip)',
       latencyMs: 0,
       provider: cfg.provider,
       model: cfg.model,

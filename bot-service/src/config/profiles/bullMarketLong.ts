@@ -34,8 +34,8 @@ export const BULL_MARKET: HlDirectionProfile = {
   /** LLM disagreement waits starved opens — trail manages risk after entry. */
   enableLlmConfirm: false,
   allowLongOpens: true,
-  /** Ops 20 Aug 2026: LONG-only until shorts are explicitly re-enabled. */
-  allowShortOpens: false,
+  /** Keep true so dump SHORTs exist — bars below make them rare vs LONGs. */
+  allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
     minConfidence: 52,

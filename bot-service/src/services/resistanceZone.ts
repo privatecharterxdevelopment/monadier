@@ -409,20 +409,19 @@ export function evaluateZoneReversalGate(
   const insideSupport = support != null && priceInsideZone(price, support);
 
   if (insideResistance && resistance) {
-    // User rule: arriving at the resistance band = SHORT, never LONG.
-    // Breakout-LONG while still inside the zone is longing the peak (HYPE 59.83).
+    // No resistance shorts — tagging R is not a fade. LONG through R is
+    // decided by the classic gate (green tape / breakout), not a SHORT flip.
     if (direction === 'SHORT') {
       return {
-        ok: true,
-        reason: `At resistance zone → SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
+        ok: false,
+        reason: `SHORT blocked — no resistance shorts ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}); need breakdown`,
         insideResistance,
         insideSupport,
       };
     }
     return {
       ok: true,
-      flipTo: 'SHORT',
-      reason: `At resistance zone → flip LONG→SHORT ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)})`,
+      reason: `At resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)} — no SHORT flip`,
       insideResistance,
       insideSupport,
     };

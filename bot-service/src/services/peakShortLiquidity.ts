@@ -1,16 +1,15 @@
 /**
- * Peak → SHORT liquidity grab.
+ * Peak → SHORT liquidity grab — OFF for resistance/apex fades.
  *
- * When price is sitting on the pump apex, chasing LONG is wrong — that is the
- * short-liquidity grab zone. This helper forces SHORT (and flips LONG→SHORT)
- * so the regime profile cannot keep the bot long-only into the top.
+ * User rule: no resistance shorts. Apex tagging is the same R-fade that
+ * flipped LONGs into user shorts. Keep the MTF signal; dump SHORTs still
+ * come from a real SHORT stack + breakdown, not from fading the high.
  */
 import {
   fetchPumpSweepAnalysis,
   type PumpSweepAnalysis,
   type PumpSweepPhase,
 } from './pumpSweepAnalytics';
-import { btcLeadIsPumping, btcTapeIsGreen } from './macroBetaGate';
 
 export function isPeakShortGrabPhase(phase: PumpSweepPhase | string | null | undefined): boolean {
   return phase === 'at_apex';
@@ -30,27 +29,13 @@ export type PeakDirectionResolution = {
 
 /**
  * Resolve trade direction against the pump apex.
- * - at_apex → always SHORT (flip LONG→SHORT)
- * - otherwise → keep the signal direction
+ * Apex / R-fade no longer flips LONG→SHORT.
  */
 export async function resolvePeakAwareDirection(
   coin: string,
   signalDirection: 'LONG' | 'SHORT'
 ): Promise<PeakDirectionResolution> {
   const analysis = await fetchPumpSweepAnalysis(coin);
-  // BTC still inflowing → keep LONG. Apex fade / R-short waits for post_peak.
-  if (
-    analysis &&
-    isPeakShortGrabPhase(analysis.phase) &&
-    !btcLeadIsPumping() &&
-    !btcTapeIsGreen()
-  ) {
-    return {
-      direction: 'SHORT',
-      peakLiquidityGrab: true,
-      analysis,
-    };
-  }
   return {
     direction: signalDirection,
     peakLiquidityGrab: false,

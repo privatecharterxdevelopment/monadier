@@ -1684,9 +1684,13 @@ export class HyperliquidTradingService {
           h1ForFlip === 'STRONG_UPTREND';
         if (
           flipped === 'SHORT' &&
-          (btcLeadIsPumping() || btcTapeIsGreen() || h1StillUp)
+          (btcLeadIsPumping() ||
+            btcTapeIsGreen() ||
+            h1StillUp ||
+            /resistance|R-fade/i.test(locationGate.reason) ||
+            locationGate.analysis.nearResistance)
         ) {
-          logger.info('HL zone flip LONG→SHORT skipped — tape/h1 still green', {
+          logger.info('HL zone flip LONG→SHORT skipped — no resistance shorts / green tape', {
             user: opts.userAddress.slice(0, 10),
             coin,
             reason: locationGate.reason,

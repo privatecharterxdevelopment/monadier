@@ -69,23 +69,13 @@ function timeoutFailOpen(input: Input) {
   };
 }
 
-/** Mirrors no-key apex hard rule (separate from timeout). */
+/** Mirrors no-key path — fail-open, no apex SHORT flip. */
 function noKeyApexHardRule(input: Input) {
-  if (input.pumpPhase === 'at_apex' && input.direction === 'LONG') {
-    return {
-      verdict: 'flip' as const,
-      direction: 'SHORT' as const,
-      confidence: 90,
-      reason: `LLM key missing — HARD RULE at apex: flip LONG→SHORT for ${input.coin}`,
-      hardRuleApplied: true,
-      timedOut: false,
-    };
-  }
   return {
     verdict: 'allow' as const,
     direction: input.direction,
     confidence: 0,
-    reason: 'LLM gate enabled but DEEPSEEK_API_KEY missing — fail-open',
+    reason: 'LLM/vision key missing — fail-open (no apex SHORT flip)',
     hardRuleApplied: false,
     timedOut: false,
   };

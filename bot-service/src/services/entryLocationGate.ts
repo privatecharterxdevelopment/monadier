@@ -7,8 +7,8 @@
  * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
  * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At resistance → SHORT only when BTC is not green. If the tape is green,
- * stay LONG through R — never fade a green market.
+ * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
+ * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -285,8 +285,8 @@ export function evaluateEntryLocation(
         reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
       };
     }
-    // At the resistance line → NEVER LONG (that's a SHORT). Breakout LONG only
-    // after price has left the R band, not while hugging / tagging it.
+    // At the resistance line: no LONG unless green tape / confirmed breakout.
+    // Do NOT flip to SHORT — resistance shorts are off.
     if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
@@ -351,23 +351,16 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Resistance-zone / upper-range fade only when BTC is NOT green.
+  // No resistance shorts — R-fade / tagging the high is not a SHORT.
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
-    if (btcTapeIsGreen()) {
-      return {
-        ok: false,
-        analysis,
-        reason: `SHORT blocked — BTC tape still green, no R-fade`,
-      };
-    }
     const zone =
       analysis.resistanceZone != null
         ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
         : fmtLevel(analysis.resistance);
     return {
-      ok: true,
+      ok: false,
       analysis,
-      reason: `Resistance-zone short — in/near R ${zone}`,
+      reason: `SHORT blocked — no resistance shorts (R ${zone}); need confirmed breakdown`,
     };
   }
 
@@ -497,27 +490,6 @@ export async function validateEntryLocation(opts: {
       reason: `Floor reverse — support bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
       analysis: sr,
       flipTo: 'LONG',
-    };
-  }
-
-  // At resistance → SHORT only after the green tape is gone.
-  if (
-    config.hyperliquid.zoneFlipEnabled &&
-    config.hyperliquid.directionProfile.allowShortOpens &&
-    opts.direction === 'LONG' &&
-    !btcTapeIsGreen() &&
-    !classic.ok &&
-    (sr.nearResistance || sr.pricePosition >= config.hyperliquid.entryLocation.rangeTopBlock)
-  ) {
-    const zone =
-      sr.resistanceZone != null
-        ? `$${sr.resistanceZone.zoneLow.toFixed(4)}–$${sr.resistanceZone.zoneHigh.toFixed(4)}`
-        : `$${sr.resistance.toFixed(4)}`;
-    return {
-      ok: true,
-      reason: `At resistance ${zone} → flip LONG→SHORT`,
-      analysis: sr,
-      flipTo: 'SHORT',
     };
   }
 

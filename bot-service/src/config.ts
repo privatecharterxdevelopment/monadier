@@ -633,8 +633,8 @@ export const config = {
       nearZonePct: Number(process.env.HL_INVALIDATION_NEAR_ZONE || 0.012),
     },
     /**
-     * Zone counter-flip on open (SHORT↔LONG).
-     * Default ON — Support bounce → LONG, Resistance rejection → SHORT.
+     * Zone counter-flip on open.
+     * Default ON — Support bounce → LONG. Resistance is NOT flipped to SHORT.
      * Set HL_ZONE_FLIP_ENABLED=false to only wait/block inside zones (no counter-open).
      */
     zoneFlipEnabled: process.env.HL_ZONE_FLIP_ENABLED !== 'false',
