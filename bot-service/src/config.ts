@@ -272,7 +272,7 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 30_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 90_000),
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
@@ -304,9 +304,9 @@ export const config = {
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */
     profitTrailFloorBreachMs: Number(process.env.HL_PROFIT_TRAIL_BREACH_MS || 2_500),
     /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */
-    trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 120_000),
+    trailSweepDeferMs: Number(process.env.HL_TRAIL_SWEEP_DEFER_MS || 20_000),
     /** Max defer attempts per floor level before forced profit_lock close. */
-    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 0),
+    trailSweepDeferMax: Number(process.env.HL_TRAIL_SWEEP_DEFER_MAX || 2),
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
     /** Fraction of peak uPnL retrace before peak-grab close (0.70 = need 70% giveback). */

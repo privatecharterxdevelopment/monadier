@@ -381,7 +381,7 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
 function trailTooYoungToClose(
   rec: DynamicTrailRecord,
   nowMs: number,
-  trailMult: number
+  _trailMult: number
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   let minMs = cfg.trailMinActiveBeforeCloseMs;
@@ -389,17 +389,16 @@ function trailTooYoungToClose(
     minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
   }
   if (!rec.trailArmedAt || minMs <= 0) return false;
-  if (nowMs - rec.trailArmedAt < minMs) {
-    return trailMult >= 0.95;
-  }
-  return false;
+  // Always wait after arm — trailMult used to skip this on a tight trail, so
+  // the floor closed before the stop could ratchet with the peak.
+  return nowMs - rec.trailArmedAt < minMs;
 }
 
 /** LONGs: once green, breathe for longMinGreenHoldMs before any profit exit. */
 function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
   if (rec.direction !== 'LONG' || pnlUsd <= 0) return false;
   const minMs = Math.min(
-    30_000,
+    180_000,
     Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
   );
   return minMs > 0 && rec.timeInProfitMs < minMs;
@@ -506,19 +505,7 @@ async function evaluateDynamicTrailInner(
         timeInProfitMs: rec.timeInProfitMs,
         holdMs: input.totalHoldMs,
       });
-      if (
-        profitClearsFeeGate(input.pnlUsd, feesUsd, rec.highestPnlSinceEntry) &&
-        isTrailStopCrossed(input.direction, input.markPrice, initialStop) &&
-        !longGreenTooYoungToClose(rec, input.pnlUsd)
-      ) {
-        const detail = `PEAK PROFIT FLOOR · ${input.direction} ${input.coin} · already through floor at arm · ${formatAnalytics(rec, input.markPrice)}`;
-        return {
-          record: rec,
-          shouldClose: true,
-          exitReason: 'profit_lock',
-          closeDetail: detail,
-        };
-      }
+      // Never close on the arm tick — let the stop ratchet with the peak first.
       return {
         record: rec,
         shouldClose: false,
@@ -639,7 +626,7 @@ async function evaluateDynamicTrailInner(
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd) &&
-        (rec.phase === 'armed' || !trailTooYoungToClose(rec, input.nowMs, 1)) &&
+        !trailTooYoungToClose(rec, input.nowMs, 1) &&
         !(
           rec.phase === 'trailing' &&
           longPeakTooSmallToTrailClose(
