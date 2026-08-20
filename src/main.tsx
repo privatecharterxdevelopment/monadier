@@ -32,6 +32,7 @@ if (!rootEl) {
 }
 
 applyLandingThemeToDocument(readStoredLandingTheme());
+document.documentElement.dataset.hgBuild = '20260820-asset-bust';
 
 const envIssue = getEnvSetupIssue();
 
