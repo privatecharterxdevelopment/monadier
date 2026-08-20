@@ -47,7 +47,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcTapeIsGreen, getBtcTapePhase, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1251,12 +1251,15 @@ export class HyperliquidTradingService {
       }
 
       await refreshBtcLeadMomentum();
-      if (!force && opts.direction === 'SHORT' && btcLeadIsPumping()) {
-        return rejectOpen(
-          'macro_beta',
-          `No SHORT — ${getBtcTapePhase().reason}`,
-          'no SHORT into BTC inflow'
-        );
+      if (!force && opts.direction === 'SHORT') {
+        const btcShort = btcLeadAllowsCautiousShort();
+        if (!btcShort.ok) {
+          return rejectOpen(
+            'macro_beta',
+            `No SHORT — ${btcShort.reason}`,
+            'no SHORT unless BTC is dumping'
+          );
+        }
       }
 
       // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.

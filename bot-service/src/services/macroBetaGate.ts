@@ -1,9 +1,9 @@
 /**
  * BTC tape phases (profitable sequence, not guesswork):
  *   inflow    — big green + volume: LONG only, no shorts
- *   post_peak — 2–3 large candles already in, push fading: shorts OK (R-fade)
- *   quiet     — normal profile
- * Open books are never closed from here.
+ *   post_peak — push fading: still NOT a short license (no R-fade)
+ *   quiet     — normal; SHORT only if BTC itself is dumping
+ * Cautious SHORT = BTC dump confirmed. Open books are never closed from here.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -264,17 +264,18 @@ function classifyBtcTape(c15m: Candle[], c1h: Candle[], c5m: Candle[]): { phase:
     };
   }
 
-  // Massive 2–3 candle push is in, live tape no longer expanding → R shorts.
+  // Massive 2–3 candle push is in, live tape no longer expanding.
+  // Not a SHORT license — R-fade is off. Wait for BTC to actually dump.
   if (largeGreenClosed >= 2) {
     return {
       phase: 'post_peak',
-      reason: `BTC ${largeGreenClosed}× large green 15m done, volume/body fading — R shorts allowed`,
+      reason: `BTC ${largeGreenClosed}× large green 15m done, volume/body fading — wait for dump, no R-fade`,
     };
   }
   if (h1ClosedPush && largeGreenClosed >= 1) {
     return {
       phase: 'post_peak',
-      reason: `BTC last 1h +${bodyPct(h1Closed).toFixed(2)}% done, live hour not pushing — R shorts allowed`,
+      reason: `BTC last 1h +${bodyPct(h1Closed).toFixed(2)}% done, live hour not pushing — wait for dump, no R-fade`,
     };
   }
   return { phase: 'quiet', reason: 'BTC tape quiet' };
@@ -378,6 +379,57 @@ export function btcTapeIsGreen(): boolean {
   );
 }
 
+/**
+ * Mega-cautious SHORT: BTC itself must be dumping.
+ * Not inflow, not green tape, not flat quiet — 1h down + local red, or dump hits.
+ */
+export function btcLeadAllowsCautiousShort(): { ok: boolean; reason: string } {
+  if (lastBtcPhase === 'inflow') {
+    return { ok: false, reason: lastBtcPhaseReason };
+  }
+  if (btcTapeIsGreen()) {
+    const m = btcLeadMom;
+    return {
+      ok: false,
+      reason:
+        `BTC still green — no SHORT (live 1h ${(m?.live1hBarPct ?? 0) >= 0 ? '+' : ''}${(m?.live1hBarPct ?? 0).toFixed(2)}%` +
+        ` · 15m ${(m?.change15mPct ?? 0) >= 0 ? '+' : ''}${(m?.change15mPct ?? 0).toFixed(2)}%)`,
+    };
+  }
+  const m = btcLeadMom;
+  if (!m) {
+    return { ok: false, reason: 'BTC tape pending — no SHORT until classified' };
+  }
+  const dumpHits = isDumping(m, 'BTC', true);
+  const h1Down =
+    m.trend1h === 'DOWN' ||
+    m.live1hBarPct <= -0.15 ||
+    m.closed1hBarPct <= -0.2 ||
+    m.change1hPct <= -0.25;
+  const localRed =
+    m.consecutiveRed15m >= 2 ||
+    m.change15mPct <= -0.12 ||
+    m.live5mBarPct <= -0.08 ||
+    m.closed15mBarPct <= -0.12;
+  if (dumpHits.length > 0 && (h1Down || localRed)) {
+    return { ok: true, reason: `BTC dump confirms cautious SHORT — ${dumpHits.join('; ')}` };
+  }
+  if (h1Down && localRed) {
+    return {
+      ok: true,
+      reason:
+        `BTC 1h DOWN + red tape — cautious SHORT ok (live 1h ${m.live1hBarPct.toFixed(2)}% · 15m ${m.change15mPct.toFixed(2)}%)`,
+    };
+  }
+  return {
+    ok: false,
+    reason:
+      `BTC not dumping — no cautious SHORT (1h ${m.trend1h}` +
+      ` live1h ${m.live1hBarPct >= 0 ? '+' : ''}${m.live1hBarPct.toFixed(2)}%` +
+      ` 15m ${m.change15mPct >= 0 ? '+' : ''}${m.change15mPct.toFixed(2)}%)`,
+  };
+}
+
 export async function evaluateMacroBetaAlignment(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
@@ -411,8 +463,9 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
-    if (scope === 'open' && btcLeadIsPumping()) {
-      blockers.push(`No SHORT ${coin} — ${lastBtcPhaseReason}`);
+    if (scope === 'open') {
+      const btcShort = btcLeadAllowsCautiousShort();
+      if (!btcShort.ok) blockers.push(btcShort.reason);
     }
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));

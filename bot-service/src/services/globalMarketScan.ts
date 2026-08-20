@@ -10,7 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { btcLeadIsPumping, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
+import { btcLeadIsPumping, btcLeadAllowsCautiousShort, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -73,12 +73,13 @@ function pickPreferredCandidate(
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
   const btcInflow = btcLeadIsPumping();
-  if (btcInflow) {
+  const btcShort = btcLeadAllowsCautiousShort();
+  if (!btcShort.ok) {
     shortC = null;
   }
 
   if (longC && shortC) {
-    // BTC still pushing = LONG only. R-fade shorts wait for post_peak.
+    // BTC still pushing = LONG only.
     if (btcInflow) return longC;
     // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
     // just because bull_market is LONG-primary (that opens longs into dumps).
@@ -284,6 +285,9 @@ async function scanStandardCoinDirection(
   if (wantedDirection === 'SHORT' && btcLeadIsPumping()) {
     return null;
   }
+  if (wantedDirection === 'SHORT' && !btcLeadAllowsCautiousShort().ok) {
+    return null;
+  }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
@@ -447,6 +451,9 @@ async function scanAggressiveCoin(
       return null;
     }
     if (direction === 'SHORT' && btcLeadIsPumping()) {
+      return null;
+    }
+    if (direction === 'SHORT' && !btcLeadAllowsCautiousShort().ok) {
       return null;
     }
 

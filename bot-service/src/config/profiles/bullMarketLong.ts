@@ -9,8 +9,8 @@ import {
 /**
  * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
  *
- * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs only on
- * high-conviction dumps (not equal-weight with LONGs).
+ * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs only
+ * when BTC is dumping (mega-cautious, never resistance fade).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
@@ -49,10 +49,10 @@ export const BULL_MARKET: HlDirectionProfile = {
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    // Stay strict — do not relax to LONG-parity bars in a bull run.
-    minConfidence: 78,
+    // Mega-cautious — BTC dump + high-conviction coin SHORT, never R-fade.
+    minConfidence: 82,
     minDirectionalTfs: 3,
-    minTrendAlignment: 65,
+    minTrendAlignment: 70,
     trustMtfScan: false,
     relaxSecondaryGates: false,
     bypassPumpShortWhenTrusted: false,
