@@ -96,18 +96,24 @@ export function getLiveBtcRegime(): BtcRegimeSnapshot | null {
  * Call at the start of every trading cycle.
  */
 export async function refreshLiveDirectionProfile(): Promise<HlDirectionProfile> {
+  let next: HlDirectionProfile;
   if (boot.mode === 'forced') {
-    return setLiveProfile(resolveDirectionProfile(boot.forcedName ?? undefined));
+    next = resolveDirectionProfile(boot.forcedName ?? undefined);
+  } else {
+    const snap = await refreshBtcMarketRegime();
+    next = snap.regime === 'bear_market' ? BEAR_MARKET : BULL_MARKET;
+    if (next.name !== liveProfile.name) {
+      logger.info('Live direction profile switched from BTC', {
+        from: liveProfile.name,
+        to: next.name,
+        reason: snap.reason,
+      });
+    }
   }
-
-  const snap = await refreshBtcMarketRegime();
-  const next = snap.regime === 'bear_market' ? BEAR_MARKET : BULL_MARKET;
-  if (next.name !== liveProfile.name) {
-    logger.info('Live direction profile switched from BTC', {
-      from: liveProfile.name,
-      to: next.name,
-      reason: snap.reason,
-    });
+  // LONG-only ops: keep LONG-primary bars instead of sitting in SHORT-primary with shorts killed.
+  const applied = applyOpsDirectionOverrides(next);
+  if (!applied.allowShortOpens) {
+    return setLiveProfile(BULL_MARKET);
   }
   return setLiveProfile(next);
 }

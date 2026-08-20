@@ -44,8 +44,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
   enableLlmConfirm: false,
   /** LONGs on — allowlist via longOnlyCoins; non-listed memes never. */
   allowLongOpens: true,
-  /** SHORT is primary in bear — opens allowed. */
-  allowShortOpens: true,
+  /** Ops 20 Aug 2026: LONG-only until shorts are explicitly re-enabled. */
+  allowShortOpens: false,
   short: { ...PRIMARY_RULES },
   long: {
     ...COUNTER_TREND_RULES('UP'),
