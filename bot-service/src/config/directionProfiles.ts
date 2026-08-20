@@ -81,6 +81,9 @@ export function preOpenTimeframeForDirection(
  *
  * Switching profiles only affects NEW opens — existing positions keep being
  * managed by the close/trail path regardless of the active profile.
+ *
+ * Ops: HL_ALLOW_SHORT_OPENS=false / HL_ALLOW_LONG_OPENS=false kill that
+ * side at scan+open even if the live profile would allow it.
  */
 export function resolveDirectionProfile(raw: string | undefined) {
   const value = String(raw ?? '').trim().toLowerCase();

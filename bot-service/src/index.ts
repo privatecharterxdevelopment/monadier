@@ -161,6 +161,12 @@ const healthServer = http.createServer(async (req, res) => {
           longMinGreenHoldMs: config.hyperliquid.dynamicTrail.longMinGreenHoldMs,
           longTrailMinActiveMult: config.hyperliquid.dynamicTrail.longTrailMinActiveMult,
         },
+        directionProfile: {
+          mode: getDirectionProfileMode(),
+          name: config.hyperliquid.directionProfile.name,
+          allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
+          allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
+        },
       },
       twitter,
       lastCycle: lastCycleStats,

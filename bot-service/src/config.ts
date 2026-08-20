@@ -126,7 +126,8 @@ export const config = {
     minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
-    /** Live BTC regime (or forced env). Always read via getter — never freeze at boot. */
+    /** Live BTC regime (or forced env). Always read via getter — never freeze at boot.
+     *  HL_ALLOW_SHORT_OPENS=false kills new SHORTs on top of the live profile. */
     get directionProfile() {
       return getLiveDirectionProfile();
     },
