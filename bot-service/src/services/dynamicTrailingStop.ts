@@ -97,7 +97,7 @@ export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
   const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
   const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
   const vsMargin =
-    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.08) : 0;
+    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
   return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
 }
 
