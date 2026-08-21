@@ -6,7 +6,6 @@
  * CRITICAL: only candles at/after open count. Scanning the full history invents a
  * fake peak above a fresh entry and arms a LONG stop *above* mark (instant sniper).
  */
-import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -14,6 +13,7 @@ import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import {
   estimateRoundTripFeesUsd,
   isTrailStopCrossed,
+  peakProfitFloorStopPx,
 } from './dynamicTrailingStop';
 
 async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
@@ -181,27 +181,21 @@ export async function rehydrateTrailPeakFromCandles(opts: {
     // Never arm a stop that is already crossed — for LONG that means stop above
     // mark (trail must sit *below* the run and follow up).
     if (rec.phase === 'idle') {
-      const dropFrac = Math.min(
-        0.95,
-        Math.max(0.05, config.hyperliquid.dynamicTrail.profitFloorPeakDropFrac)
+      const floor = peakProfitFloorStopPx(
+        opts.direction,
+        opts.entryPrice,
+        opts.absSize,
+        bestPnl,
+        feesUsd,
+        'armed'
       );
-      const floorPnl = bestPnl * (1 - dropFrac);
-      const move = floorPnl / opts.absSize;
-      const floorStop =
-        opts.direction === 'LONG' ? opts.entryPrice + move : opts.entryPrice - move;
-      const beMove =
-        (feesUsd + Math.max(feesUsd * 0.5, opts.entryPrice * opts.absSize * 0.0002)) /
-        opts.absSize;
-      const beStop =
-        opts.direction === 'LONG' ? opts.entryPrice + beMove : opts.entryPrice - beMove;
-      const stop =
-        opts.direction === 'LONG' ? Math.max(beStop, floorStop) : Math.min(beStop, floorStop);
+      const stop = floor?.px ?? null;
 
-      if (isTrailStopCrossed(opts.direction, opts.markPrice, stop)) {
+      if (stop == null || isTrailStopCrossed(opts.direction, opts.markPrice, stop)) {
         logger.info('HL trail peak rehydrate — peak kept, stop not armed (already crossed)', {
           coin: opts.coin,
           direction: opts.direction,
-          stop: stop.toFixed(6),
+          stop: stop?.toFixed(6) ?? '—',
           mark: opts.markPrice.toFixed(6),
           bestPnlUsd: bestPnl.toFixed(4),
         });

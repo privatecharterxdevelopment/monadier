@@ -245,61 +245,73 @@ function breakevenPlusFeesStopPx(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
-function peakFloorDropFrac(
+/**
+ * Staged in-profit lock: several rungs so fees cannot eat a small winner,
+ * while a real run still has air to develop.
+ *
+ *   L1 fee     peak < 2× fees  → keep ~82% of peak (and never below fee cover)
+ *   L2 partial peak < 4× fees  → keep ~55%
+ *   L3 core    peak < 8× fees  → keep ~40%
+ *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ fee cover
+ */
+function stagedProfitLock(
+  peakPnlUsd: number,
+  feesUsd: number,
   direction: 'LONG' | 'SHORT',
   phase: TrailPhase
-): number {
-  const cfg = config.hyperliquid.dynamicTrail;
-  const clamp = (n: number, lo: number, hi: number) =>
-    Math.min(hi, Math.max(lo, n));
-  if (phase === 'trailing') {
-    const staged =
-      direction === 'LONG'
-        ? cfg.longProfitFloorPeakDropFrac || cfg.profitFloorPeakDropFrac
-        : cfg.profitFloorPeakDropFrac;
-    // Lock ~22–35% of peak — room to develop, stop stays green of entry.
-    return clamp(Number.isFinite(staged) ? staged : 0.7, 0.45, 0.88);
+): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
+  const need = profitCloseNeedUsd(feesUsd);
+  if (!(peakPnlUsd > 0) || !(need > 0)) return null;
+  const ratio = peakPnlUsd / need;
+  let level: 'fee' | 'partial' | 'core' | 'runner';
+  let keepFrac: number;
+  if (ratio < 2) {
+    level = 'fee';
+    keepFrac = 0.82;
+  } else if (ratio < 4) {
+    level = 'partial';
+    keepFrac = 0.55;
+  } else if (ratio < 8) {
+    level = 'core';
+    keepFrac = 0.4;
+  } else {
+    level = 'runner';
+    keepFrac =
+      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
   }
-  const stall = cfg.stallFloorPeakDropFrac ?? 0.5;
-  return clamp(stall, 0.35, 0.75);
+  return {
+    level,
+    keepFrac,
+    lockUsd: Math.max(need, peakPnlUsd * keepFrac, 0.05),
+  };
 }
 
 /**
- * In-profit peak floor — stop stays on the green side of entry.
- * Stage 1: modest lock. Stage 2: wider runner floor so a normal pullback
- * does not snipe the book.
+ * In-profit stop from staged lock. Always ≥ fee cover so a pullback cannot
+ * close net-red. Tiny peaks sit on L1; runners sit further from the print.
  */
-function peakProfitFloorStopPx(
+export function peakProfitFloorStopPx(
   direction: 'LONG' | 'SHORT',
   entryPrice: number,
   absSize: number,
-  collateralUsd: number,
   peakPnlUsd: number,
+  feesUsd: number,
   phase: TrailPhase
-): number | null {
-  if (entryPrice <= 0 || absSize <= 0 || peakPnlUsd <= 0) return null;
-  const dropFrac = peakFloorDropFrac(direction, phase);
-  const floorPnlUsd = Math.max(0.01, peakPnlUsd * (1 - dropFrac));
-  const move = floorPnlUsd / absSize;
-  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
-}
-
-/** Loosen an already-tight in-profit stop toward a wider floor; never through entry. */
-function easeInProfitStop(
-  direction: 'LONG' | 'SHORT',
-  current: number | null,
-  candidate: number,
-  entryPrice: number
-): number {
-  if (current == null) {
-    return direction === 'LONG'
-      ? Math.max(entryPrice, candidate)
-      : Math.min(entryPrice, candidate);
-  }
-  if (direction === 'LONG') {
-    return Math.max(entryPrice, Math.min(current, candidate));
-  }
-  return Math.min(entryPrice, Math.max(current, candidate));
+): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
+  if (entryPrice <= 0 || absSize <= 0) return null;
+  const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase);
+  const lockUsd =
+    staged?.lockUsd ??
+    profitCloseNeedUsd(feesUsd);
+  if (!(lockUsd > 0)) return null;
+  const move = lockUsd / absSize;
+  const px = direction === 'LONG' ? entryPrice + move : entryPrice - move;
+  return {
+    px,
+    level: staged?.level ?? 'fee',
+    lockUsd,
+    keepFrac: staged?.keepFrac ?? 1,
+  };
 }
 
 function updateFavorableExtreme(
@@ -507,8 +519,8 @@ async function evaluateDynamicTrailInner(
         input.direction,
         input.entryPrice,
         input.absSize,
-        input.collateralUsd,
         rec.highestPnlSinceEntry,
+        feesUsd,
         'armed'
       );
       if (initialStop == null) {
@@ -521,16 +533,20 @@ async function evaluateDynamicTrailInner(
       }
       rec.phase = 'armed';
       rec.trailArmedAt = input.nowMs;
-      rec.currentTrailStop = initialStop;
+      rec.currentTrailStop = initialStop.px;
       rec.estimatedFeesUsd = feesUsd;
       logger.info('HL in-profit floor armed (stage 1)', {
         coin: input.coin,
         direction: input.direction,
         entry: input.entryPrice.toFixed(6),
         mark: input.markPrice.toFixed(6),
-        floorStop: initialStop.toFixed(6),
+        floorStop: initialStop.px.toFixed(6),
+        lockLevel: initialStop.level,
+        lockUsd: initialStop.lockUsd.toFixed(4),
+        keepFrac: initialStop.keepFrac,
         pnlUsd: input.pnlUsd.toFixed(4),
         peakPnlUsd: rec.highestPnlSinceEntry.toFixed(4),
+        feesUsd: feesUsd.toFixed(4),
         roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
         timeInProfitMs: rec.timeInProfitMs,
         holdMs: input.totalHoldMs,
@@ -622,38 +638,33 @@ async function evaluateDynamicTrailInner(
     };
   }
 
-  // In-profit peak floor — wider giveback so a normal pullback can develop.
+  // Staged in-profit floors — L1 covers fees; L4 still leaves runner air.
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
     const floorStop = peakProfitFloorStopPx(
       input.direction,
       input.entryPrice,
       input.absSize,
-      input.collateralUsd,
       rec.highestPnlSinceEntry,
+      feesUsd,
       rec.phase
     );
     if (floorStop != null) {
-      const eased = easeInProfitStop(
-        input.direction,
-        rec.currentTrailStop,
-        floorStop,
-        input.entryPrice
-      );
+      const candidate = floorStop.px;
       const wouldCross = isTrailStopCrossed(
         input.direction,
         input.markPrice,
-        eased
+        candidate
       );
       const closeSafe = profitClearsFeeGate(
         input.pnlUsd,
         feesUsd,
         rec.highestPnlSinceEntry
       );
-      // Don't snap the floor through mark on a 1-cent leftover (VINE after $1 peak).
+      // Don't snap the floor through mark on a leftover that wouldn't clear fees.
       if (!wouldCross || closeSafe) {
-        rec.currentTrailStop = eased;
+        rec.currentTrailStop = candidate;
       }
-      const activeFloor = rec.currentTrailStop ?? eased;
+      const activeFloor = rec.currentTrailStop ?? candidate;
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
@@ -668,9 +679,7 @@ async function evaluateDynamicTrailInner(
           )
         )
       ) {
-        const dropUsed = peakFloorDropFrac(input.direction, rec.phase);
-        const lockPct = (1 - dropUsed) * 100;
-        const detail = `PEAK PROFIT FLOOR · ${input.direction} ${input.coin} · lock ${lockPct.toFixed(0)}% of peak · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
+        const detail = `PEAK PROFIT FLOOR ${floorStop.level.toUpperCase()} · ${input.direction} ${input.coin} · lock $${floorStop.lockUsd.toFixed(4)} (${(floorStop.keepFrac * 100).toFixed(0)}% of peak, ≥ fees) · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
         return {
           record: rec,
           shouldClose: true,
