@@ -9,13 +9,13 @@ import {
 /**
  * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
  *
- * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs only
- * when BTC is dumping (mega-cautious, never resistance fade).
+ * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs when a
+ * real dump/breakdown signal prints (never resistance fade, never into green BTC).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary bull: dip/continuation LONGs; SHORTs only high-conviction dumps.',
+    'LONG-primary bull: dip/continuation LONGs; SHORTs when dump/breakdown signals print.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -34,7 +34,7 @@ export const BULL_MARKET: HlDirectionProfile = {
   /** LLM disagreement waits starved opens — trail manages risk after entry. */
   enableLlmConfirm: false,
   allowLongOpens: true,
-  /** Keep true so dump SHORTs exist — bars below make them rare vs LONGs. */
+  /** Dump/breakdown SHORTs allowed; LONG stays primary in pickWinner. */
   allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
@@ -49,10 +49,10 @@ export const BULL_MARKET: HlDirectionProfile = {
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    // Mega-cautious — BTC dump + high-conviction coin SHORT, never R-fade.
-    minConfidence: 82,
-    minDirectionalTfs: 3,
-    minTrendAlignment: 70,
+    // Stricter than LONG, not a ghost gate: dump stack + 1h DOWN. No R-fade.
+    minConfidence: 70,
+    minDirectionalTfs: 2,
+    minTrendAlignment: 58,
     trustMtfScan: false,
     relaxSecondaryGates: false,
     bypassPumpShortWhenTrusted: false,

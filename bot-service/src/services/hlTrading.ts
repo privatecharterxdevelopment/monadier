@@ -1257,7 +1257,7 @@ export class HyperliquidTradingService {
           return rejectOpen(
             'macro_beta',
             `No SHORT — ${btcShort.reason}`,
-            'no SHORT unless BTC is dumping'
+            'no SHORT into green/inflow BTC'
           );
         }
       }
@@ -2814,10 +2814,9 @@ export class HyperliquidTradingService {
       let trailExitReason = trailResult.exitReason;
       let trailCloseDetail = trailResult.closeDetail;
 
-      if (shouldCloseTrail && pnl > 0 && positionDirection === 'LONG') {
+      if (shouldCloseTrail && pnl > 0) {
         const trailCfg = config.hyperliquid.dynamicTrail;
-        // 0 / false = identical to SHORT (no LONG soft-block). Do not use `|| fallback`
-        // — that previously forced 5m / 12% ROE even when config was 0.
+        // Same in-profit breathe for LONG and SHORT — do not use `|| fallback`.
         const greenHoldMs = trailCfg.longMinGreenHoldMs ?? 0;
         const minPeakRoe = trailCfg.longMinPeakRoePctBeforeTrailClose ?? 0;
         const peakRoe =
@@ -2835,7 +2834,7 @@ export class HyperliquidTradingService {
           peakRoe < minPeakRoe;
         if (beSniper || tooYoung || peakTooSmall) {
           shouldCloseTrail = false;
-          logger.info('HL LONG profit exit blocked — let winner run', {
+          logger.info('HL profit exit blocked — let winner run', {
             user: userAddress.slice(0, 10),
             coin: pos.coin,
             timeInProfitMs: trailRecord.timeInProfitMs,
@@ -2960,13 +2959,12 @@ export class HyperliquidTradingService {
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs ?? 0;
-      const longStillBreathing =
-        positionDirection === 'LONG' &&
+      const stillBreathing =
         longGreenHoldMs > 0 &&
         pnl > 0 &&
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (
-        !longStillBreathing &&
+        !stillBreathing &&
         shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)
       ) {
         clearTrailState(lockKey);

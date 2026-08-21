@@ -380,8 +380,9 @@ export function btcTapeIsGreen(): boolean {
 }
 
 /**
- * Mega-cautious SHORT: BTC itself must be dumping.
- * Not inflow, not green tape, not flat quiet — 1h down + local red, or dump hits.
+ * SHORT vs BTC tape: never fade a green/inflow BTC lead.
+ * Dump confirms; flat BTC still allows a coin SHORT signal (LONG stays primary
+ * in pickWinner). Hard block is pump/green only — not “BTC must dump”.
  */
 export function btcLeadAllowsCautiousShort(): { ok: boolean; reason: string } {
   if (lastBtcPhase === 'inflow') {
@@ -412,19 +413,19 @@ export function btcLeadAllowsCautiousShort(): { ok: boolean; reason: string } {
     m.live5mBarPct <= -0.08 ||
     m.closed15mBarPct <= -0.12;
   if (dumpHits.length > 0 && (h1Down || localRed)) {
-    return { ok: true, reason: `BTC dump confirms cautious SHORT — ${dumpHits.join('; ')}` };
+    return { ok: true, reason: `BTC dump confirms SHORT — ${dumpHits.join('; ')}` };
   }
   if (h1Down && localRed) {
     return {
       ok: true,
       reason:
-        `BTC 1h DOWN + red tape — cautious SHORT ok (live 1h ${m.live1hBarPct.toFixed(2)}% · 15m ${m.change15mPct.toFixed(2)}%)`,
+        `BTC 1h DOWN + red tape — SHORT ok (live 1h ${m.live1hBarPct.toFixed(2)}% · 15m ${m.change15mPct.toFixed(2)}%)`,
     };
   }
   return {
-    ok: false,
+    ok: true,
     reason:
-      `BTC not dumping — no cautious SHORT (1h ${m.trend1h}` +
+      `BTC not green — SHORT allowed if coin signal (1h ${m.trend1h}` +
       ` live1h ${m.live1hBarPct >= 0 ? '+' : ''}${m.live1hBarPct.toFixed(2)}%` +
       ` 15m ${m.change15mPct >= 0 ? '+' : ''}${m.change15mPct.toFixed(2)}%)`,
   };

@@ -245,30 +245,61 @@ function breakevenPlusFeesStopPx(
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
 }
 
-function peakFloorDropFrac(_direction: 'LONG' | 'SHORT', _peakRoe: number): number {
+function peakFloorDropFrac(
+  direction: 'LONG' | 'SHORT',
+  phase: TrailPhase
+): number {
   const cfg = config.hyperliquid.dynamicTrail;
-  // Always lock ~80% of peak so the stop follows price. Stage-2 used to
-  // WIDEN the floor (lock 22%) — that is "not pulling the SL".
-  return Math.min(0.95, Math.max(0.05, cfg.stallFloorPeakDropFrac ?? 0.2));
+  const clamp = (n: number, lo: number, hi: number) =>
+    Math.min(hi, Math.max(lo, n));
+  if (phase === 'trailing') {
+    const staged =
+      direction === 'LONG'
+        ? cfg.longProfitFloorPeakDropFrac || cfg.profitFloorPeakDropFrac
+        : cfg.profitFloorPeakDropFrac;
+    // Lock ~22–35% of peak — room to develop, stop stays green of entry.
+    return clamp(Number.isFinite(staged) ? staged : 0.7, 0.45, 0.88);
+  }
+  const stall = cfg.stallFloorPeakDropFrac ?? 0.5;
+  return clamp(stall, 0.35, 0.75);
 }
 
 /**
  * In-profit peak floor — stop stays on the green side of entry.
- * Stage 1 (before stage-2 ROE): tight stall giveback. Stage 2: wider runner floor.
+ * Stage 1: modest lock. Stage 2: wider runner floor so a normal pullback
+ * does not snipe the book.
  */
 function peakProfitFloorStopPx(
   direction: 'LONG' | 'SHORT',
   entryPrice: number,
   absSize: number,
   collateralUsd: number,
-  peakPnlUsd: number
+  peakPnlUsd: number,
+  phase: TrailPhase
 ): number | null {
   if (entryPrice <= 0 || absSize <= 0 || peakPnlUsd <= 0) return null;
-  const peakRoe = collateralUsd > 0 ? (peakPnlUsd / collateralUsd) * 100 : 0;
-  const dropFrac = peakFloorDropFrac(direction, peakRoe);
+  const dropFrac = peakFloorDropFrac(direction, phase);
   const floorPnlUsd = Math.max(0.01, peakPnlUsd * (1 - dropFrac));
   const move = floorPnlUsd / absSize;
   return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+}
+
+/** Loosen an already-tight in-profit stop toward a wider floor; never through entry. */
+function easeInProfitStop(
+  direction: 'LONG' | 'SHORT',
+  current: number | null,
+  candidate: number,
+  entryPrice: number
+): number {
+  if (current == null) {
+    return direction === 'LONG'
+      ? Math.max(entryPrice, candidate)
+      : Math.min(entryPrice, candidate);
+  }
+  if (direction === 'LONG') {
+    return Math.max(entryPrice, Math.min(current, candidate));
+  }
+  return Math.min(entryPrice, Math.max(current, candidate));
 }
 
 function updateFavorableExtreme(
@@ -385,20 +416,18 @@ function trailTooYoungToClose(
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   let minMs = cfg.trailMinActiveBeforeCloseMs;
-  if (rec.direction === 'LONG') {
-    minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
-  }
+  minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
   if (!rec.trailArmedAt || minMs <= 0) return false;
   // Always wait after arm — trailMult used to skip this on a tight trail, so
   // the floor closed before the stop could ratchet with the peak.
   return nowMs - rec.trailArmedAt < minMs;
 }
 
-/** LONGs: once green, breathe for longMinGreenHoldMs before any profit exit. */
+/** Once green, breathe before any profit exit — LONG and SHORT. */
 function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
-  if (rec.direction !== 'LONG' || pnlUsd <= 0) return false;
+  if (pnlUsd <= 0) return false;
   const minMs = Math.min(
-    180_000,
+    240_000,
     Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
   );
   return minMs > 0 && rec.timeInProfitMs < minMs;
@@ -479,7 +508,8 @@ async function evaluateDynamicTrailInner(
         input.entryPrice,
         input.absSize,
         input.collateralUsd,
-        rec.highestPnlSinceEntry
+        rec.highestPnlSinceEntry,
+        'armed'
       );
       if (initialStop == null) {
         return {
@@ -592,25 +622,27 @@ async function evaluateDynamicTrailInner(
     };
   }
 
-  // Hard peak profit-lock floor — same rules for LONG and SHORT (tight to peak).
+  // In-profit peak floor — wider giveback so a normal pullback can develop.
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
     const floorStop = peakProfitFloorStopPx(
       input.direction,
       input.entryPrice,
       input.absSize,
       input.collateralUsd,
-      rec.highestPnlSinceEntry
+      rec.highestPnlSinceEntry,
+      rec.phase
     );
     if (floorStop != null) {
-      const ratcheted = ratchetStop(
+      const eased = easeInProfitStop(
         input.direction,
-        rec.currentTrailStop ?? floorStop,
-        floorStop
+        rec.currentTrailStop,
+        floorStop,
+        input.entryPrice
       );
       const wouldCross = isTrailStopCrossed(
         input.direction,
         input.markPrice,
-        ratcheted
+        eased
       );
       const closeSafe = profitClearsFeeGate(
         input.pnlUsd,
@@ -619,9 +651,9 @@ async function evaluateDynamicTrailInner(
       );
       // Don't snap the floor through mark on a 1-cent leftover (VINE after $1 peak).
       if (!wouldCross || closeSafe) {
-        rec.currentTrailStop = ratcheted;
+        rec.currentTrailStop = eased;
       }
-      const activeFloor = rec.currentTrailStop ?? ratcheted;
+      const activeFloor = rec.currentTrailStop ?? eased;
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
@@ -636,10 +668,7 @@ async function evaluateDynamicTrailInner(
           )
         )
       ) {
-        const dropUsed = peakFloorDropFrac(
-          input.direction,
-          roePct(rec.highestPnlSinceEntry, input.collateralUsd)
-        );
+        const dropUsed = peakFloorDropFrac(input.direction, rec.phase);
         const lockPct = (1 - dropUsed) * 100;
         const detail = `PEAK PROFIT FLOOR · ${input.direction} ${input.coin} · lock ${lockPct.toFixed(0)}% of peak · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
         return {
