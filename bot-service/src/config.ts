@@ -205,7 +205,7 @@ export const config = {
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.05),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.75),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
       /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */

@@ -90,26 +90,28 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay net green after fees — never harvest a 1-cent stub. */
-export function profitCloseNeedUsd(feesUsd: number): number {
+/** Profit exits must stay net green after fees — never harvest a cents stub. */
+export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
   const trail = config.hyperliquid.dynamicTrail;
   const raw = trail.minProfitCloseFeesMult;
   const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
-  const minUsd = Math.max(0.05, config.hyperliquid.minProfitCloseUsd || 0.05);
-  return Math.max(minUsd, Math.max(0, feesUsd) * mult);
+  const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
+  const vsMargin =
+    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.08) : 0;
+  return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
 }
 
 export function profitClearsFeeGate(
   pnlUsd: number,
   feesUsd: number,
-  peakPnlUsd = 0
+  peakPnlUsd = 0,
+  collateralUsd = 0
 ): boolean {
   if (!(pnlUsd > 0)) return false;
-  const need = profitCloseNeedUsd(feesUsd);
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (pnlUsd < need) return false;
   const peak = Math.max(0, peakPnlUsd);
   const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.15;
-  // Only after a real run — tiny stall peaks still close once they clear fees.
   if (peak >= need * 4 && remainFrac > 0) {
     const remainNeed = Math.max(need, peak * remainFrac);
     if (pnlUsd < remainNeed) return false;
@@ -122,17 +124,18 @@ function blockIfFeesNotCleared(
   pnlUsd: number,
   feesUsd: number,
   coin: string,
-  peakPnlUsd: number
+  peakPnlUsd: number,
+  collateralUsd = 0
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
-  if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd)) return result;
+  if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd, collateralUsd)) return result;
   logger.info('HL profit close blocked — leftover too small vs fees/peak', {
     coin,
     reason: result.exitReason,
     pnlUsd: pnlUsd.toFixed(4),
     feesUsd: feesUsd.toFixed(4),
-    needUsd: profitCloseNeedUsd(feesUsd).toFixed(4),
+    needUsd: profitCloseNeedUsd(feesUsd, collateralUsd).toFixed(4),
     peakPnlUsd: peakPnlUsd.toFixed(4),
   });
   return {
@@ -249,25 +252,26 @@ function breakevenPlusFeesStopPx(
  * Staged in-profit lock: several rungs so fees cannot eat a small winner,
  * while a real run still has air to develop.
  *
- *   L1 fee     peak < 2× fees  → keep ~82% of peak (and never below fee cover)
- *   L2 partial peak < 4× fees  → keep ~55%
- *   L3 core    peak < 8× fees  → keep ~40%
- *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ fee cover
+ *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
+ *   L2 partial peak < 4× min-close → keep ~55%
+ *   L3 core    peak < 8× min-close → keep ~40%
+ *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
  */
 function stagedProfitLock(
   peakPnlUsd: number,
   feesUsd: number,
   direction: 'LONG' | 'SHORT',
-  phase: TrailPhase
+  phase: TrailPhase,
+  collateralUsd = 0
 ): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
-  const need = profitCloseNeedUsd(feesUsd);
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(peakPnlUsd > 0) || !(need > 0)) return null;
   const ratio = peakPnlUsd / need;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
   if (ratio < 2) {
     level = 'fee';
-    keepFrac = 0.82;
+    keepFrac = 0;
   } else if (ratio < 4) {
     level = 'partial';
     keepFrac = 0.55;
@@ -282,7 +286,7 @@ function stagedProfitLock(
   return {
     level,
     keepFrac,
-    lockUsd: Math.max(need, peakPnlUsd * keepFrac, 0.05),
+    lockUsd: Math.max(need, peakPnlUsd * keepFrac),
   };
 }
 
@@ -296,13 +300,14 @@ export function peakProfitFloorStopPx(
   absSize: number,
   peakPnlUsd: number,
   feesUsd: number,
-  phase: TrailPhase
+  phase: TrailPhase,
+  collateralUsd = 0
 ): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
   if (entryPrice <= 0 || absSize <= 0) return null;
-  const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase);
+  const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase, collateralUsd);
   const lockUsd =
     staged?.lockUsd ??
-    profitCloseNeedUsd(feesUsd);
+    profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(lockUsd > 0)) return null;
   const move = lockUsd / absSize;
   const px = direction === 'LONG' ? entryPrice + move : entryPrice - move;
@@ -463,7 +468,14 @@ export async function evaluateDynamicTrail(
     input.pnlUsd,
     0
   );
-  return blockIfFeesNotCleared(result, input.pnlUsd, feesUsd, input.coin, peakPnlUsd);
+  return blockIfFeesNotCleared(
+    result,
+    input.pnlUsd,
+    feesUsd,
+    input.coin,
+    peakPnlUsd,
+    input.collateralUsd
+  );
 }
 
 async function evaluateDynamicTrailInner(
@@ -521,7 +533,8 @@ async function evaluateDynamicTrailInner(
         input.absSize,
         rec.highestPnlSinceEntry,
         feesUsd,
-        'armed'
+        'armed',
+        input.collateralUsd
       );
       if (initialStop == null) {
         return {
@@ -646,7 +659,8 @@ async function evaluateDynamicTrailInner(
       input.absSize,
       rec.highestPnlSinceEntry,
       feesUsd,
-      rec.phase
+      rec.phase,
+      input.collateralUsd
     );
     if (floorStop != null) {
       const candidate = floorStop.px;
@@ -658,7 +672,8 @@ async function evaluateDynamicTrailInner(
       const closeSafe = profitClearsFeeGate(
         input.pnlUsd,
         feesUsd,
-        rec.highestPnlSinceEntry
+        rec.highestPnlSinceEntry,
+        input.collateralUsd
       );
       // Don't snap the floor through mark on a leftover that wouldn't clear fees.
       if (!wouldCross || closeSafe) {

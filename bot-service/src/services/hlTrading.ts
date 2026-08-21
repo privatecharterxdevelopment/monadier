@@ -2965,7 +2965,13 @@ export class HyperliquidTradingService {
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (
         !stillBreathing &&
-        shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent)
+        shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent) &&
+        profitClearsFeeGate(
+          pnl,
+          estimateRoundTripFeesUsd(notionalUsd),
+          trailRecord.highestPnlSinceEntry,
+          collateralEst
+        )
       ) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
@@ -3381,8 +3387,13 @@ export class HyperliquidTradingService {
         const trailPeak =
           getDynamicTrailRecord(`${userAddress.toLowerCase()}:${coinUpper}`)
             ?.highestPnlSinceEntry ?? 0;
-        if (!profitClearsFeeGate(pnlUsd, feesUsd, trailPeak)) {
-          const needUsd = profitCloseNeedUsd(feesUsd);
+        const lev = Math.max(
+          1,
+          Number(closeCtx?.leverage ?? (row as { leverage?: { value?: number } })?.leverage?.value ?? 10)
+        );
+        const collateralEst = notional > 0 ? notional / lev : 0;
+        if (!profitClearsFeeGate(pnlUsd, feesUsd, trailPeak, collateralEst)) {
+          const needUsd = profitCloseNeedUsd(feesUsd, collateralEst);
           logger.warn('HL close rejected — leftover too small vs fees/peak', {
             user: userAddress.slice(0, 10),
             coin: coinUpper,
