@@ -241,7 +241,7 @@ export const config = {
        * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
        */
       minPeakRemainFracBeforeClose: Number(
-        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.15
+        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.55
       ),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 4),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),

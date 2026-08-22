@@ -365,67 +365,39 @@ export function btcLeadIsPumping(): boolean {
   return lastBtcPhase === 'inflow';
 }
 
-/** Live BTC still green — any meaningful green 5m/15m/1h. R-shorts are banned. */
+/** Live BTC still in a real push — inflow or pump, not 8 bps of noise. */
 export function btcTapeIsGreen(): boolean {
   if (lastBtcPhase === 'inflow') return true;
   const m = btcLeadMom;
-  if (!m) return true;
-  return (
-    m.live1hBarPct >= 0.08 ||
-    m.live5mBarPct >= 0.05 ||
-    m.closed15mBarPct >= 0.08 ||
-    m.change15mPct >= 0.08 ||
-    (m.consecutiveGreen15m >= 2 && m.live1hBarPct >= 0)
-  );
+  if (!m) return false;
+  return isPumping(m, 'BTC', true).length > 0;
 }
 
 /**
- * SHORT vs BTC tape: never fade a green/inflow BTC lead.
- * Dump confirms; flat BTC still allows a coin SHORT signal (LONG stays primary
- * in pickWinner). Hard block is pump/green only — not “BTC must dump”.
+ * SHORT vs BTC tape: never fade a BTC inflow/pump.
+ * Flat or red BTC → coin SHORT signal is allowed (LONG stays primary in pickWinner).
+ * Hard block is pump/inflow only — not “BTC must dump”, not 8 bps green.
  */
 export function btcLeadAllowsCautiousShort(): { ok: boolean; reason: string } {
   if (lastBtcPhase === 'inflow') {
     return { ok: false, reason: lastBtcPhaseReason };
   }
-  if (btcTapeIsGreen()) {
-    const m = btcLeadMom;
-    return {
-      ok: false,
-      reason:
-        `BTC still green — no SHORT (live 1h ${(m?.live1hBarPct ?? 0) >= 0 ? '+' : ''}${(m?.live1hBarPct ?? 0).toFixed(2)}%` +
-        ` · 15m ${(m?.change15mPct ?? 0) >= 0 ? '+' : ''}${(m?.change15mPct ?? 0).toFixed(2)}%)`,
-    };
-  }
   const m = btcLeadMom;
   if (!m) {
     return { ok: false, reason: 'BTC tape pending — no SHORT until classified' };
   }
-  const dumpHits = isDumping(m, 'BTC', true);
-  const h1Down =
-    m.trend1h === 'DOWN' ||
-    m.live1hBarPct <= -0.15 ||
-    m.closed1hBarPct <= -0.2 ||
-    m.change1hPct <= -0.25;
-  const localRed =
-    m.consecutiveRed15m >= 2 ||
-    m.change15mPct <= -0.12 ||
-    m.live5mBarPct <= -0.08 ||
-    m.closed15mBarPct <= -0.12;
-  if (dumpHits.length > 0 && (h1Down || localRed)) {
-    return { ok: true, reason: `BTC dump confirms SHORT — ${dumpHits.join('; ')}` };
+  const pumpHits = isPumping(m, 'BTC', true);
+  if (pumpHits.length > 0) {
+    return { ok: false, reason: `BTC pumping — no SHORT (${pumpHits.join('; ')})` };
   }
-  if (h1Down && localRed) {
-    return {
-      ok: true,
-      reason:
-        `BTC 1h DOWN + red tape — SHORT ok (live 1h ${m.live1hBarPct.toFixed(2)}% · 15m ${m.change15mPct.toFixed(2)}%)`,
-    };
+  const dumpHits = isDumping(m, 'BTC', true);
+  if (dumpHits.length > 0) {
+    return { ok: true, reason: `BTC dump confirms SHORT — ${dumpHits.join('; ')}` };
   }
   return {
     ok: true,
     reason:
-      `BTC not green — SHORT allowed if coin signal (1h ${m.trend1h}` +
+      `BTC not pumping — SHORT allowed if coin signal (1h ${m.trend1h}` +
       ` live1h ${m.live1hBarPct >= 0 ? '+' : ''}${m.live1hBarPct.toFixed(2)}%` +
       ` 15m ${m.change15mPct >= 0 ? '+' : ''}${m.change15mPct.toFixed(2)}%)`,
   };

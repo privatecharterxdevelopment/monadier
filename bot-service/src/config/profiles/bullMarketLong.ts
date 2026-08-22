@@ -49,11 +49,11 @@ export const BULL_MARKET: HlDirectionProfile = {
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    // Stricter than LONG, not a ghost gate: dump stack + 1h DOWN. No R-fade.
-    minConfidence: 70,
+    // Real dump/breakdown stack — not a ghost 70% gate. Still H1 DOWN, no R-fade.
+    minConfidence: 58,
     minDirectionalTfs: 2,
-    minTrendAlignment: 58,
-    trustMtfScan: false,
+    minTrendAlignment: 50,
+    trustMtfScan: true,
     relaxSecondaryGates: false,
     bypassPumpShortWhenTrusted: false,
     enforceHtfSr: true,

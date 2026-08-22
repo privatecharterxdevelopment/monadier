@@ -111,8 +111,8 @@ export function profitClearsFeeGate(
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (pnlUsd < need) return false;
   const peak = Math.max(0, peakPnlUsd);
-  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.15;
-  if (peak >= need * 4 && remainFrac > 0) {
+  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.55;
+  if (peak > 0 && remainFrac > 0) {
     const remainNeed = Math.max(need, peak * remainFrac);
     if (pnlUsd < remainNeed) return false;
   }
@@ -249,13 +249,9 @@ function breakevenPlusFeesStopPx(
 }
 
 /**
- * Staged in-profit lock: several rungs so fees cannot eat a small winner,
- * while a real run still has air to develop.
- *
- *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
- *   L2 partial peak < 4× min-close → keep ~55%
- *   L3 core    peak < 8× min-close → keep ~40%
- *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
+ * Same giveback for BTC and alts — rungs are peak-ROE, not USD vs $0.75.
+ * A $26 BTC peak at 28% leftover is a $13 close; a $1 alt at L1 was a $0.45 snipe.
+ * Lock = % of peak only. If that leftover is still below min-close, no floor yet.
  */
 function stagedProfitLock(
   peakPnlUsd: number,
@@ -266,28 +262,23 @@ function stagedProfitLock(
 ): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(peakPnlUsd > 0) || !(need > 0)) return null;
-  const ratio = peakPnlUsd / need;
+  const peakRoe = roePct(peakPnlUsd, collateralUsd);
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
-  if (ratio < 2) {
-    level = 'fee';
-    keepFrac = 0;
-  } else if (ratio < 4) {
+  if (peakRoe < 10) {
     level = 'partial';
-    keepFrac = 0.55;
-  } else if (ratio < 8) {
+    keepFrac = 0.62;
+  } else if (peakRoe < 22) {
     level = 'core';
-    keepFrac = 0.4;
+    keepFrac = 0.55;
   } else {
     level = 'runner';
-    keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
+    keepFrac = phase === 'trailing' && direction === 'LONG' ? 0.5 : 0.55;
   }
-  return {
-    level,
-    keepFrac,
-    lockUsd: Math.max(need, peakPnlUsd * keepFrac),
-  };
+  const lockUsd = peakPnlUsd * keepFrac;
+  // No stop until a hit would actually be a real take (same bar for every coin).
+  if (lockUsd < need) return null;
+  return { level, keepFrac, lockUsd };
 }
 
 /**
@@ -305,9 +296,8 @@ export function peakProfitFloorStopPx(
 ): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
   if (entryPrice <= 0 || absSize <= 0) return null;
   const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase, collateralUsd);
-  const lockUsd =
-    staged?.lockUsd ??
-    profitCloseNeedUsd(feesUsd, collateralUsd);
+  if (staged == null) return null;
+  const lockUsd = staged.lockUsd;
   if (!(lockUsd > 0)) return null;
   const move = lockUsd / absSize;
   const px = direction === 'LONG' ? entryPrice + move : entryPrice - move;
@@ -702,6 +692,9 @@ async function evaluateDynamicTrailInner(
           closeDetail: detail,
         };
       }
+    } else if (rec.phase === 'armed' && !rec.lossSlArmed) {
+      // Peak too small for a real take — drop a stale cents floor, don't snipe.
+      rec.currentTrailStop = null;
     }
   }
 
