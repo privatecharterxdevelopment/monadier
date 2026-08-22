@@ -328,7 +328,7 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is the only valid way to short the lows.
+  // Breakdown is best. Dump continuation is allowed. R-fade is not.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -337,21 +337,6 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Hard: never short the floor / lower half without breakdown (user: dump shelf Open S).
-  const floorReject = Math.max(cfg.rangeBottomBlock, 0.5);
-  if (analysis.nearSupport || analysis.pricePosition <= floorReject) {
-    const zone =
-      analysis.supportZone != null
-        ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
-        : fmtLevel(analysis.support);
-    return {
-      ok: false,
-      analysis,
-      reason: `SHORT blocked — at/near range floor ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤${(floorReject * 100).toFixed(0)}%); need breakdown or R-fade`,
-    };
-  }
-
-  // No resistance shorts — R-fade / tagging the high is not a SHORT.
   if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
@@ -360,14 +345,14 @@ export function evaluateEntryLocation(
     return {
       ok: false,
       analysis,
-      reason: `SHORT blocked — no resistance shorts (R ${zone}); need confirmed breakdown`,
+      reason: `SHORT blocked — no resistance shorts (R ${zone}); need dump continuation or confirmed breakdown`,
     };
   }
 
   return {
-    ok: false,
+    ok: true,
     analysis,
-    reason: `SHORT blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need R ≥${(cfg.rangeTopBlock * 100).toFixed(0)}% or confirmed breakdown)`,
+    reason: `SHORT dump continuation (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
   };
 }
 

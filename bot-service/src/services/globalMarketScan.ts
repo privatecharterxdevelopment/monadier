@@ -81,10 +81,12 @@ function pickPreferredCandidate(
   if (longC && shortC) {
     // BTC still pushing = LONG only.
     if (btcInflow) return longC;
-    // Dump tape: SHORT with h1 DOWN takes the slot — don't keep LONGing a dump
-    // just because bull_market is LONG-primary.
+    // Dump tape: SHORT with h1 DOWN takes the slot when it's competitive.
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-    if (shortH1Down) {
+    if (
+      shortH1Down &&
+      shortC.confidence >= Math.max(58, (longC.confidence ?? 0) - 8)
+    ) {
       return shortC;
     }
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
