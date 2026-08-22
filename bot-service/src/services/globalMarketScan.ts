@@ -81,17 +81,18 @@ function pickPreferredCandidate(
   if (longC && shortC) {
     // BTC still pushing = LONG only.
     if (btcInflow) return longC;
-    // Dump tape: SHORT with h1 DOWN takes the slot when it's competitive.
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
+    const longH1Down = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN');
+    // Coin 1h DOWN → SHORT if the dump stack printed. Otherwise LONG-primary shoots.
+    if (longH1Down && shortH1Down) return shortC;
     if (
       shortH1Down &&
-      shortC.confidence >= Math.max(58, (longC.confidence ?? 0) - 8)
+      shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
     ) {
       return shortC;
     }
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
-      // Still require LONG h1 UP when both sides print under bull.
-      if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return shortC;
+      if (longH1Down) return shortC;
       return longC;
     }
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
@@ -104,12 +105,9 @@ function pickPreferredCandidate(
     return longC;
   }
 
-  // Lone LONG under bull still needs UP 1h — unless BTC is still inflowing.
+  // Lone LONG under bull: only drop it when the coin 1h is actually DOWN (that's a short).
   if (longC && !shortC && primary === 'LONG') {
-    if (
-      !btcInflow &&
-      !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
-    ) {
+    if (h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN')) {
       return null;
     }
   }

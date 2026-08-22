@@ -7,15 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
+ * BULL MARKET — LONG-primary (yesterday-evening shoot), SHORTs when dump prints.
  *
- * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs when a
- * real dump/breakdown signal prints (never resistance fade, never into green BTC).
+ * LONGs fire on the MTF stack. SHORTs when the coin dump/breakdown stack prints
+ * and BTC is not pumping. Never resistance fade.
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary bull: dip/continuation LONGs; SHORTs when dump/breakdown signals print.',
+    'LONG-primary: continuation LONGs shoot; SHORTs when dump/breakdown signals print.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -41,8 +41,8 @@ export const BULL_MARKET: HlDirectionProfile = {
     minConfidence: 52,
     minDirectionalTfs: 2,
     minTrendAlignment: 45,
-    /** No LONGs while 1h is DOWN — dump = shorts, not dip-buy blind. */
-    requiredH1Trend: 'UP',
+    /** Shoot LONGs on the stack — 1h DOWN still goes to shorts, not a hard UP gate. */
+    requiredH1Trend: null,
     trustMtfScan: true,
     relaxSecondaryGates: true,
     enforceHtfSr: false,

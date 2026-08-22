@@ -24,8 +24,13 @@ function tapeHit(
   const first = closed[0]!;
   const last = closed[closed.length - 1]!;
   const netPct = first.open > 0 ? ((last.close - first.open) / first.open) * 100 : 0;
-  // Strict: ≥3/5 red with any net down, or ≥4/5 red, or net ≤ −0.25%.
-  if (red >= 4 || (red >= 3 && netPct < -0.08) || netPct <= -0.25) {
+  // Strict: ≥4/5 red with net down, or ≥5/5, or net ≤ −0.8%.
+  // Mild 4/5 −0.5% is chop — do not starve LONGs on that.
+  const dump =
+    red >= 5 ||
+    (red >= 4 && netPct <= -0.8) ||
+    netPct <= -1.2;
+  if (dump) {
     return `LONG blocked — ${label} ${red}/${lookback} red (net ${netPct >= 0 ? '+' : ''}${netPct.toFixed(2)}%) — dump tape, no long into red`;
   }
   return null;
