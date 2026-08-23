@@ -256,7 +256,7 @@ async function scanStandardCoin(
 /**
  * Analyze one side with the hard TF rule:
  *   LONG  → 15m / 1h / (4h)
- *   SHORT → 1m / 5m / 15m / 1h
+ *   SHORT → 5m / 15m / 1h
  */
 async function scanStandardCoinDirection(
   coin: string,

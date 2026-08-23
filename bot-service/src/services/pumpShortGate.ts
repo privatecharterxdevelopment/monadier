@@ -176,7 +176,7 @@ export async function validateNoAltPumpShort(opts: {
       return { ok: true, reason: 'Pump-short gate — majors green/HH clear; macro beta handles rest' };
     }
 
-    const signal = await signalEngine.generateSignal(symbol, ['1m', '5m', '15m', '1h']);
+    const signal = await signalEngine.generateSignal(symbol, ['5m', '15m', '1h']);
 
     const live5m = pctChangeLive(c5m, 1);
     const live15m = pctChangeLive(c15m, 1);

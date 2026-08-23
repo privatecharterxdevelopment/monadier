@@ -1,6 +1,6 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * LONG → 15m structure · SHORT → 1m structure (hard direction rule).
+ * LONG → 15m structure · SHORT → 5m structure.
  */
 import { config } from '../config';
 import { preOpenTimeframeForDirection } from '../config/directionProfiles';

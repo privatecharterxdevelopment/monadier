@@ -23,7 +23,7 @@ export const BULL_MARKET: HlDirectionProfile = {
   entryTimeframeShort: '5m',
   preOpenTimeframe: '15m',
   preOpenTimeframeLong: '15m',
-  preOpenTimeframeShort: '1m',
+  preOpenTimeframeShort: '5m',
   preOpenCandleCount: 8,
   preOpenMinVolumeRatio: 0.18,
   maxVolumeRank: 100,

@@ -61,7 +61,7 @@ export function entryTimeframeForDirection(
 export function preOpenTimeframeForDirection(
   profile: HlDirectionProfile,
   direction: HlProfileDirection
-): '1m' | '15m' {
+): '5m' | '15m' {
   return direction === 'LONG' ? profile.preOpenTimeframeLong : profile.preOpenTimeframeShort;
 }
 
@@ -77,7 +77,7 @@ export function preOpenTimeframeForDirection(
  *   aliases: bear | short | short_friendly → bear
  *
  * Analysis TFs are always direction-hardcoded (not flipped by the regime switch):
- *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
+ *   SHORT → 5m/15m/1h · LONG → 15m/1h/(4h)
  *
  * Switching profiles only affects NEW opens — existing positions keep being
  * managed by the close/trail path regardless of the active profile.
