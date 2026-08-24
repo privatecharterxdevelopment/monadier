@@ -154,6 +154,7 @@ export const config = {
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
      * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD user-banned; CC thin junk; EIGEN HL max 5x / banned; XLM/MON delisted.
+     * LIT/TRUMP/MELANIA — meme/political junk, user-banned (spike-high disasters).
      * Add more via HL_EXCLUDED_COINS="FOO,BAR" (merged with hard bans).
      */
     excludedCoins: [
@@ -168,6 +169,9 @@ export const config = {
         'EIGEN',
         'XLM',
         'MON',
+        'LIT',
+        'TRUMP',
+        'MELANIA',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
