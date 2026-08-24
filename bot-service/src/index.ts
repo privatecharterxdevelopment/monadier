@@ -1915,7 +1915,7 @@ async function main(): Promise<void> {
   // Restore profit-trail peaks/stops from Supabase before first monitor pass.
   await ensureProfitTrailStateHydrated();
 
-  // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
+  // Trail/SL for bot-owned open perps even when auto-trade is paused.
   await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
 
   // Run immediately on startup

@@ -53,6 +53,7 @@ export async function recordHlBotOpenMarker(params: {
   entryPx: number;
   reason?: string;
 }): Promise<void> {
+  invalidateManualDeskCache(params.walletAddress);
   await recordHlChartMarker({
     walletAddress: params.walletAddress,
     coin: params.coin,
@@ -82,18 +83,60 @@ export async function recordHlManualOpenMarker(params: {
   });
 }
 
-const MANUAL_DESK_CACHE_MS = 15_000;
-const manualDeskCoinCache = new Map<string, { at: number; coins: Set<string> }>();
+const MARKER_OWNERSHIP_CACHE_MS = 15_000;
 
-export function invalidateManualDeskCache(wallet: string): void {
-  manualDeskCoinCache.delete(wallet.toLowerCase());
+export type HlMarkerOwnership = {
+  /** Latest marker is a bot open — trail / SL / TP / leverage sync may run. */
+  botOwnedOpen: Set<string>;
+  /** Latest marker is a user desk open — never auto-manage. */
+  manualOpen: Set<string>;
+  /** Bot leftover dust (bot open now tiny, or residual after a bot close). */
+  botMayFlattenDust: Set<string>;
+};
+
+const emptyOwnership = (): HlMarkerOwnership => ({
+  botOwnedOpen: new Set(),
+  manualOpen: new Set(),
+  botMayFlattenDust: new Set(),
+});
+
+const markerOwnershipCache = new Map<string, { at: number; ownership: HlMarkerOwnership }>();
+
+export function classifyLatestHlMarkers(
+  rows: Array<{ coin?: string | null; event_type?: string | null; source?: string | null }>
+): HlMarkerOwnership {
+  const latest = new Map<string, { type: string; source: string }>();
+  for (const row of rows) {
+    const coin = String(row.coin ?? '').toUpperCase();
+    if (!coin || latest.has(coin)) continue;
+    latest.set(coin, {
+      type: String(row.event_type ?? ''),
+      source: String(row.source ?? 'bot'),
+    });
+  }
+
+  const ownership = emptyOwnership();
+  for (const [coin, row] of latest) {
+    const manual = row.source === 'manual';
+    if (row.type === 'open' && manual) {
+      ownership.manualOpen.add(coin);
+      continue;
+    }
+    if (manual) continue;
+    ownership.botMayFlattenDust.add(coin);
+    if (row.type === 'open') ownership.botOwnedOpen.add(coin);
+  }
+  return ownership;
 }
 
-/** Coins whose latest marker is a user manual-desk open — bot trail must not manage them. */
-export async function manualDeskOpenCoins(wallet: string): Promise<Set<string>> {
+export function invalidateManualDeskCache(wallet: string): void {
+  markerOwnershipCache.delete(wallet.toLowerCase());
+}
+
+export async function hlPositionMarkerOwnership(wallet: string): Promise<HlMarkerOwnership> {
   const key = wallet.toLowerCase();
-  const hit = manualDeskCoinCache.get(key);
-  if (hit && Date.now() - hit.at < MANUAL_DESK_CACHE_MS) return hit.coins;
+  const hit = markerOwnershipCache.get(key);
+  if (hit && Date.now() - hit.at < MARKER_OWNERSHIP_CACHE_MS) return hit.ownership;
 
   const { data, error } = await supabase
     .from('hl_bot_chart_markers')
@@ -103,27 +146,27 @@ export async function manualDeskOpenCoins(wallet: string): Promise<Set<string>> 
     .order('event_ts', { ascending: false })
     .limit(400);
 
-  const coins = new Set<string>();
   if (error) {
-    logger.warn('manual desk marker lookup failed', {
+    logger.warn('HL marker ownership lookup failed — skip auto-manage', {
       wallet: key.slice(0, 10),
       error: error.message,
     });
-    return coins;
+    return emptyOwnership();
   }
 
-  const latest = new Map<string, { type: string; source: string }>();
-  for (const row of data ?? []) {
-    const coin = String(row.coin ?? '').toUpperCase();
-    if (!coin || latest.has(coin)) continue;
-    latest.set(coin, {
-      type: String(row.event_type ?? ''),
-      source: String(row.source ?? 'bot'),
-    });
-  }
-  for (const [coin, row] of latest) {
-    if (row.type === 'open' && row.source === 'manual') coins.add(coin);
-  }
-  manualDeskCoinCache.set(key, { at: Date.now(), coins });
-  return coins;
+  const ownership = classifyLatestHlMarkers(data ?? []);
+  markerOwnershipCache.set(key, { at: Date.now(), ownership });
+  return ownership;
+}
+
+/** Coins whose latest marker is a HyperGain bot open. Everything else is hands-off. */
+export async function botOwnedOpenCoins(wallet: string): Promise<Set<string>> {
+  const ownership = await hlPositionMarkerOwnership(wallet);
+  return ownership.botOwnedOpen;
+}
+
+/** Coins whose latest marker is a user manual-desk open. */
+export async function manualDeskOpenCoins(wallet: string): Promise<Set<string>> {
+  const ownership = await hlPositionMarkerOwnership(wallet);
+  return ownership.manualOpen;
 }

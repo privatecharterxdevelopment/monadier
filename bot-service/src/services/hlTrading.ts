@@ -42,7 +42,7 @@ import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from '.
 import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
 import {
-  manualDeskOpenCoins,
+  hlPositionMarkerOwnership,
   recordHlBotOpenMarker,
   recordHlManualOpenMarker,
 } from './hlChartMarkers';
@@ -129,7 +129,8 @@ let fastPositionMonitorRunning = false;
 
 /**
  * Wallets that still have open HL perps and must stay on the trail/SL loop
- * even when auto_trade_enabled is false (manual opens, user paused new entries).
+ * even when auto_trade_enabled is false (bot positions while user paused new
+ * entries). Manual / Hyperliquid-native opens on the same wallet are not trailed.
  * Seeded from agent approvals + open clearinghouse state; pruned when flat.
  */
 const openPositionMonitorWallets = new Set<string>();
@@ -717,7 +718,10 @@ export class HyperliquidTradingService {
   ): Promise<void> {
     const dust = hlResidualDustPositions(state);
     if (dust.length === 0) return;
+    const ownership = await hlPositionMarkerOwnership(userAddress);
     for (const row of dust) {
+      const coinUpper = row.coin.toUpperCase();
+      if (!ownership.botMayFlattenDust.has(coinUpper)) continue;
       const notional = Math.abs(row.size) * (row.entryPx > 0 ? row.entryPx : 0);
       logger.warn('HL sweeping residual dust position', {
         user: userAddress.slice(0, 10),
@@ -2562,7 +2566,7 @@ export class HyperliquidTradingService {
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
-    const manualCoins = await manualDeskOpenCoins(userAddress);
+    const ownership = await hlPositionMarkerOwnership(userAddress);
 
     // Pre-fetch range regime for all coins in one pass (cached, not per-loop).
     const rangeCfg = config.hyperliquid.rangeRegime;
@@ -2598,7 +2602,9 @@ export class HyperliquidTradingService {
       const entry = Number(pos.entryPx ?? 0);
       if (!hlIsMeaningfulPerpPosition(size, entry)) continue;
       const coinUpper = pos.coin.toUpperCase();
-      if (manualCoins.has(coinUpper)) continue;
+      // Opt-in: only trail/SL/TP HyperGain opens. Manual desk + Hyperliquid.com
+      // fills have no bot-open marker — never auto-close those.
+      if (!ownership.botOwnedOpen.has(coinUpper)) continue;
 
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);

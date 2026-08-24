@@ -19,8 +19,8 @@ export function filterHlPositions(
     if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
     const coin = normalizeHlPerpCoin(p.coin);
     const isBot = botManagedCoins.has(coin);
-    // Bot dock: bot-tagged (incl. untagged live size via useHlBotManagedCoins).
-    // Manual / Trade desk: everything else.
+    // Bot dock: latest marker is a HyperGain open. Untagged HL fills + desk
+    // manuals stay on Perps so the trail loop never adopts them.
     if (scope === 'bot') return isBot;
     return !isBot;
   });
