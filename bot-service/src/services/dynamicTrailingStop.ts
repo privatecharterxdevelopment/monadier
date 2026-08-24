@@ -1,6 +1,6 @@
 /**
  * Price-based dynamic trailing stop:
- * 1 idle → 2 armed after 2m continuous green (in-profit peak floor, never through entry)
+ * 1 idle → 2 armed on first green tick that can lock a real take (peak floor follows PnL)
  * 3 trailing (ATR/% ratchet from 15% ROE SHORT / 22% LONG).
  */
 import { config } from '../config';
@@ -154,13 +154,11 @@ function roePct(pnlUsd: number, collateralUsd: number): number {
 export function shouldArmBreakevenProtection(
   pnlUsd: number,
   _collateralUsd: number,
-  timeInProfitMs: number,
+  _timeInProfitMs: number,
   _totalHoldMs: number
 ): boolean {
-  if (pnlUsd <= 0) return false;
-  const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  const armMs = Math.min(30_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 30_000));
-  return timeInProfitMs >= armMs;
+  // Profit SL follows the trade on the first green tick that can lock a real take.
+  return pnlUsd > 0;
 }
 
 export function lossStopPricePx(
@@ -411,39 +409,25 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
 }
 
 function trailTooYoungToClose(
-  rec: DynamicTrailRecord,
-  nowMs: number,
+  _rec: DynamicTrailRecord,
+  _nowMs: number,
   _trailMult: number,
-  peakPnlUsd = 0,
-  feesUsd = 0,
-  collateralUsd = 0
+  _peakPnlUsd = 0,
+  _feesUsd = 0,
+  _collateralUsd = 0
 ): boolean {
-  const cfg = config.hyperliquid.dynamicTrail;
-  let minMs = cfg.trailMinActiveBeforeCloseMs;
-  minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
-  if (!rec.trailArmedAt || minMs <= 0) return false;
-  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
-  // Real take already in hand — don't wait 3m while the winner dumps to red.
-  if (peakPnlUsd >= need * 2) return false;
-  return nowMs - rec.trailArmedAt < minMs;
+  return false;
 }
 
-/** Once green, breathe before any profit exit — LONG and SHORT. */
+/** Profit SL fires when hit — no green-hold delay. */
 function longGreenTooYoungToClose(
-  rec: DynamicTrailRecord,
-  pnlUsd: number,
-  peakPnlUsd = 0,
-  feesUsd = 0,
-  collateralUsd = 0
+  _rec: DynamicTrailRecord,
+  _pnlUsd: number,
+  _peakPnlUsd = 0,
+  _feesUsd = 0,
+  _collateralUsd = 0
 ): boolean {
-  if (pnlUsd <= 0) return false;
-  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
-  if (peakPnlUsd >= need * 2) return false;
-  const minMs = Math.min(
-    240_000,
-    Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
-  );
-  return minMs > 0 && rec.timeInProfitMs < minMs;
+  return false;
 }
 
 function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: number): number {
@@ -510,7 +494,7 @@ async function evaluateDynamicTrailInner(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: after 2m continuous green, arm an in-profit peak floor.
+  // Phase 1 — idle: arm in-profit peak floor as soon as a real take can lock.
   // Loss SL% still arms after max-hold while red (if the user set an SL).
   if (rec.phase === 'idle') {
     const maxSlDue = input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
@@ -560,16 +544,8 @@ async function evaluateDynamicTrailInner(
         timeInProfitMs: rec.timeInProfitMs,
         holdMs: input.totalHoldMs,
       });
-      // Never close on the arm tick — let the stop ratchet with the peak first.
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
-    }
-
-    if (maxSlDue && input.pnlUsd <= 0 && input.stopLossPct > 0) {
+      // Fall through so the floor can close this tick if price already gave it back.
+    } else if (maxSlDue && input.pnlUsd <= 0 && input.stopLossPct > 0) {
       const lossStop = lossStopPricePx(
         input.direction,
         input.entryPrice,
@@ -598,14 +574,14 @@ async function evaluateDynamicTrailInner(
         exitReason: '',
         closeDetail: '',
       };
+    } else {
+      return {
+        record: rec,
+        shouldClose: false,
+        exitReason: '',
+        closeDetail: '',
+      };
     }
-
-    return {
-      record: rec,
-      shouldClose: false,
-      exitReason: '',
-      closeDetail: '',
-    };
   }
 
   // Loss SL trail — ratchet stop on bounces, close when SL crossed (after min active ms).
@@ -775,15 +751,6 @@ async function evaluateDynamicTrailInner(
       rec.currentTrailStop,
       trailCandidate
     );
-
-    if (input.trailCloseDeferred) {
-      return {
-        record: rec,
-        shouldClose: false,
-        exitReason: '',
-        closeDetail: '',
-      };
-    }
 
     const peakFracBase = config.hyperliquid.profitPeakDropFraction;
     // LONGs get extra giveback room so stage-2 trail can run with explosions.

@@ -84,8 +84,6 @@ import {
   shouldHardLossClose,
   computeMaxLossCapUsd,
   evaluatePositionThesis,
-  evaluateTrailPullbackAnalysis,
-  logTrailPullbackAnalysis,
   type ProfitRunAnalysis,
 } from './positionThesisGate';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -405,12 +403,8 @@ function isInvertedOrStaleTrail(opts: {
   if (!isTrailStopCrossed(opts.direction, opts.markPrice, rec.currentTrailStop)) {
     return false;
   }
-  // Armed within ~3m of open with stop already breached → invented peak, not a lived trail.
-  const armedAt = rec.trailArmedAt ?? 0;
-  const openedAt = rec.openedAt || opts.openedAtMs;
-  if (armedAt > 0 && openedAt > 0 && armedAt - openedAt < 180_000) {
-    return true;
-  }
+  // Rehydrate already refuses to persist a crossed stop. A lived profit SL that
+  // armed early and then got hit must close — not be wiped as "stale".
   return false;
 }
 
@@ -2834,10 +2828,7 @@ export class HyperliquidTradingService {
           trailCfg.longSkipBreakevenLockClose &&
           trailExitReason === 'profit_lock' &&
           /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
-        const tooYoung =
-          trailExitReason !== 'profit_lock' &&
-          greenHoldMs > 0 &&
-          (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
+        const tooYoung = false;
         const peakTooSmall =
           trailExitReason !== 'profit_lock' &&
           minPeakRoe > 0 &&
@@ -2874,26 +2865,6 @@ export class HyperliquidTradingService {
             pnlUsd: pnl.toFixed(4),
             peakUsd: trailRecord.highestPnlSinceEntry.toFixed(4),
           });
-        } else if (trailExitReason === 'trailing_stop') {
-          const verdict = await evaluateTrailPullbackAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            floorUsd: pnl,
-            peakUsd: trailRecord.highestPnlSinceEntry,
-          });
-          const canDefer =
-            verdict.deferClose &&
-            (trailRecord.trailCloseDeferCount ?? 0) < deferMax;
-          logTrailPullbackAnalysis(userAddress, pos.coin, verdict, canDefer);
-          if (canDefer) {
-            shouldCloseTrail = false;
-            trailRecord = {
-              ...trailRecord,
-              trailCloseDeferUntil: nowMs + deferMs,
-              trailCloseDeferCount: (trailRecord.trailCloseDeferCount ?? 0) + 1,
-            };
-          }
         }
       }
 
@@ -2973,11 +2944,7 @@ export class HyperliquidTradingService {
         estimateRoundTripFeesUsd(notionalUsd),
         collateralEst
       );
-      const stillBreathing =
-        longGreenHoldMs > 0 &&
-        pnl > 0 &&
-        (trailRecord.highestPnlSinceEntry ?? 0) < tpNeed * 2 &&
-        (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
+      const stillBreathing = false;
       if (
         !stillBreathing &&
         shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent) &&
