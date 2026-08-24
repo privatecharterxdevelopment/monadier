@@ -7,6 +7,7 @@
  * - Support    = best swing-low cluster at/below last close
  * Dense historical shelves ABOVE a dump are never labeled "support".
  */
+import { evaluateResistanceFade } from './resistanceFadeGate';
 
 export type CandleLike = {
   high: number;
@@ -399,7 +400,12 @@ export function evaluateZoneReversalGate(
   candles: CandleLike[],
   resistance: PriceZone | null,
   support: PriceZone | null,
-  opts?: { breakoutBufferPct?: number; breakoutBars?: number; lookbackBars?: number }
+  opts?: {
+    breakoutBufferPct?: number;
+    breakoutBars?: number;
+    lookbackBars?: number;
+    coinVolumeExpanding?: boolean;
+  }
 ): ZoneOpenVerdict {
   const breakoutBufferPct = opts?.breakoutBufferPct ?? 0.0015;
   const breakoutBars = opts?.breakoutBars ?? 2;
@@ -415,38 +421,21 @@ export function evaluateZoneReversalGate(
       breakoutBufferPct,
       breakoutBars
     );
-    if (brokeOut) {
-      if (direction === 'LONG') {
-        return {
-          ok: true,
-          reason: `Resistance breakout confirmed above $${resistance.zoneHigh.toFixed(4)}`,
-          insideResistance,
-          insideSupport,
-        };
-      }
+    const fade = evaluateResistanceFade({
+      direction,
+      atResistance: true,
+      confirmedBreakoutUp: brokeOut,
+      coinVolumeExpanding: opts?.coinVolumeExpanding,
+    });
+    if (fade) {
       return {
-        ok: true,
-        flipTo: 'LONG',
-        reason: `Resistance breakout → flip SHORT→LONG above $${resistance.zoneHigh.toFixed(4)}`,
+        ok: fade.ok,
+        reason: fade.reason,
+        flipTo: fade.flipTo,
         insideResistance,
         insideSupport,
       };
     }
-    if (direction === 'SHORT') {
-      return {
-        ok: true,
-        reason: `SHORT at resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}`,
-        insideResistance,
-        insideSupport,
-      };
-    }
-    return {
-      ok: true,
-      flipTo: 'SHORT',
-      reason: `At resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)} → flip LONG→SHORT`,
-      insideResistance,
-      insideSupport,
-    };
   }
 
   if (insideSupport && support) {

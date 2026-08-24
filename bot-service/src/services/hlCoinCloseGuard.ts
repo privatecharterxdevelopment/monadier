@@ -3,6 +3,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
+import { pendingImpulseFadeAllows } from './impulseFadeSequence';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -67,6 +68,7 @@ export function isSameCoinOpenBlockedSync(
   coin: string,
   direction: 'LONG' | 'SHORT'
 ): { blocked: boolean; reason?: string } {
+  if (pendingImpulseFadeAllows(wallet, coin, direction)) return { blocked: false };
   const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
   if (!mem) return { blocked: false };
   return evaluateBlock(mem, coin, direction);
@@ -77,6 +79,7 @@ export async function isSameCoinOpenBlocked(
   coin: string,
   direction: 'LONG' | 'SHORT'
 ): Promise<{ blocked: boolean; reason?: string }> {
+  if (pendingImpulseFadeAllows(wallet, coin, direction)) return { blocked: false };
   const mem = await resolveCoinCloseMem(wallet, coin);
   if (!mem) return { blocked: false };
   return evaluateBlock(mem, coin, direction);

@@ -3,7 +3,7 @@
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
-import { btcLeadIsPumping, btcTapeIsGreen } from './macroBetaGate';
+import { btcLeadIsPumping, btcIsExploding } from './macroBetaGate';
 import {
   fetchPumpSweepAnalysis,
   fetchMegaPairPumpSweep,
@@ -32,19 +32,18 @@ function gateForDirection(
   const coin = a.coin;
 
   if (direction === 'LONG') {
-    // BTC still pushing: LONG-only. Don't sit out the spike waiting for a fade.
-    if (btcTapeIsGreen() && (a.phase === 'at_apex' || a.phase === 'post_pump_fade')) {
-      return {
-        ok: true,
-        reason: `Pump sweep waived — green tape LONG-only (${coin} ${a.phase.replace(/_/g, ' ')})`,
-      };
-    }
     if (a.phase === 'at_apex') {
+      const btc = btcIsExploding();
+      if (btc.yes) {
+        return {
+          ok: true,
+          reason: `Pump sweep OK — ${coin} at apex but ${btc.reason} — LONG continuation through R`,
+        };
+      }
       return {
         ok: false,
         reason:
-          `LONG blocked — ${coin} at pump apex $${a.pumpApex.toFixed(2)} (liquidity sweep line) — ` +
-          `wait for fade toward avg low ~$${a.avgSwingLow.toFixed(2)} / turnaround ~$${a.turnaroundEstimate.toFixed(2)}`,
+          `LONG blocked — ${coin} at pump apex $${a.pumpApex.toFixed(2)} — top of the range is SHORT`,
       };
     }
     if (a.phase === 'post_pump_fade' && a.positionInSweep > cfg.longBlockAbovePosition) {
@@ -96,6 +95,13 @@ function gateForDirection(
     };
   }
   if (a.phase === 'at_apex' || (a.phase === 'post_pump_fade' && a.positionInSweep >= cfg.shortAllowAbovePosition)) {
+    const btc = btcIsExploding();
+    if (btc.yes) {
+      return {
+        ok: false,
+        reason: `SHORT blocked — ${coin} at apex while ${btc.reason}`,
+      };
+    }
     if (direction === 'SHORT' && a.retraceFromApexPct < 0) {
       return {
         ok: false,

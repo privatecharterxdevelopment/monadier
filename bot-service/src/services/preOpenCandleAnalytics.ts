@@ -7,7 +7,7 @@ import { preOpenTimeframeForDirection } from '../config/directionProfiles';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle, type Timeframe } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { btcLeadIsPumping } from './macroBetaGate';
+import { btcIsExploding } from './macroBetaGate';
 
 export type PreOpenCandleAnalytics = {
   ok: boolean;
@@ -218,12 +218,12 @@ export async function validatePreOpenCandleAnalytics(opts: {
         logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (!btcLeadIsPumping() && !trendConfirms && pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
+      if (!btcIsExploding().yes && !trendConfirms && pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
         const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
         logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (!btcLeadIsPumping() && !trendConfirms && rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
+      if (!btcIsExploding().yes && !trendConfirms && rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
         const reason = `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`;
         logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });

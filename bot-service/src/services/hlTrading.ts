@@ -47,7 +47,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcIsExploding, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -109,6 +109,7 @@ import {
   rememberCoinClose,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
+import { evaluateImpulseTake, rememberImpulseFade } from './impulseFadeSequence';
 
 const transport = new HttpTransport();
 
@@ -1291,16 +1292,15 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
-      // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
+      // Peak = SHORT only when BTC is not exploding. Mid-pump apex is LONG continuation.
       if (
         opts.direction === 'LONG' &&
         peakAnalysis?.phase === 'at_apex' &&
-        !btcLeadIsPumping()
+        !btcIsExploding().yes
       ) {
         return rejectOpen(
           'pump_sweep',
-          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
+          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is SHORT (BTC not exploding)`,
           'peak blocks LONG'
         );
       }
@@ -1682,11 +1682,15 @@ export class HyperliquidTradingService {
           );
         }
         const h1ForFlip = String(opts.pick.h1Trend || '').toUpperCase();
-        if (flipped === 'SHORT' && btcLeadIsPumping()) {
-          logger.info('HL zone flip LONG→SHORT skipped — BTC still inflow', {
+        // Never apply LONG→SHORT while BTC is exploding — that was the
+        // book-wide mid-pump short. Range-top is not an exception.
+        const exploding = btcIsExploding();
+        if (flipped === 'SHORT' && exploding.yes) {
+          logger.info('HL zone flip LONG→SHORT skipped — BTC exploding', {
             user: opts.userAddress.slice(0, 10),
             coin,
             reason: locationGate.reason,
+            btc: exploding.reason,
             h1: h1ForFlip || 'unknown',
           });
         } else {
@@ -1708,6 +1712,24 @@ export class HyperliquidTradingService {
               `LONG→SHORT blocked — confidence ${conf}% < ${shortMin}%`,
               'short flip conf too low'
             );
+          }
+        }
+
+        if (flipped === 'SHORT') {
+          const pumpShortAfter = await validateNoAltPumpShort({
+            coin,
+            direction: 'SHORT',
+          });
+          if (!pumpShortAfter.ok) {
+            return rejectOpen(
+              'pump_short',
+              pumpShortAfter.reason,
+              'pump-short after zone flip'
+            );
+          }
+          const megaAfter = validateMegaPairVolumeForDirection('SHORT');
+          if (!megaAfter.ok) {
+            return rejectOpen('mega_pair', megaAfter.reason, 'mega pair after zone flip');
           }
         }
 
@@ -1769,7 +1791,7 @@ export class HyperliquidTradingService {
           );
         }
         (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
-        } // skip LONG→SHORT apply while BTC is pumping
+        } // skip LONG→SHORT apply while BTC is exploding
         } // end else (flip allowed)
       }
 
@@ -1784,7 +1806,7 @@ export class HyperliquidTradingService {
           direction: opts.direction,
         });
       }
-      if (htfSrGate?.wouldBlock && !(opts.direction === 'LONG' && btcLeadIsPumping())) {
+      if (htfSrGate?.wouldBlock && !(opts.direction === 'LONG' && btcIsExploding().yes)) {
         const hardBlockLong =
           opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr;
         logger.info(
@@ -2815,13 +2837,33 @@ export class HyperliquidTradingService {
         }
       }
 
+      let impulseComplete = false;
+      if (pnl > 0 && positionDirection === 'LONG') {
+        const impulse = await evaluateImpulseTake({
+          coin: pos.coin,
+          direction: positionDirection,
+          pnlUsd: pnl,
+        });
+        impulseComplete = impulse.impulseComplete;
+        if (impulse.take) {
+          shouldCloseTrail = true;
+          trailExitReason = 'impulse_take';
+          trailCloseDetail = impulse.reason;
+        }
+      }
+
       if (shouldCloseTrail && pnl > 0) {
-        const deferMax = config.hyperliquid.trailSweepDeferMax;
-        const deferMs = config.hyperliquid.trailSweepDeferMs;
         const strongRun =
           runAnalysis?.bias === 'strong_run' || runAnalysis?.bias === 'run';
 
-        if (trailExitReason === 'profit_grab_peak' && strongRun && runAnalysis?.thesis.thesisIntact) {
+        // Fat-candle take: do NOT skip the peak grab. User: take the impulse,
+        // close, then fade SHORT. Holding through "strong_run" ate that play.
+        if (
+          trailExitReason === 'profit_grab_peak' &&
+          strongRun &&
+          runAnalysis?.thesis.thesisIntact &&
+          !impulseComplete
+        ) {
           shouldCloseTrail = false;
           logger.info('HL peak grab skipped — winner still running', {
             user: userAddress.slice(0, 10),
@@ -3326,6 +3368,7 @@ export class HyperliquidTradingService {
         'trailing_stop',
         'profit_grab_peak',
         'profit_grab_timeout',
+        'impulse_take',
         'take_profit',
       ]);
       if (!userInitiated && profitExitReasons.has(reason) && pnlUsd > 0) {
@@ -3358,7 +3401,9 @@ export class HyperliquidTradingService {
       }
 
       if (
-        (reason === 'profit_grab_peak' || reason === 'profit_grab_timeout') &&
+        (reason === 'profit_grab_peak' ||
+          reason === 'profit_grab_timeout' ||
+          reason === 'impulse_take') &&
         pnlUsd <= 0
       ) {
         logger.debug('HL skip profit grab — not in profit', {
@@ -3483,6 +3528,12 @@ export class HyperliquidTradingService {
 
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
+      if (
+        isLong &&
+        (reason === 'impulse_take' || reason === 'profit_grab_peak')
+      ) {
+        rememberImpulseFade(userAddress, coinUpper, 'SHORT');
+      }
 
       // Manual Close: ACK the fill immediately. Fee ledger / fill PnL / dust
       // must not block dozens of concurrent user closes.
