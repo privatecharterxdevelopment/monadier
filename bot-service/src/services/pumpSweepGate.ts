@@ -33,13 +33,7 @@ function gateForDirection(
 
   if (direction === 'LONG') {
     if (a.phase === 'at_apex') {
-      const btc = btcIsExploding();
-      if (btc.yes) {
-        return {
-          ok: true,
-          reason: `Pump sweep OK — ${coin} at apex but ${btc.reason} — LONG continuation through R`,
-        };
-      }
+      // Never LONG the pump high — BTC exploding does not buy the tip (LIT).
       return {
         ok: false,
         reason:

@@ -52,6 +52,7 @@ import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { validateCandleWickGate } from './candleWickGate';
+import { validateNoLongAtSpikeHigh } from './spikeHighLongGate';
 import { validateLongDumpTapeGate } from './longDumpTapeGate';
 import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
@@ -1292,15 +1293,11 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = SHORT only when BTC is not exploding. Mid-pump apex is LONG continuation.
-      if (
-        opts.direction === 'LONG' &&
-        peakAnalysis?.phase === 'at_apex' &&
-        !btcIsExploding().yes
-      ) {
+      // Peak = never a new LONG. Buying the spike high is forbidden even if BTC is pushing.
+      if (opts.direction === 'LONG' && peakAnalysis?.phase === 'at_apex') {
         return rejectOpen(
           'pump_sweep',
-          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is SHORT (BTC not exploding)`,
+          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is SHORT`,
           'peak blocks LONG'
         );
       }
@@ -1456,8 +1453,11 @@ export class HyperliquidTradingService {
       }
 
       const trustedDirection = trustsDirectionProfile(opts.pick);
+      // LONGs never skip fresh-pump — that let trusted MTF buy spike highs (LIT).
       const freshPumpGate =
-        trustedDirection && directionRules.bypassFreshPumpWhenTrusted
+        opts.direction !== 'LONG' &&
+        trustedDirection &&
+        directionRules.bypassFreshPumpWhenTrusted
           ? {
               ok: true as const,
               reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips fresh-pump cooldown`,
@@ -1567,6 +1567,15 @@ export class HyperliquidTradingService {
       });
       if (!wickGate.ok) {
         return rejectOpen('candle_wick', wickGate.reason, 'candle wick gate');
+      }
+
+      const spikeHighGate = await validateNoLongAtSpikeHigh({
+        coin,
+        direction: opts.direction,
+        markPx,
+      });
+      if (!spikeHighGate.ok) {
+        return rejectOpen('spike_high', spikeHighGate.reason, 'never LONG the spike tip');
       }
 
       // Dump tape — never LONG into red 15m/1h (user: last candles red → SHORT only).
