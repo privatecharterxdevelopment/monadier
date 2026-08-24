@@ -81,19 +81,11 @@ function pickPreferredCandidate(
   if (longC && shortC) {
     // BTC still pushing = LONG only.
     if (btcInflow) return longC;
-    const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-    const longH1Down = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN');
-    // Coin 1h DOWN → SHORT if the dump stack printed. Otherwise LONG-primary shoots.
-    if (longH1Down && shortH1Down) return shortC;
-    if (
-      shortH1Down &&
-      shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
-    ) {
-      return shortC;
-    }
-    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
-      if (longH1Down) return shortC;
-      return longC;
+    // Both printed — take the stronger side. LONG-primary keeps a small edge, not a H1 veto.
+    if (primary === 'LONG') {
+      return shortC.confidence >= longC.confidence + Math.max(4, edge / 2)
+        ? shortC
+        : longC;
     }
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;
@@ -381,6 +373,7 @@ async function scanStandardCoinDirection(
           analysis.metrics?.h1Trend === 'DOWN') ||
         (direction === 'SHORT' &&
           !trustedDirection &&
+          dirRules.requiredH1Trend === 'DOWN' &&
           (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
             analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
       )

@@ -96,10 +96,7 @@ function gateForDirection(
     };
   }
   if (a.phase === 'at_apex' || (a.phase === 'post_pump_fade' && a.positionInSweep >= cfg.shortAllowAbovePosition)) {
-    if (
-      direction === 'SHORT' &&
-      a.retraceFromApexPct < cfg.minRetraceFromApexPct * 0.5
-    ) {
+    if (direction === 'SHORT' && a.retraceFromApexPct < 0) {
       return {
         ok: false,
         reason:

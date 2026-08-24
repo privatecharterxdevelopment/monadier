@@ -409,19 +409,41 @@ export function evaluateZoneReversalGate(
   const insideSupport = support != null && priceInsideZone(price, support);
 
   if (insideResistance && resistance) {
-    // No resistance shorts — tagging R is not a fade. LONG through R is
-    // decided by the classic gate (green tape / breakout), not a SHORT flip.
+    const brokeOut = confirmedBreakAboveZone(
+      candles,
+      resistance,
+      breakoutBufferPct,
+      breakoutBars
+    );
+    if (brokeOut) {
+      if (direction === 'LONG') {
+        return {
+          ok: true,
+          reason: `Resistance breakout confirmed above $${resistance.zoneHigh.toFixed(4)}`,
+          insideResistance,
+          insideSupport,
+        };
+      }
+      return {
+        ok: true,
+        flipTo: 'LONG',
+        reason: `Resistance breakout → flip SHORT→LONG above $${resistance.zoneHigh.toFixed(4)}`,
+        insideResistance,
+        insideSupport,
+      };
+    }
     if (direction === 'SHORT') {
       return {
-        ok: false,
-        reason: `SHORT blocked — no resistance shorts ($${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}); need breakdown`,
+        ok: true,
+        reason: `SHORT at resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)}`,
         insideResistance,
         insideSupport,
       };
     }
     return {
       ok: true,
-      reason: `At resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)} — no SHORT flip`,
+      flipTo: 'SHORT',
+      reason: `At resistance zone $${resistance.zoneLow.toFixed(4)}–$${resistance.zoneHigh.toFixed(4)} → flip LONG→SHORT`,
       insideResistance,
       insideSupport,
     };

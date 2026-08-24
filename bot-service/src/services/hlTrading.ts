@@ -1682,66 +1682,31 @@ export class HyperliquidTradingService {
           );
         }
         const h1ForFlip = String(opts.pick.h1Trend || '').toUpperCase();
-        const h1StillUp =
-          h1ForFlip.includes('UP') ||
-          h1ForFlip.includes('LONG') ||
-          h1ForFlip === 'STRONG_UPTREND';
-        if (
-          flipped === 'SHORT' &&
-          (btcLeadIsPumping() ||
-            btcTapeIsGreen() ||
-            h1StillUp ||
-            /resistance|R-fade/i.test(locationGate.reason) ||
-            locationGate.analysis.nearResistance)
-        ) {
-          logger.info('HL zone flip LONG→SHORT skipped — no resistance shorts / green tape', {
+        if (flipped === 'SHORT' && btcLeadIsPumping()) {
+          logger.info('HL zone flip LONG→SHORT skipped — BTC still inflow', {
             user: opts.userAddress.slice(0, 10),
             coin,
             reason: locationGate.reason,
             h1: h1ForFlip || 'unknown',
-            btcGreen: btcTapeIsGreen(),
           });
         } else {
 
-        // At resistance → SHORT only if 1h is not UP. Green tape never fades.
         if (
           flipped === 'SHORT' &&
           config.hyperliquid.directionProfile.primaryDirection === 'LONG'
         ) {
-          const h1 = h1ForFlip;
           const conf = Number(opts.pick.confidence) || 0;
           const shortMin = config.hyperliquid.directionProfile.short.minConfidence;
           const rangePos = locationGate.analysis.pricePosition;
           const atResistance =
             locationGate.analysis.nearResistance ||
             rangePos >= config.hyperliquid.entryLocation.rangeTopBlock ||
-            /resistance/i.test(locationGate.reason);
-          if (h1StillUp) {
-            return rejectOpen(
-              'sr_zone_flip',
-              `LONG→SHORT blocked — 1h still UP (${h1 || 'UP'}), no R-fade on green`,
-              'no short flip vs 1h UP'
-            );
-          }
-          if (!atResistance && h1 === 'UP') {
-            return rejectOpen(
-              'sr_zone_flip',
-              `LONG→SHORT blocked in ${config.hyperliquid.directionProfile.name} — 1h still UP and not at R`,
-              'no short flip vs 1h UP'
-            );
-          }
+            /resistance|range top|flip LONG→SHORT/i.test(locationGate.reason);
           if (!atResistance && conf < shortMin) {
             return rejectOpen(
               'sr_zone_flip',
-              `LONG→SHORT blocked — confidence ${conf}% < ${shortMin}% counter-trend bar in ${config.hyperliquid.directionProfile.name}`,
+              `LONG→SHORT blocked — confidence ${conf}% < ${shortMin}%`,
               'short flip conf too low'
-            );
-          }
-          if (!atResistance && rangePos < 0.75) {
-            return rejectOpen(
-              'sr_zone_flip',
-              `LONG→SHORT blocked — price only ${(rangePos * 100).toFixed(0)}% of range (need ≥75% or R-tag)`,
-              'short flip not at range top'
             );
           }
         }

@@ -4,11 +4,10 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
+ * SHORT: range top / R, dump continuation, or confirmed breakdown — never the floor.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
- * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
- * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
+ * LONG: support / lower range, or confirmed breakout *through* R.
+ * At resistance: SHORT (or flip LONG→SHORT) unless green tape / breakout continues LONG.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -285,17 +284,16 @@ export function evaluateEntryLocation(
         reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
       };
     }
-    // At the resistance line: no LONG unless green tape / confirmed breakout.
-    // Do NOT flip to SHORT — resistance shorts are off.
     if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
           ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
           : fmtLevel(analysis.resistance);
       return {
-        ok: false,
+        ok: true,
         analysis,
-        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
+        flipTo: 'SHORT',
+        reason: `At/near upper range R ${zone} — flip LONG→SHORT`,
       };
     }
 
@@ -328,12 +326,19 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown is best. Dump continuation is allowed. R-fade is not.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
       analysis,
       reason: `Breakdown below support ${fmtLevel(analysis.support)} confirmed`,
+    };
+  }
+
+  if (analysis.nearSupport && !analysis.confirmedBreakdown) {
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked — at support ${fmtLevel(analysis.support)} (floor = LONG, not SHORT)`,
     };
   }
 
@@ -343,9 +348,9 @@ export function evaluateEntryLocation(
         ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
         : fmtLevel(analysis.resistance);
     return {
-      ok: false,
+      ok: true,
       analysis,
-      reason: `SHORT blocked — no resistance shorts (R ${zone}); need dump continuation or confirmed breakdown`,
+      reason: `SHORT at range top / R ${zone}`,
     };
   }
 
