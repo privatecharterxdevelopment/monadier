@@ -3522,7 +3522,7 @@ export class HyperliquidTradingService {
       const closeStartedMs = Date.now();
       // Manual Close: skip builder gate on the first shot — speed > fee attach.
       // Bot auto-exits still attach builder when profitable.
-      if (pnlUsd > 0 && !userInitiated) {
+      if (pnlUsd > 0 && !userInitiated && botOwned) {
         const builderGate = await checkHlBuilderFeeApproved(userAddress);
         if (!builderGate.platformReady) {
           feeSkipReason = 'platform_wallet_underfunded';

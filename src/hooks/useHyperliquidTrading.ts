@@ -31,9 +31,7 @@ import {
 } from '../lib/hyperliquid/orders';
 import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
-import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
 import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
-import { fetchHlAccountState } from '../lib/hyperliquid/user';
 import {
   placeHlManualPerpOrderViaAgent,
   updateHlManualPerpLeverageViaAgent,
@@ -155,23 +153,13 @@ export function useHyperliquidTrading() {
     }) => {
       const config = getHlBuilderConfig();
       if (!config.enabled) return undefined;
+      // Manual / desk perps: 100% of PnL stays on Hyperliquid. Bot success fee
+      // is charged only on HyperGain agent auto-closes of bot-owned positions.
+      if (opts.marketKind === 'perp') return undefined;
       const wallet = await resolveWallet();
       const user = wallet.account?.address;
       if (!user) return undefined;
       const approved = await fetchMaxBuilderFee(user, config.address);
-
-      let profitUsd = opts.profitUsd;
-      if (
-        opts.marketKind === 'perp' &&
-        opts.reduceOnly &&
-        profitUsd == null &&
-        opts.size > 0
-      ) {
-        const account = await fetchHlAccountState(user);
-        const position = account.positions.find((p) => p.coin === opts.coin);
-        profitUsd = proratePositionProfitUsd(position, opts.size);
-      }
-
       const notionalUsd = opts.size * opts.markPx;
       const param = resolveProTradeBuilderParam({
         marketKind: opts.marketKind,
@@ -179,7 +167,7 @@ export function useHyperliquidTrading() {
         approvedMaxTenthsBps: approved,
         reduceOnly: opts.reduceOnly,
         notionalUsd,
-        profitUsd,
+        profitUsd: opts.profitUsd,
       });
       return param ?? undefined;
     },
