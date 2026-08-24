@@ -2,10 +2,10 @@
  * Resistance open gate — not a blanket "never LONG at R".
  *
  * At range top / R:
- *   Confirmed close *through* R → LONG breakout.
- *   BTC exploding (green + volume) → LONG continuation; SHORT forbidden
- *     (mid-pump book-wide shorts must never happen again).
- *   Coin itself expanding on volume through R → wait (don't fade a live push).
+ *   Confirmed close *through* zone high → LONG breakout.
+ *   Still inside R → never a new LONG (that was LIT: Open L in the R box).
+ *   BTC exploding (inflow tape) → wait (don't long the ceiling, don't short the pump).
+ *   Coin expanding on volume → wait.
  *   BTC quiet + no volume expansion → SHORT fade (or flip LONG→SHORT).
  */
 import { btcIsExploding } from './macroBetaGate';
@@ -65,15 +65,11 @@ export function evaluateResistanceFade(opts: {
 
   const btc = btcIsExploding();
   if (btc.yes) {
-    if (opts.direction === 'SHORT') {
-      return {
-        ok: false,
-        reason: `SHORT blocked at R — ${btc.reason}`,
-      };
-    }
+    // Tagging R during a BTC push is NOT a long. Only a close through R is.
+    // Don't short the pump either — wait.
     return {
-      ok: true,
-      reason: `LONG through R — ${btc.reason}`,
+      ok: false,
+      reason: `At R, no close through zone high — wait (${btc.reason})`,
     };
   }
 

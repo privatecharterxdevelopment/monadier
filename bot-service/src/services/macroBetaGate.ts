@@ -367,16 +367,13 @@ export function btcTapeIsGreen(): boolean {
 }
 
 /**
- * BTC exploding = volume + green expansion (inflow/pump).
- * That is LONG-continuation, never a book-wide R-fade SHORT.
- * Quiet/flat BTC is not this — 8 bps green is not exploding.
+ * BTC exploding = live inflow tape (fat green + volume), not a 0.3% bounce.
+ * isPumping at 35 bps was licensing LONGs into resistance (LIT).
+ * Quiet/flat BTC is not this.
  */
 export function btcIsExploding(): { yes: boolean; reason: string } {
   if (lastBtcPhase === 'inflow') {
     return { yes: true, reason: lastBtcPhaseReason || 'BTC inflow (volume + green expansion)' };
-  }
-  if (btcTapeIsGreen()) {
-    return { yes: true, reason: 'BTC expanding on volume — no SHORT fade' };
   }
   return { yes: false, reason: 'BTC not exploding' };
 }

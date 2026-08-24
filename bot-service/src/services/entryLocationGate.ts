@@ -244,7 +244,7 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
     supportRejections: supTests.rejections,
     confirmedBreakoutUp: confirmedBreakoutUp(
       candlesPrimary,
-      resistance,
+      resistanceZone?.zoneHigh ?? resistance,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
