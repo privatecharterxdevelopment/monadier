@@ -113,7 +113,8 @@ export async function getBettingFeeStatus(walletAddress: string): Promise<Bettin
     winsUntilBlock,
     // Block next bet after unpaid place-bet and/or win fees hit the cap (default 1).
     bettingBlocked: unpaidFeeEvents >= cap && hasOwed,
-    withdrawBlocked: hasOwed,
+    // HyperGain is halted — never block Hyperliquid withdraws on accrued betting fees.
+    withdrawBlocked: false,
     buyFeeBps: config.hyperliquid.bettingBuyFeeBps,
     cashoutFeeBps: config.hyperliquid.bettingCashoutFeeBps,
   };

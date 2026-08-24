@@ -13,6 +13,7 @@ import {
   VAULT_SETTINGS_COLUMNS_BASE,
 } from './vaultSettingsSchema';
 import { ARBITRUM_ONE_CHAIN_ID } from './usdcArbitrum';
+import { HL_BOT_HALTED } from './hyperliquid/hlBotHalt';
 
 function clampMaxConcurrentPositions(raw: unknown): number {
   const n = Number(raw);
@@ -97,7 +98,7 @@ async function saveVaultSettingsToDatabase(
   const rpcPayload: Record<string, unknown> = {
     p_wallet_address: wallet,
     p_chain_id: ARBITRUM_ONE_CHAIN_ID,
-    p_auto_trade_enabled: settings.autoTradeEnabled,
+    p_auto_trade_enabled: HL_BOT_HALTED ? false : settings.autoTradeEnabled,
     p_risk_level_bps: Math.round(settings.riskPct * 100),
     p_leverage_multiplier: leverage,
     p_take_profit_percent: settings.takeProfit,
@@ -151,7 +152,7 @@ async function saveVaultSettingsToDatabase(
       const payload: Record<string, unknown> = {
         wallet_address: wallet,
         chain_id: ARBITRUM_ONE_CHAIN_ID,
-        auto_trade_enabled: settings.autoTradeEnabled,
+        auto_trade_enabled: HL_BOT_HALTED ? false : settings.autoTradeEnabled,
         risk_level_bps: Math.round(settings.riskPct * 100),
         take_profit_percent: settings.takeProfit,
         stop_loss_percent: settings.stopLoss,

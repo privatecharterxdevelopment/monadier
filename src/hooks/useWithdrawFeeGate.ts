@@ -2,14 +2,14 @@ import { useCallback } from 'react';
 import { useBettingFeeGate } from '../contexts/BettingFeeContext';
 import { usePlatformFeeGate } from '../contexts/PlatformFeeContext';
 
-/** Withdraw blocked until bot platform fees and/or betting fees are paid on-chain. */
+/** HyperGain is halted — withdraw is never blocked by bot/betting fees. */
 export function useWithdrawFeeGate() {
   const platform = usePlatformFeeGate();
   const betting = useBettingFeeGate();
 
-  const platformWithdrawBlocked = platform.withdrawBlocked;
-  const bettingWithdrawBlocked = !betting.feesWaived && betting.withdrawBlocked;
-  const withdrawBlocked = platformWithdrawBlocked || bettingWithdrawBlocked;
+  const platformWithdrawBlocked = false;
+  const bettingWithdrawBlocked = false;
+  const withdrawBlocked = false;
 
   const openPayModal = useCallback(() => {
     if (platformWithdrawBlocked) {

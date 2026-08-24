@@ -440,6 +440,7 @@ async function processUser(user: AutoBettingUser): Promise<'ok' | 'skip' | 'fail
 let cycleRunning = false;
 
 export async function runAutoBettingCycle(): Promise<void> {
+  if (config.hyperliquid.botHalted) return;
   if (cycleRunning) return;
   cycleRunning = true;
   try {

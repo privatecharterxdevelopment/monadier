@@ -22,6 +22,7 @@ import {
   enableHlBotExecution,
   MIN_HL_BOT_USD,
 } from '../../lib/hyperliquid/hlBotAgent';
+import { HL_BOT_HALTED, HL_BOT_HALTED_MESSAGE } from '../../lib/hyperliquid/hlBotHalt';
 import { registerWalletsForHistory } from '../../lib/userWallets';
 import {
   approveHlBuilderFeeRequired,
@@ -313,6 +314,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     );
 
   const canStartBot =
+    !HL_BOT_HALTED &&
     !botRunning &&
     !startBlocker &&
     approvalsComplete &&
@@ -399,6 +401,9 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const persistBotRunning = async (autoTradeEnabled: boolean) => {
     if (!wallet) throw new Error('Connect your wallet first.');
+    if (autoTradeEnabled && HL_BOT_HALTED) {
+      throw new Error(HL_BOT_HALTED_MESSAGE);
+    }
     const s = botSettings.settings;
     if (autoTradeEnabled) {
       if (!hlSetup.agentApproved) {
@@ -853,6 +858,13 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </>
               )}
             </div>
+
+            {HL_BOT_HALTED ? (
+              <div className="term-panel-alert">
+                <AlertTriangle size={14} />
+                <span>{HL_BOT_HALTED_MESSAGE}</span>
+              </div>
+            ) : null}
 
             <TerminalBotSettingsStrip
               settings={botSettings.settings}

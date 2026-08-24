@@ -4,6 +4,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { HL_BOT_HALTED, HL_BOT_HALTED_MESSAGE } from '../../lib/hyperliquid/hlBotHalt';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
 import type { HlBotStrategy } from '../../lib/hlBotStrategy';
@@ -44,7 +45,7 @@ function applySnapshotToState(
   }
 ) {
   setters.setRiskLevel(snapshot.riskPct);
-  setters.setAutoTrade(startMode ? true : snapshot.autoTradeEnabled);
+  setters.setAutoTrade(!HL_BOT_HALTED && (startMode ? true : snapshot.autoTradeEnabled));
   setters.setTakeProfit(snapshot.takeProfit);
   setters.setStopLoss(snapshot.stopLoss);
   setters.setLeverage(snapLeverageToStep(snapshot.leverage, planTier, hlSliderMax));
@@ -198,6 +199,10 @@ export function useBotSettingsEditor({
       return { ok: true };
     }
 
+    if (autoTrade && HL_BOT_HALTED) {
+      setError(HL_BOT_HALTED_MESSAGE);
+      return { ok: false };
+    }
     if (autoTrade && !allowAutoTrade) {
       setError('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
       return { ok: false };

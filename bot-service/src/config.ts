@@ -111,6 +111,12 @@ export const config = {
   executionVenue: 'hyperliquid' as const,
 
   hyperliquid: {
+    /**
+     * HyperGain auto-trading is shut down.
+     * No new bot opens, no trail/SL/TP auto-exits, no force-open, no auto-betting.
+     * Manual /api/hl-order, user Close, and Hyperliquid withdraw stay on.
+     */
+    botHalted: true,
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,

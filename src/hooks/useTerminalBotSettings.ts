@@ -13,6 +13,7 @@ import {
   VAULT_SETTINGS_COLUMNS_WITH_NEWS,
 } from '../lib/vaultSettingsSchema';
 import type { VaultSettingsSnapshot } from '../lib/vaultSettingsSnapshot';
+import { HL_BOT_HALTED } from '../lib/hyperliquid/hlBotHalt';
 
 export type { VaultSettingsSnapshot };
 
@@ -129,7 +130,7 @@ export function useTerminalBotSettings(refreshKey = 0) {
         takeProfitPercent: Number(vaultRow?.take_profit_percent ?? 0),
         stopLossPercent: Number(vaultRow?.stop_loss_percent ?? 0),
         maxLeverage: Number(vaultRow?.leverage_multiplier ?? 10),
-        autoTradeEnabled: Boolean(vaultRow?.auto_trade_enabled),
+        autoTradeEnabled: HL_BOT_HALTED ? false : Boolean(vaultRow?.auto_trade_enabled),
       });
 
       setData({

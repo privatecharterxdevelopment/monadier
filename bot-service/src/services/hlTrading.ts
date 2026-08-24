@@ -564,6 +564,9 @@ export class HyperliquidTradingService {
   }
 
   async canTrade(userAddress: string): Promise<{ ok: boolean; reason?: string }> {
+    if (config.hyperliquid.botHalted) {
+      return { ok: false, reason: 'HyperGain auto-trading is shut down' };
+    }
     const agentAddr = await this.getAgentAddress(userAddress);
     const approved = await hlAgentApprovalService.isApproved(userAddress, agentAddr);
     if (!approved) {
@@ -602,6 +605,8 @@ export class HyperliquidTradingService {
     userAddress: `0x${string}`,
     ctx: TradingCycleContext
   ): Promise<UserProcessResult> {
+    if (config.hyperliquid.botHalted) return 'skip';
+
     const settings = await subscriptionService.getUserTradingSettings(
       userAddress,
       config.arbitrum.chainId
@@ -1218,6 +1223,9 @@ export class HyperliquidTradingService {
     /** Admin force — skip soft gates; keep hard safety (excluded/flip/mark/apex). */
     force?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
+    if (config.hyperliquid.botHalted) {
+      return { success: false, error: 'HyperGain auto-trading is shut down' };
+    }
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
@@ -2230,6 +2238,29 @@ export class HyperliquidTradingService {
       notionalUsd?: number;
     }>;
   }> {
+    if (config.hyperliquid.botHalted) {
+      return {
+        coin: opts.coin.toUpperCase(),
+        direction: opts.direction,
+        dryRun: opts.dryRun === true,
+        leverage:
+          opts.leverage != null && Number.isFinite(opts.leverage) && opts.leverage > 0
+            ? Math.max(1, Math.floor(opts.leverage))
+            : null,
+        opened: 0,
+        eligible: 0,
+        skipped: 0,
+        failed: 0,
+        results: [
+          {
+            wallet: 'n/a',
+            success: false,
+            error: 'HyperGain auto-trading is shut down',
+          },
+        ],
+      };
+    }
+
     const coin = opts.coin.toUpperCase();
     const direction = opts.direction;
     const dryRun = opts.dryRun === true;
@@ -3096,6 +3127,7 @@ export class HyperliquidTradingService {
    * Trail/SL must run for every open position — pausing auto-trade only blocks new opens.
    */
   async resolvePositionMonitorWallets(chainId?: number): Promise<string[]> {
+    if (config.hyperliquid.botHalted) return [];
     const canonical = chainId ?? config.arbitrum.chainId;
     const now = Date.now();
     if (now - openPositionMonitorRefreshAt >= OPEN_POSITION_MONITOR_REFRESH_MS) {
@@ -3183,6 +3215,10 @@ export class HyperliquidTradingService {
 
   /** Scan agent-approved wallets for open perps and keep them on the trail loop. */
   async refreshOpenPositionMonitorFromApprovals(): Promise<void> {
+    if (config.hyperliquid.botHalted) {
+      openPositionMonitorWallets.clear();
+      return;
+    }
     openPositionMonitorRefreshAt = Date.now();
     try {
       const approved = await hlAgentApprovalService.listApprovedWallets();
@@ -3232,6 +3268,7 @@ export class HyperliquidTradingService {
 
   /** Fast loop — open positions only, no global scan (runs every ~250ms). */
   async runFastPositionMonitor(): Promise<void> {
+    if (config.hyperliquid.botHalted) return;
     if (fastPositionMonitorRunning) return;
     fastPositionMonitorRunning = true;
     const started = Date.now();
@@ -3909,7 +3946,7 @@ export class HyperliquidTradingService {
             : markPx * 0.95
           : (opts.price ?? markPx);
       const notionalUsd = opts.size * markPx;
-      const builder = opts.botManaged
+      const builder = opts.botManaged && !config.hyperliquid.botHalted
         ? await resolveHlOrderBuilderIfCharged(opts.userAddress, {
             notionalUsd,
             isClose: false,
@@ -3942,18 +3979,14 @@ export class HyperliquidTradingService {
         return { success: false, error: String(status.error) };
       }
 
-      if (opts.botManaged) {
-        rememberOpenPositionMonitor(opts.userAddress);
-      }
-
-      // Fresh bot open/add — drop any stale trail for this wallet+coin.
-      if (opts.botManaged && !opts.reduceOnly) {
+      if (opts.botManaged && !opts.reduceOnly && !config.hyperliquid.botHalted) {
         const lockKey = positionKey(opts.userAddress, coin);
         clearTrailState(lockKey);
         hlPositionOpenedAt.set(lockKey, Date.now());
       }
 
-      if (opts.botManaged) {
+      if (opts.botManaged && !config.hyperliquid.botHalted) {
+        rememberOpenPositionMonitor(opts.userAddress);
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
           coin,

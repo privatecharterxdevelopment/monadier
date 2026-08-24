@@ -28,6 +28,7 @@ import {
   type PositionPnlRow,
 } from '../lib/positionLivePnl';
 import { useHlAccountSnapshot } from './useHlAccountSnapshot';
+import { HL_BOT_HALTED } from '../lib/hyperliquid/hlBotHalt';
 
 export type TradingDashboardMetrics = {
   /** Hyperliquid account value — primary bot trading capital */
@@ -304,7 +305,7 @@ export function useTradingDashboardMetrics() {
       }
 
       const dbAutoTrade = vaultSettings != null ? Boolean(vaultSettings.auto_trade_enabled) : false;
-      const autoTradeEnabled = dbAutoTrade;
+      const autoTradeEnabled = HL_BOT_HALTED ? false : dbAutoTrade;
 
       if (hlLoaded) {
         hasSnapshotRef.current = true;
