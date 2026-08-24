@@ -83,6 +83,31 @@ export async function recordHlManualOpenMarker(params: {
   });
 }
 
+export async function recordHlManualCloseMarker(params: {
+  walletAddress: string;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  exitPx: number;
+  pnlUsd?: number | null;
+}): Promise<void> {
+  invalidateManualDeskCache(params.walletAddress);
+  await recordHlChartMarker({
+    walletAddress: params.walletAddress,
+    coin: params.coin,
+    eventType: 'close',
+    direction: params.direction,
+    price: params.exitPx,
+    pnlUsd: params.pnlUsd,
+    closeReason: 'manual_desk_close',
+    source: 'manual',
+  });
+}
+
+/** Live HL coins the bot actually opened — manuals on the same wallet do not occupy bot slots. */
+export function liveBotSlotCoins(openCoins: string[], botOwnedOpen: Set<string>): string[] {
+  return openCoins.filter((c) => botOwnedOpen.has(c.toUpperCase()));
+}
+
 const MARKER_OWNERSHIP_CACHE_MS = 15_000;
 
 export type HlMarkerOwnership = {

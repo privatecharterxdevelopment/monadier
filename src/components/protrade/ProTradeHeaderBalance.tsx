@@ -195,7 +195,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
 
   const feesOwed = platformFees.accruedUsd;
   const showFees =
-    !platformFees.feesWaived && feesOwed > 0.000_001;
+    section === 'bot' && !platformFees.feesWaived && feesOwed > 0.000_001;
   const feeGateActive = platformFees.opensBlocked;
 
   return (

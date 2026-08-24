@@ -6,8 +6,6 @@ import { fetchHlMarkets } from '../../lib/hyperliquid/markets';
 import { leverageOptionsForMax } from '../../lib/hyperliquid/assetLeverage';
 import { isBotExcludedHlCoin } from '../../lib/botTradingPairs';
 import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
-import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
-import { BRAND_NAME } from '../../lib/brand';
 
 const COIN_CHIPS = ['BTC', 'ETH', 'SOL', 'HYPE', 'XRP'] as const;
 
@@ -26,7 +24,6 @@ const TerminalManualTradePanel: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const { ensureAccepted } = useLegalAcceptance();
-  const platformFees = usePlatformFeeGate();
   const [coin, setCoin] = useState((chartCoin || 'BTC').toUpperCase());
   const [side, setSide] = useState<'long' | 'short'>('long');
   const [leverage, setLeverage] = useState('10');
@@ -81,16 +78,6 @@ const TerminalManualTradePanel: React.FC<Props> = ({
       setError(
         t('tradePanel.manual.needAgent', {
           defaultValue: 'Approve the trading agent on the Agent tab once, then open here without signing each order.',
-        })
-      );
-      return;
-    }
-    if (platformFees.opensBlocked) {
-      platformFees.openPayModal();
-      setError(
-        t('tradePanel.manual.feesDue', {
-          brand: BRAND_NAME,
-          defaultValue: `Pay ${BRAND_NAME} platform fees to continue trading.`,
         })
       );
       return;
