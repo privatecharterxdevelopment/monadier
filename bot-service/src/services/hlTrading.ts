@@ -972,10 +972,17 @@ export class HyperliquidTradingService {
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
-      const signalsForBook = signals.filter((s) => {
+      let signalsForBook = signals.filter((s) => {
         if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
         return true;
       });
+      // Last slot: if a SHORT printed, don't fill 3/3 with LONGs and starve dumps.
+      if (coinsOpen.length === maxPositions - 1) {
+        const shortPrinted = signalsForBook.filter((s) => s.direction === 'SHORT');
+        if (shortPrinted.length > 0) {
+          signalsForBook = shortPrinted;
+        }
+      }
       if (signalsForBook.length === 0) {
         break;
       }
@@ -2827,7 +2834,10 @@ export class HyperliquidTradingService {
           trailCfg.longSkipBreakevenLockClose &&
           trailExitReason === 'profit_lock' &&
           /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
-        const tooYoung = greenHoldMs > 0 && (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
+        const tooYoung =
+          trailExitReason !== 'profit_lock' &&
+          greenHoldMs > 0 &&
+          (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
         const peakTooSmall =
           trailExitReason !== 'profit_lock' &&
           minPeakRoe > 0 &&
@@ -2959,9 +2969,14 @@ export class HyperliquidTradingService {
 
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs ?? 0;
+      const tpNeed = profitCloseNeedUsd(
+        estimateRoundTripFeesUsd(notionalUsd),
+        collateralEst
+      );
       const stillBreathing =
         longGreenHoldMs > 0 &&
         pnl > 0 &&
+        (trailRecord.highestPnlSinceEntry ?? 0) < tpNeed * 2 &&
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (
         !stillBreathing &&

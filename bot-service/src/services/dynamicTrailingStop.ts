@@ -110,12 +110,6 @@ export function profitClearsFeeGate(
   if (!(pnlUsd > 0)) return false;
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (pnlUsd < need) return false;
-  const peak = Math.max(0, peakPnlUsd);
-  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.55;
-  if (peak > 0 && remainFrac > 0) {
-    const remainNeed = Math.max(need, peak * remainFrac);
-    if (pnlUsd < remainNeed) return false;
-  }
   return true;
 }
 
@@ -267,13 +261,13 @@ function stagedProfitLock(
   let keepFrac: number;
   if (peakRoe < 10) {
     level = 'partial';
-    keepFrac = 0.62;
+    keepFrac = 0.72;
   } else if (peakRoe < 22) {
     level = 'core';
-    keepFrac = 0.55;
+    keepFrac = 0.65;
   } else {
     level = 'runner';
-    keepFrac = phase === 'trailing' && direction === 'LONG' ? 0.5 : 0.55;
+    keepFrac = phase === 'trailing' && direction === 'LONG' ? 0.58 : 0.62;
   }
   const lockUsd = peakPnlUsd * keepFrac;
   // No stop until a hit would actually be a real take (same bar for every coin).
@@ -419,20 +413,32 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
 function trailTooYoungToClose(
   rec: DynamicTrailRecord,
   nowMs: number,
-  _trailMult: number
+  _trailMult: number,
+  peakPnlUsd = 0,
+  feesUsd = 0,
+  collateralUsd = 0
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   let minMs = cfg.trailMinActiveBeforeCloseMs;
   minMs = Math.round(minMs * Math.max(1, cfg.longTrailMinActiveMult || 1));
   if (!rec.trailArmedAt || minMs <= 0) return false;
-  // Always wait after arm — trailMult used to skip this on a tight trail, so
-  // the floor closed before the stop could ratchet with the peak.
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
+  // Real take already in hand — don't wait 3m while the winner dumps to red.
+  if (peakPnlUsd >= need * 2) return false;
   return nowMs - rec.trailArmedAt < minMs;
 }
 
 /** Once green, breathe before any profit exit — LONG and SHORT. */
-function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
+function longGreenTooYoungToClose(
+  rec: DynamicTrailRecord,
+  pnlUsd: number,
+  peakPnlUsd = 0,
+  feesUsd = 0,
+  collateralUsd = 0
+): boolean {
   if (pnlUsd <= 0) return false;
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
+  if (peakPnlUsd >= need * 2) return false;
   const minMs = Math.min(
     240_000,
     Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
@@ -673,8 +679,21 @@ async function evaluateDynamicTrailInner(
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
-        !longGreenTooYoungToClose(rec, input.pnlUsd) &&
-        !trailTooYoungToClose(rec, input.nowMs, 1) &&
+        !longGreenTooYoungToClose(
+          rec,
+          input.pnlUsd,
+          rec.highestPnlSinceEntry,
+          feesUsd,
+          input.collateralUsd
+        ) &&
+        !trailTooYoungToClose(
+          rec,
+          input.nowMs,
+          1,
+          rec.highestPnlSinceEntry,
+          feesUsd,
+          input.collateralUsd
+        ) &&
         !(
           rec.phase === 'trailing' &&
           longPeakTooSmallToTrailClose(
@@ -782,8 +801,21 @@ async function evaluateDynamicTrailInner(
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !trailTooYoungToClose(
+        rec,
+        input.nowMs,
+        trailMult,
+        rec.highestPnlSinceEntry,
+        feesUsd,
+        input.collateralUsd
+      ) &&
+      !longGreenTooYoungToClose(
+        rec,
+        input.pnlUsd,
+        rec.highestPnlSinceEntry,
+        feesUsd,
+        input.collateralUsd
+      ) &&
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,
@@ -805,9 +837,22 @@ async function evaluateDynamicTrailInner(
 
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
+      !trailTooYoungToClose(
+        rec,
+        input.nowMs,
+        trailMult,
+        rec.highestPnlSinceEntry,
+        feesUsd,
+        input.collateralUsd
+      ) &&
       input.pnlUsd > 0 &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longGreenTooYoungToClose(
+        rec,
+        input.pnlUsd,
+        rec.highestPnlSinceEntry,
+        feesUsd,
+        input.collateralUsd
+      ) &&
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,
