@@ -41,7 +41,11 @@ import { resolveHlOrderBuilderIfCharged, estimateCollectedSuccessFee } from './h
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
-import { recordHlBotOpenMarker } from './hlChartMarkers';
+import {
+  manualDeskOpenCoins,
+  recordHlBotOpenMarker,
+  recordHlManualOpenMarker,
+} from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
@@ -1293,8 +1297,8 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = never a new LONG. Buying the spike high is forbidden even if BTC is pushing.
-      if (opts.direction === 'LONG' && peakAnalysis?.phase === 'at_apex') {
+      // Peak = never a new LONG on the scan path. Admin force skips this.
+      if (!force && opts.direction === 'LONG' && peakAnalysis?.phase === 'at_apex') {
         return rejectOpen(
           'pump_sweep',
           `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is SHORT`,
@@ -2558,6 +2562,7 @@ export class HyperliquidTradingService {
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
+    const manualCoins = await manualDeskOpenCoins(userAddress);
 
     // Pre-fetch range regime for all coins in one pass (cached, not per-loop).
     const rangeCfg = config.hyperliquid.rangeRegime;
@@ -2592,6 +2597,8 @@ export class HyperliquidTradingService {
       const size = Number(pos.szi ?? 0);
       const entry = Number(pos.entryPx ?? 0);
       if (!hlIsMeaningfulPerpPosition(size, entry)) continue;
+      const coinUpper = pos.coin.toUpperCase();
+      if (manualCoins.has(coinUpper)) continue;
 
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);
@@ -2609,7 +2616,6 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
-      const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
       const letRunDecision = await resolvePositionLetRun({
@@ -3883,6 +3889,13 @@ export class HyperliquidTradingService {
           direction: opts.side,
           entryPx: markPx,
           reason: 'api_bot_open',
+        });
+      } else if (!opts.reduceOnly) {
+        await recordHlManualOpenMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.side,
+          entryPx: markPx,
         });
       }
 

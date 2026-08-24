@@ -930,7 +930,7 @@
       "partners": "Akzeptierte Zahlungsmethoden"
     },
     "nav": {
-      "perps": "Perps",
+      "perps": "Trade",
       "bot": "Bot-Handel",
       "betting": "Wetten",
       "portfolio": "Portfolio",
@@ -1169,7 +1169,8 @@
       "placeOrders": "{{count}} Orders platzieren",
       "placeTpsl": "TP/SL platzieren",
       "startTwap": "TWAP starten",
-      "failedLeverage": "Hebel konnte nicht gesetzt werden"
+      "failedLeverage": "Hebel konnte nicht gesetzt werden",
+      "agentHint": "Öffnet über den HyperGain-Agent, wenn freigegeben — keine Wallet-Signatur pro Order. Der Bot trailt diese Trades nicht."
     },
     "book": {
       "orderBook": "Orderbuch",
@@ -1282,6 +1283,7 @@
   "tradePanel": {
     "title": "{{brand}} Agent",
     "tabBot": "Agent",
+    "tabTrade": "Trade",
     "tabSettings": "Einstellungen",
     "tabFunds": "Guthaben",
     "status": "Status",
@@ -1329,7 +1331,23 @@
     "stopFirstSubtitle": "Hebel und Risiko sind gesperrt, solange der Agent läuft",
     "keepRunning": "Weiterlaufen lassen",
     "stopFirstHint": "1. Agent stoppen · 2. Einstellungen ändern · 3. Erneut Agent starten.",
-    "stopFirstNote": "Gilt für Hebel und Risiko — nicht während der Agent aktiv ist."
+    "stopFirstNote": "Gilt für Hebel und Risiko — nicht während der Agent aktiv ist.",
+    "manual": {
+      "hint": "Market-Open auf deinem Hyperliquid-Konto über den HyperGain-Agent. Der Bot trailt diese Trades nicht.",
+      "coin": "Coin",
+      "long": "Long",
+      "short": "Short",
+      "leverage": "Hebel",
+      "sizeUsd": "Größe (USD)",
+      "connectFirst": "Zuerst Wallet verbinden.",
+      "needAgent": "Einmal den Trading-Agent im Agent-Tab freigeben — danach öffnest du hier ohne Signatur pro Order.",
+      "feesDue": "Zahle {{brand}}-Plattformgebühren, um weiter zu traden.",
+      "pickCoin": "Coin wählen.",
+      "enterSize": "Größe in USD eingeben.",
+      "sent": "{{side}} {{coin}} {{lev}}x · ${{usd}} eröffnet — siehe Trade → Positionen",
+      "sending": "Senden…",
+      "submit": "{{side}} {{coin}} {{lev}}x öffnen"
+    }
   },
   "dock": {
     "ariaPanels": "Kontobereiche",

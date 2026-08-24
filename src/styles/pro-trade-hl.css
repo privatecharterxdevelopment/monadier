@@ -11572,6 +11572,47 @@ html[dir='rtl'] .hl-book {
   color: var(--hl-red);
 }
 
+.hl-bot-panel-wrap .term-chip {
+  border-color: var(--hl-border);
+  color: var(--hl-text-muted);
+  background: transparent;
+}
+
+.hl-bot-panel-wrap .term-chip:hover:not(:disabled) {
+  color: var(--hl-text);
+  border-color: var(--hl-border-strong);
+}
+
+.hl-bot-panel-wrap .term-chip--on {
+  color: var(--hl-text);
+  background: var(--hl-bg-hover);
+  border-color: var(--hl-border-strong);
+}
+
+.hl-bot-panel-wrap .term-manual-side {
+  border-color: var(--hl-border);
+  color: var(--hl-text-muted);
+  background: var(--hl-bg);
+}
+
+.hl-bot-panel-wrap .term-manual-side--long.is-on {
+  background: color-mix(in srgb, var(--hl-green-bright) 16%, transparent);
+  border-color: var(--hl-green-bright);
+  color: var(--hl-green-bright);
+}
+
+.hl-bot-panel-wrap .term-manual-side--short.is-on {
+  background: var(--hl-red-tint);
+  border-color: var(--hl-red);
+  color: var(--hl-red);
+}
+
+.hl-bot-panel-wrap .term-btn-sm.term-manual-submit--short {
+  background: var(--hl-red);
+  border-color: var(--hl-red);
+  color: #fff;
+}
+
 .hl-bot-panel-wrap .term-link-btn {
   color: var(--hl-green-bright);
   background: none;

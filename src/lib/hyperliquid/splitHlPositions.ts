@@ -19,8 +19,9 @@ export function filterHlPositions(
     if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
     const coin = normalizeHlPerpCoin(p.coin);
     const isBot = botManagedCoins.has(coin);
-    // Bot tab: show every real HL open (incl. untagged force-opens). Manual: non-bot only.
-    if (scope === 'bot') return true;
+    // Bot dock: bot-tagged (incl. untagged live size via useHlBotManagedCoins).
+    // Manual / Trade desk: everything else.
+    if (scope === 'bot') return isBot;
     return !isBot;
   });
 }

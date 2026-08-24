@@ -58,8 +58,7 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  /* Perps parked — bot-first product; keep id for deep links / code paths */
-  { id: 'perps', labelKey: 'app.nav.perps', enabled: false, Icon: CandlestickChart },
+  { id: 'perps', labelKey: 'app.nav.perps', enabled: true, Icon: CandlestickChart },
   { id: 'bot', labelKey: 'app.nav.bot', enabled: true, Icon: Bot },
   { id: 'sportsbets', labelKey: 'app.nav.betting', enabled: true, Icon: Ticket },
   { id: 'portfolio', labelKey: 'app.nav.portfolio', enabled: true, Icon: Briefcase },

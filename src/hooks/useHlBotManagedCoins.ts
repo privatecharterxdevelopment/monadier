@@ -5,7 +5,7 @@ import { toNum } from '../lib/hyperliquid/parse';
 import type { HlUserFill } from '../lib/hyperliquid/user';
 import { supabase } from '../lib/supabase';
 
-type LatestMarker = { type: 'open' | 'close'; ms: number };
+type LatestMarker = { type: 'open' | 'close'; ms: number; source: string };
 
 /**
  * Coins the bot is managing for live Positions.
@@ -32,7 +32,7 @@ export function useHlBotManagedCoins(
     try {
       const { data, error } = await supabase
         .from('hl_bot_chart_markers')
-        .select('coin, event_type, event_ts')
+        .select('coin, event_type, event_ts, source')
         .eq('wallet_address', wallet.toLowerCase())
         .in('event_type', ['open', 'close'])
         .order('event_ts', { ascending: false })
@@ -48,6 +48,7 @@ export function useHlBotManagedCoins(
         latest.set(coin, {
           type: row.event_type as 'open' | 'close',
           ms,
+          source: String(row.source ?? 'bot'),
         });
       }
       setLatestByCoin(latest);
@@ -72,7 +73,7 @@ export function useHlBotManagedCoins(
   const coins = useMemo(() => {
     const open = new Set<string>();
     for (const [coin, row] of latestByCoin) {
-      if (row.type === 'open') open.add(coin);
+      if (row.type === 'open' && row.source !== 'manual') open.add(coin);
     }
 
     // Reconcile live HL size with markers so bot Positions never goes empty while

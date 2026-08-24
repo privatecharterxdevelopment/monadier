@@ -103,7 +103,8 @@ const Dashboard2ProPageContent: React.FC = () => {
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot' || initialSection === 'community') return 'bot';
-    if (initialSection === 'perps' || initialSection === 'news' || initialSection === 'swap') {
+    if (initialSection === 'perps') return 'perps';
+    if (initialSection === 'news' || initialSection === 'swap') {
       return 'bot';
     }
     if (initialSection === 'leaderboard') return 'leaderboard';
@@ -491,9 +492,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     if (next === 'affiliate') {
       if (!requireAuth('Sign in to view your affiliate dashboard.')) return;
     }
-    // Community + Perps parked — keep code, hide from live users.
-    const target: ProTradeSection =
-      next === 'community' || next === 'perps' ? 'bot' : next;
+    // Community parked — keep code, hide from live users.
+    const target: ProTradeSection = next === 'community' ? 'bot' : next;
     setSection(target);
     setFundsModal(null);
     if (target === 'bot') {
@@ -501,6 +501,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     }
     if (
       target === 'bot' ||
+      target === 'perps' ||
       target === 'sportsbets' ||
       target === 'support' ||
       target === 'leaderboard' ||
@@ -538,10 +539,11 @@ const Dashboard2ProPageContent: React.FC = () => {
         urlSection === 'community' ||
         urlSection === 'news' ||
         urlSection === 'swap' ||
-        urlSection === 'perps' ||
         !urlSection
       ) {
         setSection('bot');
+      } else if (urlSection === 'perps') {
+        setSection('perps');
       } else if (urlSection === 'leaderboard') {
         setSection('leaderboard');
       } else if (urlSection === 'affiliate') {
@@ -566,11 +568,12 @@ const Dashboard2ProPageContent: React.FC = () => {
     } else if (urlSection === 'buy') {
       setSection('bot');
       setBuyUsdcOpen(true);
+    } else if (urlSection === 'perps') {
+      setSection('perps');
     } else if (
       urlSection === 'community' ||
       urlSection === 'news' ||
       urlSection === 'swap' ||
-      urlSection === 'perps' ||
       !urlSection
     ) {
       setSection('bot');
@@ -869,6 +872,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         <ProTradeBotPanelSlot
           onOpenHistory={() => setBotDockTab('tradeHistory')}
           onRequireSignIn={promptSignIn}
+          chartCoin={perpCoin}
         />
       </div>
 
@@ -945,7 +949,7 @@ const Dashboard2ProPageContent: React.FC = () => {
           walletAddress={(hlActiveWallet ?? address)?.toLowerCase()}
           onNavigatePerps={(coin) => {
             selectChartCoin(coin);
-            setSection('bot');
+            setSection('perps');
           }}
           onNavigateBetting={() => setSection('sportsbets')}
           onNavigateAffiliate={openAffiliate}

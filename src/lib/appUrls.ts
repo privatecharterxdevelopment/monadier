@@ -185,9 +185,9 @@ export function getAbsoluteAppUrl(search = ''): string {
 export function goToOpenApp(search = '', replace = false): void {
   const raw = !search ? '' : search.startsWith('?') ? search.slice(1) : search;
   const params = new URLSearchParams(raw);
-  /* Bot-first app entry — remap / omit perps */
+  /* Bot-first app entry — omit news/swap leftovers */
   const section = params.get('section');
-  if (!section || section === 'perps' || section === 'news' || section === 'swap') {
+  if (!section || section === 'news' || section === 'swap') {
     params.set('section', 'bot');
   }
   const q = `?${params.toString()}`;

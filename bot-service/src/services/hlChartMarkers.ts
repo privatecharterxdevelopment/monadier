@@ -63,3 +63,67 @@ export async function recordHlBotOpenMarker(params: {
     source: 'bot',
   });
 }
+
+export async function recordHlManualOpenMarker(params: {
+  walletAddress: string;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  entryPx: number;
+}): Promise<void> {
+  invalidateManualDeskCache(params.walletAddress);
+  await recordHlChartMarker({
+    walletAddress: params.walletAddress,
+    coin: params.coin,
+    eventType: 'open',
+    direction: params.direction,
+    price: params.entryPx,
+    closeReason: 'manual_desk_open',
+    source: 'manual',
+  });
+}
+
+const MANUAL_DESK_CACHE_MS = 15_000;
+const manualDeskCoinCache = new Map<string, { at: number; coins: Set<string> }>();
+
+export function invalidateManualDeskCache(wallet: string): void {
+  manualDeskCoinCache.delete(wallet.toLowerCase());
+}
+
+/** Coins whose latest marker is a user manual-desk open — bot trail must not manage them. */
+export async function manualDeskOpenCoins(wallet: string): Promise<Set<string>> {
+  const key = wallet.toLowerCase();
+  const hit = manualDeskCoinCache.get(key);
+  if (hit && Date.now() - hit.at < MANUAL_DESK_CACHE_MS) return hit.coins;
+
+  const { data, error } = await supabase
+    .from('hl_bot_chart_markers')
+    .select('coin, event_type, source, event_ts')
+    .eq('wallet_address', key)
+    .in('event_type', ['open', 'close'])
+    .order('event_ts', { ascending: false })
+    .limit(400);
+
+  const coins = new Set<string>();
+  if (error) {
+    logger.warn('manual desk marker lookup failed', {
+      wallet: key.slice(0, 10),
+      error: error.message,
+    });
+    return coins;
+  }
+
+  const latest = new Map<string, { type: string; source: string }>();
+  for (const row of data ?? []) {
+    const coin = String(row.coin ?? '').toUpperCase();
+    if (!coin || latest.has(coin)) continue;
+    latest.set(coin, {
+      type: String(row.event_type ?? ''),
+      source: String(row.source ?? 'bot'),
+    });
+  }
+  for (const [coin, row] of latest) {
+    if (row.type === 'open' && row.source === 'manual') coins.add(coin);
+  }
+  manualDeskCoinCache.set(key, { at: Date.now(), coins });
+  return coins;
+}

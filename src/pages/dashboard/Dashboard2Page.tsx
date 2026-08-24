@@ -428,6 +428,7 @@ const Dashboard2Page: React.FC = () => {
                 onOpenHistory={openHistory}
                 fundsAction={fundsAction}
                 onFundsActionHandled={() => setFundsAction(null)}
+                chartCoin={chartSymbol.replace(/USDT$/i, '')}
               />
             </>
           )}
