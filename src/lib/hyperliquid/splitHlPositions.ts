@@ -13,14 +13,16 @@ export function filterHlPositions(
     if (Math.abs(toNum(p.szi)) <= 1e-12) return false;
     // Dust leftovers must stay visible until cleaned — otherwise users think slots are haunted.
     if (isHlDustPosition(p.szi, p.entryPx)) {
-      // Dust always surfaces in bot dock (Close / sweep). Manual tab stays clean.
-      return scope === 'bot';
+      const coin = normalizeHlPerpCoin(p.coin);
+      const isBot = botManagedCoins.has(coin);
+      return scope === 'bot' ? isBot : !isBot;
     }
     if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
     const coin = normalizeHlPerpCoin(p.coin);
     const isBot = botManagedCoins.has(coin);
-    // Bot tab: show every real HL open (incl. untagged force-opens). Manual: non-bot only.
-    if (scope === 'bot') return true;
+    // Bot dock: latest marker is a HyperGain open. Untagged HL fills + desk
+    // manuals stay on Perps so the trail loop never adopts them.
+    if (scope === 'bot') return isBot;
     return !isBot;
   });
 }

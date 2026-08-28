@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { normalizeHlPerpCoin } from '../lib/botTradingPairs';
-import { isHlFillOpen } from '../lib/hyperliquid/format';
-import { toNum } from '../lib/hyperliquid/parse';
-import type { HlUserFill } from '../lib/hyperliquid/user';
 import { supabase } from '../lib/supabase';
 
-type LatestMarker = { type: 'open' | 'close'; ms: number };
+type LatestMarker = { type: 'open' | 'close'; ms: number; source: string };
 
 /**
- * Coins the bot is managing for live Positions.
- * Primary: latest hl_bot_chart_markers event is open.
- * Fallback: still-open HL size after a close marker when a later Open fill exists
- * (reopen without open marker — previously hid the live position under “scanning”).
- * Also: live HL size with no markers at all (force-open / ghost) so Open N matches the table.
+ * Coins HyperGain is managing for live Bot Positions.
+ * Only the latest hl_bot_chart_markers event: open + not manual.
+ * Untagged Hyperliquid fills and desk manuals belong on Perps — the bot must
+ * not adopt them (that used to auto-close user trades).
  */
 export function useHlBotManagedCoins(
   wallet: string | undefined,
   refreshKey = 0,
-  openPositionCoins: readonly string[] = [],
-  fills: readonly HlUserFill[] = []
+  _openPositionCoins: readonly string[] = [],
+  _fills: readonly unknown[] = []
 ) {
   const [latestByCoin, setLatestByCoin] = useState<Map<string, LatestMarker>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -32,7 +28,7 @@ export function useHlBotManagedCoins(
     try {
       const { data, error } = await supabase
         .from('hl_bot_chart_markers')
-        .select('coin, event_type, event_ts')
+        .select('coin, event_type, event_ts, source')
         .eq('wallet_address', wallet.toLowerCase())
         .in('event_type', ['open', 'close'])
         .order('event_ts', { ascending: false })
@@ -48,12 +44,12 @@ export function useHlBotManagedCoins(
         latest.set(coin, {
           type: row.event_type as 'open' | 'close',
           ms,
+          source: String(row.source ?? 'bot'),
         });
       }
       setLatestByCoin(latest);
     } catch (e) {
       console.warn('[useHlBotManagedCoins]', e);
-      // Keep last known markers — clearing on poll errors hid open bot positions.
     } finally {
       setLoading(false);
     }
@@ -72,31 +68,10 @@ export function useHlBotManagedCoins(
   const coins = useMemo(() => {
     const open = new Set<string>();
     for (const [coin, row] of latestByCoin) {
-      if (row.type === 'open') open.add(coin);
+      if (row.type === 'open' && row.source !== 'manual') open.add(coin);
     }
-
-    // Reconcile live HL size with markers so bot Positions never goes empty while
-    // the status bar still shows Open N (force-open / missing marker / ghost).
-    for (const raw of openPositionCoins) {
-      const coin = normalizeHlPerpCoin(raw);
-      if (!coin || open.has(coin)) continue;
-      const latest = latestByCoin.get(coin);
-      // No open/close marker at all — still live on HL (force-open, residual, etc.).
-      if (!latest) {
-        open.add(coin);
-        continue;
-      }
-      if (latest.type !== 'close' || latest.ms <= 0) continue;
-      const reopen = fills.some((f) => {
-        if (normalizeHlPerpCoin(f.coin) !== coin) return false;
-        if (!isHlFillOpen(f.dir)) return false;
-        return toNum(f.time) > latest.ms;
-      });
-      if (reopen) open.add(coin);
-    }
-
     return open;
-  }, [latestByCoin, openPositionCoins, fills]);
+  }, [latestByCoin]);
 
   const has = useCallback((coin: string) => coins.has(normalizeHlPerpCoin(coin)), [coins]);
 

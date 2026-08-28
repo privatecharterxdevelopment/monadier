@@ -8,6 +8,14 @@ import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
 import { sumHlRealizedPnlFromFills, countHlClosedFills } from '../lib/hyperliquid/hlPnl';
+import { normalizeHlPerpCoin } from '../lib/botTradingPairs';
+import { isMeaningfulHlPosition } from '../lib/hyperliquid/format';
+import {
+  botFillTidSet,
+  buildHlBotTradeWindows,
+  filterFillsByScope,
+  type HlBotMarkerRow,
+} from '../lib/hyperliquid/splitHlActivity';
 import {
   checkHlBotAgentApproved,
 } from '../lib/hyperliquid/hlBotAgent';
@@ -129,9 +137,6 @@ export function useTradingDashboardMetrics() {
       ...prev,
       vaultBalanceUsd: hlSnap.totalUsd,
       withdrawableUsd: hlSnap.withdrawableUsd,
-      openPositionValueUsd: hlSnap.openNotionalUsd,
-      openPositionsCount: hlSnap.openPositionsCount,
-      unrealizedPnl: hlSnap.unrealizedPnlUsd,
       hasHlSnapshot: true,
       isLoading: false,
     }));
@@ -210,9 +215,54 @@ export function useTradingDashboardMetrics() {
 
       if (hlWalletForFills) {
         try {
-          const fills = await fetchHlUserFills(hlWalletForFills, 500);
-          hlRealizedPnl = sumHlRealizedPnlFromFills(fills);
-          hlClosedFillCount = countHlClosedFills(fills);
+          const [fills, markerRes] = await Promise.all([
+            fetchHlUserFills(hlWalletForFills, 500),
+            supabase
+              .from('hl_bot_chart_markers')
+              .select('coin, event_type, event_ts, source, fill_tid')
+              .eq('wallet_address', hlWalletForFills.toLowerCase())
+              .in('event_type', ['open', 'close'])
+              .order('event_ts', { ascending: false })
+              .limit(400),
+          ]);
+          const markerRows: HlBotMarkerRow[] = (markerRes.data ?? []).map((row) => ({
+            coin: String(row.coin ?? ''),
+            eventType: row.event_type as 'open' | 'close',
+            eventMs: Date.parse(String(row.event_ts)) || 0,
+            fillTid: row.fill_tid != null ? Number(row.fill_tid) : null,
+            source: row.source != null ? String(row.source) : 'bot',
+          }));
+          const latest = new Map<string, { type: string; source: string }>();
+          for (const row of markerRows) {
+            const coin = normalizeHlPerpCoin(row.coin);
+            if (!coin || latest.has(coin)) continue;
+            latest.set(coin, { type: row.eventType, source: row.source ?? 'bot' });
+          }
+          const botOwned = new Set<string>();
+          for (const [coin, row] of latest) {
+            if (row.type === 'open' && row.source !== 'manual') botOwned.add(coin);
+          }
+          const windows = buildHlBotTradeWindows(markerRows);
+          const tids = botFillTidSet(markerRows);
+          const botFills = filterFillsByScope(fills, 'bot', windows, tids, markerRows);
+          hlRealizedPnl = sumHlRealizedPnlFromFills(botFills);
+          hlClosedFillCount = countHlClosedFills(botFills);
+
+          const snapPos = hlSnapRef.current?.positions ?? [];
+          const botPos = snapPos.filter(
+            (p) =>
+              isMeaningfulHlPosition(p.szi, p.entryPx) &&
+              botOwned.has(normalizeHlPerpCoin(p.coin))
+          );
+          hlOpenCount = botPos.length;
+          hlOpenNotional = botPos.reduce(
+            (sum, p) => sum + Math.abs(Number.parseFloat(p.positionValue || '0') || 0),
+            0
+          );
+          hlUnrealizedPnl = botPos.reduce(
+            (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
+            0
+          );
         } catch {
           /* fills optional */
         }
