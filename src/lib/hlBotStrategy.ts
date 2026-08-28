@@ -27,10 +27,10 @@ export const HL_DYNAMIC_TRAIL = {
   fullTrailArmRoePct: 15,
   longTrailArmRoePct: 22,
   armFeesMultiplier: 4,
-  estimatedFeeBpsPerSide: 3.5,
-  majorTrailPct: 0.068,
-  midTrailPct: 0.058,
-  cautiousTrailPct: 0.072,
+  estimatedFeeBpsPerSide: 4.5,
+  majorTrailPct: 0.16,
+  midTrailPct: 0.14,
+  cautiousTrailPct: 0.18,
   breakevenBufferPct: 0.02,
 } as const;
 
@@ -41,9 +41,9 @@ export const HL_DYNAMIC_TRAIL_40X = {
   fullTrailArmRoePct: 15,
   trailGapRoePct: 3,
   longTrailArmRoePct: 22,
-  majorTrailPct: 0.068,
-  midTrailPct: 0.058,
-  cautiousTrailPct: 0.072,
+  majorTrailPct: 0.16,
+  midTrailPct: 0.14,
+  cautiousTrailPct: 0.18,
 } as const;
 
 export function trailProfileForLeverage(leverage: number) {

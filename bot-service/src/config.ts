@@ -205,11 +205,11 @@ export const config = {
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.75),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 2),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 30_000),
+      /** Min continuous ms in profit before arming profit protection (2m — never 30s scratch locks). */
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
@@ -232,31 +232,33 @@ export const config = {
       /** After trail arms — min ms before trail/peak can close (3m). */
       trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
       /**
-       * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
-       * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
+       * Profit close must clear round-trip fees × this plus an 8% margin floor.
+       * 1.5× was harvesting crumbs that exchange + 10% success fee turned red.
        */
-      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 1.5),
+      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 3),
+      /** Min leftover as a fraction of position margin (8% — 3% was fee-food). */
+      minProfitMarginFrac: Number(process.env.HL_TRAIL_MIN_PROFIT_MARGIN_FRAC || 0.08),
       /**
        * After a real peak, leftover uPnL must still be at least this fraction of peak.
-       * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
+       * Must sit *below* staged keepFrac (~0.28) so a genuine floor hit still takes.
        */
       minPeakRemainFracBeforeClose: Number(
-        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.55
+        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.22
       ),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 4),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
-      estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
+      estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 4.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 4.2),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 5.5),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      /** Stage-2 ATR/% trail distance — wider so winners can breathe before stop catches. */
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.09),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.08),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.1),
+      /** Stage-2 ATR/% trail distance — wide enough that noise + fees cannot snipe. */
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.16),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.14),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.18),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
        * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
