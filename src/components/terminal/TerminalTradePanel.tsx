@@ -22,7 +22,6 @@ import {
   enableHlBotExecution,
   MIN_HL_BOT_USD,
 } from '../../lib/hyperliquid/hlBotAgent';
-import { HL_BOT_HALTED, HL_BOT_HALTED_MESSAGE } from '../../lib/hyperliquid/hlBotHalt';
 import { registerWalletsForHistory } from '../../lib/userWallets';
 import {
   approveHlBuilderFeeRequired,
@@ -55,7 +54,6 @@ import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
-import TerminalManualTradePanel from './TerminalManualTradePanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
@@ -75,7 +73,7 @@ import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
 import { fmtClosedPnl } from '../../lib/hyperliquid/format';
-type PanelTab = 'bot' | 'trade' | 'lvrg' | 'funds';
+type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
   metrics: Dashboard2Metrics;
@@ -90,8 +88,6 @@ type Props = {
   onRequireSignIn?: (reason: string) => void;
   /** Pro Trade app — one shared HL funds modal in the page header shell. */
   useGlobalFundsModal?: boolean;
-  /** Chart coin in the bot terminal — seeds the Trade ticket. */
-  chartCoin?: string;
 };
 
 function fmt(n: number) {
@@ -110,7 +106,6 @@ const TerminalTradePanel: React.FC<Props> = ({
   onFundsActionHandled = onVaultActionHandled,
   onRequireSignIn,
   useGlobalFundsModal = false,
-  chartCoin,
 }) => {
   const { t } = useTranslation();
   const { open } = useMonadierAppKit();
@@ -314,7 +309,6 @@ const TerminalTradePanel: React.FC<Props> = ({
     );
 
   const canStartBot =
-    !HL_BOT_HALTED &&
     !botRunning &&
     !startBlocker &&
     approvalsComplete &&
@@ -401,9 +395,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const persistBotRunning = async (autoTradeEnabled: boolean) => {
     if (!wallet) throw new Error('Connect your wallet first.');
-    if (autoTradeEnabled && HL_BOT_HALTED) {
-      throw new Error(HL_BOT_HALTED_MESSAGE);
-    }
     const s = botSettings.settings;
     if (autoTradeEnabled) {
       if (!hlSetup.agentApproved) {
@@ -680,7 +671,6 @@ const TerminalTradePanel: React.FC<Props> = ({
         {(
           [
             { id: 'bot' as const, label: t('tradePanel.tabBot') },
-            { id: 'trade' as const, label: t('tradePanel.tabTrade') },
             { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
             { id: 'funds' as const, label: t('tradePanel.tabFunds') },
           ] as const
@@ -859,13 +849,6 @@ const TerminalTradePanel: React.FC<Props> = ({
               )}
             </div>
 
-            {HL_BOT_HALTED ? (
-              <div className="term-panel-alert">
-                <AlertTriangle size={14} />
-                <span>{HL_BOT_HALTED_MESSAGE}</span>
-              </div>
-            ) : null}
-
             <TerminalBotSettingsStrip
               settings={botSettings.settings}
               disabled={walletReady && hlSetup.loading}
@@ -901,15 +884,6 @@ const TerminalTradePanel: React.FC<Props> = ({
 
             {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
           </div>
-        )}
-
-        {panelTab === 'trade' && (
-          <TerminalManualTradePanel
-            walletAddress={wallet}
-            disabled={!walletReady || hlSetup.loading}
-            chartCoin={chartCoin}
-            agentApproved={hlSetup.agentApproved}
-          />
         )}
 
         {panelTab === 'lvrg' && (

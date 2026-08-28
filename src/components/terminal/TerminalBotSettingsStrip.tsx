@@ -16,7 +16,7 @@ const TerminalBotSettingsStrip: React.FC<Props> = ({ settings, onAdjust, disable
   const slPct = effectiveStopLossPct(settings.stopLoss);
   const sl =
     slPct > 0 ? t('tradePanel.maxSl', { pct: slPct }) : t('tradePanel.profitTrail');
-  const trail = `Peak→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
+  const trail = `2m→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 
   const metrics = [
     { key: 'risk' as const, label: t('tradePanel.risk'), value: `${eff.riskPct}%` },

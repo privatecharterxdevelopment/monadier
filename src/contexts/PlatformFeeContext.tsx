@@ -63,7 +63,7 @@ export const PlatformFeeProvider: React.FC<{
   const feesWaived = feeExempt || fees.feesWaived;
   const accruedUsd = feeExempt ? 0 : fees.accruedUsd;
   const opensBlocked = feeExempt ? false : fees.opensBlocked;
-  const withdrawBlocked = false;
+  const withdrawBlocked = feeExempt ? false : fees.withdrawBlocked;
   const successWinCount = feeExempt ? 0 : fees.successWinCount;
   const botTradingBlocked = opensBlocked && !feesWaived;
   const feesDue = !feesWaived && accruedUsd > 0.000_001;

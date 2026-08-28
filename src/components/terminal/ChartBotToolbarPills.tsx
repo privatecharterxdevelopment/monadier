@@ -14,7 +14,7 @@ type Props = {
 const DESCRIPTIONS = {
   risk: 'Share of your HL balance used as margin per trade — not the same as leverage.',
   lvrg: 'Hyperliquid multiplier on that margin. Bot clamps to each market’s max leverage.',
-  trail: `Profit SL follows the peak from the first real take. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.armMinRoePct}% → trail +${HL_DYNAMIC_TRAIL.trailGapRoePct}% from peak.`,
+  trail: `Stage 1: 2m green locks an in-profit floor. Stage 2: peak ≥+${HL_DYNAMIC_TRAIL.fullTrailArmRoePct}% → trail +${HL_DYNAMIC_TRAIL.trailGapRoePct}% from peak.`,
   sl: 'Max loss on margin while red — set in Settings. Off = profit trail only on winners.',
 } as const;
 
@@ -55,7 +55,7 @@ const ChartBotToolbarPills: React.FC<Props> = ({ hlBalanceUsd = 0, variant = 'li
       <BotMetricPill
         variant={variant}
         label={t('tradePanel.trail')}
-        value={`Peak→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
+        value={`2m→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`}
         description={DESCRIPTIONS.trail}
       />
     </div>

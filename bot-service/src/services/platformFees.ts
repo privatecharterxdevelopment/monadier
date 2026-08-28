@@ -49,8 +49,8 @@ export async function getPlatformFeeStatus(walletAddress: string): Promise<Platf
   const hasOwed = summary.accruedUsd > 0.000_001;
   // Bot opens blocked only after N unpaid win fees (default 20).
   const opensBlocked = hasOwed && successWinCount >= PLATFORM_FEE_WINS_BEFORE_BLOCK;
-  // HyperGain is halted — never block Hyperliquid withdraws on accrued bot fees.
-  const withdrawBlocked = false;
+  // Withdraw blocked as soon as any success fee is owed (first winning close).
+  const withdrawBlocked = hasOwed;
 
   return {
     accruedUsd: summary.accruedUsd,

@@ -39,8 +39,6 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
   leverage?: number;
   marginMode?: MarginMode;
   reduceOnly?: boolean;
-  /** Tag as bot-managed. Manual desk always leaves this false. */
-  botManaged?: boolean;
 }): Promise<void> {
   await postHlTradeApi('/api/hl-order', {
     wallet: opts.walletAddress.toLowerCase(),
@@ -53,7 +51,6 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
     leverage: opts.leverage,
     marginMode: opts.marginMode ?? 'isolated',
     reduceOnly: opts.reduceOnly ?? false,
-    botManaged: Boolean(opts.botManaged),
   });
 }
 

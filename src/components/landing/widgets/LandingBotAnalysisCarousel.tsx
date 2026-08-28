@@ -20,7 +20,7 @@ type MockScan = {
   gateLine?: string;
 };
 
-const trailRef = `Peak→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
+const trailRef = `2m→+${HL_DYNAMIC_TRAIL.armMinRoePct}%`;
 const slRef = formatHlSlLabel(0).replace(/^Max /, '');
 
 const MOCK_SCANS: MockScan[] = [

@@ -9,7 +9,6 @@ import {
   isHlExtraAgentActive,
   type HlExtraAgent,
 } from './user';
-import { HL_BOT_HALTED, HL_BOT_HALTED_MESSAGE } from './hlBotHalt';
 
 const transport = new HttpTransport();
 const AGENT_NAME_MAX = 16;
@@ -366,9 +365,6 @@ async function clearSiblingChainAutoTrade(wallet: string): Promise<void> {
 }
 
 export async function enableHlBotExecution(walletAddress: string): Promise<void> {
-  if (HL_BOT_HALTED) {
-    throw new Error(HL_BOT_HALTED_MESSAGE);
-  }
   const wallet = walletAddress.toLowerCase();
   const { error } = await supabase.from('vault_settings').upsert(
     {

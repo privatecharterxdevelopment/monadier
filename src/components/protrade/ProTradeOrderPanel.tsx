@@ -701,10 +701,6 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {!isSpot && mode === 'basic' ? (
-          <p className="hl-entry-hint">{t('trading.order.agentHint')}</p>
-        ) : null}
-
         {isRestoring || (isConnected && !isLiveConnected && !walletReady) ? (
           <button type="button" className="hl-entry-submit" disabled>
             <Loader2 size={14} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />

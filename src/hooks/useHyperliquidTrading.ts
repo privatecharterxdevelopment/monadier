@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { getWalletClient } from '@wagmi/core';
 import { arbitrum } from '@reown/appkit/networks';
 import { toNum } from '../lib/hyperliquid/parse';
@@ -31,13 +31,9 @@ import {
 } from '../lib/hyperliquid/orders';
 import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliquid/builder';
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
+import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
 import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
-import {
-  placeHlManualPerpOrderViaAgent,
-  updateHlManualPerpLeverageViaAgent,
-} from '../lib/hyperliquid/hlManualOrder';
-import { recordHlManualOpenMarker } from '../lib/hyperliquid/hlManualOpenMarker';
-import { checkHlBotAgentApproved } from '../lib/hyperliquid/hlBotAgent';
+import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type ManualOrderResult = {
   outcome: OrderPlacementOutcome | 'tpsl' | 'twap';
@@ -72,20 +68,6 @@ export function useHyperliquidTrading() {
     marketKind: 'perp',
     minutes: 0,
   });
-  const agentApprovedRef = useRef<{ wallet: string; approved: boolean; at: number } | null>(null);
-
-  const agentApprovedFor = useCallback(async (wallet: string): Promise<boolean> => {
-    const key = wallet.toLowerCase();
-    const hit = agentApprovedRef.current;
-    if (hit && hit.wallet === key && Date.now() - hit.at < 60_000) return hit.approved;
-    try {
-      const r = await checkHlBotAgentApproved(key);
-      agentApprovedRef.current = { wallet: key, approved: r.approved, at: Date.now() };
-      return r.approved;
-    } catch {
-      return false;
-    }
-  }, []);
 
   const clearTwap = useCallback(() => {
     setTwap({ active: false, twapId: null, coin: null, marketKind: 'perp', minutes: 0 });
@@ -117,28 +99,16 @@ export function useHyperliquidTrading() {
     async (coin: string, settings?: TradeSettings, marketKind: HlMarketKind = 'perp') => {
       if (marketKind === 'spot' || !settings?.leverage || settings.leverage <= 0) return;
       const wallet = await resolveWallet();
-      const addr = wallet.account?.address;
-      if (!addr) throw new Error('Connect wallet first');
-      const lev = Math.max(1, Math.floor(settings.leverage));
-      const marginMode = settings.marginMode === 'cross' ? 'cross' : 'isolated';
-      if (await agentApprovedFor(addr)) {
-        await updateHlManualPerpLeverageViaAgent({
-          walletAddress: addr,
-          coin,
-          leverage: lev,
-          marginMode,
-        });
-        return;
-      }
+      if (!wallet.account?.address) throw new Error('Connect wallet first');
       const { index: assetIndex } = await resolveAsset(coin, marketKind);
       const client = createHlExchangeClient(wallet);
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: marginMode === 'cross',
-        leverage: lev,
+        isCross: settings.marginMode === 'cross',
+        leverage: Math.max(1, Math.floor(settings.leverage)),
       });
     },
-    [agentApprovedFor, resolveAsset, resolveWallet]
+    [resolveAsset, resolveWallet]
   );
 
   const resolveOrderBuilder = useCallback(
@@ -153,13 +123,23 @@ export function useHyperliquidTrading() {
     }) => {
       const config = getHlBuilderConfig();
       if (!config.enabled) return undefined;
-      // Manual / desk perps: 100% of PnL stays on Hyperliquid. Bot success fee
-      // is charged only on HyperGain agent auto-closes of bot-owned positions.
-      if (opts.marketKind === 'perp') return undefined;
       const wallet = await resolveWallet();
       const user = wallet.account?.address;
       if (!user) return undefined;
       const approved = await fetchMaxBuilderFee(user, config.address);
+
+      let profitUsd = opts.profitUsd;
+      if (
+        opts.marketKind === 'perp' &&
+        opts.reduceOnly &&
+        profitUsd == null &&
+        opts.size > 0
+      ) {
+        const account = await fetchHlAccountState(user);
+        const position = account.positions.find((p) => p.coin === opts.coin);
+        profitUsd = proratePositionProfitUsd(position, opts.size);
+      }
+
       const notionalUsd = opts.size * opts.markPx;
       const param = resolveProTradeBuilderParam({
         marketKind: opts.marketKind,
@@ -167,7 +147,7 @@ export function useHyperliquidTrading() {
         approvedMaxTenthsBps: approved,
         reduceOnly: opts.reduceOnly,
         notionalUsd,
-        profitUsd: opts.profitUsd,
+        profitUsd,
       });
       return param ?? undefined;
     },
@@ -218,6 +198,7 @@ export function useHyperliquidTrading() {
       marketKind?: HlMarketKind;
       profitUsd?: number;
     }): Promise<ManualOrderResult> => {
+      // Manual Perps + Spot: wallet-signed only — never the bot agent /api/hl-order path.
       const marketKind = opts.marketKind ?? 'perp';
       if (
         marketKind === 'perp' &&
@@ -226,29 +207,6 @@ export function useHyperliquidTrading() {
       ) {
         throw new Error(`${opts.coin} is delisted — no new opens (Close only).`);
       }
-
-      // Perp desk: HyperGain agent when approved (no MetaMask per order). Spot stays wallet-signed.
-      if (marketKind === 'perp') {
-        const wallet = await resolveWallet();
-        const addr = wallet.account?.address;
-        if (addr && (await agentApprovedFor(addr))) {
-          await placeHlManualPerpOrderViaAgent({
-            walletAddress: addr,
-            coin: opts.coin,
-            side: opts.side,
-            kind: opts.kind,
-            size: opts.size,
-            price: opts.price,
-            markPx: opts.markPx,
-            leverage: opts.settings?.leverage,
-            marginMode: opts.settings?.marginMode ?? 'isolated',
-            reduceOnly: opts.reduceOnly ?? false,
-            botManaged: false,
-          });
-          return { outcome: opts.kind === 'market' || opts.reduceOnly ? 'filled' : 'resting' };
-        }
-      }
-
       const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
       const leg = buildSimpleOrderLeg({
         assetIndex,
@@ -267,25 +225,9 @@ export function useHyperliquidTrading() {
         reduceOnly: opts.reduceOnly ?? false,
         profitUsd: opts.profitUsd,
       });
-      if (marketKind === 'perp' && !opts.reduceOnly) {
-        try {
-          const wallet = await resolveWallet();
-          const addr = wallet.account?.address;
-          if (addr) {
-            await recordHlManualOpenMarker({
-              walletAddress: addr,
-              coin: opts.coin,
-              direction: opts.side === 'long' ? 'LONG' : 'SHORT',
-              entryPx: opts.markPx,
-            });
-          }
-        } catch {
-          /* marker is best-effort — order already filled */
-        }
-      }
       return { outcome: classifyOrderPlacement(result) };
     },
-    [agentApprovedFor, resolveAsset, resolveWallet, submitOrders]
+    [resolveAsset, submitOrders]
   );
 
   const withBusy = useCallback(

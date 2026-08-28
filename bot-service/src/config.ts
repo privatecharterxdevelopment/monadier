@@ -111,12 +111,6 @@ export const config = {
   executionVenue: 'hyperliquid' as const,
 
   hyperliquid: {
-    /**
-     * HyperGain auto-trading is shut down.
-     * No new bot opens, no trail/SL/TP auto-exits, no force-open, no auto-betting.
-     * Manual /api/hl-order, user Close, and Hyperliquid withdraw stay on.
-     */
-    botHalted: true,
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,
@@ -160,7 +154,6 @@ export const config = {
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
      * ZEC/CRV/CASHCAT always; PUMP/VVV/WLD user-banned; CC thin junk; EIGEN HL max 5x / banned; XLM/MON delisted.
-     * LIT/TRUMP/MELANIA — meme/political junk, user-banned (spike-high disasters).
      * Add more via HL_EXCLUDED_COINS="FOO,BAR" (merged with hard bans).
      */
     excludedCoins: [
@@ -175,9 +168,6 @@ export const config = {
         'EIGEN',
         'XLM',
         'MON',
-        'LIT',
-        'TRUMP',
-        'MELANIA',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())

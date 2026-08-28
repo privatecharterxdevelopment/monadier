@@ -1,7 +1,9 @@
 /**
- * SHORT timing — block only a live green stampede, not the high itself.
- * HH/HL and “15m still LONG” are the top of the range; those may SHORT.
+ * Alt SHORT timing — only after higher-TF rollover (not a blanket ban).
+ * Also blocks SHORT into a green candle run (5–13 green 5m / majority-green tape).
+ * Pair may still be skipped earlier by freshPumpGate if recently pumped.
  */
+import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -89,6 +91,62 @@ function blockGreenRunShort(
   return null;
 }
 
+/** Local swing highs/lows on closed candles (pivot = 2 bars each side). */
+function swingExtremes(
+  candles: Candle[],
+  kind: 'high' | 'low',
+  pivot = 2
+): number[] {
+  const closed = candles.slice(0, -1);
+  const out: number[] = [];
+  for (let i = pivot; i < closed.length - pivot; i += 1) {
+    const c = closed[i];
+    const left = closed.slice(i - pivot, i);
+    const right = closed.slice(i + 1, i + 1 + pivot);
+    if (kind === 'high') {
+      const h = c.high;
+      if (left.every((x) => x.high <= h) && right.every((x) => x.high <= h)) out.push(h);
+    } else {
+      const l = c.low;
+      if (left.every((x) => x.low >= l) && right.every((x) => x.low >= l)) out.push(l);
+    }
+  }
+  return out;
+}
+
+/**
+ * User rule: clear higher-highs / higher-lows on 1h → no SHORT.
+ * Needs ≥2 rising swing highs (or HH + HL). Matches chart “seit Tagen nur hoch”.
+ */
+function blockHigherHighsShort(coin: string, c1h: Candle[]): PumpShortResult | null {
+  if (c1h.length < 24) return null;
+  const highs = swingExtremes(c1h, 'high', 2);
+  const lows = swingExtremes(c1h, 'low', 2);
+  if (highs.length < 2) return null;
+
+  const h1 = highs[highs.length - 2]!;
+  const h2 = highs[highs.length - 1]!;
+  const hh = h2 > h1 * 1.001;
+
+  let hl = false;
+  if (lows.length >= 2) {
+    const l1 = lows[lows.length - 2]!;
+    const l2 = lows[lows.length - 1]!;
+    hl = l2 > l1 * 1.001;
+  }
+
+  const net1h = pctChangeClosed(c1h, Math.min(24, c1h.length - 2));
+  // Need clear HH+HL uptrend — HH alone was starving shorts on every bounce.
+  if (hh && hl && net1h > 1.5) {
+    const reason =
+      `SHORT blocked — ${coin} 1h higher highs + higher lows` +
+      ` (swings ${h1.toPrecision(4)}→${h2.toPrecision(4)}, net1h ${net1h >= 0 ? '+' : ''}${net1h.toFixed(2)}%)`;
+    logger.info('Pump-short gate blocked — higher highs', { coin, h1, h2, hl, net1h });
+    return { ok: false, reason };
+  }
+  return null;
+}
+
 export async function validateNoAltPumpShort(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
@@ -98,17 +156,27 @@ export async function validateNoAltPumpShort(opts: {
   }
 
   const coin = opts.coin.toUpperCase();
+  const cfg = config.hyperliquid.pumpShort;
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [c5m, c15m] = await Promise.all([
+    const [c5m, c15m, c1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '5m', 32),
       signalEngine.fetchCandles(symbol, '15m', 20),
+      signalEngine.fetchCandles(symbol, '1h', 48),
     ]);
 
-    // Don't short a green stampede. Structure (HH/HL, 15m still LONG) is the high — that is a SHORT.
+    // All coins: never short a clear green run or 1h higher-highs structure.
     const greenBlock = blockGreenRunShort(coin, c5m, c15m);
     if (greenBlock) return greenBlock;
+    const hhBlock = blockHigherHighsShort(coin, c1h);
+    if (hhBlock) return hhBlock;
+
+    if (coin === 'BTC' || coin === 'ETH') {
+      return { ok: true, reason: 'Pump-short gate — majors green/HH clear; macro beta handles rest' };
+    }
+
+    const signal = await signalEngine.generateSignal(symbol, ['5m', '15m', '1h']);
 
     const live5m = pctChangeLive(c5m, 1);
     const live15m = pctChangeLive(c15m, 1);
@@ -127,11 +195,65 @@ export async function validateNoAltPumpShort(opts: {
       return { ok: false, reason };
     }
 
+    const higher = signal.timeframes.filter(
+      (t) => t.timeframe === '5m' || t.timeframe === '15m' || t.timeframe === '1h'
+    );
+    const higherLong = higher.filter((t) => t.direction === 'LONG').length;
+    if (higherLong >= cfg.minHigherTfLongBlock) {
+      const reason =
+        `SHORT blocked — ${coin}: ${higherLong}/3 higher TFs still LONG (no short after pump on alts)`;
+      logger.info('Pump-short gate blocked', { coin, higherLong });
+      return { ok: false, reason };
+    }
+
+    const tf15 = signal.timeframes.find((t) => t.timeframe === '15m');
+    const tf1h = signal.timeframes.find((t) => t.timeframe === '1h');
+    if (tf1h?.direction === 'LONG' || tf15?.direction === 'LONG') {
+      const reason =
+        `SHORT blocked — ${coin}: 15m/1h signal still LONG (wait for rollover, not a 1m dip)`;
+      logger.info('Pump-short gate blocked', { coin, tf15: tf15?.direction, tf1h: tf1h?.direction });
+      return { ok: false, reason };
+    }
+
+    const ch1h = pctChangeClosed(c1h, 1);
+    const ch4h = pctChangeClosed(c1h, 4);
+    const ch15m = pctChangeClosed(c15m, 1);
+
+    if (ch1h >= cfg.block1hPct || ch4h >= cfg.block4hPct) {
+      // Tiny green noise on 1h must not veto a stacked MTF SHORT (was 0.15% → false pumps).
+      const reason =
+        `SHORT blocked — ${coin} still pumping (1h ${ch1h >= 0 ? '+' : ''}${ch1h.toFixed(2)}%, ` +
+        `4h ${ch4h >= 0 ? '+' : ''}${ch4h.toFixed(2)}%)`;
+      logger.info('Pump-short gate blocked', { coin, ch1h, ch4h });
+      return { ok: false, reason };
+    }
+
+    // Continuation dumps: live 15m red is enough even if the last closed 15m
+    // finished slightly green. Old OR required BOTH ≤ −roll and starved every alt SHORT.
+    const roll = Math.max(0, cfg.min15mRolloverPct);
+    const liveDumping = live15m <= -Math.max(roll, 0.12);
+    const closedFaded = ch15m <= -roll;
+    const liveFaded = live15m <= -roll;
+    if (!liveDumping && !closedFaded && !liveFaded) {
+      const reason =
+        `SHORT blocked — ${coin} 15m not rolling over (closed ${ch15m >= 0 ? '+' : ''}${ch15m.toFixed(2)}%, ` +
+        `live ${live15m >= 0 ? '+' : ''}${live15m.toFixed(2)}%) — need clear fade, not a heated pump`;
+      logger.info('Pump-short gate blocked', { coin, ch15m, live15m, roll });
+      return { ok: false, reason };
+    }
+
+    if (tf15?.direction !== 'SHORT' && tf1h?.direction !== 'SHORT') {
+      return {
+        ok: false,
+        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before alt short`,
+      };
+    }
+
     return {
       ok: true,
-      reason: `SHORT timing ok ${coin} — not a green stampede`,
+      reason:
+        `Alt SHORT ok ${coin} — higher TFs faded (15m ${ch15m.toFixed(2)}%, 1h ${ch1h.toFixed(2)}%)`,
     };
-
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn('Pump-short gate error — fail closed for alts', { coin, error: msg });

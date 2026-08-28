@@ -4,15 +4,16 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * SHORT: range top / R when BTC is not exploding, dump continuation, or breakdown.
+ * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
- * LONG: support / lower range, confirmed breakout *through* R, or LONG through R
- * while BTC is exploding (green + volume). Never a blanket "no LONGs at R".
- * At R: evaluateResistanceFade decides SHORT vs LONG vs wait.
+ * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
+ * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
+ * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
+import { btcTapeIsGreen } from './macroBetaGate';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -20,7 +21,6 @@ import {
   zoneReversalConfirmed,
   type PriceZone,
 } from './resistanceZone';
-import { evaluateResistanceFade, isVolumeGreenExpansion } from './resistanceFadeGate';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -244,7 +244,7 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
     supportRejections: supTests.rejections,
     confirmedBreakoutUp: confirmedBreakoutUp(
       candlesPrimary,
-      resistanceZone?.zoneHigh ?? resistance,
+      resistance,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
@@ -269,29 +269,33 @@ function fmtLevel(n: number): string {
 
 export function evaluateEntryLocation(
   direction: 'LONG' | 'SHORT',
-  analysis: SrZoneAnalysis,
-  extra?: { coinVolumeExpanding?: boolean }
+  analysis: SrZoneAnalysis
 ): EntryLocationResult {
   const cfg = config.hyperliquid.entryLocation;
-  const atR = analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock;
-  const fade = evaluateResistanceFade({
-    direction,
-    atResistance: atR,
-    confirmedBreakoutUp: analysis.confirmedBreakoutUp,
-    coinVolumeExpanding: extra?.coinVolumeExpanding,
-  });
 
   if (direction === 'LONG') {
-    if (fade) {
+    // BTC / majors still green: LONG through local R. Never fade a green tape.
+    if (
+      btcTapeIsGreen() &&
+      (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock)
+    ) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
+      };
+    }
+    // At the resistance line: no LONG unless green tape / confirmed breakout.
+    // Do NOT flip to SHORT — resistance shorts are off.
+    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
           ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
           : fmtLevel(analysis.resistance);
       return {
-        ok: fade.ok,
+        ok: false,
         analysis,
-        flipTo: fade.flipTo,
-        reason: `${fade.reason} (${zone})`,
+        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
       };
     }
 
@@ -324,6 +328,7 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
+  // Breakdown is best. Dump continuation is allowed. R-fade is not.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -332,24 +337,15 @@ export function evaluateEntryLocation(
     };
   }
 
-  if (analysis.nearSupport && !analysis.confirmedBreakdown) {
-    return {
-      ok: false,
-      analysis,
-      reason: `SHORT blocked — at support ${fmtLevel(analysis.support)} (floor = LONG, not SHORT)`,
-    };
-  }
-
-  if (fade) {
+  if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
     const zone =
       analysis.resistanceZone != null
         ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
         : fmtLevel(analysis.resistance);
     return {
-      ok: fade.ok,
+      ok: false,
       analysis,
-      flipTo: fade.flipTo,
-      reason: `${fade.reason} (${zone})`,
+      reason: `SHORT blocked — no resistance shorts (R ${zone}); need dump continuation or confirmed breakdown`,
     };
   }
 
@@ -398,9 +394,6 @@ export async function validateEntryLocation(opts: {
   const sr = analyzeSrZones(candles1h, candles15);
 
   // In-house zone bands: no blind opens inside resistance/support — require reversal first.
-  const coinVolumeExpanding = isVolumeGreenExpansion(
-    candles15.length >= 12 ? candles15 : candles5
-  );
   const zoneGate = evaluateZoneReversalGate(
     opts.direction,
     sr.price,
@@ -411,7 +404,6 @@ export async function validateEntryLocation(opts: {
       breakoutBufferPct: config.hyperliquid.entryLocation.breakoutBufferPct,
       breakoutBars: config.hyperliquid.entryLocation.breakoutConfirmBars,
       lookbackBars: 4,
-      coinVolumeExpanding,
     }
   );
   if (!zoneGate.ok) {
@@ -464,7 +456,7 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  const classic = evaluateEntryLocation(opts.direction, sr, { coinVolumeExpanding });
+  const classic = evaluateEntryLocation(opts.direction, sr);
   const revCandles = candles5.length >= 12 ? candles5 : candles15;
 
   // Floor reverse (classic): SHORT at S + bounce → LONG any coin when LONGs enabled.

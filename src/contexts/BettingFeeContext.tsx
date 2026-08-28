@@ -64,7 +64,7 @@ export const BettingFeeProvider: React.FC<{
   const successWinCount = feesWaived ? 0 : fees.status.successWinCount;
   const winsBeforeBlock = feesWaived ? 1 : fees.status.winsBeforeBlock;
   const bettingBlocked = !feesWaived && fees.status.bettingBlocked;
-  const withdrawBlocked = false;
+  const withdrawBlocked = !feesWaived && fees.status.withdrawBlocked;
   const feesDue = !feesWaived && accruedUsd > 0.000_001;
 
   const openPayModal = useCallback(() => {

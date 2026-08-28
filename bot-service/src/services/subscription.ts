@@ -470,7 +470,7 @@ export class SubscriptionService {
                 row.leverage_multiplier != null ? Number(row.leverage_multiplier) : null
               ),
               riskLevelBps: row.risk_level_bps || 500,
-              autoTradeEnabled: Boolean(row.auto_trade_enabled) && !config.hyperliquid.botHalted,
+              autoTradeEnabled: Boolean(row.auto_trade_enabled),
               minWinRatePercent: Number(row.min_win_rate_percent) || 0,
               minTradesForWinRateGate: Number(row.min_trades_for_win_rate_gate) || 5,
               promptWithdrawAfterClose: Boolean(row.prompt_withdraw_after_close),
@@ -517,7 +517,7 @@ export class SubscriptionService {
               row.leverage_multiplier != null ? Number(row.leverage_multiplier) : null
             ),
             riskLevelBps: row.risk_level_bps || 500,
-            autoTradeEnabled: Boolean(row.auto_trade_enabled) && !config.hyperliquid.botHalted,
+            autoTradeEnabled: Boolean(row.auto_trade_enabled),
             minWinRatePercent: Number(row.min_win_rate_percent) || 0,
             minTradesForWinRateGate: Number(row.min_trades_for_win_rate_gate) || 5,
             promptWithdrawAfterClose: Boolean(row.prompt_withdraw_after_close),
@@ -589,7 +589,7 @@ export class SubscriptionService {
           data.leverage_multiplier != null ? Number(data.leverage_multiplier) : null
         ),
         riskLevelBps: data.risk_level_bps || 500,
-        autoTradeEnabled: Boolean(data.auto_trade_enabled) && !config.hyperliquid.botHalted,
+        autoTradeEnabled: Boolean(data.auto_trade_enabled),
         minWinRatePercent: Number(data.min_win_rate_percent) || 0,
         minTradesForWinRateGate: Number(data.min_trades_for_win_rate_gate) || 5,
         promptWithdrawAfterClose: Boolean(data.prompt_withdraw_after_close),
@@ -781,7 +781,7 @@ export class SubscriptionService {
         .eq('wallet_address', walletAddress.toLowerCase())
         .single();
 
-      return Boolean(data?.auto_trade_enabled) && !config.hyperliquid.botHalted;
+      return data?.auto_trade_enabled || false;
     } catch {
       return false;
     }
@@ -806,27 +806,6 @@ export class SubscriptionService {
     }
   }
 
-  /** Flip every auto-trade flag off — HyperGain shutdown. */
-  async haltAllHlAutoTrade(): Promise<number> {
-    const { data, error } = await this.supabase
-      .from('vault_settings')
-      .update({
-        auto_trade_enabled: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('auto_trade_enabled', true)
-      .select('wallet_address');
-    if (error) {
-      logger.error('haltAllHlAutoTrade failed', { error: error.message });
-      return 0;
-    }
-    const n = data?.length ?? 0;
-    if (n > 0) {
-      logger.warn('HyperGain halt: auto_trade_enabled cleared', { wallets: n });
-    }
-    return n;
-  }
-
   /**
    * Sync vault_settings from on-chain state
    * Creates or updates vault_settings when on-chain autoTrade is enabled
@@ -845,7 +824,7 @@ export class SubscriptionService {
         .upsert({
           wallet_address: wallet,
           chain_id: chainId,
-          auto_trade_enabled: config.hyperliquid.botHalted ? false : settings.autoTradeEnabled,
+          auto_trade_enabled: settings.autoTradeEnabled,
           risk_level: settings.riskLevel || 100,
           // Default TP/SL
           take_profit_percent: 5,
@@ -1030,7 +1009,6 @@ export class SubscriptionService {
    * 42161 when no canonical row exists; if 42161 exists it wins (even when OFF).
    */
   async getAutoTradeUsers(chainId?: number): Promise<string[]> {
-    if (config.hyperliquid.botHalted) return [];
     try {
       const canonicalChainId = chainId ?? 42161;
 

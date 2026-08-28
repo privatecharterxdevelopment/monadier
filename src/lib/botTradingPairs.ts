@@ -41,6 +41,7 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'ETH',
   'HYPE',
   'SOL',
+  'LIT',
   'XRP',
   'NEAR',
   'AAVE',
@@ -64,6 +65,7 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'BNB',
   'kPEPE',
   'VIRTUAL',
+  'TRUMP',
   'TRB',
   'ZRO',
 ] as const;
@@ -84,9 +86,6 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'WLD',
   'XLM',
   'MON',
-  'LIT',
-  'TRUMP',
-  'MELANIA',
 ]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
@@ -111,10 +110,7 @@ export function isHiddenFromBotUi(coin: string): boolean {
     compact === 'VVV' ||
     compact === 'WLD' ||
     compact === 'XLM' ||
-    compact === 'MON' ||
-    compact === 'LIT' ||
-    compact === 'TRUMP' ||
-    compact === 'MELANIA'
+    compact === 'MON'
   );
 }
 

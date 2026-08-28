@@ -1,5 +1,4 @@
 import { MIN_HL_BOT_USD } from './hyperliquid/hlBotAgent';
-import { HL_BOT_HALTED } from './hyperliquid/hlBotHalt';
 
 /** Platform fee must be on-chain before bot runs when builder fees are enabled. */
 export function isHlBuilderFeeGateSatisfied(
@@ -30,7 +29,6 @@ export function isHlBotReadyToRun(
 
 /** DB auto_trade flag — bot stays enabled across reloads until user presses Stop. */
 export function isHlBotEnabled(autoTradeEnabled: boolean): boolean {
-  if (HL_BOT_HALTED) return false;
   return autoTradeEnabled;
 }
 
@@ -43,7 +41,6 @@ export function resolveHlBotRunning(opts: {
   lastKnownAutoTrade?: boolean | null;
   optimistic?: boolean | null;
 }): boolean {
-  if (HL_BOT_HALTED) return false;
   if (opts.optimistic !== null && opts.optimistic !== undefined) {
     return opts.optimistic;
   }
@@ -72,7 +69,6 @@ export function effectiveHlBotRunning(
   builderFeeEnabled = true
 ): boolean {
   return (
-    !HL_BOT_HALTED &&
     autoTradeEnabled &&
     isHlBotReadyToRun(
       hlBalanceUsd,

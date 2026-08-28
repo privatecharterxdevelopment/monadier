@@ -367,18 +367,6 @@ export function btcTapeIsGreen(): boolean {
 }
 
 /**
- * BTC exploding = live inflow tape (fat green + volume), not a 0.3% bounce.
- * isPumping at 35 bps was licensing LONGs into resistance (LIT).
- * Quiet/flat BTC is not this.
- */
-export function btcIsExploding(): { yes: boolean; reason: string } {
-  if (lastBtcPhase === 'inflow') {
-    return { yes: true, reason: lastBtcPhaseReason || 'BTC inflow (volume + green expansion)' };
-  }
-  return { yes: false, reason: 'BTC not exploding' };
-}
-
-/**
  * SHORT vs BTC tape: never fade a BTC inflow/pump.
  * Flat or red BTC → coin SHORT signal is allowed (LONG stays primary in pickWinner).
  * Hard block is pump/inflow only — not “BTC must dump”, not 8 bps green.

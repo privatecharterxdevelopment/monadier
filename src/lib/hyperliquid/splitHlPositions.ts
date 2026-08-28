@@ -19,9 +19,8 @@ export function filterHlPositions(
     if (!isMeaningfulHlPosition(p.szi, p.entryPx)) return false;
     const coin = normalizeHlPerpCoin(p.coin);
     const isBot = botManagedCoins.has(coin);
-    // Bot dock: latest marker is a HyperGain open. Untagged HL fills + desk
-    // manuals stay on Perps so the trail loop never adopts them.
-    if (scope === 'bot') return isBot;
+    // Bot tab: show every real HL open (incl. untagged force-opens). Manual: non-bot only.
+    if (scope === 'bot') return true;
     return !isBot;
   });
 }

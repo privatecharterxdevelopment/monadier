@@ -139,7 +139,6 @@ const healthServer = http.createServer(async (req, res) => {
         process.env.GIT_COMMIT?.slice(0, 7) ||
         null,
       policy: {
-        botHalted: config.hyperliquid.botHalted,
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
         longLetRun: config.hyperliquid.longLetRun,
         letRunAll: await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll(),
@@ -1463,11 +1462,6 @@ const healthServer = http.createServer(async (req, res) => {
   // Admin: force-open a coin/direction for every auto-trade wallet (ops desk).
   if (url.pathname === '/api/admin/force-open' && req.method === 'POST') {
     if (!requireBotAdmin()) return;
-    if (config.hyperliquid.botHalted) {
-      res.writeHead(403, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: 'HyperGain auto-trading is shut down' }));
-      return;
-    }
     try {
       const body = await readJsonBody();
       const coin = String(body.coin ?? 'ETH').trim().toUpperCase();
@@ -1795,10 +1789,6 @@ async function updateBotAnalysis(): Promise<void> {
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
-  if (config.hyperliquid.botHalted) {
-    logger.warn('Trading cycle skipped — HyperGain auto-trading is shut down');
-    return;
-  }
   // Prevent concurrent trading cycles (race condition prevention)
   if (isTradingCycleRunning) {
     logger.debug('Trading cycle already running, skipping');
@@ -1922,46 +1912,39 @@ async function main(): Promise<void> {
 
   await releaseHlBotTradingPauses();
 
-  if (config.hyperliquid.botHalted) {
-    const halted = await subscriptionService.haltAllHlAutoTrade();
-    logger.warn('HyperGain auto-trading HALTED — no opens, no trail, no force-open', {
-      autoTradeCleared: halted,
-    });
-  } else {
-    // Restore profit-trail peaks/stops from Supabase before first monitor pass.
-    await ensureProfitTrailStateHydrated();
+  // Restore profit-trail peaks/stops from Supabase before first monitor pass.
+  await ensureProfitTrailStateHydrated();
 
-    // Trail/SL for bot-owned open perps even when auto-trade is paused.
-    await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
+  await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
 
-    // Run immediately on startup
+  // Run immediately on startup
+  await runTradingCycle();
+  void hyperliquidTradingService.runFastPositionMonitor();
+
+  const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
+  const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
+
+  cron.schedule(tradeCronExpression, async () => {
     await runTradingCycle();
-    void hyperliquidTradingService.runFastPositionMonitor();
+  });
 
-    const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
-    const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
+  const positionMonitorMs = config.hyperliquid.positionMonitorMs;
 
-    cron.schedule(tradeCronExpression, async () => {
-      await runTradingCycle();
-    });
-
-    const positionMonitorMs = config.hyperliquid.positionMonitorMs;
-
-    if (positionMonitorMs < 1000) {
-      setInterval(() => {
-        void hyperliquidTradingService.runFastPositionMonitor();
-      }, positionMonitorMs);
-    } else {
-      const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
-      cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
-        await hyperliquidTradingService.runFastPositionMonitor();
-      });
-    }
-
+  if (positionMonitorMs < 1000) {
     setInterval(() => {
-      void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
-    }, 60_000);
+      void hyperliquidTradingService.runFastPositionMonitor();
+    }, positionMonitorMs);
+  } else {
+    const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
+    cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
+      await hyperliquidTradingService.runFastPositionMonitor();
+    });
   }
+
+  setInterval(() => {
+    void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  }, 60_000);
 
   setInterval(() => {
     void processPendingTradeCloseEmails(40);
@@ -1995,18 +1978,12 @@ async function main(): Promise<void> {
 
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
-  if (config.hyperliquid.botHalted) {
-    logger.warn('- HL trading cycle: HALTED (manual + withdraw only)');
-    logger.warn('- HL position monitor: HALTED (no trail / auto-exit)');
-    logger.warn('- AI auto-betting: HALTED');
-  } else {
-    logger.info(`- HL trading cycle: every ${Math.floor(config.trading.checkIntervalMs / 1000)}s`);
-    logger.info(`- HL position monitor: every ${config.hyperliquid.positionMonitorMs}ms (fast profit grab)`);
-    logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
-  }
+  logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
+  logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
   logger.info(`- Trade/bet win emails: every 15s`);
   logger.info(`- Betting history sync: every 60s`);
   logger.info(`- X/IG/FB social tick: every ${Math.round(twitterTickMs / 1000)}s`);
+  logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
   void ensureTwitterSettings()
     .then((s) => {
       const snapHint = twitterCredentialsConfigured()

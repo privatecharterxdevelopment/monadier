@@ -9,7 +9,7 @@ export type HlBuilderConfig = {
   /** Legacy flat perp fee (tenths bps); Pro Trade opens use 0 — success fee on profitable closes only. */
   feePerp: HlBuilderFeeTenthsBps;
   feeSpotSell: HlBuilderFeeTenthsBps;
-  /** Unused for perps — desk PnL stays on Hyperliquid. Kept for env compat. */
+  /** Manual Pro Trade: bps of profit on winning closes (150 = 1.5%). */
   proTradeSuccessFeeBps: number;
   maxApprovalRate: string;
   /** HIP-4 betting buy — tenths bps (500 = 0.5%). */
@@ -51,7 +51,7 @@ export function getHlBuilderConfig(): HlBuilderConfig {
   const feeSpotSell = parseFee(import.meta.env.VITE_HL_BUILDER_FEE_SPOT, 50, 1000);
   const proTradeSuccessFeeBps = Math.min(
     10_000,
-    Math.max(0, Math.floor(Number(import.meta.env.VITE_HL_PRO_TRADE_SUCCESS_FEE_BPS || 0)))
+    Math.max(0, Math.floor(Number(import.meta.env.VITE_HL_PRO_TRADE_SUCCESS_FEE_BPS || 150)))
   );
   const maxApprovalRate =
     import.meta.env.VITE_HL_BUILDER_MAX_APPROVAL?.trim() || '0.1%';

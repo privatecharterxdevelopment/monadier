@@ -943,7 +943,7 @@
       "partners": "Accepted payment methods"
     },
     "nav": {
-      "perps": "Trade",
+      "perps": "Perps",
       "bot": "Bot trade",
       "betting": "Betting",
       "portfolio": "Portfolio",
@@ -1213,8 +1213,7 @@
       "placeOrders": "Place {{count}} Orders",
       "placeTpsl": "Place TP/SL",
       "startTwap": "Start TWAP",
-      "failedLeverage": "Failed to update leverage",
-      "agentHint": "Opens via the HyperGain agent when approved — no wallet signature per order. The bot does not trail these trades."
+      "failedLeverage": "Failed to update leverage"
     },
     "book": {
       "orderBook": "Order Book",
@@ -1327,7 +1326,6 @@
   "tradePanel": {
     "title": "{{brand}} agent",
     "tabBot": "Agent",
-    "tabTrade": "Trade",
     "tabSettings": "Settings",
     "tabFunds": "Funds",
     "status": "Status",
@@ -1375,23 +1373,7 @@
     "stopFirstSubtitle": "Leverage and risk are locked while the agent is running",
     "keepRunning": "Keep running",
     "stopFirstHint": "1. Stop the agent · 2. Change settings · 3. Press Start agent again.",
-    "stopFirstNote": "Applies to leverage and risk — not while the agent is active.",
-    "manual": {
-      "hint": "Market open on your Hyperliquid account via the HyperGain agent. The bot does not trail these trades.",
-      "coin": "Coin",
-      "long": "Long",
-      "short": "Short",
-      "leverage": "Leverage",
-      "sizeUsd": "Size (USD)",
-      "connectFirst": "Connect wallet first.",
-      "needAgent": "Approve the trading agent on the Agent tab once, then open here without signing each order.",
-      "feesDue": "Pay {{brand}} platform fees to continue trading.",
-      "pickCoin": "Pick a coin.",
-      "enterSize": "Enter a size in USD.",
-      "sent": "{{side}} {{coin}} {{lev}}x · ${{usd}} opened — see Trade → Positions",
-      "sending": "Sending…",
-      "submit": "Open {{side}} {{coin}} {{lev}}x"
-    }
+    "stopFirstNote": "Applies to leverage and risk — not while the agent is active."
   },
   "dock": {
     "ariaPanels": "Account panels",

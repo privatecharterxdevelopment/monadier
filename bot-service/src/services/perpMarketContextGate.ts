@@ -4,7 +4,7 @@
 import { config } from '../config';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { btcIsExploding } from './macroBetaGate';
+import { btcLeadIsPumping } from './macroBetaGate';
 
 export type PerpMarketContext = {
   coin: string;
@@ -130,7 +130,7 @@ export async function validatePerpMarketContext(opts: {
     ].join(' · ');
 
     if (opts.direction === 'LONG') {
-      if (!btcIsExploding().yes && ctx.rangePosition >= cfg.maxLongRangePosition) {
+      if (!btcLeadIsPumping() && ctx.rangePosition >= cfg.maxLongRangePosition) {
         return {
           ok: false,
           reason: `LONG blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (buy high, need pullback) · ${summary}`,
@@ -138,7 +138,7 @@ export async function validatePerpMarketContext(opts: {
         };
       }
       if (
-        !btcIsExploding().yes &&
+        !btcLeadIsPumping() &&
         ctx.change24hPct >= cfg.maxLong24hUpPct &&
         ctx.rangePosition >= cfg.maxLong24hRangePosition
       ) {
