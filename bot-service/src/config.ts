@@ -209,7 +209,7 @@ export const config = {
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
       /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 30_000),
+      armMinProfitHoldMs: 30_000,
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
@@ -230,7 +230,7 @@ export const config = {
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
       /** After trail arms — min ms before trail/peak can close (3m). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
+      trailMinActiveBeforeCloseMs: 0,
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
        * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
@@ -273,7 +273,7 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 150_000),
+      longMinGreenHoldMs: 0,
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
@@ -292,7 +292,7 @@ export const config = {
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),
+    profitMinHoldBeforeExitMs: 30_000,
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
@@ -311,7 +311,7 @@ export const config = {
     /** If uPnL falls this far below trail floor during defer → close anyway. */
     trailSweepDeferGiveUpUsd: Number(process.env.HL_TRAIL_SWEEP_GIVEUP_USD || 0.02),
     /** Fraction of peak uPnL retrace before peak-grab close (0.70 = need 70% giveback). */
-    profitPeakDropFraction: Number(process.env.HL_PROFIT_PEAK_DROP_FRAC || 0.7),
+    profitPeakDropFraction: 0.18,
     /** Min peak (× round-trip fees) before peak-grab can fire. */
     profitPeakMinFeesMult: Number(process.env.HL_PROFIT_PEAK_MIN_FEES_MULT || 16),
     positionMonitorMs: Number(process.env.HL_POSITION_MONITOR_MS || 250),

@@ -249,13 +249,8 @@ function breakevenPlusFeesStopPx(
 }
 
 /**
- * Staged in-profit lock: several rungs so fees cannot eat a small winner,
- * while a real run still has air to develop.
- *
- *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
- *   L2 partial peak < 4× min-close → keep ~55%
- *   L3 core    peak < 8× min-close → keep ~40%
- *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
+ * Staged in-profit lock — sit tight under the peak and take the meat.
+ * $11 peak → lock ~$9 (L2 85%). Giveback ~15–20%, not 65%+.
  */
 function stagedProfitLock(
   peakPnlUsd: number,
@@ -269,19 +264,18 @@ function stagedProfitLock(
   const ratio = peakPnlUsd / need;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
-  if (ratio < 2) {
+  if (ratio < 1.25) {
     level = 'fee';
-    keepFrac = 0;
-  } else if (ratio < 4) {
+    keepFrac = 0.9;
+  } else if (ratio < 2.5) {
     level = 'partial';
-    keepFrac = 0.55;
-  } else if (ratio < 8) {
+    keepFrac = 0.85;
+  } else if (ratio < 5) {
     level = 'core';
-    keepFrac = 0.4;
+    keepFrac = 0.82;
   } else {
     level = 'runner';
-    keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
+    keepFrac = 0.8;
   }
   return {
     level,
@@ -774,32 +768,27 @@ async function evaluateDynamicTrailInner(
     }
 
     const peakFracBase = config.hyperliquid.profitPeakDropFraction;
-    // LONGs get extra giveback room so stage-2 trail can run with explosions.
-    // Still capped — stages are not skipped; grab only after a real peak retrace.
-    const peakFrac =
-      input.direction === 'LONG'
-        ? Math.min(0.82, peakFracBase * 1.2)
-        : peakFracBase;
-    const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
-    const runWiden =
-      trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
+    const peakFrac = peakFracBase > 0 ? peakFracBase : 0.18;
+    const needUsd = profitCloseNeedUsd(feesUsd, input.collateralUsd);
     if (
-      rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
-      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&
+      rec.highestPnlSinceEntry >= needUsd &&
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
-      !longPeakTooSmallToTrailClose(
-        input.direction,
-        rec.highestPnlSinceEntry,
-        input.collateralUsd
-      )
+      !longGreenTooYoungToClose(rec, input.pnlUsd)
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
-      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
-      if (drop >= minDrop) {
+      const minDrop = rec.highestPnlSinceEntry * peakFrac;
+      if (
+        drop >= minDrop &&
+        profitClearsFeeGate(
+          input.pnlUsd,
+          feesUsd,
+          rec.highestPnlSinceEntry,
+          input.collateralUsd
+        )
+      ) {
         const detail = `PEAK PROFIT GRAB · ${input.direction} ${input.coin} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)}`;
         return {
           record: rec,
