@@ -1,5 +1,6 @@
 /**
- * Pre-open gate — buy dips / sell rallies, never chase extended moves.
+ * Pre-open gate — don't chase a vertical already-extended tape.
+ * LONG: take the signal except at the high / a live 1h dump. No dip-first rule.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -93,8 +94,6 @@ export async function validateEntryMomentum(opts: {
     }
 
     const min15 = cfg.minMove15mPct;
-    const bounce15m =
-      change15mPct >= min15 && lastNCandlesMove(c15m, 1, 'LONG');
     const fade15m =
       change15mPct <= -min15 && lastNCandlesMove(c15m, 1, 'SHORT');
 
@@ -102,29 +101,16 @@ export async function validateEntryMomentum(opts: {
     let reason = '';
 
     if (opts.direction === 'LONG') {
+      // Signal LONG is a LONG. Do not require a dip, support bounce, or fade first.
       if (change15mPct >= cfg.maxChase15mPct && change1hPct >= cfg.maxChase1hPct) {
         reason =
-          `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — wait for pullback, buy low`;
-      } else if (rangePos > cfg.longMaxRangePosition) {
-        reason =
-          `LONG blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (buy low, not at highs)`;
-      } else if (!bounce15m) {
-        const inLowerRange = rangePos <= cfg.longMaxRangePosition;
-        const smallDip = change15mPct <= 0 && change15mPct > -0.6;
-        if (inLowerRange && smallDip) {
-          momentumAligned = true;
-          reason =
-            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m dip ${change15mPct.toFixed(2)}% to buy`;
-        } else {
-          reason =
-            `LONG blocked — ${coin} needs 15m bounce from dip (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
-        }
+          `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — don't tag the high`;
       } else if (change1hPct < -cfg.maxCounter1hPct) {
         reason = `LONG blocked — ${coin} 1h still dumping (${change1hPct.toFixed(2)}%) — wait for higher-low`;
       } else {
         momentumAligned = true;
         reason =
-          `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% bounce`;
+          `LONG tape OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
       }
     } else {
       // Chase / flush bottom — require BOTH TFs extended (live-aware min).

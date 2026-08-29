@@ -1,5 +1,5 @@
 /**
- * Block LONG at pump apex / mid-fade; prefer entries near estimated turnaround (avg low zone).
+ * Block LONG only at the pump wick high. Continuation / mid-range LONGs stay allowed.
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
@@ -32,27 +32,12 @@ function gateForDirection(
   const coin = a.coin;
 
   if (direction === 'LONG') {
-    // Never LONG the wick high — green tape is not a free pass to buy the peak.
+    // Only the wick high is off-limits. Signal LONG elsewhere (mid-range, dip, continuation) is a LONG.
     if (a.phase === 'at_apex') {
       return {
         ok: false,
         reason:
-          `LONG blocked — ${coin} at pump apex $${a.pumpApex.toFixed(2)} (liquidity sweep line) — ` +
-          `wait for fade toward avg low ~$${a.avgSwingLow.toFixed(2)} / turnaround ~$${a.turnaroundEstimate.toFixed(2)}`,
-      };
-    }
-    if (a.phase === 'post_pump_fade' && a.positionInSweep > cfg.longBlockAbovePosition) {
-      return {
-        ok: false,
-        reason:
-          `LONG blocked — ${coin} still fading from pump high (−${a.retraceFromApexPct.toFixed(2)}% from apex, ` +
-          `${(a.positionInSweep * 100).toFixed(0)}% of range) — est. turnaround ~$${a.turnaroundEstimate.toFixed(2)}`,
-      };
-    }
-    if (a.phase === 'near_turnaround' || a.phase === 'at_sweep_low') {
-      return {
-        ok: true,
-        reason: `Pump sweep OK — ${coin} near turnaround zone (~$${a.turnaroundEstimate.toFixed(2)}, avg low $${a.avgSwingLow.toFixed(2)})`,
+          `LONG blocked — ${coin} at pump apex $${a.pumpApex.toFixed(2)} — don't tag the high`,
       };
     }
     return { ok: true, reason: `Pump sweep OK — ${coin} ${a.phase.replace(/_/g, ' ')}` };

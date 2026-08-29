@@ -1281,7 +1281,7 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Never LONG the pump high — wait for a fade / support, even if BTC is still green.
+      // Never LONG the pump wick high. Continuation LONGs stay allowed.
       if (!force && opts.direction === 'LONG' && isLongAtPeak(peakAnalysis)) {
         return rejectOpen(
           'pump_sweep',

@@ -5,7 +5,6 @@
  * flipped LONGs into user shorts. Keep the MTF signal; dump SHORTs still
  * come from a real SHORT stack + breakdown, not from fading the high.
  */
-import { config } from '../config';
 import {
   fetchPumpSweepAnalysis,
   type PumpSweepAnalysis,
@@ -21,12 +20,9 @@ export function isPostPeakShortPhase(phase: PumpSweepPhase | string | null | und
   return phase === 'at_apex' || phase === 'post_pump_fade';
 }
 
-/** Price is at the pump high or still hugging the top — no new LONGs. */
+/** At the pump wick high — no new LONGs. Continuation / mid-range LONGs stay allowed. */
 export function isLongAtPeak(analysis: PumpSweepAnalysis | null | undefined): boolean {
-  if (!analysis) return false;
-  if (analysis.phase === 'at_apex') return true;
-  const cap = config.hyperliquid.pumpSweep.longBlockAbovePosition;
-  return analysis.phase === 'post_pump_fade' && analysis.positionInSweep > cap;
+  return analysis?.phase === 'at_apex';
 }
 
 export type PeakDirectionResolution = {

@@ -4,8 +4,8 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * SHORT: breakdown, not R-fade. LONG: support / lower range, or break through R.
- * Never invert the MTF signal. At the peak: no LONG.
+ * Never invert the MTF signal. LONG: take the long print except at the wick high.
+ * SHORT: breakdown, not R-fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -268,13 +268,11 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    const atTop =
-      analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock;
-    if (atTop) {
+    // Signal LONG is a LONG (mid-range / continuation included). Only skip tagging R.
+    if (analysis.nearResistance) {
       const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
       const clearedAboveR =
         ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
-      // Real breakout through R is continuation. Tagging the high is not a LONG.
       if (analysis.confirmedBreakoutUp && clearedAboveR) {
         return {
           ok: true,
@@ -289,24 +287,13 @@ export function evaluateEntryLocation(
       return {
         ok: false,
         analysis,
-        reason: `LONG blocked — at/near range top R ${zone} (no longs at the peak)`,
+        reason: `LONG blocked — tagging range high R ${zone} (not a LONG at the peak)`,
       };
     }
-
-    // Lower line / near S → LONG allowed (bounce).
-    if (analysis.nearSupport || analysis.pricePosition <= cfg.rangeBottomBlock) {
-      return {
-        ok: true,
-        analysis,
-        reason: `Support/lower-range LONG (${(analysis.pricePosition * 100).toFixed(0)}% of range, S ${fmtLevel(analysis.support)})`,
-      };
-    }
-
-    // 4) Mid-range — no LONG.
     return {
-      ok: false,
+      ok: true,
       analysis,
-      reason: `LONG blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need lower line / S ≤${(cfg.rangeBottomBlock * 100).toFixed(0)}% or breakout above R)`,
+      reason: `LONG location OK (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
     };
   }
 
