@@ -22,6 +22,43 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+/** BTC/ETH/SOL + liquid majors — bot scan/opens. Memes and junk stay out. */
+export const DEFAULT_HL_BOT_TRADE_COINS = [
+  'BTC',
+  'ETH',
+  'SOL',
+  'BNB',
+  'XRP',
+  'DOGE',
+  'AVAX',
+  'LINK',
+  'SUI',
+  'HYPE',
+  'ADA',
+  'UNI',
+  'NEAR',
+  'APT',
+  'LTC',
+  'BCH',
+  'DOT',
+  'TON',
+  'TRX',
+  'POL',
+  'ARB',
+  'OP',
+] as const;
+
+function parseCoinCsv(raw: string | undefined, fallback: readonly string[]): Set<string> {
+  const source = raw?.trim() ? raw : fallback.join(',');
+  return new Set(
+    source
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .map((s) => (s === 'AVA' ? 'AVAX' : s))
+      .filter(Boolean)
+  );
+}
+
 function resolvePlatformFeeReceiver(): `0x${string}` {
   const legacyVaultTreasury = '0x64d79e57640a8d4a56ad1d08c932b5ccf0b263a9';
   const candidates = [
@@ -174,6 +211,13 @@ export const config = {
           .filter(Boolean),
       ]),
     ],
+    /**
+     * Optional tradable-universe pin. Unset = all listed HL perps (minus excluded).
+     * Restrict with HL_BOT_TRADE_COINS="BTC,ETH,SOL".
+     */
+    botTradeCoins: process.env.HL_BOT_TRADE_COINS?.trim()
+      ? parseCoinCsv(process.env.HL_BOT_TRADE_COINS, [])
+      : new Set<string>(),
     /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
      * Bull profile ignores this (any non-excluded coin may LONG).
@@ -386,12 +430,9 @@ export const config = {
      * Majors: never SHORT while a pump is live (BTC lead or the coin's own tape).
      * SOL/ETH/BTC plus liquid followers. Override: HL_NO_SHORT_PUMP_MAJORS.
      */
-    noShortPumpMajors: new Set(
-      (process.env.HL_NO_SHORT_PUMP_MAJORS ||
-        'BTC,ETH,SOL,BNB,XRP,DOGE,AVAX,LINK,SUI,HYPE,ADA,UNI,NEAR,APT,LTC,BCH,DOT,TON,TRX,POL,ARB,OP')
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean)
+    noShortPumpMajors: parseCoinCsv(
+      process.env.HL_NO_SHORT_PUMP_MAJORS,
+      DEFAULT_HL_BOT_TRADE_COINS
     ),
     /** BTC lead: hard spike → bullish bias (majors follow). */
     macroBeta: {

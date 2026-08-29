@@ -17,6 +17,7 @@ export type HlOpenBlockGate =
   | 'anti_flip'
   | 'direction_profile'
   | 'excluded_coin'
+  | 'universe'
   | 'long_allowlist'
   | 'book_direction'
   | 'long_confirmation'

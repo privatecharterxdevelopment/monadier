@@ -8,7 +8,7 @@ import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
+import { fetchHlLiquidUniverse, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { btcLeadIsPumping, btcLeadAllowsCautiousShort, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -201,6 +201,7 @@ export type HlGlobalScanStats = {
   aggressiveCandidates: number;
   candidates: number;
   scannedAt: string;
+  coins: string[];
 };
 
 export type GlobalScanResult = {
@@ -215,9 +216,20 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
   aggressiveCandidates: 0,
   candidates: 0,
   scannedAt: '',
+  coins: [],
 };
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
+
+const MAJOR_LONG_SLOT_COINS = ['BTC', 'ETH', 'SOL'] as const;
+
+function majorLongSlotRank(signal: GlobalSignalCandidate): number {
+  if (signal.direction !== 'LONG') return 0;
+  const idx = (MAJOR_LONG_SLOT_COINS as readonly string[]).indexOf(
+    signal.coin.toUpperCase()
+  );
+  return idx < 0 ? 0 : MAJOR_LONG_SLOT_COINS.length - idx;
+}
 
 /** BTC/ETH only — chart direction from direction-specific MTF stacks. */
 async function scanMajorChartFallback(
@@ -578,7 +590,11 @@ export async function scanGlobalHlSignals(
   const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
   const excludedCoins = new Set(config.hyperliquid.excludedCoins);
-  const coins = universe.coins.filter((c) => !excludedCoins.has(c.toUpperCase()));
+  const coins = universe.coins.filter((c) => {
+    if (excludedCoins.has(c.toUpperCase())) return false;
+    // Same floor as opens — illiquid alts must not steal the candidate slot.
+    return isHlCoinLiquid(universe, c);
+  });
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
 
@@ -590,6 +606,7 @@ export async function scanGlobalHlSignals(
       aggressiveCandidates: 0,
       candidates: 0,
       scannedAt: new Date().toISOString(),
+      coins: [],
     };
     lastGlobalScanResult = { standard: [], aggressive: [] };
     return lastGlobalScanResult;
@@ -617,10 +634,12 @@ export async function scanGlobalHlSignals(
 
   const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
+    .filter((c) => isHlCoinLiquid(universe, c.coin))
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
   const aggressive = aggressiveRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
+    .filter((c) => isHlCoinLiquid(universe, c.coin))
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 
   let finalStandard = standard;
@@ -635,6 +654,7 @@ export async function scanGlobalHlSignals(
     });
     finalStandard = relaxedRaw
       .filter((c): c is GlobalSignalCandidate => c !== null)
+      .filter((c) => isHlCoinLiquid(universe, c.coin))
       .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
     if (finalStandard.length > 0) {
       logger.info('Global HL scan — relaxed fallback used', {
@@ -646,8 +666,38 @@ export async function scanGlobalHlSignals(
     }
   }
 
+  // Bull LONG-primary: always put BTC/ETH/SOL LONG on the candidate list so
+  // illiquid alts cannot occupy the only slots and starve majors.
+  if (
+    config.hyperliquid.directionProfile.primaryDirection === 'LONG' &&
+    config.hyperliquid.directionProfile.allowLongOpens
+  ) {
+    const majorCoins = MAJOR_LONG_SLOT_COINS.filter((c) => coins.includes(c));
+    const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return scanMajorChartFallback(coin, liq, universe);
+    });
+    const majorLongs = majorRaw
+      .filter((c): c is GlobalSignalCandidate => c !== null)
+      .filter((c) => c.direction === 'LONG')
+      .sort((a, b) => b.confidence - a.confidence);
+    if (majorLongs.length > 0) {
+      const majorSet = new Set(majorLongs.map((s) => s.coin.toUpperCase()));
+      finalStandard = [
+        ...majorLongs,
+        ...finalStandard.filter((s) => !majorSet.has(s.coin.toUpperCase())),
+      ];
+      logger.info('Global HL scan — major LONG slot injected', {
+        count: majorLongs.length,
+        top: majorLongs[0]?.coin,
+        conf: majorLongs[0]?.confidence,
+      });
+    }
+  }
+
   if (finalStandard.length === 0) {
-    const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
+    const majorCoins = [...MAJOR_LONG_SLOT_COINS].filter((c) => coins.includes(c));
     const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
@@ -666,6 +716,13 @@ export async function scanGlobalHlSignals(
     }
   }
 
+  finalStandard = [...finalStandard].sort(
+    (a, b) =>
+      majorLongSlotRank(b) - majorLongSlotRank(a) ||
+      b.dayVolumeUsd - a.dayVolumeUsd ||
+      b.confidence - a.confidence
+  );
+
   lastGlobalScanResult = { standard: finalStandard, aggressive: aggressiveFiltered };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
@@ -674,6 +731,7 @@ export async function scanGlobalHlSignals(
     aggressiveCandidates: aggressiveFiltered.length,
     candidates: finalStandard.length + aggressiveFiltered.length,
     scannedAt: new Date().toISOString(),
+    coins,
   };
 
   logger.info('Global HL signal scan complete', {
