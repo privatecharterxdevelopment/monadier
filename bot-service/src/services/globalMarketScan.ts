@@ -159,6 +159,7 @@ export type HlGlobalScanStats = {
   aggressiveCandidates: number;
   candidates: number;
   scannedAt: string;
+  scanUniverseCoins: string[];
 };
 
 export type GlobalScanResult = {
@@ -173,6 +174,7 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
   aggressiveCandidates: 0,
   candidates: 0,
   scannedAt: '',
+  scanUniverseCoins: [],
 };
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
@@ -543,6 +545,7 @@ export async function scanGlobalHlSignals(
       aggressiveCandidates: 0,
       candidates: 0,
       scannedAt: new Date().toISOString(),
+      scanUniverseCoins: [],
     };
     lastGlobalScanResult = { standard: [], aggressive: [] };
     return lastGlobalScanResult;
@@ -627,6 +630,7 @@ export async function scanGlobalHlSignals(
     aggressiveCandidates: aggressiveFiltered.length,
     candidates: finalStandard.length + aggressiveFiltered.length,
     scannedAt: new Date().toISOString(),
+    scanUniverseCoins: coins,
   };
 
   logger.info('Global HL signal scan complete', {

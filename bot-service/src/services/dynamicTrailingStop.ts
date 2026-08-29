@@ -90,11 +90,11 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay net green after fees — never harvest a cents stub. */
+/** Profit exits must stay net green after the remaining close fee (entry already paid). */
 export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
   const trail = config.hyperliquid.dynamicTrail;
   const raw = trail.minProfitCloseFeesMult;
-  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
+  const mult = Number.isFinite(raw) && raw > 0 ? raw : 0.5;
   const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
   const vsMargin =
     collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;

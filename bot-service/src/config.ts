@@ -194,8 +194,8 @@ export const config = {
      * (A stale $250M floor previously left only BTC/ETH tradable.)
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
-    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    /** 0 = scan every listed HL perp. Railway HL_MAX_LIQUID_SCAN must not cap this. */
+    maxLiquidScanUniverse: 0,
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -235,7 +235,11 @@ export const config = {
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
        * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
        */
-      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 1.5),
+      /**
+       * Profit close must cover the remaining EXIT fee (entry already paid) plus a USD floor.
+       * Round-trip × 1.5 on a $28k BTC long required ~$29 — that blocked taking an $11 winner.
+       */
+      minProfitCloseFeesMult: 0.5,
       /**
        * After a real peak, leftover uPnL must still be at least this fraction of peak.
        * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
