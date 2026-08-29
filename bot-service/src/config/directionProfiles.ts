@@ -61,7 +61,7 @@ export function entryTimeframeForDirection(
 export function preOpenTimeframeForDirection(
   profile: HlDirectionProfile,
   direction: HlProfileDirection
-): '5m' | '15m' {
+): '1m' | '5m' | '15m' {
   return direction === 'LONG' ? profile.preOpenTimeframeLong : profile.preOpenTimeframeShort;
 }
 

@@ -80,7 +80,6 @@ import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { detectRangeRegime, type RangeRegimeResult } from './rangeRegimeDetector';
 import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
-import { botTradeUniverseReason, isBotTradeCoin } from './botTradeUniverse';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -198,8 +197,6 @@ const hlHoldRedLogAt = new Map<string, number>();
 
 /** Last HL open error per wallet — ops logs only; client API filters diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
-
-const MAJOR_LONG_SLOT = new Set(['BTC', 'ETH', 'SOL']);
 
 function isInternalOpenDiagnostic(error: string): boolean {
   return /Volume 0\.00x/i.test(error) || / ‖ /.test(error);
@@ -853,15 +850,6 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
-      if (!isBotTradeCoin(signal.coin)) {
-        addSkip(
-          signal,
-          'liquidity',
-          botTradeUniverseReason(signal.coin),
-          'not a major'
-        );
-        continue;
-      }
 
       const liqStatus = hlCoinLiquidityStatus(liquidUniverse, signal.coin);
       if (!liqStatus.liquid) {
@@ -1008,7 +996,6 @@ export class HyperliquidTradingService {
 
     while (botCount < maxPositions) {
       const signalsForBook = signals.filter((s) => {
-        if (!isBotTradeCoin(s.coin)) return false;
         if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
         return true;
       });
@@ -1057,55 +1044,13 @@ export class HyperliquidTradingService {
 
       const pickLimit = Math.max(slotsLeft, 8);
       await warmCoinCloseCacheForWallet(userAddress);
-      const { picks: gatePicks, skips: gateSkips } =
-        await this.pickBestSignalsPassingLiquidityGate(
-          userAddress,
-          signalsForBook,
-          ctx.liquidUniverse,
-          occupied,
-          pickLimit
-        );
-      let picks = gatePicks;
-      let skips = gateSkips;
-      if (
-        picks.length === 0 &&
-        config.hyperliquid.directionProfile.primaryDirection === 'LONG' &&
-        config.hyperliquid.directionProfile.allowLongOpens
-      ) {
-        const majorLongs = [
-          ...signalsForBook,
-          ...(ctx.globalScan.standard ?? []),
-        ].filter(
-          (s) =>
-            MAJOR_LONG_SLOT.has(s.coin.toUpperCase()) &&
-            s.direction === 'LONG' &&
-            !occupied.some((c) => c.toUpperCase() === s.coin.toUpperCase())
-        );
-        const seen = new Set<string>();
-        const uniqueMajors = majorLongs.filter((s) => {
-          const key = s.coin.toUpperCase();
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        if (uniqueMajors.length > 0) {
-          const retry = await this.pickBestSignalsPassingLiquidityGate(
-            userAddress,
-            uniqueMajors,
-            ctx.liquidUniverse,
-            occupied,
-            pickLimit
-          );
-          if (retry.picks.length > 0) {
-            picks = retry.picks;
-            skips = retry.skips;
-            logger.info('HL open — major LONG slot retry', {
-              user: userAddress.slice(0, 10),
-              coins: picks.map((p) => p.coin),
-            });
-          }
-        }
-      }
+      const { picks, skips } = await this.pickBestSignalsPassingLiquidityGate(
+        userAddress,
+        signalsForBook,
+        ctx.liquidUniverse,
+        occupied,
+        pickLimit
+      );
       if (picks.length === 0) {
         const top = signalsForBook.find(
           (s) => !occupied.some((c) => c.toUpperCase() === s.coin.toUpperCase())
@@ -1308,14 +1253,6 @@ export class HyperliquidTradingService {
           'excluded_coin',
           `${coin} is hard-delisted — never traded`,
           'excluded coin'
-        );
-      }
-
-      if (!force && !isBotTradeCoin(coin)) {
-        return rejectOpen(
-          'universe',
-          botTradeUniverseReason(coin),
-          'not in majors universe'
         );
       }
 

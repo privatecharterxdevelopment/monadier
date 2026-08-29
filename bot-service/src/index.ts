@@ -1033,8 +1033,6 @@ const healthServer = http.createServer(async (req, res) => {
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          scanUniverseCoins: lastHlGlobalScanStats.coins,
-          botUniverse: lastHlGlobalScanStats.coins,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
           candidateCount: userSignals.length,
@@ -1392,8 +1390,6 @@ const healthServer = http.createServer(async (req, res) => {
         JSON.stringify({
           success: true,
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          scanUniverseCoins: lastHlGlobalScanStats.coins,
-          botUniverse: lastHlGlobalScanStats.coins,
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
           count: scan.standard.length + scan.aggressive.length,

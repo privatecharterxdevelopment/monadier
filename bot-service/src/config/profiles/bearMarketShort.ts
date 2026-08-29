@@ -29,9 +29,9 @@ export const BEAR_MARKET: HlDirectionProfile = {
   entryTimeframe: '5m',
   entryTimeframeLong: '15m',
   entryTimeframeShort: '5m',
-  preOpenTimeframe: '5m',
+  preOpenTimeframe: '1m',
   preOpenTimeframeLong: '15m',
-  preOpenTimeframeShort: '5m',
+  preOpenTimeframeShort: '1m',
   preOpenCandleCount: 20,
   preOpenMinVolumeRatio: 0.85,
   /** 0 = no rank cap — let every liquid pair through. */

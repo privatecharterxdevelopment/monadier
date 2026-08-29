@@ -212,13 +212,6 @@ export const config = {
       ]),
     ],
     /**
-     * Optional tradable-universe pin. Unset = all listed HL perps (minus excluded).
-     * Restrict with HL_BOT_TRADE_COINS="BTC,ETH,SOL".
-     */
-    botTradeCoins: process.env.HL_BOT_TRADE_COINS?.trim()
-      ? parseCoinCsv(process.env.HL_BOT_TRADE_COINS, [])
-      : new Set<string>(),
-    /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
      * Bull profile ignores this (any non-excluded coin may LONG).
      * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL" or "*" / "ALL" for unrestricted.
@@ -238,8 +231,14 @@ export const config = {
      * (A stale $250M floor previously left only BTC/ETH tradable.)
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
-    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    /**
+     * Max coins to MTF-scan per cycle (top by 24h volume).
+     * Aug 21 default was 18. Treat 0/unset as 18 — never scan the whole junk tape.
+     */
+    maxLiquidScanUniverse: (() => {
+      const n = Number(process.env.HL_MAX_LIQUID_SCAN);
+      return Number.isFinite(n) && n > 0 ? n : 18;
+    })(),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
