@@ -63,6 +63,7 @@ import {
 } from './pumpSweepAnalytics';
 import {
   isPeakShortOverride,
+  isLongAtPeak,
 } from './peakShortLiquidity';
 import { confirmTradeWithLlm } from './llmTradeConfirmGate';
 import {
@@ -1290,16 +1291,11 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
-      // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
-      if (
-        opts.direction === 'LONG' &&
-        peakAnalysis?.phase === 'at_apex' &&
-        !btcLeadIsPumping()
-      ) {
+      // Never LONG the pump high — wait for a fade / support, even if BTC is still green.
+      if (!force && opts.direction === 'LONG' && isLongAtPeak(peakAnalysis)) {
         return rejectOpen(
           'pump_sweep',
-          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
+          `LONG blocked — ${coin} at pump apex $${(peakAnalysis?.pumpApex ?? 0).toFixed(2)} — peak is not a LONG`,
           'peak blocks LONG'
         );
       }

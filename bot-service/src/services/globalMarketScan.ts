@@ -14,7 +14,7 @@ import { btcLeadIsPumping, btcLeadAllowsCautiousShort, refreshBtcLeadMomentum, g
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
-import { resolvePeakAwareDirection } from './peakShortLiquidity';
+import { resolvePeakAwareDirection, isLongAtPeak } from './peakShortLiquidity';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { isLongAllowedCoin } from './longAllowlist';
 import type { Timeframe } from './signalEngine';
@@ -299,6 +299,9 @@ async function scanStandardCoinDirection(
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
+    if (direction === 'LONG' && isLongAtPeak(peak.analysis)) {
+      return null;
+    }
     // Peak may flip LONG→SHORT; kill that when shorts are hard-disabled.
     if (wantedDirection === 'SHORT' && direction !== 'SHORT') return null;
     if (wantedDirection === 'LONG' && direction === 'SHORT') {
@@ -441,6 +444,9 @@ async function scanAggressiveCoin(
     const peak = await resolvePeakAwareDirection(coin, scalp.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
+    if (direction === 'LONG' && isLongAtPeak(peak.analysis)) {
+      return null;
+    }
     if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
 
     if (direction === 'LONG') {
