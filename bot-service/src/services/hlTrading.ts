@@ -1288,8 +1288,15 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Never LONG the pump wick high. Continuation LONGs stay allowed.
-      if (!force && opts.direction === 'LONG' && isLongAtPeak(peakAnalysis)) {
+      // Never LONG a meme wick high. BTC/ETH/SOL continuation at the high is a LONG.
+      if (
+        !force &&
+        opts.direction === 'LONG' &&
+        isLongAtPeak(peakAnalysis) &&
+        coin !== 'BTC' &&
+        coin !== 'ETH' &&
+        coin !== 'SOL'
+      ) {
         return rejectOpen(
           'pump_sweep',
           `LONG blocked — ${coin} at pump apex $${(peakAnalysis?.pumpApex ?? 0).toFixed(2)} — peak is not a LONG`,

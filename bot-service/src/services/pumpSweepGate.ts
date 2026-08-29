@@ -32,8 +32,9 @@ function gateForDirection(
   const coin = a.coin;
 
   if (direction === 'LONG') {
-    // Only the wick high is off-limits. Signal LONG elsewhere (mid-range, dip, continuation) is a LONG.
-    if (a.phase === 'at_apex') {
+    const major = coin === 'BTC' || coin === 'ETH' || coin === 'SOL';
+    // Meme wick high stays off-limits. Major continuation at the high is a LONG.
+    if (a.phase === 'at_apex' && !major) {
       return {
         ok: false,
         reason:

@@ -12,7 +12,7 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { btcLeadIsPumping, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier, needsCautionPath } from './coinTier';
+import { classifyCoinTier, needsCautionPath, MAJOR_COINS } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { resolvePeakAwareDirection, isLongAtPeak } from './peakShortLiquidity';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
@@ -205,12 +205,24 @@ async function scanMajorChartFallback(
   };
 }
 
+function isBullMajorLong(coin: string): boolean {
+  const c = coin.toUpperCase();
+  return MAJOR_COINS.has(c) || c === 'SOL';
+}
+
 async function scanStandardCoin(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
   preloadedUniverse?: HlLiquidUniverse,
   relaxed = false
 ): Promise<GlobalSignalCandidate | null> {
+  const profile = config.hyperliquid.directionProfile;
+  if (profile.primaryDirection === 'LONG' && profile.allowLongOpens) {
+    return scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'LONG');
+  }
+  if (profile.primaryDirection === 'SHORT' && profile.allowShortOpens) {
+    return scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'SHORT');
+  }
   const [longC, shortC] = await Promise.all([
     scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'LONG'),
     scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'SHORT'),
@@ -249,17 +261,26 @@ async function scanStandardCoinDirection(
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
     if (!analysis) return null;
-    // isWeak uses the generic strategy floor (~60%). Bull LONGs are allowed at
-    // profile min (52). Only drop the HOLD stub (0 directional TFs).
-    if (analysis.isWeak && (analysis.metrics?.directionalTfCount ?? 0) < 2) {
+    const h1Up = h1TrendMatchesRequired(analysis.metrics?.h1Trend, 'UP');
+    const majorHoldLong =
+      wantedDirection === 'LONG' &&
+      isBullMajorLong(coin) &&
+      h1Up;
+    // isWeak uses ~60%. Profile LONGs are 52. HOLD stub (0 TFs) is not a LONG
+    // except BTC/ETH/SOL continuation when 1h is already UP.
+    if (
+      analysis.isWeak &&
+      (analysis.metrics?.directionalTfCount ?? 0) < 2 &&
+      !majorHoldLong
+    ) {
       return null;
     }
-    if (analysis.direction !== wantedDirection) return null;
+    if (analysis.direction !== wantedDirection && !majorHoldLong) return null;
 
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
-    if (direction === 'LONG' && isLongAtPeak(peak.analysis)) {
+    if (direction === 'LONG' && isLongAtPeak(peak.analysis) && !isBullMajorLong(coin)) {
       return null;
     }
     // Peak may flip LONG→SHORT; kill that when shorts are hard-disabled.
@@ -280,7 +301,7 @@ async function scanStandardCoinDirection(
       : relaxed
         ? Math.min(profileMin, 42)
         : profileMin;
-    if (analysis.confidence < minConf) return null;
+    if (analysis.confidence < minConf && !majorHoldLong) return null;
     const dirRulesEarly = rulesFor(wantedDirection);
     const minTfs = relaxed
       ? 2
@@ -311,9 +332,12 @@ async function scanStandardCoinDirection(
         return null;
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
-    const directionalTfCount = analysis.metrics?.directionalTfCount ?? 0;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs && !majorHoldLong) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign && !majorHoldLong) return null;
+    const directionalTfCount = Math.max(
+      analysis.metrics?.directionalTfCount ?? 0,
+      majorHoldLong ? 2 : 0
+    );
     const trustedDirection = isTrustedProfileCandidate(
       direction,
       analysis.confidence,
@@ -321,6 +345,7 @@ async function scanStandardCoinDirection(
       peakLiquidityGrab
     );
     if (
+      !majorHoldLong &&
       !passesProfileThresholds(direction, {
         confidence: analysis.confidence,
         directionalTfCount,
@@ -687,8 +712,10 @@ export async function scanGlobalHlSignals(
   logger.info('Global HL signal scan complete', {
     liquidCoins: coins.length,
     standard: finalStandard.length,
-    aggressive: aggressiveFiltered.length,
+    longs: finalStandard.filter((c) => c.direction === 'LONG').length,
+    shorts: finalStandard.filter((c) => c.direction === 'SHORT').length,
     topStandard: finalStandard[0]?.coin,
+    topDir: finalStandard[0]?.direction,
     topAggressive: aggressiveFiltered[0]?.coin,
     ms: Date.now() - started,
   });
