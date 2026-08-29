@@ -10,7 +10,7 @@ import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { btcLeadIsPumping, btcLeadAllowsCautiousShort, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
+import { btcLeadIsPumping, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -61,60 +61,15 @@ function pickPreferredCandidate(
   shortC: GlobalSignalCandidate | null
 ): GlobalSignalCandidate | null {
   const profile = config.hyperliquid.directionProfile;
-  // ROOT: bear_market (allowLongOpens=false) never returns a LONG pick.
   if (!profile.allowLongOpens) {
     return shortC;
   }
-  // ROOT: bull_market (allowShortOpens=false) never returns a SHORT pick.
   if (!profile.allowShortOpens) {
     return longC;
   }
-
-  const primary = profile.primaryDirection;
-  const edge = primary === 'SHORT' ? 18 : 8;
-  const btcInflow = btcLeadIsPumping();
-  const btcShort = btcLeadAllowsCautiousShort();
-  if (!btcShort.ok) {
-    shortC = null;
-  }
-
   if (longC && shortC) {
-    // BTC still pushing = LONG only.
-    if (btcInflow) return longC;
-    // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
-    // just because bull_market is LONG-primary (that opens longs into dumps).
-    const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-    if (
-      shortH1Down &&
-      shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
-    ) {
-      return shortC;
-    }
-    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
-      // Still require LONG h1 UP when both sides print under bull.
-      if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return shortC;
-      return longC;
-    }
-    if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
     return longC.confidence >= shortC.confidence ? longC : shortC;
   }
-
-  if (longC && !shortC && primary === 'SHORT') {
-    // Inflow is LONG-only — don't starve longs behind the 85% SHORT-primary floor.
-    if (!btcInflow && longC.confidence < 85) return null;
-    return longC;
-  }
-
-  // Lone LONG under bull still needs UP 1h — unless BTC is still inflowing.
-  if (longC && !shortC && primary === 'LONG') {
-    if (
-      !btcInflow &&
-      !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
-    ) {
-      return null;
-    }
-  }
-
   return longC ?? shortC;
 }
 
@@ -280,12 +235,6 @@ async function scanStandardCoinDirection(
   }
   // ROOT: bull_market allowShortOpens=false → never analyze SHORT at all.
   if (wantedDirection === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
-    return null;
-  }
-  if (wantedDirection === 'SHORT' && btcLeadIsPumping()) {
-    return null;
-  }
-  if (wantedDirection === 'SHORT' && !btcLeadAllowsCautiousShort().ok) {
     return null;
   }
   try {
@@ -454,12 +403,6 @@ async function scanAggressiveCoin(
       if (!isLongAllowedCoin(coin)) return null;
     }
     if (direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
-      return null;
-    }
-    if (direction === 'SHORT' && btcLeadIsPumping()) {
-      return null;
-    }
-    if (direction === 'SHORT' && !btcLeadAllowsCautiousShort().ok) {
       return null;
     }
 

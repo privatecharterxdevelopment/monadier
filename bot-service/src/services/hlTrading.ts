@@ -47,7 +47,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -1252,16 +1252,6 @@ export class HyperliquidTradingService {
       }
 
       await refreshBtcLeadMomentum();
-      if (!force && opts.direction === 'SHORT') {
-        const btcShort = btcLeadAllowsCautiousShort();
-        if (!btcShort.ok) {
-          return rejectOpen(
-            'macro_beta',
-            `No SHORT — ${btcShort.reason}`,
-            'no SHORT into green/inflow BTC'
-          );
-        }
-      }
 
       // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.
       if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {

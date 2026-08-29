@@ -4,19 +4,15 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
- * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
- * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At the peak / resistance: no LONG. Dump SHORTs = breakdown, not fade.
+ * SHORT: breakdown, not R-fade. LONG: support / lower range, or break through R.
+ * Never invert the MTF signal. At the peak: no LONG.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
-import { logger } from '../utils/logger';
 import {
   computeResistanceZone,
   computeSupportZone,
   evaluateZoneReversalGate,
-  zoneReversalConfirmed,
   type PriceZone,
 } from './resistanceZone';
 
@@ -416,69 +412,15 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Floor reverse: confirmed support bounce → LONG on ANY coin (user: not majors-only).
-  // Dump tape (incl. BTC) still hard-blocks in hlTrading — no knife into red tape.
-  if (
-    config.hyperliquid.zoneFlipEnabled &&
-    zoneGate.flipTo &&
-    zoneGate.flipTo !== opts.direction
-  ) {
-    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
-      return {
-        ok: false,
-        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
-        analysis: sr,
-      };
-    }
-    logger.info('HL floor/R zone flip proposed', {
-      coin: opts.coin,
-      from: opts.direction,
-      to: zoneGate.flipTo,
-      reason: zoneGate.reason,
-      profile: config.hyperliquid.directionProfile.name,
-    });
-    return {
-      ok: true,
-      reason: zoneGate.reason,
-      analysis: sr,
-      flipTo: zoneGate.flipTo,
-    };
-  }
-
-  // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).
-  if (
-    !config.hyperliquid.zoneFlipEnabled &&
-    zoneGate.flipTo &&
-    zoneGate.flipTo !== opts.direction
-  ) {
+  // Never invert the MTF signal. Bad location = wait, not a flip.
+  if (zoneGate.flipTo && zoneGate.flipTo !== opts.direction) {
     return {
       ok: false,
-      reason: `${zoneGate.reason} — zone flip disabled; waiting (no counter-open)`,
+      reason: `${zoneGate.reason} — signal is ${opts.direction}, no direction invert`,
       analysis: sr,
     };
   }
 
   const classic = evaluateEntryLocation(opts.direction, sr);
-  const revCandles = candles5.length >= 12 ? candles5 : candles15;
-
-  // Floor reverse (classic): SHORT at S + bounce → LONG any coin when LONGs enabled.
-  if (
-    config.hyperliquid.zoneFlipEnabled &&
-    config.hyperliquid.directionProfile.allowLongOpens &&
-    opts.direction === 'SHORT' &&
-    !classic.ok &&
-    sr.nearSupport &&
-    !sr.confirmedBreakdown &&
-    sr.supportZone != null &&
-    zoneReversalConfirmed(revCandles, sr.supportZone, 4)
-  ) {
-    return {
-      ok: true,
-      reason: `Floor reverse — support bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
-      analysis: sr,
-      flipTo: 'LONG',
-    };
-  }
-
   return classic;
 }
