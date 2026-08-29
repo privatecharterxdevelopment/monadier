@@ -1,7 +1,7 @@
 /**
  * Price-based dynamic trailing stop:
  * 1 idle → 2 armed after 2m continuous green (in-profit peak floor, never through entry)
- * 3 trailing (ATR/% ratchet from 15% ROE). Floor locks ~30% of peak so fees cannot snipe.
+ * 3 trailing (ATR/% ratchet from 15% ROE SHORT / 22% LONG).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -90,22 +90,15 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay net green after exchange fees + 10% success fee. */
+/** Profit exits must stay net green after fees — never harvest a cents stub. */
 export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
   const trail = config.hyperliquid.dynamicTrail;
   const raw = trail.minProfitCloseFeesMult;
-  const mult = Number.isFinite(raw) && raw >= 3 ? raw : 3;
-  const minUsd = Math.max(2, config.hyperliquid.minProfitCloseUsd || 2);
-  const cfgFrac = trail.minProfitMarginFrac;
-  const marginFrac =
-    Number.isFinite(cfgFrac) && cfgFrac >= 0.08 ? cfgFrac : 0.08;
-  const vsMargin = collateralUsd > 1 ? collateralUsd * marginFrac : 0;
-  const gross = Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
-  const successFrac = Math.min(
-    0.25,
-    Math.max(0, (config.hyperliquid.successFeeBps || 0) / 10_000)
-  );
-  return successFrac > 0 && successFrac < 1 ? gross / (1 - successFrac) : gross;
+  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
+  const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
+  const vsMargin =
+    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
+  return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
 }
 
 export function profitClearsFeeGate(
@@ -118,8 +111,8 @@ export function profitClearsFeeGate(
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (pnlUsd < need) return false;
   const peak = Math.max(0, peakPnlUsd);
-  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.22;
-  if (peak > 0 && remainFrac > 0) {
+  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.15;
+  if (peak >= need * 4 && remainFrac > 0) {
     const remainNeed = Math.max(need, peak * remainFrac);
     if (pnlUsd < remainNeed) return false;
   }
@@ -172,8 +165,7 @@ export function shouldArmBreakevenProtection(
 ): boolean {
   if (pnlUsd <= 0) return false;
   const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  // Never arm a profit SL on a 30s spike — 2m continuous green is the floor.
-  const armMs = Math.max(120_000, Number.isFinite(cfgMs) ? cfgMs : 120_000);
+  const armMs = Math.min(30_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 30_000));
   return timeInProfitMs >= armMs;
 }
 
@@ -257,9 +249,13 @@ function breakevenPlusFeesStopPx(
 }
 
 /**
- * Same giveback for BTC and alts — rungs are peak-ROE, not USD vs $0.75.
- * Lock ~30% of peak so a winner can breathe. No floor until that leftover
- * still clears 8% margin + fees + success fee.
+ * Staged in-profit lock: several rungs so fees cannot eat a small winner,
+ * while a real run still has air to develop.
+ *
+ *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
+ *   L2 partial peak < 4× min-close → keep ~55%
+ *   L3 core    peak < 8× min-close → keep ~40%
+ *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
  */
 function stagedProfitLock(
   peakPnlUsd: number,
@@ -270,23 +266,28 @@ function stagedProfitLock(
 ): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(peakPnlUsd > 0) || !(need > 0)) return null;
-  const peakRoe = roePct(peakPnlUsd, collateralUsd);
+  const ratio = peakPnlUsd / need;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
-  if (peakRoe < 10) {
+  if (ratio < 2) {
+    level = 'fee';
+    keepFrac = 0;
+  } else if (ratio < 4) {
     level = 'partial';
-    keepFrac = 0.28;
-  } else if (peakRoe < 22) {
+    keepFrac = 0.55;
+  } else if (ratio < 8) {
     level = 'core';
-    keepFrac = 0.32;
+    keepFrac = 0.4;
   } else {
     level = 'runner';
-    keepFrac = phase === 'trailing' && direction === 'LONG' ? 0.3 : 0.35;
+    keepFrac =
+      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
   }
-  const lockUsd = peakPnlUsd * keepFrac;
-  // No stop until a hit would actually be a real take (same bar for every coin).
-  if (lockUsd < need) return null;
-  return { level, keepFrac, lockUsd };
+  return {
+    level,
+    keepFrac,
+    lockUsd: Math.max(need, peakPnlUsd * keepFrac),
+  };
 }
 
 /**
@@ -304,8 +305,9 @@ export function peakProfitFloorStopPx(
 ): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
   if (entryPrice <= 0 || absSize <= 0) return null;
   const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase, collateralUsd);
-  if (staged == null) return null;
-  const lockUsd = staged.lockUsd;
+  const lockUsd =
+    staged?.lockUsd ??
+    profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(lockUsd > 0)) return null;
   const move = lockUsd / absSize;
   const px = direction === 'LONG' ? entryPrice + move : entryPrice - move;
@@ -700,9 +702,6 @@ async function evaluateDynamicTrailInner(
           closeDetail: detail,
         };
       }
-    } else if (rec.phase === 'armed' && !rec.lossSlArmed) {
-      // Peak too small for a real take — drop a stale cents floor, don't snipe.
-      rec.currentTrailStop = null;
     }
   }
 
@@ -759,20 +758,11 @@ async function evaluateDynamicTrailInner(
       input.direction === 'LONG'
         ? rec.highestPriceSinceEntry - trailDist
         : rec.highestPriceSinceEntry + trailDist;
-    // Do not pin yesterday's tight stop — a wider ATR/% must actually give room.
-    const floorPx = peakProfitFloorStopPx(
+    rec.currentTrailStop = ratchetStop(
       input.direction,
-      input.entryPrice,
-      input.absSize,
-      rec.highestPnlSinceEntry,
-      feesUsd,
-      rec.phase,
-      input.collateralUsd
-    )?.px;
-    rec.currentTrailStop =
-      floorPx != null
-        ? ratchetStop(input.direction, trailCandidate, floorPx)
-        : trailCandidate;
+      rec.currentTrailStop,
+      trailCandidate
+    );
 
     if (input.trailCloseDeferred) {
       return {

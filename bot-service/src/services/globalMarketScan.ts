@@ -81,10 +81,9 @@ function pickPreferredCandidate(
   if (longC && shortC) {
     // BTC still pushing = LONG only.
     if (btcInflow) return longC;
+    // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
+    // just because bull_market is LONG-primary (that opens longs into dumps).
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-    const longH1Down = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN');
-    // Coin 1h DOWN → SHORT if the dump stack printed. Otherwise LONG-primary shoots.
-    if (longH1Down && shortH1Down) return shortC;
     if (
       shortH1Down &&
       shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
@@ -92,7 +91,8 @@ function pickPreferredCandidate(
       return shortC;
     }
     if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
-      if (longH1Down) return shortC;
+      // Still require LONG h1 UP when both sides print under bull.
+      if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return shortC;
       return longC;
     }
     if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
@@ -105,9 +105,12 @@ function pickPreferredCandidate(
     return longC;
   }
 
-  // Lone LONG under bull: only drop it when the coin 1h is actually DOWN (that's a short).
+  // Lone LONG under bull still needs UP 1h — unless BTC is still inflowing.
   if (longC && !shortC && primary === 'LONG') {
-    if (h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN')) {
+    if (
+      !btcInflow &&
+      !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
+    ) {
       return null;
     }
   }
@@ -387,7 +390,7 @@ async function scanStandardCoinDirection(
     ) {
       return null;
     }
-    if (direction === 'SHORT' && !peakLiquidityGrab) {
+    if (direction === 'SHORT' && !trustedDirection && !peakLiquidityGrab) {
       const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
       if (!pumpGate.ok) {
         logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
@@ -481,12 +484,13 @@ async function scanAggressiveCoin(
       if (direction === 'SHORT') {
         if (
           !peakLiquidityGrab &&
+          !trustedDirection &&
           /UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))
         ) {
           logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
           return null;
         }
-        if (!peakLiquidityGrab) {
+        if (!trustedDirection && !peakLiquidityGrab) {
           const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
           if (!pumpGate.ok) {
             logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });

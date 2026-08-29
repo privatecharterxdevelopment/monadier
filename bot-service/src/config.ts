@@ -22,43 +22,6 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-/** BTC/ETH/SOL + liquid majors — bot scan/opens. Memes and junk stay out. */
-export const DEFAULT_HL_BOT_TRADE_COINS = [
-  'BTC',
-  'ETH',
-  'SOL',
-  'BNB',
-  'XRP',
-  'DOGE',
-  'AVAX',
-  'LINK',
-  'SUI',
-  'HYPE',
-  'ADA',
-  'UNI',
-  'NEAR',
-  'APT',
-  'LTC',
-  'BCH',
-  'DOT',
-  'TON',
-  'TRX',
-  'POL',
-  'ARB',
-  'OP',
-] as const;
-
-function parseCoinCsv(raw: string | undefined, fallback: readonly string[]): Set<string> {
-  const source = raw?.trim() ? raw : fallback.join(',');
-  return new Set(
-    source
-      .split(',')
-      .map((s) => s.trim().toUpperCase())
-      .map((s) => (s === 'AVA' ? 'AVAX' : s))
-      .filter(Boolean)
-  );
-}
-
 function resolvePlatformFeeReceiver(): `0x${string}` {
   const legacyVaultTreasury = '0x64d79e57640a8d4a56ad1d08c932b5ccf0b263a9';
   const candidates = [
@@ -231,10 +194,8 @@ export const config = {
      * (A stale $250M floor previously left only BTC/ETH tradable.)
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
-    /**
-     * Max coins to MTF-scan per cycle (top by 24h volume).
-     * Aug 21 default was 18. Treat 0/unset as 18 — never scan the whole junk tape.
-     */
+    /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
+    /** Max coins to MTF-scan per cycle (top by 24h volume). Aug 21 = 18; never 0=all-junk. */
     maxLiquidScanUniverse: (() => {
       const n = Number(process.env.HL_MAX_LIQUID_SCAN);
       return Number.isFinite(n) && n > 0 ? n : 18;
@@ -248,11 +209,11 @@ export const config = {
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 2),
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.75),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min continuous ms in profit before arming profit protection (2m — never 30s scratch locks). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 120_000),
+      /** Aug 21: arm after 30s green. Later Railway 2m leftovers must not apply. */
+      armMinProfitHoldMs: 30_000,
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
@@ -272,36 +233,33 @@ export const config = {
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
-      /** After trail arms — min ms before trail/peak can close (3m). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
+      /** Take as soon as the floor hits — no 3m wait after arm. */
+      trailMinActiveBeforeCloseMs: 0,
       /**
-       * Profit close must clear round-trip fees × this plus an 8% margin floor.
-       * 1.5× was harvesting crumbs that exchange + 10% success fee turned red.
+       * Profit close must clear round-trip fees × this (Aug 21 = 1.5) plus a USD floor.
        */
-      minProfitCloseFeesMult: Number(process.env.HL_TRAIL_MIN_PROFIT_FEES_MULT || 3),
-      /** Min leftover as a fraction of position margin (8% — 3% was fee-food). */
-      minProfitMarginFrac: Number(process.env.HL_TRAIL_MIN_PROFIT_MARGIN_FRAC || 0.08),
+      minProfitCloseFeesMult: 1.5,
       /**
        * After a real peak, leftover uPnL must still be at least this fraction of peak.
-       * Must sit *below* staged keepFrac (~0.28) so a genuine floor hit still takes.
+       * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
        */
       minPeakRemainFracBeforeClose: Number(
-        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.22
+        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.15
       ),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 4),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
-      estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 4.5),
+      estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 5.5),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 4.2),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      /** Stage-2 ATR/% trail distance — wide enough that noise + fees cannot snipe. */
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.16),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.14),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.18),
+      /** Stage-2 ATR/% trail distance — wider so winners can breathe before stop catches. */
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.09),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.08),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.1),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
        * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
@@ -318,7 +276,8 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 150_000),
+      /** No extra LONG green-hold — take once the floor hits. */
+      longMinGreenHoldMs: 0,
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
@@ -337,7 +296,7 @@ export const config = {
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
-    profitMinHoldBeforeExitMs: Number(process.env.HL_PROFIT_MIN_HOLD_MS || 120_000),
+    profitMinHoldBeforeExitMs: 30_000,
     /** After analyze phase — arm in-profit SL at this uPnL floor (~0.1% margin). */
     profitLockActivateUsd: Number(process.env.HL_PROFIT_LOCK_ACTIVATE_USD || 0.05),
     /** After min hold — trail floor ≈ breakeven + ~0.1% margin on typical slot. */
@@ -429,9 +388,12 @@ export const config = {
      * Majors: never SHORT while a pump is live (BTC lead or the coin's own tape).
      * SOL/ETH/BTC plus liquid followers. Override: HL_NO_SHORT_PUMP_MAJORS.
      */
-    noShortPumpMajors: parseCoinCsv(
-      process.env.HL_NO_SHORT_PUMP_MAJORS,
-      DEFAULT_HL_BOT_TRADE_COINS
+    noShortPumpMajors: new Set(
+      (process.env.HL_NO_SHORT_PUMP_MAJORS ||
+        'BTC,ETH,SOL,BNB,XRP,DOGE,AVAX,LINK,SUI,HYPE,ADA,UNI,NEAR,APT,LTC,BCH,DOT,TON,TRX,POL,ARB,OP')
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
     ),
     /** BTC lead: hard spike → bullish bias (majors follow). */
     macroBeta: {

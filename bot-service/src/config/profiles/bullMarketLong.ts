@@ -7,15 +7,15 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-primary (yesterday-evening shoot), SHORTs when dump prints.
+ * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
  *
- * LONGs fire on the MTF stack. SHORTs when the coin dump/breakdown stack prints
- * and BTC is not pumping. Never resistance fade.
+ * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs when a
+ * real dump/breakdown signal prints (never resistance fade, never into green BTC).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary: continuation LONGs shoot; SHORTs when dump/breakdown signals print.',
+    'LONG-primary bull: dip/continuation LONGs; SHORTs when dump/breakdown signals print.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -41,19 +41,19 @@ export const BULL_MARKET: HlDirectionProfile = {
     minConfidence: 52,
     minDirectionalTfs: 2,
     minTrendAlignment: 45,
-    /** Shoot LONGs on the stack — 1h DOWN still goes to shorts, not a hard UP gate. */
-    requiredH1Trend: null,
+    /** No LONGs while 1h is DOWN — dump = shorts, not dip-buy blind. */
+    requiredH1Trend: 'UP',
     trustMtfScan: true,
     relaxSecondaryGates: true,
     enforceHtfSr: false,
   },
   short: {
     ...COUNTER_TREND_RULES('DOWN'),
-    // Real dump/breakdown stack — not a ghost 70% gate. Still H1 DOWN, no R-fade.
-    minConfidence: 58,
+    // Stricter than LONG, not a ghost gate: dump stack + 1h DOWN. No R-fade.
+    minConfidence: 70,
     minDirectionalTfs: 2,
-    minTrendAlignment: 50,
-    trustMtfScan: true,
+    minTrendAlignment: 58,
+    trustMtfScan: false,
     relaxSecondaryGates: false,
     bypassPumpShortWhenTrusted: false,
     enforceHtfSr: true,

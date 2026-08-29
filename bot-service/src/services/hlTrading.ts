@@ -41,13 +41,7 @@ import { resolveHlOrderBuilderIfCharged, estimateCollectedSuccessFee } from './h
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
-import {
-  hlPositionMarkerOwnership,
-  liveBotSlotCoins,
-  recordHlBotOpenMarker,
-  recordHlManualCloseMarker,
-  recordHlManualOpenMarker,
-} from './hlChartMarkers';
+import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
@@ -131,8 +125,7 @@ let fastPositionMonitorRunning = false;
 
 /**
  * Wallets that still have open HL perps and must stay on the trail/SL loop
- * even when auto_trade_enabled is false (bot positions while user paused new
- * entries). Manual / Hyperliquid-native opens on the same wallet are not trailed.
+ * even when auto_trade_enabled is false (manual opens, user paused new entries).
  * Seeded from agent approvals + open clearinghouse state; pruned when flat.
  */
 const openPositionMonitorWallets = new Set<string>();
@@ -619,25 +612,21 @@ export class HyperliquidTradingService {
     const stateAfterDust = (await fetchHlClearinghouseState(userAddress)) ?? state;
 
     const openCoins = hlOpenPerpCoins(stateAfterDust);
-    const ownership = await hlPositionMarkerOwnership(userAddress);
-    const botLive = liveBotSlotCoins(openCoins, ownership.botOwnedOpen);
     const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
 
-    // Trail only HyperGain opens. Manual / Hyperliquid.com size on the same
-    // wallet does not keep this account on the monitor loop.
-    if (botLive.length > 0) {
+    // Always trail/SL open perps first — never strand positions because auto-trade
+    // is off or new-open gates (fees/balance) failed.
+    if (openCoins.length > 0) {
       rememberOpenPositionMonitor(userAddress);
       await this.monitorOpenPositions(userAddress, stateAfterDust, settings, { fast: false });
     } else {
       forgetOpenPositionMonitor(userAddress);
-      if (openCoins.length === 0) {
-        await syncWalletLiquidations(userAddress);
-      }
+      await syncWalletLiquidations(userAddress);
     }
 
     const gate = await this.canTrade(userAddress);
     if (!gate.ok) {
-      if (botLive.length > 0) {
+      if (openCoins.length > 0) {
         logger.debug('HL user: monitoring only (new-open gate blocked)', {
           user: userAddress.slice(0, 10),
           reason: gate.reason,
@@ -669,17 +658,17 @@ export class HyperliquidTradingService {
     }
 
     if (!autoTradeEnabled) {
-      if (botLive.length > 0) {
-        logger.debug('HL user: monitoring bot positions (auto-trade off)', {
+      if (openCoins.length > 0) {
+        logger.debug('HL user: monitoring open positions (auto-trade off)', {
           user: userAddress.slice(0, 10),
         });
       } else {
         logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
       }
-      return botLive.length > 0 ? 'ok' : 'skip';
+      return openCoins.length > 0 ? 'ok' : 'skip';
     }
 
-    if (botLive.length >= maxPositions) {
+    if (openCoins.length >= maxPositions) {
       return 'ok';
     }
 
@@ -718,14 +707,7 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    return this.tryOpenFromGlobalSignals(
-      userAddress,
-      settings,
-      stateAfterDust,
-      ctx,
-      openCoins,
-      botLive.length
-    );
+    return this.tryOpenFromGlobalSignals(userAddress, settings, stateAfterDust, ctx, openCoins);
   }
 
   /** Flatten sub-$1 leftover sizes so they never eat slots or confuse users. */
@@ -735,10 +717,7 @@ export class HyperliquidTradingService {
   ): Promise<void> {
     const dust = hlResidualDustPositions(state);
     if (dust.length === 0) return;
-    const ownership = await hlPositionMarkerOwnership(userAddress);
     for (const row of dust) {
-      const coinUpper = row.coin.toUpperCase();
-      if (!ownership.botMayFlattenDust.has(coinUpper)) continue;
       const notional = Math.abs(row.size) * (row.entryPx > 0 ? row.entryPx : 0);
       logger.warn('HL sweeping residual dust position', {
         user: userAddress.slice(0, 10),
@@ -962,8 +941,7 @@ export class HyperliquidTradingService {
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
     state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
     ctx: TradingCycleContext,
-    occupiedCoins: string[],
-    botOpenCount: number
+    openCoins: string[]
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
@@ -979,7 +957,7 @@ export class HyperliquidTradingService {
 
     const cooldownMs = config.hyperliquid.reentryCooldownMs;
     const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
-    if (botOpenCount === 0 && cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
+    if (openCoins.length === 0 && cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
       logger.debug('HL open skip: reentry cooldown', {
         user: userAddress.slice(0, 10),
         waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
@@ -988,13 +966,12 @@ export class HyperliquidTradingService {
     }
 
     let stateRef = state;
-    let occupied = [...occupiedCoins];
-    let botCount = botOpenCount;
+    let coinsOpen = [...openCoins];
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
-    while (botCount < maxPositions) {
+    while (coinsOpen.length < maxPositions) {
       const signalsForBook = signals.filter((s) => {
         if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
         return true;
@@ -1003,20 +980,20 @@ export class HyperliquidTradingService {
         break;
       }
 
-      const slotsLeft = maxPositions - botCount;
+      const slotsLeft = maxPositions - coinsOpen.length;
       const balance = funding.tradablePerpUsd;
       const freeMargin = hlTradableFreeMarginUsd(funding, stateRef);
       const collateral = resolveMarginPerSlot(
         balance,
         freeMargin,
         settings.riskLevelBps,
-        botCount,
+        coinsOpen.length,
         maxPositions
       );
       if (collateral < 1) {
         const err =
-          botCount > 0
-            ? `free margin too low for slot ${botCount + 1} ($${freeMargin.toFixed(2)} free)`
+          coinsOpen.length > 0
+            ? `free margin too low for slot ${coinsOpen.length + 1} ($${freeMargin.toFixed(2)} free)`
             : `margin too small for slot ($${collateral.toFixed(2)} from $${balance.toFixed(2)} balance)`;
         lastHlOpenError.set(userAddress.toLowerCase(), {
           at: new Date().toISOString(),
@@ -1036,7 +1013,7 @@ export class HyperliquidTradingService {
           balance,
           freeMargin,
           collateral,
-          openCount: botCount,
+          openCount: coinsOpen.length,
           maxPositions,
         });
         break;
@@ -1048,12 +1025,12 @@ export class HyperliquidTradingService {
         userAddress,
         signalsForBook,
         ctx.liquidUniverse,
-        occupied,
+        coinsOpen,
         pickLimit
       );
       if (picks.length === 0) {
         const top = signalsForBook.find(
-          (s) => !occupied.some((c) => c.toUpperCase() === s.coin.toUpperCase())
+          (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
         );
         // Persist the EXACT per-candidate reason (rank>cap / not liquid / Nm volume /
         // cautious alt / anti-flip) so hl_open_blocks + admin show why, not a generic
@@ -1085,8 +1062,8 @@ export class HyperliquidTradingService {
           user: userAddress.slice(0, 10),
           candidates: signalsForBook.length,
           skips: skips.map((s) => `${s.coin}:${s.shortReason}`),
-          occupied,
-          slot: botCount + 1,
+          openCoins: coinsOpen,
+          slot: coinsOpen.length + 1,
         });
         break;
       }
@@ -1129,7 +1106,7 @@ export class HyperliquidTradingService {
             minNotional,
             collateral,
             leverage,
-            slot: botCount + 1,
+            slot: coinsOpen.length + 1,
           });
           continue;
         }
@@ -1149,18 +1126,17 @@ export class HyperliquidTradingService {
         if (opened.success) {
           lastHlOpenError.delete(userAddress.toLowerCase());
           await subscriptionService.recordTrade(userAddress);
-          occupied.push(pick.coin);
-          botCount += 1;
+          coinsOpen.push(pick.coin);
           openedThisSlot = true;
           cycleResult = 'ok';
           logger.info('HL slot filled', {
             user: userAddress.slice(0, 10),
             coin: pick.coin,
-            slot: botCount,
+            slot: coinsOpen.length,
             maxPositions,
           });
 
-          if (botCount >= maxPositions) break;
+          if (coinsOpen.length >= maxPositions) break;
 
           const fresh = await fetchHlClearinghouseState(userAddress);
           if (!fresh) break;
@@ -1180,16 +1156,16 @@ export class HyperliquidTradingService {
           direction: pick.direction,
           notionalUsd: notionalUsd.toFixed(2),
           leverage,
-          slot: botCount + 1,
+          slot: coinsOpen.length + 1,
           error: opened.error,
         });
       }
 
       if (!openedThisSlot) {
-        if (botCount > botOpenCount) break;
+        if (coinsOpen.length > openCoins.length) break;
         logger.warn('HL open failed: all candidates rejected for slot', {
           user: userAddress.slice(0, 10),
-          slot: botCount + 1,
+          slot: coinsOpen.length + 1,
           tried: picks.map((p) => p.coin),
           lastError,
         });
@@ -1316,9 +1292,7 @@ export class HyperliquidTradingService {
 
       // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
       // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
-      // Admin force skips this — ops may still LONG through an apex.
       if (
-        !force &&
         opts.direction === 'LONG' &&
         peakAnalysis?.phase === 'at_apex' &&
         !btcLeadIsPumping()
@@ -2380,10 +2354,8 @@ export class HyperliquidTradingService {
         state = (await fetchHlClearinghouseState(userAddress)) ?? state;
 
         const openCoins = hlOpenPerpCoins(state);
-        const ownership = await hlPositionMarkerOwnership(userAddress);
-        const botLive = liveBotSlotCoins(openCoins, ownership.botOwnedOpen);
         const maxPositions = normalizeMaxConcurrentPositions(settings.maxConcurrentPositions);
-        const slotsLabel = `${botLive.length}/${maxPositions}`;
+        const slotsLabel = `${openCoins.length}/${maxPositions}`;
 
         if (openCoins.some((c) => c.toUpperCase() === coin)) {
           skipped += 1;
@@ -2398,12 +2370,12 @@ export class HyperliquidTradingService {
           return;
         }
 
-        if (botLive.length >= maxPositions) {
+        if (openCoins.length >= maxPositions) {
           skipped += 1;
           results.push({
             wallet: userAddress,
             success: false,
-            error: `slots full (${slotsLabel}: ${botLive.join(',') || 'none'})`,
+            error: `slots full (${slotsLabel}: ${openCoins.join(',') || 'none'})`,
             slots: slotsLabel,
             email,
             openCoins,
@@ -2418,7 +2390,7 @@ export class HyperliquidTradingService {
           balance,
           freeMargin,
           settings.riskLevelBps,
-          botLive.length,
+          openCoins.length,
           maxPositions
         );
         if (collateral < 1) {
@@ -2589,7 +2561,6 @@ export class HyperliquidTradingService {
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
-    const ownership = await hlPositionMarkerOwnership(userAddress);
 
     // Pre-fetch range regime for all coins in one pass (cached, not per-loop).
     const rangeCfg = config.hyperliquid.rangeRegime;
@@ -2597,7 +2568,7 @@ export class HyperliquidTradingService {
     if (rangeCfg.enabled && !fast) {
       const coins = (state?.assetPositions ?? [])
         .map((r) => r.position?.coin)
-        .filter((c): c is string => !!c && ownership.botOwnedOpen.has(c.toUpperCase()));
+        .filter((c): c is string => !!c);
       await Promise.all(
         coins.map(async (coin) => {
           const r = await detectRangeRegime(coin, rangeCfg.lookbackCandles);
@@ -2624,10 +2595,6 @@ export class HyperliquidTradingService {
       const size = Number(pos.szi ?? 0);
       const entry = Number(pos.entryPx ?? 0);
       if (!hlIsMeaningfulPerpPosition(size, entry)) continue;
-      const coinUpper = pos.coin.toUpperCase();
-      // Opt-in: only trail/SL/TP HyperGain opens. Manual desk + Hyperliquid.com
-      // fills have no bot-open marker — never auto-close those.
-      if (!ownership.botOwnedOpen.has(coinUpper)) continue;
 
       const pnl = Number(pos.unrealizedPnl ?? 0);
       const lev = Math.max(1, pos.leverage?.value ?? 10);
@@ -2645,6 +2612,7 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
+      const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
       const letRunDecision = await resolvePositionLetRun({
@@ -3202,12 +3170,7 @@ export class HyperliquidTradingService {
             const state = await fetchHlClearinghouseState(wallet as `0x${string}`);
             const open = state ? hlOpenPerpCoins(state) : [];
             const dust = state ? hlResidualDustPositions(state) : [];
-            const ownership = await hlPositionMarkerOwnership(wallet);
-            const botLive = liveBotSlotCoins(open, ownership.botOwnedOpen);
-            const botDust = dust.filter((d) =>
-              ownership.botMayFlattenDust.has(d.coin.toUpperCase())
-            );
-            if (botLive.length > 0 || botDust.length > 0) {
+            if (open.length > 0 || dust.length > 0) {
               rememberOpenPositionMonitor(wallet);
               withOpen += 1;
             } else {
@@ -3257,16 +3220,9 @@ export class HyperliquidTradingService {
             await this.sweepResidualDust(wallet, state);
             const stateAfter = (await fetchHlClearinghouseState(wallet)) ?? state;
             const openCoins = hlOpenPerpCoins(stateAfter);
-            const ownership = await hlPositionMarkerOwnership(wallet);
-            const botLive = liveBotSlotCoins(openCoins, ownership.botOwnedOpen);
-            if (botLive.length === 0) {
-              if (openCoins.length === 0) {
-                await syncWalletLiquidations(wallet);
-              }
-              const dustLeft = hlResidualDustPositions(stateAfter).filter((d) =>
-                ownership.botMayFlattenDust.has(d.coin.toUpperCase())
-              );
-              if (dustLeft.length === 0) {
+            if (openCoins.length === 0) {
+              await syncWalletLiquidations(wallet);
+              if (hlResidualDustPositions(stateAfter).length === 0) {
                 forgetOpenPositionMonitor(wallet);
               }
               continue;
@@ -3389,22 +3345,6 @@ export class HyperliquidTradingService {
           : Number(ctxPnl ?? 0);
       const leverage = closeCtx?.leverage ?? row?.leverage?.value ?? 10;
       const absSize = Math.abs(size);
-
-      const ownership = await hlPositionMarkerOwnership(userAddress);
-      const botOwned = ownership.botOwnedOpen.has(coinUpper);
-      const botDustOk = ownership.botMayFlattenDust.has(coinUpper);
-      if (
-        !userInitiated &&
-        !botOwned &&
-        !(reason === 'dust_flatten' && botDustOk)
-      ) {
-        logger.warn('HL auto-close refused — not a bot-managed position', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          reason,
-        });
-        return { success: false, error: 'Not a bot-managed position' };
-      }
 
       // profitOnlyExits governs the bot's AUTO exits only. A user clicking "Close"
       // must always execute immediately, red or green — never block a manual close.
@@ -3592,24 +3532,6 @@ export class HyperliquidTradingService {
                 ? 'User must approve builder fee in bot setup'
                 : undefined,
         });
-      }
-
-      // Desk / Hyperliquid.com close via the UI: do not stamp bot close markers,
-      // success fees, or reentry cooldown — that is what glued HyperGain to manual trades.
-      if (userInitiated && !botOwned) {
-        await recordHlManualCloseMarker({
-          walletAddress: userAddress,
-          coin: coinUpper,
-          direction: isLong ? 'LONG' : 'SHORT',
-          exitPx: markPx,
-          pnlUsd: Number.isFinite(pnlUsd) ? pnlUsd : null,
-        });
-        logger.info('HL manual position closed (not bot-managed)', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          pnl: Number.isFinite(pnlUsd) ? pnlUsd.toFixed(4) : String(pnlUsd),
-        });
-        return { success: true };
       }
 
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
@@ -3904,13 +3826,12 @@ export class HyperliquidTradingService {
             : markPx * 0.95
           : (opts.price ?? markPx);
       const notionalUsd = opts.size * markPx;
-      const builder = opts.botManaged
-        ? await resolveHlOrderBuilderIfCharged(opts.userAddress, {
-            notionalUsd,
-            isClose: false,
-            approvedMaxTenthsBps: (await checkHlBuilderFeeApproved(opts.userAddress)).approvedMax,
-          })
-        : undefined;
+      const builderGate = await checkHlBuilderFeeApproved(opts.userAddress);
+      const builder = await resolveHlOrderBuilderIfCharged(opts.userAddress, {
+        notionalUsd,
+        isClose: false,
+        approvedMaxTenthsBps: builderGate.approvedMax,
+      });
 
       const result = await client.order({
         orders: [
@@ -3937,33 +3858,24 @@ export class HyperliquidTradingService {
         return { success: false, error: String(status.error) };
       }
 
+      // Manual opens must stay on the trail loop even if auto-trade is off.
+      rememberOpenPositionMonitor(opts.userAddress);
+
+      // Fresh open/add — drop any stale trail for this wallet+coin (prior close
+      // or fake candle-rehydrate) and start the hold clock clean.
+      if (!opts.reduceOnly) {
+        const lockKey = positionKey(opts.userAddress, coin);
+        clearTrailState(lockKey);
+        hlPositionOpenedAt.set(lockKey, Date.now());
+      }
+
       if (opts.botManaged) {
-        rememberOpenPositionMonitor(opts.userAddress);
-        if (!opts.reduceOnly) {
-          const lockKey = positionKey(opts.userAddress, coin);
-          clearTrailState(lockKey);
-          hlPositionOpenedAt.set(lockKey, Date.now());
-        }
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
           coin,
           direction: opts.side,
           entryPx: markPx,
           reason: 'api_bot_open',
-        });
-      } else if (opts.reduceOnly) {
-        await recordHlManualCloseMarker({
-          walletAddress: opts.userAddress,
-          coin,
-          direction: opts.side,
-          exitPx: markPx,
-        });
-      } else {
-        await recordHlManualOpenMarker({
-          walletAddress: opts.userAddress,
-          coin,
-          direction: opts.side,
-          entryPx: markPx,
         });
       }
 
