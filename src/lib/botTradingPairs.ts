@@ -33,41 +33,10 @@ export function normalizeHlPerpCoin(coin: string): string {
 export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 /**
- * Fallback bot universe when `/api/global-signals` has not returned `botUniverse` yet.
- * Live snapshot ≥$2.5M (excl. hard-banned coins).
+ * Fallback bot universe — majors only (BTC/ETH/SOL).
+ * Live list comes from `/api/global-signals` → `botUniverse`.
  */
-export const BOT_TRADE_FALLBACK_COINS = [
-  'BTC',
-  'ETH',
-  'HYPE',
-  'SOL',
-  'LIT',
-  'XRP',
-  'NEAR',
-  'AAVE',
-  'FARTCOIN',
-  'ARB',
-  'UNI',
-  'SUI',
-  'JTO',
-  'TAO',
-  'ENA',
-  'XPL',
-  'TIA',
-  'JUP',
-  'ADA',
-  'kBONK',
-  'PAXG',
-  'XMR',
-  'LINK',
-  'DOGE',
-  'BNB',
-  'kPEPE',
-  'VIRTUAL',
-  'TRUMP',
-  'TRB',
-  'ZRO',
-] as const;
+export const BOT_TRADE_FALLBACK_COINS = ['BTC', 'ETH', 'SOL'] as const;
 
 const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);
 
@@ -83,6 +52,8 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'PUMP',
   'VVV',
   'WLD',
+  'CC',
+  'EIGEN',
   'XLM',
   'MON',
   'KAITO',
@@ -109,21 +80,24 @@ export function isHiddenFromBotUi(coin: string): boolean {
     compact === 'PUMP' ||
     compact === 'VVV' ||
     compact === 'WLD' ||
+    compact === 'CC' ||
+    compact === 'EIGEN' ||
     compact === 'XLM' ||
     compact === 'MON' ||
     compact === 'KAITO'
   );
 }
 
-/** Bot-only: coin must be in live allowlist (or fallback) and not hard-excluded. */
+/** Bot-only: majors (BTC/ETH/SOL), not hard-excluded. Live universe cannot re-add alts. */
 export function isBotTradeableHlCoin(
   coin: string,
   liveUniverse?: readonly string[] | null
 ): boolean {
   const key = normalizeHlPerpCoin(coin);
   if (!key || isHiddenFromBotUi(key)) return false;
+  if (!BOT_TRADE_FALLBACK_SET.has(key)) return false;
   if (liveUniverse && liveUniverse.length > 0) {
     return liveUniverse.some((c) => normalizeHlPerpCoin(c) === key);
   }
-  return BOT_TRADE_FALLBACK_SET.has(key);
+  return true;
 }

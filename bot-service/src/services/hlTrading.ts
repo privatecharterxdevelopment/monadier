@@ -44,16 +44,27 @@ import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platform
 import { recordHlBotOpenMarker } from './hlChartMarkers';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
-import { validateEntryLocation } from './entryLocationGate';
+import { validateEntryLocation, type EntryLocationResult } from './entryLocationGate';
+import {
+  evaluateEntryLocationQuality,
+  logEntryLocationRecord,
+} from './entryLocationQuality';
+import {
+  createOpenSafetyCard,
+  safetyMarkPass,
+  safetyNoteSideChange,
+  checkPreOrderSafetyInvariant,
+  logPreOrderSafetyInvariantFailed,
+} from './preOrderSafetyInvariant';
 import { evaluateInvalidationExit } from './invalidationExit';
-import { validateHtfSr, type HtfSrResult } from './htfSrGate';
+import { validateHtfSr, htfSrAllowsOpen, type HtfSrResult } from './htfSrGate';
 import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { validateCandleWickGate } from './candleWickGate';
 import { validateLongDumpTapeGate } from './longDumpTapeGate';
-import { classifyCoinTier, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
+import { classifyCoinTier, isMajorFillCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
 import { validateNotFreshlyPumped } from './freshPumpGate';
@@ -65,15 +76,12 @@ import {
   isPeakShortOverride,
 } from './peakShortLiquidity';
 import { confirmTradeWithLlm } from './llmTradeConfirmGate';
-import {
-  getPendingLlmDisagreement,
-  resolveLlmDisagreementGate,
-} from './llmDisagreementCycle';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { detectRangeRegime, type RangeRegimeResult } from './rangeRegimeDetector';
 import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
+import { isBotTradeCoin } from './botTradeUniverse';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -232,7 +240,14 @@ function shouldRelaxSecondaryGates(
     direction === 'LONG'
       ? config.hyperliquid.directionProfile.long
       : config.hyperliquid.directionProfile.short;
-  return rules.relaxSecondaryGates && trustsDirectionProfile(pick);
+  if (rules.relaxSecondaryGates && trustsDirectionProfile(pick)) return true;
+  // Majors that passed chart fallback (48%/2 TFs) must actually fill empty slots.
+  return (
+    rules.relaxSecondaryGates &&
+    isMajorFillCoin(_coin) &&
+    pick.confidence >= 48 &&
+    (pick.directionalTfCount ?? 0) >= 2
+  );
 }
 
 function trustsDirectionProfile(pick: GlobalSignalCandidate): boolean {
@@ -254,7 +269,7 @@ function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
   const tfs = pick.directionalTfCount ?? 0;
   if (conf >= 70 && tfs >= 3 && trendAlign >= 70) return true;
   if (conf >= 54 && tfs >= 2 && trendAlign >= 48) return true;
-  if (MAJOR_COINS.has(pick.coin.toUpperCase()) && conf >= 52 && tfs >= 2) return true;
+  if (isMajorFillCoin(pick.coin) && conf >= 48 && tfs >= 2) return true;
   return false;
 }
 
@@ -424,6 +439,7 @@ async function loadTrailRecordWithRehydrate(opts: {
   markPrice: number;
   notionalUsd: number;
   openedAtMs: number;
+  collateralUsd?: number;
 }): Promise<DynamicTrailRecord | null> {
   let existing = loadTrailRecord(opts.lockKey);
   if (
@@ -461,6 +477,7 @@ async function loadTrailRecordWithRehydrate(opts: {
     markPrice: opts.markPrice,
     notionalUsd: opts.notionalUsd,
     openedAtMs: opts.openedAtMs,
+    collateralUsd: opts.collateralUsd,
     existing,
   });
   if (rehydrated && rehydrated.highestPnlSinceEntry > 0) {
@@ -553,6 +570,18 @@ function createAgentClient(userAddress: string): ExchangeClient {
 
 function isBuilderOrderError(message: string): boolean {
   return /builder|fee.*approv|approv.*fee/i.test(message);
+}
+
+/** Unsafe force skip is non-production only. Production always runs hard gates. */
+function adminForceUnsafeAllowed(): boolean {
+  if (process.env.HL_ADMIN_FORCE_UNSAFE !== 'true') return false;
+  if (process.env.NODE_ENV === 'production') {
+    logger.error(
+      'CRITICAL: HL_ADMIN_FORCE_UNSAFE=true ignored in production — wick/S/R/HTF/Vision remain required'
+    );
+    return false;
+  }
+  return true;
 }
 
 export class HyperliquidTradingService {
@@ -829,6 +858,15 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
+      if (!isBotTradeCoin(signal.coin)) {
+        addSkip(
+          signal,
+          'liquidity',
+          `${signal.coin}: not in bot universe (BTC/ETH/SOL only)`,
+          'not major'
+        );
+        continue;
+      }
 
       const liqStatus = hlCoinLiquidityStatus(liquidUniverse, signal.coin);
       if (!liqStatus.liquid) {
@@ -929,7 +967,12 @@ export class HyperliquidTradingService {
     }
 
     const picks = passing
-      .sort((a, b) => b.score - a.score || b.signal.confidence - a.signal.confidence)
+      .sort((a, b) => {
+        const aMaj = isMajorFillCoin(a.signal.coin) ? 1 : 0;
+        const bMaj = isMajorFillCoin(b.signal.coin) ? 1 : 0;
+        if (aMaj !== bMaj) return bMaj - aMaj;
+        return b.score - a.score || b.signal.confidence - a.signal.confidence;
+      })
       .slice(0, limit)
       .map((row) => row.signal);
 
@@ -973,6 +1016,7 @@ export class HyperliquidTradingService {
 
     while (coinsOpen.length < maxPositions) {
       const signalsForBook = signals.filter((s) => {
+        if (!isBotTradeCoin(s.coin)) return false;
         if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
         return true;
       });
@@ -1188,7 +1232,7 @@ export class HyperliquidTradingService {
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
     newsTradeMode?: NewsTradeMode;
-    /** Admin force — skip soft gates; keep hard safety (excluded/flip/mark/apex). */
+    /** Admin force — skip soft direction/momentum gates. Location/wick/apex/Vision still apply. HL_ADMIN_FORCE_UNSAFE is ignored when NODE_ENV=production. */
     force?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
     try {
@@ -1229,6 +1273,14 @@ export class HyperliquidTradingService {
           'excluded_coin',
           `${coin} is hard-delisted — never traded`,
           'excluded coin'
+        );
+      }
+
+      if (!isBotTradeCoin(coin)) {
+        return rejectOpen(
+          'majors_only',
+          `${coin} blocked — bot trades BTC/ETH/SOL only`,
+          'majors only'
         );
       }
 
@@ -1294,8 +1346,7 @@ export class HyperliquidTradingService {
       // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
       if (
         opts.direction === 'LONG' &&
-        peakAnalysis?.phase === 'at_apex' &&
-        !btcLeadIsPumping()
+        peakAnalysis?.phase === 'at_apex'
       ) {
         return rejectOpen(
           'pump_sweep',
@@ -1304,7 +1355,34 @@ export class HyperliquidTradingService {
         );
       }
 
-      // Admin force: hard safety already passed — place without soft gates.
+      const originalSide: 'LONG' | 'SHORT' = opts.direction;
+      const safety = createOpenSafetyCard(originalSide);
+
+      let locationQuality = await evaluateEntryLocationQuality({
+        coin,
+        direction: opts.direction,
+        markPx,
+      });
+      if (locationQuality.deterministicLocationDecision === 'BLOCK') {
+        logEntryLocationRecord({
+          record: locationQuality,
+          finalDecision: 'NO_OPEN',
+        });
+        return rejectOpen(
+          'entry_location_quality',
+          locationQuality.reason,
+          'extreme entry location',
+          {
+            rangePosition1h: locationQuality.rangePosition1h,
+            rangePosition4h: locationQuality.rangePosition4h,
+            blockedBy: locationQuality.blockedBy,
+          }
+        );
+      }
+      safetyMarkPass(safety, 'entryLocationQuality', opts.direction);
+
+      // Admin force: skip soft direction/momentum gates. Location, wick, HTF S/R,
+      // apex, and Vision remain. HL_ADMIN_FORCE_UNSAFE is ignored in production.
       if (force) {
         const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
         const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
@@ -1312,6 +1390,117 @@ export class HyperliquidTradingService {
         if (size <= 0) {
           return rejectOpen('invalid_size', 'Invalid size', 'invalid size');
         }
+
+        const forceUnsafe = adminForceUnsafeAllowed();
+        if (forceUnsafe) {
+          logger.warn('HL ADMIN FORCE UNSAFE — skipping wick/S/R/HTF/Vision (non-production only)', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            direction: opts.direction,
+          });
+        } else {
+          const wickGate = await validateCandleWickGate({
+            coin,
+            direction: opts.direction,
+          });
+          if (!wickGate.ok) {
+            logEntryLocationRecord({
+              record: locationQuality,
+              finalDecision: 'NO_OPEN',
+              extraBlockedBy: ['SEVERE_WICK'],
+            });
+            return rejectOpen('candle_wick', wickGate.reason, 'force wick gate');
+          }
+          safetyMarkPass(safety, 'wick', opts.direction);
+
+          const forceLocation = await validateEntryLocation({
+            symbol,
+            coin,
+            direction: opts.direction,
+          });
+          if (!forceLocation.ok) {
+            logEntryLocationRecord({
+              record: locationQuality,
+              finalDecision: 'NO_OPEN',
+              extraBlockedBy: ['ENTRY_LOCATION'],
+            });
+            return rejectOpen('entry_location', forceLocation.reason, 'force S/R gate');
+          }
+          safetyMarkPass(safety, 'sr', opts.direction);
+
+          const forceHtf = await validateHtfSr({
+            symbol,
+            coin,
+            direction: opts.direction,
+          });
+          if (!htfSrAllowsOpen(forceHtf)) {
+            logEntryLocationRecord({
+              record: locationQuality,
+              finalDecision: 'NO_OPEN',
+              extraBlockedBy: [forceHtf.status === 'UNKNOWN' ? 'HTF_SR_UNKNOWN' : 'HTF_SR'],
+            });
+            return rejectOpen(
+              'htf_sr',
+              forceHtf.reason.replace(/^SHADOW:\s*/i, ''),
+              forceHtf.status === 'UNKNOWN' ? 'force HTF S/R UNKNOWN' : 'force HTF S/R'
+            );
+          }
+          safetyMarkPass(safety, 'htfSr', opts.direction);
+
+          const forceVision = await confirmTradeWithLlm({
+            coin,
+            direction: opts.direction,
+            confidence: opts.pick.confidence,
+            mtfBreakdown: opts.pick.mtfBreakdown,
+            h1Trend: opts.pick.h1Trend,
+            directionalTfCount: opts.pick.directionalTfCount,
+            trendAlignment: opts.pick.trendAlignment,
+            profileName: directionProfile.name,
+            primaryDirection: directionProfile.primaryDirection,
+            pumpPhase: peakAnalysis?.phase ?? null,
+            pumpApex: peakAnalysis?.pumpApex ?? null,
+            positionInSweep: peakAnalysis?.positionInSweep ?? null,
+            pumpSummary: peakAnalysis?.summary ?? null,
+            htfSrReason: forceHtf.reason,
+            rangePosition1h: locationQuality.rangePosition1h,
+            rangePosition4h: locationQuality.rangePosition4h,
+            impulse15mATR: locationQuality.impulse15mATR,
+            consecutiveDirectionCandles: locationQuality.consecutiveDirectionCandles,
+            deterministicLocationDecision: locationQuality.deterministicLocationDecision,
+          }, peakAnalysis);
+          logEntryLocationRecord({
+            record: locationQuality,
+            vision: {
+              decision: forceVision.decision,
+              location: forceVision.location,
+              extension: forceVision.extension,
+              nearest_structure: forceVision.nearestStructure,
+              confidence: forceVision.confidence,
+              reason: forceVision.reason,
+            },
+            finalDecision:
+              !forceVision.ok || forceVision.decision === 'BLOCK' ? 'NO_OPEN' : 'OPEN',
+            extraBlockedBy:
+              !forceVision.ok || forceVision.decision === 'BLOCK'
+                ? [forceVision.failureReason ? 'VISION_FAILURE' : 'VISION_BLOCK']
+                : [],
+          });
+          if (!forceVision.ok || forceVision.decision === 'BLOCK') {
+            return rejectOpen('llm_confirm', forceVision.reason, 'force Vision location');
+          }
+          safetyMarkPass(safety, 'vision', opts.direction);
+
+          const forceInvariant = checkPreOrderSafetyInvariant(safety, opts.direction);
+          if (!forceInvariant.ok) {
+            logPreOrderSafetyInvariantFailed({ coin, check: forceInvariant });
+            return rejectOpen(
+              'pre_order_safety',
+              `PRE_ORDER_SAFETY_INVARIANT_FAILED missing=${forceInvariant.missingOrInvalid.join(',')}`,
+              'pre-order safety invariant'
+            );
+          }
+        }
+
         const tradeDirection = opts.direction;
         const openReasonFull = `ADMIN FORCE OPEN ${tradeDirection} ${coin} — ${opts.pick.reason}`;
         const client = createAgentClient(opts.userAddress);
@@ -1352,6 +1541,7 @@ export class HyperliquidTradingService {
           direction: tradeDirection,
           leverage: effectiveLeverage,
           notionalUsd: opts.notionalUsd.toFixed(2),
+          unsafe: forceUnsafe,
         });
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
@@ -1472,22 +1662,7 @@ export class HyperliquidTradingService {
         opts.direction
       );
 
-      const candleAnalytics = relaxSecondaryGates
-          ? {
-              ok: true as const,
-              reason: `Scan pick — pre-open candle check skipped (${opts.pick.confidence}%)`,
-              summary: `scan ${opts.pick.confidence}%`,
-              netMovePct: 0,
-              greenCount: 0,
-              redCount: 0,
-              rangePosition: 0.5,
-              recentMovePct: 0,
-              volumeRatio: 1,
-              structure: 'chop' as const,
-              rejectionsAtHigh: 0,
-              rejectionsAtLow: 0,
-            }
-          : await validatePreOpenCandleAnalytics({
+      const candleAnalytics = await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
               h1Trend: opts.pick.h1Trend,
@@ -1565,8 +1740,14 @@ export class HyperliquidTradingService {
         direction: opts.direction,
       });
       if (!wickGate.ok) {
+        logEntryLocationRecord({
+          record: locationQuality,
+          finalDecision: 'NO_OPEN',
+          extraBlockedBy: ['SEVERE_WICK'],
+        });
         return rejectOpen('candle_wick', wickGate.reason, 'candle wick gate');
       }
+      safetyMarkPass(safety, 'wick', opts.direction);
 
       // Dump tape — never LONG into red 15m/1h (user: last candles red → SHORT only).
       if (opts.direction === 'LONG') {
@@ -1606,20 +1787,24 @@ export class HyperliquidTradingService {
         });
       }
 
-      // Entry location always runs — trusted MTF must NOT skip support/bottom checks.
-      // (Old bypassEntryLocationWhenTrusted for SHORT = "short the lows" disasters.)
-      // Zone rejection/bounce may flip the planned side (counter-trade).
-      let locationGate = await validateEntryLocation({
-        symbol,
-        coin,
-        direction: opts.direction,
-      });
+      // LONG and SHORT never skip S/R — majors + relax used to skip SHORT into support.
+      let locationGate: EntryLocationResult = await validateEntryLocation({
+              symbol,
+              coin,
+              direction: opts.direction,
+            });
       if (!locationGate.ok) {
+        logEntryLocationRecord({
+          record: locationQuality,
+          finalDecision: 'NO_OPEN',
+          extraBlockedBy: ['ENTRY_LOCATION'],
+        });
         return rejectOpen('entry_location', locationGate.reason, 'resistance/support gate', {
           resistance: locationGate.analysis.resistance,
           rejections: locationGate.analysis.resistanceRejections,
         });
       }
+      safetyMarkPass(safety, 'sr', opts.direction);
 
       let pumpSweepGateLive = pumpSweepGate;
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
@@ -1803,32 +1988,59 @@ export class HyperliquidTradingService {
           );
         }
         (opts as { direction: 'LONG' | 'SHORT' }).direction = flipped;
+        safetyNoteSideChange(safety, flipped);
+        locationQuality = await evaluateEntryLocationQuality({
+          coin,
+          direction: flipped,
+          markPx,
+        });
+        if (locationQuality.deterministicLocationDecision === 'BLOCK') {
+          logEntryLocationRecord({
+            record: locationQuality,
+            finalDecision: 'NO_OPEN',
+          });
+          return rejectOpen(
+            'entry_location_quality',
+            locationQuality.reason,
+            'extreme entry location after zone flip',
+            { blockedBy: locationQuality.blockedBy }
+          );
+        }
+        safetyMarkPass(safety, 'entryLocationQuality', flipped);
+        safetyMarkPass(safety, 'sr', flipped);
+
+        const wickAfterFlip = await validateCandleWickGate({
+          coin,
+          direction: flipped,
+        });
+        if (!wickAfterFlip.ok) {
+          logEntryLocationRecord({
+            record: locationQuality,
+            finalDecision: 'NO_OPEN',
+            extraBlockedBy: ['SEVERE_WICK'],
+          });
+          return rejectOpen('candle_wick', wickAfterFlip.reason, 'candle wick after zone flip');
+        }
+        safetyMarkPass(safety, 'wick', flipped);
         } // skip LONG→SHORT apply while BTC is pumping
         } // end else (flip allowed)
       }
 
-      // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
-      // Skipped entirely when the active profile disables it (bear_market/June-26
-      // replica never had this gate). Otherwise always evaluate; LONGs near HTF
-      // resistance always hard-block (shadow alone let peak LONGs through).
-      if (directionProfile.enableHtfSr) {
-        htfSrGate ??= await validateHtfSr({
-          symbol,
-          coin,
-          direction: opts.direction,
-        });
-      }
-      if (htfSrGate?.wouldBlock && !(opts.direction === 'LONG' && btcLeadIsPumping())) {
-        const hardBlockLong =
-          opts.direction === 'LONG' || !htfSrGate.ok || directionRules.enforceHtfSr;
+      htfSrGate = await validateHtfSr({
+        symbol,
+        coin,
+        direction: opts.direction,
+      });
+      if (!htfSrAllowsOpen(htfSrGate)) {
         logger.info(
-          hardBlockLong
-            ? 'HL open blocked — HTF S/R gate'
-            : 'HL open SHADOW — HTF S/R would block',
+          htfSrGate.status === 'UNKNOWN'
+            ? 'HL open blocked — HTF S/R UNKNOWN'
+            : 'HL open blocked — HTF S/R gate',
           {
             user: opts.userAddress.slice(0, 10),
             coin,
             direction: opts.direction,
+            status: htfSrGate.status,
             reason: htfSrGate.reason,
             atr1h: htfSrGate.atr1h,
             atrThreshold: htfSrGate.atrThreshold,
@@ -1836,7 +2048,6 @@ export class HyperliquidTradingService {
             levelTf: htfSrGate.nearestLevel?.timeframe,
             rejections: htfSrGate.nearestLevel?.rejections,
             ageH: htfSrGate.nearestLevel?.lastTouchAgeHours,
-            shadow: !hardBlockLong,
           }
         );
         void recordHlOpenBlock({
@@ -1844,18 +2055,20 @@ export class HyperliquidTradingService {
           coin,
           direction: opts.direction,
           gate: 'htf_sr',
-          reason: hardBlockLong
-            ? htfSrGate.reason.replace(/^SHADOW:\s*/i, '')
-            : htfSrGate.reason,
+          reason: htfSrGate.reason.replace(/^SHADOW:\s*/i, ''),
           h1Trend: opts.pick.h1Trend,
           confidence: opts.pick.confidence,
           notionalUsd: opts.notionalUsd,
           leverage: opts.leverage,
         });
-        if (hardBlockLong) {
-          return { success: false, error: htfSrGate.reason.replace(/^SHADOW:\s*/i, '') };
-        }
+        logEntryLocationRecord({
+          record: locationQuality,
+          finalDecision: 'NO_OPEN',
+          extraBlockedBy: [htfSrGate.status === 'UNKNOWN' ? 'HTF_SR_UNKNOWN' : 'HTF_SR'],
+        });
+        return { success: false, error: htfSrGate.reason.replace(/^SHADOW:\s*/i, '') };
       }
+      safetyMarkPass(safety, 'htfSr', opts.direction);
 
       // NEVER skip entry-momentum on SHORT — sell high / no flush-bottom chase.
       // Regression: 23bd6b8 (2026-08-12) “allow SHORT continuation” + relaxSecondaryGates
@@ -1875,206 +2088,70 @@ export class HyperliquidTradingService {
         return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
       }
 
-      // LLM / Gemini Vision second opinion + disagreement cycle.
-      // Agree → proceed (shadow/enforce as configured).
-      // Disagree → defer until next closed candle, re-check both, log under evaluation_id.
-      // Peak-short agreement on re-check is SHADOW-ONLY (never auto-open from that path).
-      let tradeDirection: 'LONG' | 'SHORT' = opts.direction;
-      let locationGateForOpen = locationGate;
-      let pumpSweepGateForOpen = pumpSweepGateLive;
-      let htfSrForOpen = htfSrGate;
+      // Gemini Vision = final entry-location validator (ALLOW|BLOCK, never flip).
+      const tradeDirection: 'LONG' | 'SHORT' = opts.direction;
+      const locationGateForOpen = locationGate;
+      const pumpSweepGateForOpen = pumpSweepGateLive;
 
-      const llmInput = {
-        coin,
-        direction: opts.direction,
-        confidence: opts.pick.confidence,
-        mtfBreakdown: opts.pick.mtfBreakdown,
-        h1Trend: opts.pick.h1Trend,
-        directionalTfCount: opts.pick.directionalTfCount,
-        trendAlignment: opts.pick.trendAlignment,
-        profileName: directionProfile.name,
-        primaryDirection: directionProfile.primaryDirection,
-        pumpPhase: peakAnalysis?.phase ?? pumpSweepGate.analysis?.phase,
-        pumpApex: peakAnalysis?.pumpApex ?? pumpSweepGate.analysis?.pumpApex,
-        positionInSweep:
-          peakAnalysis?.positionInSweep ?? pumpSweepGate.analysis?.positionInSweep,
-        pumpSummary: peakAnalysis?.summary ?? pumpSweepGate.analysis?.summary,
-        htfSrReason: htfSrGate?.reason ?? null,
-        candleSummary: candleAnalytics.summary,
-        netMovePct: candleAnalytics.netMovePct,
-        rangePosition: candleAnalytics.rangePosition,
-      };
-
-      // Don't burn Gemini while waiting; on wait expiry the cycle helper re-calls Gemini once.
-      const pendingDisagreement = getPendingLlmDisagreement(opts.userAddress, coin);
-      let disagreement: Awaited<ReturnType<typeof resolveLlmDisagreementGate>>;
-
-      if (pendingDisagreement && pendingDisagreement.phase === 'awaiting_recheck') {
-        if (Date.now() < pendingDisagreement.waitUntilMs) {
-          const secs = Math.ceil((pendingDisagreement.waitUntilMs - Date.now()) / 1000);
-          return rejectOpen(
-            'llm_disagreement',
-            `LLM disagreement ${pendingDisagreement.evaluationId}: waiting for next closed ${pendingDisagreement.waitTf} candle (~${secs}s)`,
-            'LLM disagreement wait',
-            {
-              evaluationId: pendingDisagreement.evaluationId,
-              phase: 'awaiting_recheck',
-              waitUntilMs: pendingDisagreement.waitUntilMs,
-            }
-          );
-        }
-        // Wait done → re-check path inside resolve (single Gemini call there).
-        disagreement = await resolveLlmDisagreementGate({
-          walletAddress: opts.userAddress,
-          coin,
-          botDirection: opts.direction,
-          llmInput,
-          llm: {
-            ok: true,
-            verdict: 'allow',
-            direction: opts.direction,
-            enforce: false,
-            shadow: true,
-            confidence: 0,
-            reason: 'recheck-path placeholder — cycle helper runs fresh Gemini',
-            latencyMs: 0,
-            provider: 'gemini',
-            model: '',
-            hardRuleApplied: false,
-            timedOut: false,
-          },
-        });
-      } else {
-        const llmConfirm = await confirmTradeWithLlm(llmInput, peakAnalysis);
-        disagreement = await resolveLlmDisagreementGate({
-          walletAddress: opts.userAddress,
-          coin,
-          botDirection: opts.direction,
-          llmInput,
-          llm: llmConfirm,
-        });
-      }
-
-      if (disagreement.action === 'defer' || disagreement.action === 'shadow_peak_short') {
-        return rejectOpen(
-          'llm_disagreement',
-          disagreement.reason,
-          disagreement.action === 'shadow_peak_short'
-            ? 'LLM disagreement shadow peak-short'
-            : 'LLM disagreement defer',
-          {
-            evaluationId: disagreement.evaluationId,
-            phase: disagreement.phase,
-            waitUntilMs:
-              disagreement.action === 'defer' ? disagreement.waitUntilMs : undefined,
-          }
-        );
-      }
-
-      // Agreement path — only apply block/flip when global enforce is on (Railway stays shadow).
-      const llmAgreed = disagreement.llm;
-
-      if (llmAgreed.verdict === 'block' || llmAgreed.verdict === 'flip') {
-        const shadowPrefix = llmAgreed.shadow ? 'SHADOW: ' : '';
-        void recordHlOpenBlock({
-          walletAddress: opts.userAddress,
+      const llmConfirm = await confirmTradeWithLlm(
+        {
           coin,
           direction: opts.direction,
-          gate: 'llm_confirm',
-          reason: `${shadowPrefix}${llmAgreed.verdict.toUpperCase()} → ${llmAgreed.direction}: ${llmAgreed.reason} [evaluation_id=${disagreement.evaluationId}]`,
-          h1Trend: opts.pick.h1Trend,
           confidence: opts.pick.confidence,
-          notionalUsd: opts.notionalUsd,
-          leverage: opts.leverage,
-        });
+          mtfBreakdown: opts.pick.mtfBreakdown,
+          h1Trend: opts.pick.h1Trend,
+          directionalTfCount: opts.pick.directionalTfCount,
+          trendAlignment: opts.pick.trendAlignment,
+          profileName: directionProfile.name,
+          primaryDirection: directionProfile.primaryDirection,
+          pumpPhase: peakAnalysis?.phase ?? pumpSweepGate.analysis?.phase,
+          pumpApex: peakAnalysis?.pumpApex ?? pumpSweepGate.analysis?.pumpApex,
+          positionInSweep:
+            peakAnalysis?.positionInSweep ?? pumpSweepGate.analysis?.positionInSweep,
+          pumpSummary: peakAnalysis?.summary ?? pumpSweepGate.analysis?.summary,
+          htfSrReason: htfSrGate?.reason ?? null,
+          candleSummary: candleAnalytics.summary,
+          netMovePct: candleAnalytics.netMovePct,
+          rangePosition: candleAnalytics.rangePosition,
+          rangePosition1h: locationQuality.rangePosition1h,
+          rangePosition4h: locationQuality.rangePosition4h,
+          impulse15mATR: locationQuality.impulse15mATR,
+          consecutiveDirectionCandles: locationQuality.consecutiveDirectionCandles,
+          deterministicLocationDecision: locationQuality.deterministicLocationDecision,
+        },
+        peakAnalysis
+      );
+
+      const visionBlocked = !llmConfirm.ok || llmConfirm.decision === 'BLOCK';
+      logEntryLocationRecord({
+        record: locationQuality,
+        vision: {
+          decision: llmConfirm.decision,
+          location: llmConfirm.location,
+          extension: llmConfirm.extension,
+          nearest_structure: llmConfirm.nearestStructure,
+          confidence: llmConfirm.confidence,
+          reason: llmConfirm.reason,
+        },
+        finalDecision: visionBlocked ? 'NO_OPEN' : 'OPEN',
+        extraBlockedBy: visionBlocked
+          ? [llmConfirm.failureReason ? 'VISION_FAILURE' : 'VISION_BLOCK']
+          : [],
+      });
+
+      if (visionBlocked) {
+        return rejectOpen('llm_confirm', llmConfirm.reason, 'Vision entry-location blocked');
       }
+      safetyMarkPass(safety, 'vision', tradeDirection);
 
-      if (llmAgreed.enforce && llmAgreed.verdict === 'block') {
-        return rejectOpen('llm_confirm', llmAgreed.reason, 'LLM confirm blocked');
-      }
-
-      if (
-        llmAgreed.enforce &&
-        llmAgreed.verdict === 'flip' &&
-        llmAgreed.direction !== tradeDirection
-      ) {
-        tradeDirection = llmAgreed.direction;
-        opts.pick.direction = tradeDirection;
-        if (tradeDirection === 'SHORT') {
-          opts.pick.peakLiquidityGrab = true;
-        }
-
-        pumpSweepGateForOpen = await validatePumpSweepGate({
-          coin,
-          direction: tradeDirection,
-        });
-        if (!pumpSweepGateForOpen.ok) {
-          return rejectOpen(
-            'pump_sweep',
-            pumpSweepGateForOpen.reason,
-            'pump apex after LLM flip',
-            { phase: pumpSweepGateForOpen.analysis?.phase }
-          );
-        }
-
-        locationGateForOpen = await validateEntryLocation({
-          symbol,
-          coin,
-          direction: tradeDirection,
-        });
-        if (!locationGateForOpen.ok) {
-          return rejectOpen(
-            'entry_location',
-            locationGateForOpen.reason,
-            'S/R after LLM flip',
-            {
-              resistance: locationGateForOpen.analysis.resistance,
-              rejections: locationGateForOpen.analysis.resistanceRejections,
-            }
-          );
-        }
-
-        if (directionProfile.enableHtfSr) {
-          htfSrForOpen = await validateHtfSr({
-            symbol,
-            coin,
-            direction: tradeDirection,
-          });
-          if (htfSrForOpen.wouldBlock) {
-            const hardBlockLong =
-              tradeDirection === 'LONG' ||
-              !htfSrForOpen.ok ||
-              directionRules.enforceHtfSr;
-            void recordHlOpenBlock({
-              walletAddress: opts.userAddress,
-              coin,
-              direction: tradeDirection,
-              gate: 'htf_sr',
-              reason: htfSrForOpen.reason.replace(/^SHADOW:\s*/i, ''),
-              h1Trend: opts.pick.h1Trend,
-              confidence: opts.pick.confidence,
-              notionalUsd: opts.notionalUsd,
-              leverage: opts.leverage,
-            });
-            if (hardBlockLong) {
-              return rejectOpen(
-                'htf_sr',
-                htfSrForOpen.reason.replace(/^SHADOW:\s*/i, ''),
-                'HTF S/R after LLM flip'
-              );
-            }
-          }
-        }
-
-        logger.info('HL open direction flipped by LLM confirm', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          from: opts.direction,
-          to: tradeDirection,
-          reason: llmAgreed.reason,
-          hardRuleApplied: llmAgreed.hardRuleApplied,
-          evaluationId: disagreement.evaluationId,
-        });
+      const preOrder = checkPreOrderSafetyInvariant(safety, tradeDirection);
+      if (!preOrder.ok) {
+        logPreOrderSafetyInvariantFailed({ coin, check: preOrder });
+        return rejectOpen(
+          'pre_order_safety',
+          `PRE_ORDER_SAFETY_INVARIANT_FAILED missing=${preOrder.missingOrInvalid.join(',')}`,
+          'pre-order safety invariant'
+        );
       }
 
       const openReasonDoc = buildHlOpenReasonDoc({
@@ -2094,7 +2171,7 @@ export class HyperliquidTradingService {
         scalpAlignLine: scalpGate.reason,
         candleAnalyticsLine: candleAnalytics.summary,
       });
-      const openReasonFull = `${openReasonDoc}\n── LLM confirm (${llmAgreed.shadow ? 'shadow' : 'enforce'}) eval=${disagreement.evaluationId} ── ${llmAgreed.verdict} → ${llmAgreed.direction}: ${llmAgreed.reason}`;
+      const openReasonFull = `${openReasonDoc}\n── Vision location ${llmConfirm.decision} ${llmConfirm.location ?? ''} ${llmConfirm.extension ?? ''} ── ${llmConfirm.reason}`;
 
       const client = createAgentClient(opts.userAddress);
       const useCross = config.hyperliquid.botCrossMargin;
@@ -2143,8 +2220,8 @@ export class HyperliquidTradingService {
         openReason: openReasonFull,
         macroBlockers: macroGate.blockers,
         openSlot: 'multi',
-        llmVerdict: llmAgreed.verdict,
-        evaluationId: disagreement.evaluationId,
+        visionDecision: llmConfirm.decision,
+        visionLocation: llmConfirm.location,
       });
 
       await recordHlBotOpenMarker({
@@ -2178,8 +2255,9 @@ export class HyperliquidTradingService {
 
   /**
    * Admin force-open for every wallet with auto-trade ON.
-   * Keeps hard safety (agent, margin, slots, min notional, excluded, apex).
+   * Hard safety: excluded, majors, mark, size, apex, extreme location, wick, HTF S/R, Vision.
    * Skips soft direction-profile / momentum gates via openMarketPosition({ force: true }).
+   * Debug-only skip of location/Vision: HL_ADMIN_FORCE_UNSAFE=true, ignored when NODE_ENV=production.
    */
   async forceOpenForAutoTradeUsers(opts: {
     coin: string;
@@ -2233,6 +2311,26 @@ export class HyperliquidTradingService {
             wallet: 'n/a',
             success: false,
             error: `${coin} is hard-delisted for ALL users — never traded`,
+          },
+        ],
+      };
+    }
+
+    if (!isBotTradeCoin(coin)) {
+      return {
+        coin,
+        direction,
+        dryRun,
+        leverage: leverageOverride,
+        opened: 0,
+        eligible: 0,
+        skipped: 0,
+        failed: 1,
+        results: [
+          {
+            wallet: 'n/a',
+            success: false,
+            error: `${coin} blocked — bot trades BTC/ETH/SOL only`,
           },
         ],
       };
@@ -2637,6 +2735,7 @@ export class HyperliquidTradingService {
           markPrice,
           notionalUsd,
           openedAtMs: hlPositionOpenedAt.get(lockKey) ?? nowMs,
+          collateralUsd: collateralEst,
         });
         const trailCloseDeferred =
           trailRecord?.trailCloseDeferUntil != null &&
@@ -2767,6 +2866,7 @@ export class HyperliquidTradingService {
         markPrice,
         notionalUsd,
         openedAtMs: hlPositionOpenedAt.get(lockKey) ?? nowMs,
+        collateralUsd: collateralEst,
       });
       const profitHoldMsForAnalysis =
         trailRecord?.profitSinceAt != null
@@ -2828,10 +2928,15 @@ export class HyperliquidTradingService {
           trailExitReason === 'profit_lock' &&
           /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
         const tooYoung = greenHoldMs > 0 && (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
+        const majorNoiseExit =
+          isMajorFillCoin(pos.coin) &&
+          peakRoe < Math.max(15, minPeakRoe) &&
+          (trailExitReason === 'profit_lock' ||
+            trailExitReason === 'trailing_stop' ||
+            trailExitReason === 'profit_grab_peak');
         const peakTooSmall =
-          trailExitReason !== 'profit_lock' &&
-          minPeakRoe > 0 &&
-          peakRoe < minPeakRoe;
+          majorNoiseExit ||
+          (minPeakRoe > 0 && peakRoe < minPeakRoe);
         if (beSniper || tooYoung || peakTooSmall) {
           shouldCloseTrail = false;
           logger.info('HL profit exit blocked — let winner run', {
@@ -2897,32 +3002,31 @@ export class HyperliquidTradingService {
         holdMs,
       };
 
-      // ── RANGE TP only (green). NEVER range-SL / red abort — user holds to liq. ──
-      if (rangeCfg.enabled && rangeRegime?.isRange && pnl > 0) {
+      // Range TP clips box highs — majors need the breakout (SOL 15:34 +$14, same size ~$70 later).
+      if (rangeCfg.enabled && rangeRegime?.isRange && pnl > 0 && !isMajorFillCoin(pos.coin)) {
         const rr = rangeRegime;
-        const markPrice = markFromPosition(entry, size, pnl);
+        const rangeMark = markFromPosition(entry, size, pnl);
         if (positionDirection === 'SHORT' && rr.rangeTpForShort != null) {
-          // Close SHORT when price reaches the low end of the range.
-          if (markPrice <= rr.rangeTpForShort) {
+          if (rangeMark <= rr.rangeTpForShort) {
             clearTrailState(lockKey);
             await this.closeMarketPosition(
               userAddress,
               pos.coin,
               'trailing_stop',
               closeCtx,
-              `RANGE TP — SHORT ${pos.coin} mark ${markPrice.toFixed(6)} ≤ range floor TP ${rr.rangeTpForShort.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
+              `RANGE TP — SHORT ${pos.coin} mark ${rangeMark.toFixed(6)} ≤ range floor TP ${rr.rangeTpForShort.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
             );
             continue;
           }
         } else if (positionDirection === 'LONG' && rr.rangeTpForLong != null) {
-          if (markPrice >= rr.rangeTpForLong) {
+          if (rangeMark >= rr.rangeTpForLong) {
             clearTrailState(lockKey);
             await this.closeMarketPosition(
               userAddress,
               pos.coin,
               'trailing_stop',
               closeCtx,
-              `RANGE TP — LONG ${pos.coin} mark ${markPrice.toFixed(6)} ≥ range ceiling TP ${rr.rangeTpForLong.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
+              `RANGE TP — LONG ${pos.coin} mark ${rangeMark.toFixed(6)} ≥ range ceiling TP ${rr.rangeTpForLong.toFixed(6)} (range ${rr.rangeLow.toFixed(6)}–${rr.rangeHigh.toFixed(6)})`
             );
             continue;
           }
@@ -2965,6 +3069,11 @@ export class HyperliquidTradingService {
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (
         !stillBreathing &&
+        !(
+          isMajorFillCoin(pos.coin) &&
+          (trailRecord.highestPnlSinceEntry / Math.max(collateralEst, 1)) * 100 <
+            Math.max(15, config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 0)
+        ) &&
         shouldTakeProfitOnPnl(roePct, settings.takeProfitPercent) &&
         profitClearsFeeGate(
           pnl,
@@ -3786,6 +3895,12 @@ export class HyperliquidTradingService {
         return {
           success: false,
           error: `${coin} is hard-delisted for ALL users — never traded`,
+        };
+      }
+      if (!opts.reduceOnly && opts.botManaged && !isBotTradeCoin(coin)) {
+        return {
+          success: false,
+          error: `${coin} blocked — bot trades BTC/ETH/SOL only`,
         };
       }
       const agentAddr = await this.getAgentAddress(opts.userAddress);

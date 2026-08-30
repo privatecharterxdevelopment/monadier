@@ -24,9 +24,9 @@ function allowlistIsOpen(allow: string[]): boolean {
   return allow.some((c) => c === '*' || c === 'ALL');
 }
 
-/** True when this coin may open LONG (bull = all; else allowlist). */
+/** True when this coin may open LONG (still requires isBotTradeCoin at open). */
 export function isLongAllowedCoin(coin: string): boolean {
-  // Bull run: LONG-primary across the book — majors-only ban was a bear/meme patch.
+  // Bull is LONG-primary on the bot universe — not "every HL alt".
   if (config.hyperliquid.directionProfile.name === 'bull_market') return true;
   const allow = longAllowlistCoins();
   if (allowlistIsOpen(allow)) return true;

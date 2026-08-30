@@ -1,13 +1,9 @@
 /**
- * LLM second-opinion gate before HL opens — Gemini Vision on real candles.
+ * Gemini Vision ENTRY LOCATION validator — not a signal generator.
  *
- * Chart rules (hard):
- *   LONG  → vision ONLY 15m + 1h
- *   SHORT → vision ONLY 1m + 5m
- *
- * Verdicts: allow | block | flip.
- * No apex/resistance SHORT flips — dump shorts come from the SHORT stack.
- * Timeout/network errors always fail-open (no auto flip).
+ * Charts (both LONG and SHORT): 5m + 15m + 1h + 4h.
+ * Decision: ALLOW | BLOCK. Never flip direction.
+ * Any parse/timeout/key/chart failure: fail-closed (no open).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -16,7 +12,10 @@ import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   renderCandlestickPng,
+  visionCandleLimit,
+  visionMinUsableCandles,
   visionTimeframesForDirection,
+  VISION_STRUCTURE_TIMEFRAMES,
   type ChartVisionShot,
   type VisionChartTimeframe,
 } from './chartVisionSnapshot';
@@ -41,11 +40,26 @@ export type LlmTradeConfirmInput = {
   candleSummary?: string | null;
   netMovePct?: number | null;
   rangePosition?: number | null;
+  rangePosition1h?: number | null;
+  rangePosition4h?: number | null;
+  impulse15mATR?: number | null;
+  consecutiveDirectionCandles?: number | null;
+  deterministicLocationDecision?: 'ALLOW' | 'BLOCK' | null;
 };
+
+export type VisionLocationLabel =
+  | 'BOTTOM'
+  | 'LOWER_RANGE'
+  | 'MID_RANGE'
+  | 'UPPER_RANGE'
+  | 'TOP';
+export type VisionExtensionLabel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type VisionNearestStructure = 'SUPPORT' | 'RESISTANCE' | 'NONE';
 
 export type LlmTradeConfirmResult = {
   ok: boolean;
   verdict: LlmTradeVerdict;
+  decision: 'ALLOW' | 'BLOCK';
   direction: 'LONG' | 'SHORT';
   enforce: boolean;
   shadow: boolean;
@@ -57,6 +71,10 @@ export type LlmTradeConfirmResult = {
   hardRuleApplied: boolean;
   timedOut: boolean;
   visionTimeframes?: VisionChartTimeframe[];
+  location: VisionLocationLabel | null;
+  extension: VisionExtensionLabel | null;
+  nearestStructure: VisionNearestStructure | null;
+  failureReason?: string;
 };
 
 export type LlmGateLastVerdict = {
@@ -85,15 +103,28 @@ function remember(v: LlmGateLastVerdict): void {
 
 type ParsedLlmJson = {
   verdict: LlmTradeVerdict;
+  decision: 'ALLOW' | 'BLOCK';
   direction: 'LONG' | 'SHORT';
   confidence: number;
   reason: string;
+  location: VisionLocationLabel;
+  extension: VisionExtensionLabel;
+  nearestStructure: VisionNearestStructure;
 };
 
+const LOCATIONS = new Set(['BOTTOM', 'LOWER_RANGE', 'MID_RANGE', 'UPPER_RANGE', 'TOP']);
+const EXTENSIONS = new Set(['LOW', 'MEDIUM', 'HIGH']);
+const NEAREST = new Set(['SUPPORT', 'RESISTANCE', 'NONE']);
+
+function asUpper(v: unknown): string {
+  return String(v ?? '')
+    .trim()
+    .toUpperCase();
+}
+
 /**
- * Schema A: { verdict: allow|block|flip, confidence, reason }.
- * hold / unknown verdict → parse failure (caller fail-opens).
- * Optional legacy `direction` field is accepted but ignored when it conflicts with flip math.
+ * Location-validator schema. Missing/unknown required fields → null (fail-closed).
+ * Flip / opposite-direction hints → BLOCK, never LONG↔SHORT.
  */
 export function parseLlmJson(
   raw: string,
@@ -105,33 +136,86 @@ export function parseLlmJson(
   if (start < 0 || end <= start) return null;
   try {
     const obj = JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
-    const verdictRaw = String(obj.verdict ?? '').toLowerCase();
-    // hold / anything else = parse error → fail-open upstream
-    if (verdictRaw !== 'allow' && verdictRaw !== 'block' && verdictRaw !== 'flip') {
+    const decisionRaw = asUpper(obj.decision || obj.verdict);
+    if (decisionRaw !== 'ALLOW' && decisionRaw !== 'BLOCK' && decisionRaw !== 'FLIP') {
       return null;
     }
-    const verdict = verdictRaw as LlmTradeVerdict;
-    const opposite: 'LONG' | 'SHORT' =
-      proposedDirection === 'LONG' ? 'SHORT' : 'LONG';
-    const direction: 'LONG' | 'SHORT' =
-      verdict === 'flip' ? opposite : proposedDirection;
+    const location = asUpper(obj.location);
+    const extension = asUpper(obj.extension);
+    const nearest = asUpper(obj.nearest_structure ?? obj.nearestStructure);
+    if (!LOCATIONS.has(location) || !EXTENSIONS.has(extension) || !NEAREST.has(nearest)) {
+      return null;
+    }
+    const reason = String(obj.reason ?? '').trim().slice(0, 500);
+    if (!reason) return null;
     const confidence = Number(obj.confidence);
-    const reason = String(obj.reason ?? '').slice(0, 500) || 'no reason';
+    if (!Number.isFinite(confidence)) return null;
+
+    let decision: 'ALLOW' | 'BLOCK' = decisionRaw === 'ALLOW' ? 'ALLOW' : 'BLOCK';
+    let reasonOut = reason;
+    if (decisionRaw === 'FLIP') {
+      decision = 'BLOCK';
+      reasonOut = `vision flip refused (no guess): ${reason}`;
+    }
+
     return {
-      verdict,
-      direction,
-      confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(100, confidence)) : 0,
-      reason,
+      verdict: decision === 'ALLOW' ? 'allow' : 'block',
+      decision,
+      direction: proposedDirection,
+      confidence: Math.max(0, Math.min(100, confidence)),
+      reason: reasonOut,
+      location: location as VisionLocationLabel,
+      extension: extension as VisionExtensionLabel,
+      nearestStructure: nearest as VisionNearestStructure,
     };
   } catch {
     return null;
   }
 }
 
+function applyLocationSanity(
+  proposed: 'LONG' | 'SHORT',
+  parsed: ParsedLlmJson
+): ParsedLlmJson {
+  if (parsed.decision !== 'ALLOW') return parsed;
+  if (parsed.confidence < 50) {
+    return {
+      ...parsed,
+      verdict: 'block',
+      decision: 'BLOCK',
+      reason: `Vision uncertain (confidence ${parsed.confidence}) — fail-closed: ${parsed.reason}`,
+    };
+  }
+  if (proposed === 'LONG' && parsed.location === 'TOP' && parsed.extension === 'HIGH') {
+    return {
+      ...parsed,
+      verdict: 'block',
+      decision: 'BLOCK',
+      reason: `Vision labels contradict ALLOW (TOP+HIGH) — fail-closed: ${parsed.reason}`,
+    };
+  }
+  if (proposed === 'SHORT' && parsed.location === 'BOTTOM' && parsed.extension === 'HIGH') {
+    return {
+      ...parsed,
+      verdict: 'block',
+      decision: 'BLOCK',
+      reason: `Vision labels contradict ALLOW (BOTTOM+HIGH) — fail-closed: ${parsed.reason}`,
+    };
+  }
+  return parsed;
+}
+
 /** Example / smoke helper — text prompt + schema (images omitted). */
 export function buildGeminiRequestPayload(input: LlmTradeConfirmInput): {
   model: string;
-  schema: { verdict: string; confidence: string; reason: string };
+  schema: {
+    decision: string;
+    location: string;
+    extension: string;
+    nearest_structure: string;
+    confidence: string;
+    reason: string;
+  };
   prompt: string;
   visionTimeframes: VisionChartTimeframe[];
 } {
@@ -140,7 +224,10 @@ export function buildGeminiRequestPayload(input: LlmTradeConfirmInput): {
   return {
     model: cfg.model,
     schema: {
-      verdict: "'allow'|'block'|'flip'",
+      decision: "'ALLOW'|'BLOCK'",
+      location: "'BOTTOM'|'LOWER_RANGE'|'MID_RANGE'|'UPPER_RANGE'|'TOP'",
+      extension: "'LOW'|'MEDIUM'|'HIGH'",
+      nearest_structure: "'SUPPORT'|'RESISTANCE'|'NONE'",
       confidence: '0-100',
       reason: 'short string',
     },
@@ -153,54 +240,72 @@ function applyHardApexRules(
   _input: LlmTradeConfirmInput,
   parsed: ParsedLlmJson
 ): { result: ParsedLlmJson; hardRuleApplied: boolean } {
-  // No resistance / apex SHORT flips — dump shorts come from the SHORT stack.
   return { result: parsed, hardRuleApplied: false };
 }
 
 function timeoutFallback(
   input: LlmTradeConfirmInput,
   latencyMs: number,
-  visionTimeframes: VisionChartTimeframe[]
+  visionTimeframes: VisionChartTimeframe[],
+  why: string
 ): LlmTradeConfirmResult {
   const cfg = config.hyperliquid.llmTradeConfirm;
   return {
-    ok: true,
-    verdict: 'allow',
+    ok: false,
+    verdict: 'block',
+    decision: 'BLOCK',
     direction: input.direction,
-    enforce: false,
-    shadow: cfg.mode === 'shadow',
+    enforce: true,
+    shadow: false,
     confidence: 0,
-    reason: 'LLM/vision timeout/unavailable — fail-open (no direction change on network error)',
+    reason: why,
     latencyMs,
     provider: cfg.provider,
     model: cfg.model,
     hardRuleApplied: false,
     timedOut: true,
     visionTimeframes,
+    location: null,
+    extension: null,
+    nearestStructure: null,
+    failureReason: why,
   };
 }
 
 function buildTextPrompt(input: LlmTradeConfirmInput, tfs: VisionChartTimeframe[]): string {
   return [
-    'You are a crypto perp pre-trade risk reviewer. You are given candlestick chart IMAGE(S).',
-    `Direction proposed: ${input.direction}. Vision timeframes for this side: ${tfs.join(', ')}.`,
-    'LONG setups are judged ONLY on 15m/1h structure. SHORT setups ONLY on 1m/5m structure.',
-    'Look at the chart(s): is price at a local peak (do not LONG), at a sweep low (do not SHORT), or a clean continuation?',
+    'You are an ENTRY LOCATION validator, not a trade signal generator.',
+    `A deterministic trading system proposes a ${input.direction} trade.`,
+    `Analyze the supplied ${tfs.join(', ')} candlestick charts.`,
+    'Your only task is determining whether CURRENT PRICE is a sensible entry location for the proposed direction.',
     '',
-    'Candle-shape tendency (soft, not a hard veto):',
-    '- Compare recent candle size to the prior 8–15 candles on the same timeframe — relative, not absolute.',
-    '- A single clearly oversized candle after a quiet/small-range phase can be exhaustion (more reversal than trend confirmation), especially if the next candle rejects it immediately.',
-    '- Several similar-sized candles in one direction lean toward a durable trend.',
-    '- Use this only as tendency in your reason text; do not invent a separate verdict type.',
+    'Do not generate trade direction. Do not recommend another direction. Do not flip the trade.',
+    'When uncertain, BLOCK.',
     '',
-    'Verdict schema (strict — no hold):',
-    '{"verdict":"allow"|"block"|"flip","confidence":0-100,"reason":"short"}',
-    '- allow = take the proposed direction',
-    '- block = skip the trade entirely',
-    '- flip = take the OPPOSITE direction (bot LONG → you want SHORT, or bot SHORT → you want LONG)',
-    '- If unsure, still choose allow|block|flip. Never return hold or any other verdict string — invalid values are treated as parse failure (fail-open).',
+    `For LONG, BLOCK if any major issue exists such as:`,
+    '* current price near local/HTF swing high',
+    '* price extended after strong bullish impulse',
+    '* resistance directly above',
+    '* repeated bullish candles indicating late entry/chasing',
+    '* upper-wick rejection',
+    '* apex/blow-off structure',
+    '* poor upside room',
+    '* 1h/4h distribution or lower-high structure',
+    '* ambiguous structure',
     '',
-    'Reply with ONLY one JSON object matching the schema above (no markdown, no direction field).',
+    `For SHORT, BLOCK if any major issue exists such as:`,
+    '* current price near local/HTF swing low',
+    '* price extended after strong bearish impulse',
+    '* support directly below',
+    '* repeated bearish candles indicating late entry/chasing',
+    '* lower-wick rejection',
+    '* capitulation/sweep-low structure',
+    '* poor downside room',
+    '* bullish HTF reversal structure',
+    '* ambiguous structure',
+    '',
+    'Return strict JSON only:',
+    '{"decision":"ALLOW"|"BLOCK","location":"BOTTOM"|"LOWER_RANGE"|"MID_RANGE"|"UPPER_RANGE"|"TOP","extension":"LOW"|"MEDIUM"|"HIGH","nearest_structure":"SUPPORT"|"RESISTANCE"|"NONE","confidence":0-100,"reason":"short reason"}',
     '',
     'Numeric context (secondary to the images):',
     JSON.stringify(
@@ -226,6 +331,13 @@ function buildTextPrompt(input: LlmTradeConfirmInput, tfs: VisionChartTimeframe[
           netMovePct: input.netMovePct,
           rangePosition: input.rangePosition,
         },
+        deterministicLocation: {
+          decision: input.deterministicLocationDecision,
+          rangePosition1h: input.rangePosition1h,
+          rangePosition4h: input.rangePosition4h,
+          impulse15mATR: input.impulse15mATR,
+          consecutiveDirectionCandles: input.consecutiveDirectionCandles,
+        },
         visionTimeframes: tfs,
       },
       null,
@@ -242,9 +354,18 @@ export async function captureDirectionChartShots(
   const tfs = visionTimeframesForDirection(direction);
   const shots: ChartVisionShot[] = [];
   for (const tf of tfs) {
-    const limit = tf === '1m' ? 60 : 48;
+    const limit = visionCandleLimit(tf);
     try {
       const candles = await signalEngine.fetchCandles(symbol, tf, limit);
+      if (candles.length < visionMinUsableCandles(tf)) {
+        logger.warn('Chart vision snapshot too short', {
+          coin,
+          tf,
+          candles: candles.length,
+          need: visionMinUsableCandles(tf),
+        });
+        continue;
+      }
       const png = renderCandlestickPng(candles);
       shots.push({
         timeframe: tf,
@@ -295,7 +416,7 @@ async function callGeminiVision(
         contents: [{ role: 'user', parts }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 280,
+          maxOutputTokens: 360,
           responseMimeType: 'application/json',
         },
       }),
@@ -318,9 +439,7 @@ async function callGeminiVision(
 }
 
 /**
- * Second-opinion gate with Gemini Vision charts.
- * Shadow mode: never blocks the open path (ok:true) but still returns verdict for logging.
- * Enforce mode: block/flip applied by caller.
+ * Entry-location Vision gate. Fail-closed on any error. Never flips direction.
  */
 export async function confirmTradeWithLlm(
   input: LlmTradeConfirmInput,
@@ -338,55 +457,77 @@ export async function confirmTradeWithLlm(
 
   if (!cfg.enabled) {
     return {
-      ok: true,
-      verdict: 'allow',
+      ok: false,
+      verdict: 'block',
+      decision: 'BLOCK',
       direction: enriched.direction,
-      enforce: false,
-      shadow: true,
-      confidence: 100,
-      reason: 'LLM gate disabled',
+      enforce: true,
+      shadow: false,
+      confidence: 0,
+      reason: 'LLM/vision gate disabled — fail-closed (no open without chart review)',
       latencyMs: 0,
       provider: cfg.provider,
       model: cfg.model,
       hardRuleApplied: false,
       timedOut: false,
       visionTimeframes: visionTfs,
+      location: null,
+      extension: null,
+      nearestStructure: null,
+      failureReason: 'gate_disabled',
     };
   }
 
   if (!cfg.apiKey) {
     return {
-      ok: true,
-      verdict: 'allow',
+      ok: false,
+      verdict: 'block',
+      decision: 'BLOCK',
       direction: enriched.direction,
-      enforce: false,
-      shadow: cfg.mode === 'shadow',
+      enforce: true,
+      shadow: false,
       confidence: 0,
-      reason: 'LLM/vision key missing — fail-open (no apex SHORT flip)',
+      reason: 'LLM/vision key missing — fail-closed (no open without chart review)',
       latencyMs: 0,
       provider: cfg.provider,
       model: cfg.model,
       hardRuleApplied: false,
       timedOut: false,
       visionTimeframes: visionTfs,
+      location: null,
+      extension: null,
+      nearestStructure: null,
+      failureReason: 'missing_api_key',
     };
   }
 
   const started = Date.now();
   try {
     const shots = await captureDirectionChartShots(enriched.coin, enriched.direction);
-    if (shots.length === 0) {
-      throw new Error('No chart snapshots captured for vision');
+    const missing = VISION_STRUCTURE_TIMEFRAMES.filter(
+      (tf) => !shots.some((s) => s.timeframe === tf)
+    );
+    if (shots.length === 0 || missing.length > 0) {
+      throw new Error(
+        missing.length > 0
+          ? `Unusable/missing chart TFs: ${missing.join(',')}`
+          : 'No chart snapshots captured for vision'
+      );
     }
     const raw = await callGeminiVision(enriched, shots, cfg.timeoutMs);
     const latencyMs = Date.now() - started;
-    const parsed = parseLlmJson(raw, enriched.direction);
-    if (!parsed) {
+    const parsedRaw = parseLlmJson(raw, enriched.direction);
+    if (!parsedRaw) {
       logger.warn('Gemini trade confirm: malformed JSON', {
         coin: enriched.coin,
         raw: raw.slice(0, 240),
       });
-      const fallback = timeoutFallback(enriched, latencyMs, visionTfs);
+      const fallback = timeoutFallback(
+        enriched,
+        latencyMs,
+        visionTfs,
+        'LLM/vision malformed JSON or missing required fields — fail-closed (no open)'
+      );
       remember({
         at: new Date().toISOString(),
         coin: enriched.coin,
@@ -403,18 +544,17 @@ export async function confirmTradeWithLlm(
       return fallback;
     }
 
+    const parsed = applyLocationSanity(enriched.direction, parsedRaw);
     const { result, hardRuleApplied } = applyHardApexRules(enriched, parsed);
-    const shadow = cfg.mode === 'shadow';
-    const enforce = cfg.mode === 'enforce';
-    let ok = true;
-    if (enforce && result.verdict === 'block') ok = false;
+    const ok = result.decision === 'ALLOW';
 
     const out: LlmTradeConfirmResult = {
       ok,
       verdict: result.verdict,
+      decision: result.decision,
       direction: result.direction,
-      enforce,
-      shadow,
+      enforce: true,
+      shadow: false,
       confidence: result.confidence,
       reason: result.reason,
       latencyMs,
@@ -423,6 +563,9 @@ export async function confirmTradeWithLlm(
       hardRuleApplied,
       timedOut: false,
       visionTimeframes: shots.map((s) => s.timeframe),
+      location: result.location,
+      extension: result.extension,
+      nearestStructure: result.nearestStructure,
     };
 
     remember({
@@ -433,20 +576,20 @@ export async function confirmTradeWithLlm(
       direction: out.direction,
       reason: out.reason,
       latencyMs,
-      shadow,
+      shadow: false,
       hardRuleApplied,
       timedOut: false,
       visionTimeframes: out.visionTimeframes,
     });
 
-    logger.info('Gemini vision trade confirm', {
+    logger.info('Gemini vision entry-location validator', {
       coin: enriched.coin,
       proposed: enriched.direction,
-      verdict: out.verdict,
-      direction: out.direction,
+      decision: out.decision,
+      location: out.location,
+      extension: out.extension,
+      nearest_structure: out.nearestStructure,
       tfs: out.visionTimeframes,
-      shadow,
-      hardRuleApplied,
       latencyMs,
       reason: out.reason.slice(0, 160),
     });
@@ -460,7 +603,12 @@ export async function confirmTradeWithLlm(
       error: msg.slice(0, 200),
       latencyMs,
     });
-    const fallback = timeoutFallback(enriched, latencyMs, visionTfs);
+    const fallback = timeoutFallback(
+      enriched,
+      latencyMs,
+      visionTfs,
+      `LLM/vision unavailable — fail-closed (${msg.slice(0, 120)})`
+    );
     remember({
       at: new Date().toISOString(),
       coin: enriched.coin,

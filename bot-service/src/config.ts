@@ -176,6 +176,18 @@ export const config = {
       ]),
     ],
     /**
+     * Bot scan/open universe — majors only. Alts (KAITO/VVV/DOGE/FARTCOIN/…) never
+     * enter even in bull. `*` / `ALL` are ignored (that used to dump the junk book).
+     * Override: HL_BOT_TRADE_COINS="BTC,ETH,SOL"
+     */
+    botTradeCoins: (() => {
+      const parsed = (process.env.HL_BOT_TRADE_COINS || 'BTC,ETH,SOL')
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => s && s !== '*' && s !== 'ALL');
+      return parsed.length > 0 ? [...new Set(parsed)] : ['BTC', 'ETH', 'SOL'];
+    })(),
+    /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
      * Bull profile ignores this (any non-excluded coin may LONG).
      * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL" or "*" / "ALL" for unrestricted.
@@ -209,8 +221,11 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.75),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 30_000),
+      /** Min continuous ms in profit before arming. Cap 15s — Railway leftover 120s starved snaps. */
+      armMinProfitHoldMs: Math.min(
+        15_000,
+        Math.max(5_000, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 15_000))
+      ),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
@@ -230,8 +245,11 @@ export const config = {
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
-      /** After trail arms — min ms before trail/peak can close (3m). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
+      /** After trail arms — min ms before floor can close. Cap 8s (env had 120–180s). */
+      trailMinActiveBeforeCloseMs: Math.min(
+        8_000,
+        Math.max(0, Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 8_000))
+      ),
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
        * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
@@ -274,7 +292,10 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 150_000),
+      longMinGreenHoldMs: Math.min(
+        15_000,
+        Math.max(0, Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 15_000))
+      ),
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
@@ -286,10 +307,13 @@ export const config = {
        */
       longTrailArmRoePct: Number(process.env.HL_TRAIL_LONG_ARM_ROE_PCT || 15),
       /**
-       * Min peak ROE before LONG trail/floor/peak closes.
+       * Min peak ROE before LONG trail/floor/peak/TP closes.
+       * 8% still sniped 20x SOL at +$14 (10 min) while the same book ran to ~$70.
+       * 15% ≈ the run; floor does not arm before that.
        */
-      longMinPeakRoePctBeforeTrailClose: Number(
-        process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 0
+      longMinPeakRoePctBeforeTrailClose: Math.max(
+        15,
+        Number(process.env.HL_TRAIL_LONG_MIN_PEAK_ROE_PCT || 15)
       ),
     },
     /** Legacy profit-lock USD fields — analyze window before trail (aligned with arm hold). */
@@ -331,8 +355,8 @@ export const config = {
      * throughput (“bot waits forever”). Ops can go lower via env; not higher.
      */
     sameCoinReentryMinMs: Math.min(
-      300_000,
-      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 120_000))
+      30_000,
+      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 15_000))
     ),
     /**
      * Opposite-direction same-coin block. Cap at 10m for the same reason.
@@ -363,8 +387,8 @@ export const config = {
     /**
      * Higher-TF S/R gate (1h + 4h) — blocks SHORT into strong support / LONG into
      * strong resistance. ATR-based proximity, min-rejection strength, level decay.
-     * Default: enabled + shadow (log to hl_open_blocks, do NOT block). Flip
-     * HL_HTF_SR_ENFORCE=true after 24–48h of shadow evidence.
+     * Order flow always evaluates (HL_HTF_SR=false is diagnostic-only, not a skip).
+     * Missing HTF data is UNKNOWN → no open, never treated as clear.
      */
     htfSr: {
       enabled: process.env.HL_HTF_SR !== 'false',
@@ -699,18 +723,18 @@ export const config = {
       shortAllowAbovePosition: Number(process.env.HL_PUMP_SWEEP_SHORT_ALLOW || 0.58),
     },
     /**
-     * Gemini Vision second-opinion before every HL open.
-     * LONG charts: 15m + 1h only. SHORT charts: 1m + 5m only.
-     * Default shadow: log allow/block/flip only. Set HL_LLM_GATE_MODE=enforce to apply.
+     * Gemini Vision ENTRY LOCATION validator before every HL open.
+     * Charts: 5m + 15m + 1h + 4h for both sides. ALLOW|BLOCK only (never flip).
+     * Fail-closed on timeout, missing key, bad JSON, unusable charts.
+     * HL_LLM_GATE_ENABLED=false also fail-closes (no silent skip).
      */
     llmTradeConfirm: {
+      /** Chart-screenshot vision before every bot open. Profile cannot disable this. */
       get enabled() {
-        return (
-          getLiveDirectionProfile().enableLlmConfirm &&
-          process.env.HL_LLM_GATE_ENABLED !== 'false'
-        );
+        return process.env.HL_LLM_GATE_ENABLED !== 'false';
       },
-      mode: (process.env.HL_LLM_GATE_MODE === 'enforce' ? 'enforce' : 'shadow') as
+      /** Default ENFORCE — shadow was why Gemini never stopped SOL-at-high / KAITO. */
+      mode: (process.env.HL_LLM_GATE_MODE === 'shadow' ? 'shadow' : 'enforce') as
         | 'shadow'
         | 'enforce',
       provider: (process.env.HL_LLM_PROVIDER || 'gemini').toLowerCase(),
@@ -723,8 +747,7 @@ export const config = {
       baseUrl:
         process.env.HL_LLM_BASE_URL ||
         'https://generativelanguage.googleapis.com/v1beta',
-      // Vision + candle fetch needs more headroom than text-only.
-      timeoutMs: Number(process.env.HL_LLM_TIMEOUT_MS || 8000),
+      timeoutMs: Number(process.env.HL_LLM_TIMEOUT_MS || 20_000),
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),

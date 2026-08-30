@@ -32,7 +32,14 @@ export const CAUTIOUS_ALTS = new Set([
   'BRETT',
 ]);
 
-export const MAJOR_COINS = new Set(['BTC', 'ETH']);
+export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL']);
+
+/** Empty-slot fill order — chart majors the bot should try before alt wicks. */
+export const MAJOR_FILL_COINS = ['BTC', 'ETH', 'SOL'] as const;
+
+export function isMajorFillCoin(coin: string): boolean {
+  return (MAJOR_FILL_COINS as readonly string[]).includes(coin.toUpperCase());
+}
 
 /** Top HL perps by 24h volume — standard technical path, no mandatory news. */
 export const MID_CAP_MIN_DAY_VOLUME_USD = 35_000_000;

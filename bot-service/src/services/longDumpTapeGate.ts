@@ -39,10 +39,11 @@ export async function validateLongDumpTapeGate(opts: {
 
   try {
     const needBtcAnchor = coin !== 'BTC';
-    const [c15m, c1h, c5m, btc15, btc1h] = await Promise.all([
+    const [c15m, c1h, c5m, c4h, btc15, btc1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '15m', 12),
       signalEngine.fetchCandles(symbol, '1h', 12),
       signalEngine.fetchCandles(symbol, '5m', 16),
+      signalEngine.fetchCandles(symbol, '4h', 16),
       needBtcAnchor
         ? signalEngine.fetchCandles('BTCUSDT', '15m', 12)
         : Promise.resolve([] as Awaited<ReturnType<typeof signalEngine.fetchCandles>>),
@@ -84,6 +85,20 @@ export async function validateLongDumpTapeGate(opts: {
     if (hit1h) {
       logger.info('Long dump-tape gate blocked', { coin, tf: '1h' });
       return { ok: false, reason: hit1h };
+    }
+    const closed4h = c4h.slice(0, -1).slice(-12);
+    if (closed4h.length >= 8) {
+      const first = closed4h[0]!;
+      const last = closed4h[closed4h.length - 1]!;
+      const netPct = first.close > 0 ? ((last.close - first.close) / first.close) * 100 : 0;
+      const lowerHighs =
+        closed4h.filter((c, i) => i > 0 && c.high < closed4h[i - 1]!.high).length >=
+        Math.ceil(closed4h.length * 0.55);
+      if (netPct <= -3 && lowerHighs) {
+        const reason = `LONG blocked — ${coin} 4h downtrend (${closed4h.length} bars net ${netPct.toFixed(2)}%, lower highs) — no long into a crash`;
+        logger.info('Long dump-tape gate blocked', { coin, tf: '4h' });
+        return { ok: false, reason };
+      }
     }
     return { ok: true, reason: `Dump-tape OK LONG ${coin}` };
   } catch (err: unknown) {

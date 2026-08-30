@@ -9,7 +9,8 @@
  * - "Strong" = min rejections at the level (weak 1-touch levels ignored)
  * - Level decay = last touch older than maxAgeHours → ignore
  * - LONG + SHORT symmetric
- * - Shadow mode by default: always log to hl_open_blocks, only block when enforce=true
+ * - Status is CLEAR | BLOCK | UNKNOWN. Missing data is UNKNOWN, never CLEAR.
+ * - Order flow always evaluates (HL_HTF_SR=false does not skip).
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -24,10 +25,14 @@ export type HtfSrLevel = {
   strong: boolean;
 };
 
+export type HtfSrStatus = 'CLEAR' | 'BLOCK' | 'UNKNOWN';
+
 export type HtfSrResult = {
-  /** Would this entry be blocked if enforce were on? */
+  /** CLEAR = structure evaluated and no nearby opposite HTF level. */
+  status: HtfSrStatus;
+  /** True for BLOCK and UNKNOWN — never treat missing data as clear. */
   wouldBlock: boolean;
-  /** Actually block the open (wouldBlock && enforce). */
+  /** True only when status === CLEAR. */
   ok: boolean;
   reason: string;
   atr1h: number;
@@ -37,6 +42,10 @@ export type HtfSrResult = {
   levels: HtfSrLevel[];
   shadow: boolean;
 };
+
+export function htfSrAllowsOpen(result: HtfSrResult): boolean {
+  return result.status === 'CLEAR';
+}
 
 export type NearbyHtfSupport = {
   level: HtfSrLevel;
@@ -240,9 +249,64 @@ function nearestRelevant(
   return best;
 }
 
+function candlesUsable(candles: Candle[], minLen: number): boolean {
+  if (!Array.isArray(candles) || candles.length < minLen) return false;
+  for (const c of candles) {
+    if (
+      !c ||
+      !Number.isFinite(c.open) ||
+      !Number.isFinite(c.high) ||
+      !Number.isFinite(c.low) ||
+      !Number.isFinite(c.close)
+    ) {
+      return false;
+    }
+    if (c.high < c.low) return false;
+  }
+  return true;
+}
+
+function unknownHtf(
+  shadow: boolean,
+  reason: string,
+  extra?: Partial<HtfSrResult>
+): HtfSrResult {
+  return {
+    status: 'UNKNOWN',
+    wouldBlock: true,
+    ok: false,
+    reason,
+    atr1h: extra?.atr1h ?? 0,
+    atrThreshold: extra?.atrThreshold ?? 0,
+    nearestLevel: extra?.nearestLevel ?? null,
+    distanceToLevel: extra?.distanceToLevel ?? null,
+    levels: extra?.levels ?? [],
+    shadow,
+  };
+}
+
+function clearHtf(
+  shadow: boolean,
+  reason: string,
+  extra: Pick<
+    HtfSrResult,
+    'atr1h' | 'atrThreshold' | 'nearestLevel' | 'distanceToLevel' | 'levels'
+  >
+): HtfSrResult {
+  return {
+    status: 'CLEAR',
+    wouldBlock: false,
+    ok: true,
+    reason,
+    ...extra,
+    shadow,
+  };
+}
+
 /**
  * Validate entry against HTF S/R.
- * Always computes wouldBlock; only sets ok=false when enforce=true.
+ * Always evaluates 1h+4h (HL_HTF_SR=false does not skip).
+ * Missing/malformed data → UNKNOWN (not CLEAR).
  */
 export async function validateHtfSr(opts: {
   symbol: string;
@@ -251,128 +315,142 @@ export async function validateHtfSr(opts: {
 }): Promise<HtfSrResult> {
   const cfg = config.hyperliquid.htfSr;
   const shadow = !cfg.enforce;
+  const minBars = cfg.atrPeriod + 2;
 
-  if (!cfg.enabled) {
-    return {
-      wouldBlock: false,
-      ok: true,
-      reason: 'HTF S/R gate disabled',
-      atr1h: 0,
-      atrThreshold: 0,
-      nearestLevel: null,
-      distanceToLevel: null,
-      levels: [],
+  let candles1h: Candle[];
+  let candles4h: Candle[];
+  try {
+    [candles1h, candles4h] = await Promise.all([
+      signalEngine.fetchCandles(opts.symbol, '1h', cfg.h1Bars),
+      signalEngine.fetchCandles(opts.symbol, '4h', cfg.h4Bars),
+    ]);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return unknownHtf(
       shadow,
-    };
+      `HTF S/R UNKNOWN — candle fetch failed (${msg.slice(0, 120)})`
+    );
   }
 
-  const [candles1h, candles4h] = await Promise.all([
-    signalEngine.fetchCandles(opts.symbol, '1h', cfg.h1Bars),
-    signalEngine.fetchCandles(opts.symbol, '4h', cfg.h4Bars),
-  ]);
+  if (!candlesUsable(candles1h, minBars)) {
+    return unknownHtf(
+      shadow,
+      `HTF S/R UNKNOWN — insufficient or malformed 1h candles (${candles1h?.length ?? 0})`
+    );
+  }
+  if (!candlesUsable(candles4h, minBars)) {
+    return unknownHtf(
+      shadow,
+      `HTF S/R UNKNOWN — insufficient or malformed 4h candles (${candles4h?.length ?? 0})`
+    );
+  }
 
   const price =
     candles1h[candles1h.length - 1]?.close ??
     candles4h[candles4h.length - 1]?.close ??
     0;
-
-  if (price <= 0 || candles1h.length < cfg.atrPeriod + 2) {
-    return {
-      wouldBlock: false,
-      ok: true,
-      reason: 'HTF S/R skipped — insufficient candle data',
-      atr1h: 0,
-      atrThreshold: 0,
-      nearestLevel: null,
-      distanceToLevel: null,
-      levels: [],
-      shadow,
-    };
+  if (!(price > 0) || !Number.isFinite(price)) {
+    return unknownHtf(shadow, 'HTF S/R UNKNOWN — no usable HTF mark/close');
   }
 
   const atr1h = atrWilder(candles1h, cfg.atrPeriod);
   const atrThreshold = atr1h * cfg.atrMult;
-  const nowMs = Date.now();
+  if (!(atr1h > 0) || !Number.isFinite(atr1h) || !(atrThreshold > 0)) {
+    return unknownHtf(shadow, 'HTF S/R UNKNOWN — ATR/structure calculation failed', {
+      atr1h,
+      atrThreshold,
+    });
+  }
 
-  const levels: HtfSrLevel[] = [
-    ...extractLevels(
-      candles1h,
-      '1h',
-      'support',
-      cfg.swingClusterPct,
-      cfg.touchTolerancePct,
-      cfg.minRejections,
-      cfg.maxLevelAgeHours,
-      nowMs
-    ),
-    ...extractLevels(
-      candles1h,
-      '1h',
-      'resistance',
-      cfg.swingClusterPct,
-      cfg.touchTolerancePct,
-      cfg.minRejections,
-      cfg.maxLevelAgeHours,
-      nowMs
-    ),
-    ...extractLevels(
-      candles4h,
-      '4h',
-      'support',
-      cfg.swingClusterPct,
-      cfg.touchTolerancePct,
-      cfg.minRejections,
-      cfg.maxLevelAgeHours,
-      nowMs
-    ),
-    ...extractLevels(
-      candles4h,
-      '4h',
-      'resistance',
-      cfg.swingClusterPct,
-      cfg.touchTolerancePct,
-      cfg.minRejections,
-      cfg.maxLevelAgeHours,
-      nowMs
-    ),
-  ];
+  const nowMs = Date.now();
+  let levels: HtfSrLevel[];
+  try {
+    levels = [
+      ...extractLevels(
+        candles1h,
+        '1h',
+        'support',
+        cfg.swingClusterPct,
+        cfg.touchTolerancePct,
+        cfg.minRejections,
+        cfg.maxLevelAgeHours,
+        nowMs
+      ),
+      ...extractLevels(
+        candles1h,
+        '1h',
+        'resistance',
+        cfg.swingClusterPct,
+        cfg.touchTolerancePct,
+        cfg.minRejections,
+        cfg.maxLevelAgeHours,
+        nowMs
+      ),
+      ...extractLevels(
+        candles4h,
+        '4h',
+        'support',
+        cfg.swingClusterPct,
+        cfg.touchTolerancePct,
+        cfg.minRejections,
+        cfg.maxLevelAgeHours,
+        nowMs
+      ),
+      ...extractLevels(
+        candles4h,
+        '4h',
+        'resistance',
+        cfg.swingClusterPct,
+        cfg.touchTolerancePct,
+        cfg.minRejections,
+        cfg.maxLevelAgeHours,
+        nowMs
+      ),
+    ];
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return unknownHtf(
+      shadow,
+      `HTF S/R UNKNOWN — level extraction failed (${msg.slice(0, 120)})`,
+      { atr1h, atrThreshold }
+    );
+  }
 
   const side: 'support' | 'resistance' =
     opts.direction === 'SHORT' ? 'support' : 'resistance';
   const near = nearestRelevant(levels, price, side);
 
-  if (!near || atrThreshold <= 0) {
-    return {
-      wouldBlock: false,
-      ok: true,
-      reason: `HTF S/R clear — no strong ${side} within ${cfg.atrMult}×ATR(1h)`,
-      atr1h,
-      atrThreshold,
-      nearestLevel: null,
-      distanceToLevel: null,
-      levels,
+  if (!near) {
+    return clearHtf(
       shadow,
-    };
+      `HTF S/R CLEAR — no strong ${side} within ${cfg.atrMult}×ATR(1h)`,
+      {
+        atr1h,
+        atrThreshold,
+        nearestLevel: null,
+        distanceToLevel: null,
+        levels,
+      }
+    );
   }
 
-  const wouldBlock = near.distance <= atrThreshold;
-  if (!wouldBlock) {
-    return {
-      wouldBlock: false,
-      ok: true,
-      reason: `HTF S/R clear — nearest ${side} ${near.level.price.toFixed(4)} is ${(
+  if (near.distance > atrThreshold) {
+    return clearHtf(
+      shadow,
+      `HTF S/R CLEAR — nearest ${side} ${near.level.price.toFixed(4)} is ${(
         near.distance / atr1h
       ).toFixed(2)}×ATR away (need ≤${cfg.atrMult}×)`,
-      atr1h,
-      atrThreshold,
-      nearestLevel: near.level,
-      distanceToLevel: near.distance,
-      levels,
-      shadow,
-    };
+      {
+        atr1h,
+        atrThreshold,
+        nearestLevel: near.level,
+        distanceToLevel: near.distance,
+        levels,
+      }
+    );
   }
 
-  const distAtr = atr1h > 0 ? near.distance / atr1h : 0;
+  const distAtr = near.distance / atr1h;
   const reason = `${opts.direction} near HTF ${side} ${near.level.price.toFixed(4)} (${
     near.level.timeframe
   }, ${near.level.rejections}× rejected, age ${near.level.lastTouchAgeHours.toFixed(
@@ -380,9 +458,10 @@ export async function validateHtfSr(opts: {
   )}h) — ${distAtr.toFixed(2)}×ATR ≤ ${cfg.atrMult}×ATR threshold`;
 
   return {
+    status: 'BLOCK',
     wouldBlock: true,
-    ok: !cfg.enforce, // shadow → still ok; enforce → block
-    reason: cfg.enforce ? reason : `SHADOW: would block — ${reason}`,
+    ok: false,
+    reason,
     atr1h,
     atrThreshold,
     nearestLevel: near.level,

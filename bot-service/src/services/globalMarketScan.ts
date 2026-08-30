@@ -12,11 +12,12 @@ import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { btcLeadIsPumping, btcLeadAllowsCautiousShort, refreshBtcLeadMomentum, getBtcTapePhase } from './macroBetaGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier, needsCautionPath } from './coinTier';
+import { classifyCoinTier, isMajorFillCoin, MAJOR_FILL_COINS, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { resolvePeakAwareDirection } from './peakShortLiquidity';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { isLongAllowedCoin } from './longAllowlist';
+import { isBotTradeCoin } from './botTradeUniverse';
 import type { Timeframe } from './signalEngine';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -222,19 +223,30 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
-/** BTC/ETH only — chart direction from direction-specific MTF stacks. */
+/** BTC/ETH/SOL — looser MTF bar so empty slots fill majors instead of alt wicks. */
 async function scanMajorChartFallback(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
   _preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   const [longC, shortC] = await Promise.all([
-    scanStandardCoinDirection(coin, liq, _preloadedUniverse, false, 'LONG'),
-    scanStandardCoinDirection(coin, liq, _preloadedUniverse, false, 'SHORT'),
+    scanStandardCoinDirection(coin, liq, _preloadedUniverse, true, 'LONG', true),
+    scanStandardCoinDirection(coin, liq, _preloadedUniverse, true, 'SHORT', true),
   ]);
-  const pick = pickPreferredCandidate(longC, shortC);
+  // pickPreferredCandidate drops lone LONGs without a strict 1h UP. Empty
+  // slots still take the major MTF print as long as 1h is not dumping.
+  let pick = pickPreferredCandidate(longC, shortC);
+  if (
+    !pick &&
+    longC &&
+    !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN')
+  ) {
+    pick = longC;
+  }
+  if (!pick) pick = shortC;
   if (!pick) return null;
   if (pick.confidence < 48) return null;
+  if ((pick.directionalTfCount ?? 0) < 2) return null;
   return {
     ...pick,
     reason: pick.peakLiquidityGrab
@@ -266,7 +278,8 @@ async function scanStandardCoinDirection(
   liq: { dayVolumeUsd: number; openInterestUsd: number },
   preloadedUniverse: HlLiquidUniverse | undefined,
   relaxed: boolean,
-  wantedDirection: 'LONG' | 'SHORT'
+  wantedDirection: 'LONG' | 'SHORT',
+  majorFill = false
 ): Promise<GlobalSignalCandidate | null> {
   // LONG allowlist: bull = all coins; bear/default = majors only (see longAllowlist).
   // ROOT: bear_market allowLongOpens=false → never analyze LONG at all.
@@ -290,7 +303,11 @@ async function scanStandardCoinDirection(
   }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
-    const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
+    const tfs = (
+      majorFill && wantedDirection === 'LONG'
+        ? (['5m', '15m', '1h'] as Timeframe[])
+        : analysisTimeframesForDirection(wantedDirection)
+    ) as Timeframe[];
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
     if (!analysis) return null;
     // Strategy isWeak uses 60%. Aug 21 profile LONGs fire at 52% / 2 TFs.
@@ -315,18 +332,20 @@ async function scanStandardCoinDirection(
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const profileMin = rulesFor(wantedDirection).minConfidence;
-    const minConf = cautious
-      ? config.hyperliquid.cautiousScan.minSignalConfidence
-      : relaxed
-        ? Math.min(profileMin, 48)
-        : profileMin;
+    const minConf = majorFill
+      ? 48
+      : cautious
+        ? config.hyperliquid.cautiousScan.minSignalConfidence
+        : relaxed
+          ? Math.min(profileMin, 48)
+          : profileMin;
     if (analysis.confidence < minConf) return null;
-    const minTfs = relaxed
+    const minTfs = majorFill || relaxed
       ? 2
       : cautious
         ? config.hyperliquid.cautiousScan.minDirectionalTfs
         : config.hyperliquid.minDirectionalTfs;
-    const minAlign = relaxed
+    const minAlign = majorFill || relaxed
       ? 45
       : cautious
         ? config.hyperliquid.cautiousScan.minTrendAlignment
@@ -359,7 +378,16 @@ async function scanStandardCoinDirection(
       directionalTfCount,
       peakLiquidityGrab
     );
-    if (
+    if (majorFill) {
+      // Empty-slot majors: trade the MTF print. Do not require 1h UP / 52%.
+      // Still refuse LONG into a 1h dump.
+      if (
+        direction === 'LONG' &&
+        h1TrendMatchesRequired(analysis.metrics?.h1Trend, 'DOWN')
+      ) {
+        return null;
+      }
+    } else if (
       !passesProfileThresholds(direction, {
         confidence: analysis.confidence,
         directionalTfCount,
@@ -370,10 +398,12 @@ async function scanStandardCoinDirection(
     ) {
       return null;
     }
-    const entryTrend = await validateProfileEntryTrend({ coin, direction });
-    if (!entryTrend.ok) {
-      logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
-      return null;
+    if (!majorFill) {
+      const entryTrend = await validateProfileEntryTrend({ coin, direction });
+      if (!entryTrend.ok) {
+        logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
+        return null;
+      }
     }
     const dirRules = rulesFor(direction, peakLiquidityGrab);
     if (
@@ -586,7 +616,9 @@ export async function scanGlobalHlSignals(
   const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
   const excludedCoins = new Set(config.hyperliquid.excludedCoins);
-  const coins = universe.coins.filter((c) => !excludedCoins.has(c.toUpperCase()));
+  const coins = universe.coins.filter(
+    (c) => !excludedCoins.has(c.toUpperCase()) && isBotTradeCoin(c)
+  );
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
 
@@ -634,39 +666,29 @@ export async function scanGlobalHlSignals(
   let finalStandard = standard;
   let aggressiveFiltered = aggressive;
 
-  const longCount = (rows: GlobalSignalCandidate[]) =>
-    rows.filter((c) => c.direction === 'LONG').length;
-
-  // FOGO/CHIP shorts occupying the list must not skip BTC/ETH LONG fallback.
-  if (
-    finalStandard.length === 0 ||
-    (config.hyperliquid.directionProfile.primaryDirection === 'LONG' &&
-      longCount(finalStandard) === 0)
-  ) {
-    const majorCoins = ['BTC', 'ETH', 'SOL'].filter((c) => coins.includes(c));
+  // Always keep BTC/ETH/SOL on the book when they print MTF. Alt 100% LONGs
+  // (HYPE/LDO) must not starve the major that should fill empty slots.
+  {
+    const majorCoins = MAJOR_FILL_COINS.filter((c) => coins.includes(c));
     const majorRaw = await mapPool(majorCoins, 3, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
       return scanMajorChartFallback(coin, liq, universe);
     });
     const majors = majorRaw.filter((c): c is GlobalSignalCandidate => c !== null);
-    if (finalStandard.length === 0) {
-      finalStandard = majors.sort((a, b) => b.confidence - a.confidence);
-    } else {
-      const seen = new Set(finalStandard.map((c) => c.coin.toUpperCase()));
-      for (const row of majors) {
-        if (row.direction !== 'LONG') continue;
-        if (seen.has(row.coin.toUpperCase())) continue;
-        finalStandard.unshift(row);
-        seen.add(row.coin.toUpperCase());
-      }
+    const seen = new Set(finalStandard.map((c) => c.coin.toUpperCase()));
+    const injected: GlobalSignalCandidate[] = [];
+    for (const row of majors) {
+      if (seen.has(row.coin.toUpperCase())) continue;
+      injected.push(row);
+      seen.add(row.coin.toUpperCase());
     }
-    if (majors.length > 0) {
+    if (injected.length > 0) {
+      finalStandard = [...injected, ...finalStandard];
       logger.info('Global HL scan — major chart fallback used', {
-        count: majors.length,
-        top: majors[0]?.coin,
-        direction: majors[0]?.direction,
-        conf: majors[0]?.confidence,
+        count: injected.length,
+        coins: injected.map((c) => `${c.coin} ${c.direction} ${c.confidence}`),
+        existingLongs: standard.filter((c) => c.direction === 'LONG').length,
       });
     }
   }
@@ -674,6 +696,9 @@ export async function scanGlobalHlSignals(
   if (config.hyperliquid.directionProfile.primaryDirection === 'LONG') {
     finalStandard = [...finalStandard].sort((a, b) => {
       if (a.direction !== b.direction) return a.direction === 'LONG' ? -1 : 1;
+      const aMaj = isMajorFillCoin(a.coin) ? 1 : 0;
+      const bMaj = isMajorFillCoin(b.coin) ? 1 : 0;
+      if (aMaj !== bMaj) return bMaj - aMaj;
       return b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence;
     });
   }

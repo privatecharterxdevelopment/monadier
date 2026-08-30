@@ -8,17 +8,17 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Profit floor after 2m green (stays in plus); full trail +15% ROE.',
+    'Standard: MTF trend-only. Profit floor after 15s green; SL snaps a chunk of the peak (not a fee-lock above it).',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same 2m green profit floor and ROE trail gates.',
+    'Aggressive: 1m scalp entries. Same 15s green profit floor — SL snaps in plus.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinProfitHoldMs: 120_000,
+  armMinProfitHoldMs: 15_000,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 120_000,
-  longMinGreenHoldMs: 120_000,
+  trailMinActiveBeforeCloseMs: 8_000,
+  longMinGreenHoldMs: 15_000,
   longTrailMinActiveMult: 1,
   breakevenArmRoePct: 8,
   armMinProfitUsd: 0,

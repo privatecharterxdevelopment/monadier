@@ -13,6 +13,7 @@ import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import {
   estimateRoundTripFeesUsd,
   isTrailStopCrossed,
+  longPeakTooSmallToTrailClose,
   peakProfitFloorStopPx,
 } from './dynamicTrailingStop';
 
@@ -72,6 +73,7 @@ export async function rehydrateTrailPeakFromCandles(opts: {
   markPrice: number;
   notionalUsd: number;
   openedAtMs: number;
+  collateralUsd?: number;
   existing: DynamicTrailRecord | null;
 }): Promise<DynamicTrailRecord | null> {
   const existing = opts.existing;
@@ -181,13 +183,34 @@ export async function rehydrateTrailPeakFromCandles(opts: {
     // Never arm a stop that is already crossed — for LONG that means stop above
     // mark (trail must sit *below* the run and follow up).
     if (rec.phase === 'idle') {
+      const collateralUsd =
+        opts.collateralUsd && opts.collateralUsd > 0
+          ? opts.collateralUsd
+          : opts.notionalUsd > 0
+            ? opts.notionalUsd / 20
+            : 0;
+      if (
+        longPeakTooSmallToTrailClose(
+          opts.direction,
+          bestPnl,
+          collateralUsd,
+          opts.coin
+        )
+      ) {
+        rec.phase = 'idle';
+        rec.currentTrailStop = null;
+        rec.trailArmedAt = null;
+        rec.estimatedFeesUsd = feesUsd;
+      } else {
       const floor = peakProfitFloorStopPx(
         opts.direction,
         opts.entryPrice,
         opts.absSize,
         bestPnl,
         feesUsd,
-        'armed'
+        'armed',
+        collateralUsd,
+        opts.coin
       );
       const stop = floor?.px ?? null;
 
@@ -208,6 +231,7 @@ export async function rehydrateTrailPeakFromCandles(opts: {
         rec.trailArmedAt = nowMs;
         rec.currentTrailStop = stop;
         rec.estimatedFeesUsd = feesUsd;
+      }
       }
     }
 

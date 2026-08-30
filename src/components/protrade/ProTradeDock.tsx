@@ -1016,8 +1016,10 @@ const ProTradeDock: React.FC<Props> = ({
               </thead>
               <tbody>
                 {filteredCloseFills.map((f: AggregatedHlCloseFill, i) => {
-                  const result = hlFillResultLabel(f.closedPnl);
                   const pnl = toNum(f.closedPnl);
+                  const hlFee = toNum(f.fee);
+                  const netPnl = pnl - hlFee;
+                  const result = hlFillResultLabel(netPnl);
                   const positionDir = fillPositionDirection(f);
                   const platformFee = platformFeeFromPnl(f.closedPnl);
                   const balanceAfter = balanceAfterByFill.get(aggregatedCloseFillKey(f));
@@ -1052,8 +1054,8 @@ const ProTradeDock: React.FC<Props> = ({
                     >
                       {result ?? '—'}
                     </td>
-                    <td className={pnl > 0 ? 'hl-up' : pnl < 0 ? 'hl-down' : ''}>
-                      {fmtClosedPnl(f.closedPnl)}
+                    <td className={netPnl > 0 ? 'hl-up' : netPnl < 0 ? 'hl-down' : ''}>
+                      {fmtClosedPnl(netPnl)}
                     </td>
                     <td title={t('dock.cols.balanceAfterHint')}>
                       {balanceAfter != null ? fmtUsdSymbol(balanceAfter) : '—'}

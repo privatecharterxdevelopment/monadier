@@ -23,7 +23,7 @@ export const BULL_MARKET: HlDirectionProfile = {
   entryTimeframeShort: '5m',
   preOpenTimeframe: '15m',
   preOpenTimeframeLong: '15m',
-  preOpenTimeframeShort: '1m',
+  preOpenTimeframeShort: '15m',
   preOpenCandleCount: 8,
   preOpenMinVolumeRatio: 0.18,
   maxVolumeRank: 100,
@@ -31,8 +31,8 @@ export const BULL_MARKET: HlDirectionProfile = {
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
-  /** LLM disagreement waits starved opens — trail manages risk after entry. */
-  enableLlmConfirm: false,
+  /** LLM/Gemini vision before every bot open (cannot starve-disable in bull). */
+  enableLlmConfirm: true,
   allowLongOpens: true,
   /** Dump/breakdown SHORTs allowed; LONG stays primary in pickWinner. */
   allowShortOpens: true,

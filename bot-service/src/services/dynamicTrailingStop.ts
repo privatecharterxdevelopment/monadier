@@ -6,7 +6,7 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
-import { classifyCoinTier, type CoinTier } from './coinTier';
+import { classifyCoinTier, isMajorFillCoin, type CoinTier } from './coinTier';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 
 export type TrailPhase = 'idle' | 'armed' | 'trailing';
@@ -90,15 +90,15 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay net green after fees — never harvest a cents stub. */
-export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
-  const trail = config.hyperliquid.dynamicTrail;
-  const raw = trail.minProfitCloseFeesMult;
-  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
+/**
+ * Profit exits must stay green after the CLOSE fill. Open fee is sunk.
+ * Round-trip × 1.5 on a 40x BTC (~$18k) demanded ~$19 — so a $11 winner
+ * could never snap (BTC 30 Aug: peak $10.83, lock $18.87, then red).
+ */
+export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number {
   const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
-  const vsMargin =
-    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
-  return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
+  const closeLeg = Math.max(0, feesUsd) / 2;
+  return Math.max(minUsd, closeLeg * 1.1);
 }
 
 export function profitClearsFeeGate(
@@ -165,7 +165,7 @@ export function shouldArmBreakevenProtection(
 ): boolean {
   if (pnlUsd <= 0) return false;
   const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  const armMs = Math.min(30_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 30_000));
+  const armMs = Math.min(15_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 15_000));
   return timeInProfitMs >= armMs;
 }
 
@@ -198,15 +198,17 @@ export function shouldUpgradeToTrailing(
 }
 
 /** LONGs: trail / peak-floor / peak-grab only after a real run (peak ROE). */
-function longPeakTooSmallToTrailClose(
+export function longPeakTooSmallToTrailClose(
   direction: 'LONG' | 'SHORT',
   peakPnlUsd: number,
-  collateralUsd: number
+  collateralUsd: number,
+  coin = ''
 ): boolean {
   if (direction !== 'LONG') return false;
   const minRoe = config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 0;
-  if (minRoe <= 0) return false;
-  return roePct(peakPnlUsd, collateralUsd) < minRoe;
+  const floor = isMajorFillCoin(coin) ? Math.max(15, minRoe) : minRoe;
+  if (floor <= 0) return false;
+  return roePct(peakPnlUsd, collateralUsd) < floor;
 }
 
 /** @deprecated use shouldArmBreakevenProtection / shouldUpgradeToTrailing */
@@ -262,31 +264,42 @@ function stagedProfitLock(
   feesUsd: number,
   direction: 'LONG' | 'SHORT',
   phase: TrailPhase,
-  collateralUsd = 0
+  collateralUsd = 0,
+  coin = ''
 ): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
-  if (!(peakPnlUsd > 0) || !(need > 0)) return null;
-  const ratio = peakPnlUsd / need;
+  if (!(peakPnlUsd > 0)) return null;
+  const ratio = need > 0 ? peakPnlUsd / need : 99;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
   if (ratio < 2) {
     level = 'fee';
-    keepFrac = 0;
+    keepFrac = 0.82;
   } else if (ratio < 4) {
     level = 'partial';
-    keepFrac = 0.55;
+    keepFrac = 0.7;
   } else if (ratio < 8) {
     level = 'core';
-    keepFrac = 0.4;
+    keepFrac = 0.55;
   } else {
     level = 'runner';
     keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
+      phase === 'trailing' ? (direction === 'LONG' ? 0.4 : 0.42) : 0.5;
   }
+  // Majors: lock a small chunk of the peak (default drop 0.78 → keep ~22%).
+  // 82% keep on a $14 SOL print sniped the runner that went to ~$70.
+  if (isMajorFillCoin(coin)) {
+    const drop = config.hyperliquid.dynamicTrail.longProfitFloorPeakDropFrac || 0.78;
+    keepFrac = Math.max(0.18, Math.min(0.4, 1 - drop));
+    if (ratio >= 8) level = 'runner';
+  }
+  // Floor must sit under the print or it never snaps (lock $19 on a $11 peak).
+  const raw = Math.max(need, peakPnlUsd * keepFrac);
+  const lockUsd = Math.min(peakPnlUsd * 0.85, raw);
   return {
     level,
     keepFrac,
-    lockUsd: Math.max(need, peakPnlUsd * keepFrac),
+    lockUsd: Math.max(0.75, lockUsd),
   };
 }
 
@@ -301,10 +314,18 @@ export function peakProfitFloorStopPx(
   peakPnlUsd: number,
   feesUsd: number,
   phase: TrailPhase,
-  collateralUsd = 0
+  collateralUsd = 0,
+  coin = ''
 ): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
   if (entryPrice <= 0 || absSize <= 0) return null;
-  const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase, collateralUsd);
+  const staged = stagedProfitLock(
+    peakPnlUsd,
+    feesUsd,
+    direction,
+    phase,
+    collateralUsd,
+    coin
+  );
   const lockUsd =
     staged?.lockUsd ??
     profitCloseNeedUsd(feesUsd, collateralUsd);
@@ -525,6 +546,12 @@ async function evaluateDynamicTrailInner(
         input.collateralUsd,
         rec.timeInProfitMs,
         input.totalHoldMs
+      ) &&
+      !longPeakTooSmallToTrailClose(
+        input.direction,
+        rec.highestPnlSinceEntry,
+        input.collateralUsd,
+        input.coin
       )
     ) {
       const initialStop = peakProfitFloorStopPx(
@@ -534,7 +561,8 @@ async function evaluateDynamicTrailInner(
         rec.highestPnlSinceEntry,
         feesUsd,
         'armed',
-        input.collateralUsd
+        input.collateralUsd,
+        input.coin
       );
       if (initialStop == null) {
         return {
@@ -660,38 +688,31 @@ async function evaluateDynamicTrailInner(
       rec.highestPnlSinceEntry,
       feesUsd,
       rec.phase,
-      input.collateralUsd
+      input.collateralUsd,
+      input.coin
     );
     if (floorStop != null) {
       const candidate = floorStop.px;
-      const wouldCross = isTrailStopCrossed(
-        input.direction,
-        input.markPrice,
-        candidate
-      );
       const closeSafe = profitClearsFeeGate(
         input.pnlUsd,
         feesUsd,
         rec.highestPnlSinceEntry,
         input.collateralUsd
       );
-      // Don't snap the floor through mark on a leftover that wouldn't clear fees.
-      if (!wouldCross || closeSafe) {
-        rec.currentTrailStop = candidate;
-      }
+      // Always park the floor under the peak. Skipping when already through
+      // mark left a $19 fee-lock on a $11 BTC winner (never snapped).
+      rec.currentTrailStop = candidate;
       const activeFloor = rec.currentTrailStop ?? candidate;
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd) &&
         !trailTooYoungToClose(rec, input.nowMs, 1) &&
-        !(
-          rec.phase === 'trailing' &&
-          longPeakTooSmallToTrailClose(
-            input.direction,
-            rec.highestPnlSinceEntry,
-            input.collateralUsd
-          )
+        !longPeakTooSmallToTrailClose(
+          input.direction,
+          rec.highestPnlSinceEntry,
+          input.collateralUsd,
+          input.coin
         )
       ) {
         const detail = `PEAK PROFIT FLOOR ${floorStop.level.toUpperCase()} · ${input.direction} ${input.coin} · lock $${floorStop.lockUsd.toFixed(4)} (${(floorStop.keepFrac * 100).toFixed(0)}% of peak, ≥ fees) · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
@@ -794,7 +815,8 @@ async function evaluateDynamicTrailInner(
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,
-        input.collateralUsd
+        input.collateralUsd,
+        input.coin
       )
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
@@ -818,7 +840,8 @@ async function evaluateDynamicTrailInner(
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,
-        input.collateralUsd
+        input.collateralUsd,
+        input.coin
       )
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;

@@ -1397,6 +1397,8 @@ const healthServer = http.createServer(async (req, res) => {
           aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
+          scanUniverseCoins: config.hyperliquid.botTradeCoins,
+          botUniverse: config.hyperliquid.botTradeCoins,
         })
       );
     } catch (err: any) {

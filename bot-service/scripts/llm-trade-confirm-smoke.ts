@@ -201,16 +201,17 @@ const scenarios: Array<{ name: string; input: LlmTradeConfirmInput }> = [
 async function main() {
   // Offline parse checks for schema A
   console.log('=== SCHEMA A PARSE CHECKS ===');
-  const hold = parseLlmJson('{"verdict":"hold","confidence":50,"reason":"wait"}', 'LONG');
+  const hold = parseLlmJson('{"decision":"HOLD","location":"MID_RANGE","extension":"LOW","nearest_structure":"NONE","confidence":50,"reason":"wait"}', 'LONG');
   const flip = parseLlmJson(
-    '{"verdict":"flip","confidence":82,"reason":"oversized candle exhaustion after quiet 12 bars"}',
+    '{"decision":"FLIP","location":"TOP","extension":"HIGH","nearest_structure":"RESISTANCE","confidence":82,"reason":"oversized candle exhaustion"}',
     'LONG'
   );
   const allow = parseLlmJson(
-    '{"verdict":"allow","confidence":70,"reason":"even green candles vs last 10 — durable trend"}',
+    '{"decision":"ALLOW","location":"LOWER_RANGE","extension":"LOW","nearest_structure":"SUPPORT","confidence":70,"reason":"pullback to support with room"}',
     'LONG'
   );
-  console.log(JSON.stringify({ hold, flip, allow }, null, 2));
+  const incomplete = parseLlmJson('{"decision":"ALLOW","confidence":70,"reason":"ok"}', 'LONG');
+  console.log(JSON.stringify({ hold, flip, allow, incomplete }, null, 2));
 
   console.log('\n=== EXAMPLE REQUEST PAYLOAD (schema A, scenario 1) ===\n');
   const samplePayload = buildGeminiRequestPayload(scenarios[0].input);

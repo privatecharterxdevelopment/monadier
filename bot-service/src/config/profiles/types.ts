@@ -78,7 +78,7 @@ export type HlDirectionProfile = {
   /** Structural pre-open micro-check (candle count + timeframe). */
   preOpenTimeframe: HlPreOpenTimeframe;
   preOpenTimeframeLong: '15m';
-  preOpenTimeframeShort: '1m';
+  preOpenTimeframeShort: '15m';
   preOpenCandleCount: number;
   /**
    * Pre-open volume ratio floor. June short used 0.85; long regime kept later 0.5.

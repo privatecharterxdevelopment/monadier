@@ -7,13 +7,13 @@
  * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
  * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
- * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
- * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
+ * At resistance: never SHORT (no R-fade, no LONG→SHORT flip).
+ * BTC pumping does NOT waive resistance — wait for confirmed close-hold breakout.
+ * Dump SHORTs = breakdown, not fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { logger } from '../utils/logger';
-import { btcTapeIsGreen } from './macroBetaGate';
 import {
   computeResistanceZone,
   computeSupportZone,
@@ -274,31 +274,6 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    // BTC / majors still green: LONG through local R. Never fade a green tape.
-    if (
-      btcTapeIsGreen() &&
-      (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock)
-    ) {
-      return {
-        ok: true,
-        analysis,
-        reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
-      };
-    }
-    // At the resistance line: no LONG unless green tape / confirmed breakout.
-    // Do NOT flip to SHORT — resistance shorts are off.
-    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
-      const zone =
-        analysis.resistanceZone != null
-          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
-          : fmtLevel(analysis.resistance);
-      return {
-        ok: false,
-        analysis,
-        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
-      };
-    }
-
     const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
     const clearedAboveR =
       ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
@@ -307,6 +282,20 @@ export function evaluateEntryLocation(
         ok: true,
         analysis,
         reason: `Breakout through resistance ${fmtLevel(ceiling)} confirmed`,
+      };
+    }
+
+    // At the resistance line: no LONG unless confirmed breakout hold (above).
+    // BTC pumping does not make tagging resistance a valid chase.
+    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
+      const zone =
+        analysis.resistanceZone != null
+          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+          : fmtLevel(analysis.resistance);
+      return {
+        ok: false,
+        analysis,
+        reason: `LONG blocked — at/near upper range R ${zone} (wait for confirmed close-hold, do not chase)`,
       };
     }
 
