@@ -293,7 +293,10 @@ async function scanStandardCoinDirection(
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
     if (!analysis) return null;
-    if (analysis.isWeak) return null;
+    // Strategy isWeak uses 60%. Aug 21 profile LONGs fire at 52% / 2 TFs.
+    if (analysis.isWeak && (analysis.metrics?.directionalTfCount ?? 0) < 2) {
+      return null;
+    }
     if (analysis.direction !== wantedDirection) return null;
 
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
@@ -311,11 +314,12 @@ async function scanStandardCoinDirection(
 
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
+    const profileMin = rulesFor(wantedDirection).minConfidence;
     const minConf = cautious
       ? config.hyperliquid.cautiousScan.minSignalConfidence
       : relaxed
-        ? Math.max(52, config.hyperliquid.minSignalConfidence - 5)
-        : config.hyperliquid.minSignalConfidence;
+        ? Math.min(profileMin, 48)
+        : profileMin;
     if (analysis.confidence < minConf) return null;
     const minTfs = relaxed
       ? 2
@@ -630,44 +634,48 @@ export async function scanGlobalHlSignals(
   let finalStandard = standard;
   let aggressiveFiltered = aggressive;
 
-  if (finalStandard.length === 0) {
-    const topCoins = coins.slice(0, 10);
-    const relaxedRaw = await mapPool(topCoins, concurrency, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return scanStandardCoin(coin, liq, universe, true);
-    });
-    finalStandard = relaxedRaw
-      .filter((c): c is GlobalSignalCandidate => c !== null)
-      .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
-    if (finalStandard.length > 0) {
-      logger.info('Global HL scan — relaxed fallback used', {
-        count: finalStandard.length,
-        top: finalStandard[0]?.coin,
-        direction: finalStandard[0]?.direction,
-        conf: finalStandard[0]?.confidence,
-      });
-    }
-  }
+  const longCount = (rows: GlobalSignalCandidate[]) =>
+    rows.filter((c) => c.direction === 'LONG').length;
 
-  if (finalStandard.length === 0) {
-    const majorCoins = ['BTC', 'ETH'].filter((c) => coins.includes(c));
-    const majorRaw = await mapPool(majorCoins, 2, async (coin) => {
+  // FOGO/CHIP shorts occupying the list must not skip BTC/ETH LONG fallback.
+  if (
+    finalStandard.length === 0 ||
+    (config.hyperliquid.directionProfile.primaryDirection === 'LONG' &&
+      longCount(finalStandard) === 0)
+  ) {
+    const majorCoins = ['BTC', 'ETH', 'SOL'].filter((c) => coins.includes(c));
+    const majorRaw = await mapPool(majorCoins, 3, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
       return scanMajorChartFallback(coin, liq, universe);
     });
-    finalStandard = majorRaw
-      .filter((c): c is GlobalSignalCandidate => c !== null)
-      .sort((a, b) => b.confidence - a.confidence);
-    if (finalStandard.length > 0) {
+    const majors = majorRaw.filter((c): c is GlobalSignalCandidate => c !== null);
+    if (finalStandard.length === 0) {
+      finalStandard = majors.sort((a, b) => b.confidence - a.confidence);
+    } else {
+      const seen = new Set(finalStandard.map((c) => c.coin.toUpperCase()));
+      for (const row of majors) {
+        if (row.direction !== 'LONG') continue;
+        if (seen.has(row.coin.toUpperCase())) continue;
+        finalStandard.unshift(row);
+        seen.add(row.coin.toUpperCase());
+      }
+    }
+    if (majors.length > 0) {
       logger.info('Global HL scan — major chart fallback used', {
-        count: finalStandard.length,
-        top: finalStandard[0]?.coin,
-        direction: finalStandard[0]?.direction,
-        conf: finalStandard[0]?.confidence,
+        count: majors.length,
+        top: majors[0]?.coin,
+        direction: majors[0]?.direction,
+        conf: majors[0]?.confidence,
       });
     }
+  }
+
+  if (config.hyperliquid.directionProfile.primaryDirection === 'LONG') {
+    finalStandard = [...finalStandard].sort((a, b) => {
+      if (a.direction !== b.direction) return a.direction === 'LONG' ? -1 : 1;
+      return b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence;
+    });
   }
 
   lastGlobalScanResult = { standard: finalStandard, aggressive: aggressiveFiltered };
