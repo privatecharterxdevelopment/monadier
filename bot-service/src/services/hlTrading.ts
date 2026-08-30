@@ -972,17 +972,10 @@ export class HyperliquidTradingService {
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
-      const signalsForBook = (() => {
-        const allowed = signals.filter((s) => {
-          if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
-          return true;
-        });
-        if (config.hyperliquid.directionProfile.primaryDirection !== 'LONG') {
-          return allowed;
-        }
-        const longs = allowed.filter((s) => s.direction === 'LONG');
-        return longs.length > 0 ? longs : allowed;
-      })();
+      const signalsForBook = signals.filter((s) => {
+        if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
+        return true;
+      });
       if (signalsForBook.length === 0) {
         break;
       }
