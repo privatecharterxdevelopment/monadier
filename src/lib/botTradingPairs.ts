@@ -52,7 +52,6 @@ export const BOT_TRADE_FALLBACK_COINS = [
   'JTO',
   'TAO',
   'ENA',
-  'KAITO',
   'XPL',
   'TIA',
   'JUP',
@@ -86,6 +85,7 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'WLD',
   'XLM',
   'MON',
+  'KAITO',
 ]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
@@ -110,7 +110,8 @@ export function isHiddenFromBotUi(coin: string): boolean {
     compact === 'VVV' ||
     compact === 'WLD' ||
     compact === 'XLM' ||
-    compact === 'MON'
+    compact === 'MON' ||
+    compact === 'KAITO'
   );
 }
 
