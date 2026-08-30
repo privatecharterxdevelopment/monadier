@@ -436,6 +436,24 @@ export function evaluateZoneReversalGate(
       breakoutBars
     );
 
+    if (bounced) {
+      if (direction === 'LONG') {
+        return {
+          ok: true,
+          reason: `Support-zone bounce confirmed ($${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)})`,
+          insideResistance,
+          insideSupport,
+        };
+      }
+      return {
+        ok: true,
+        flipTo: 'LONG',
+        reason: `Support-zone bounce → flip SHORT→LONG ($${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)})`,
+        insideResistance,
+        insideSupport,
+      };
+    }
+
     if (brokeDown) {
       if (direction === 'SHORT') {
         return {
@@ -454,28 +472,9 @@ export function evaluateZoneReversalGate(
       };
     }
 
-    if (direction === 'LONG') {
-      return {
-        ok: true,
-        reason: `At support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)} — signal LONG is a LONG`,
-        insideResistance,
-        insideSupport,
-      };
-    }
-
-    if (bounced) {
-      return {
-        ok: true,
-        flipTo: 'LONG',
-        reason: `Support-zone bounce → flip SHORT→LONG ($${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)})`,
-        insideResistance,
-        insideSupport,
-      };
-    }
-
     return {
       ok: false,
-      reason: `Inside support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)}; wait for breakdown — do not sell the floor blind`,
+      reason: `Inside support zone $${support.zoneLow.toFixed(4)}–$${support.zoneHigh.toFixed(4)}; wait for bounce (→LONG) or breakdown (→SHORT) — do not sell the floor blind`,
       insideResistance,
       insideSupport,
     };

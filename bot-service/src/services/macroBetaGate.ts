@@ -464,6 +464,10 @@ export async function evaluateMacroBetaAlignment(opts: {
 
   if (opts.direction === 'SHORT') {
     blockers.push(...isPumping(snapshot.coinMom, coin, true));
+    if (scope === 'open') {
+      const btcShort = btcLeadAllowsCautiousShort();
+      if (!btcShort.ok) blockers.push(btcShort.reason);
+    }
   } else {
     blockers.push(...isDumping(snapshot.coinMom, coin, true));
   }

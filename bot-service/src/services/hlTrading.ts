@@ -47,7 +47,7 @@ import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
 import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
-import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
+import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
@@ -63,7 +63,6 @@ import {
 } from './pumpSweepAnalytics';
 import {
   isPeakShortOverride,
-  isLongAtPeak,
 } from './peakShortLiquidity';
 import { confirmTradeWithLlm } from './llmTradeConfirmGate';
 import {
@@ -973,17 +972,10 @@ export class HyperliquidTradingService {
     const funding = await fetchHlPerpFundingSnapshot(userAddress);
 
     while (coinsOpen.length < maxPositions) {
-      const signalsForBook = (() => {
-        const allowed = signals.filter((s) => {
-          if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
-          return true;
-        });
-        if (config.hyperliquid.directionProfile.primaryDirection !== 'LONG') {
-          return allowed;
-        }
-        const longs = allowed.filter((s) => s.direction === 'LONG');
-        return longs.length > 0 ? longs : allowed;
-      })();
+      const signalsForBook = signals.filter((s) => {
+        if (s.direction === 'LONG' && !isLongAllowedCoin(s.coin)) return false;
+        return true;
+      });
       if (signalsForBook.length === 0) {
         break;
       }
@@ -1259,6 +1251,16 @@ export class HyperliquidTradingService {
       }
 
       await refreshBtcLeadMomentum();
+      if (!force && opts.direction === 'SHORT') {
+        const btcShort = btcLeadAllowsCautiousShort();
+        if (!btcShort.ok) {
+          return rejectOpen(
+            'macro_beta',
+            `No SHORT — ${btcShort.reason}`,
+            'no SHORT into green/inflow BTC'
+          );
+        }
+      }
 
       // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.
       if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
@@ -1288,18 +1290,16 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Never LONG a meme wick high. BTC/ETH/SOL continuation at the high is a LONG.
+      // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
+      // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
       if (
-        !force &&
         opts.direction === 'LONG' &&
-        isLongAtPeak(peakAnalysis) &&
-        coin !== 'BTC' &&
-        coin !== 'ETH' &&
-        coin !== 'SOL'
+        peakAnalysis?.phase === 'at_apex' &&
+        !btcLeadIsPumping()
       ) {
         return rejectOpen(
           'pump_sweep',
-          `LONG blocked — ${coin} at pump apex $${(peakAnalysis?.pumpApex ?? 0).toFixed(2)} — peak is not a LONG`,
+          `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
           'peak blocks LONG'
         );
       }

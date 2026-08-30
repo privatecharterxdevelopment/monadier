@@ -90,11 +90,11 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
-/** Profit exits must stay net green after the remaining close fee (entry already paid). */
+/** Profit exits must stay net green after fees — never harvest a cents stub. */
 export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
   const trail = config.hyperliquid.dynamicTrail;
   const raw = trail.minProfitCloseFeesMult;
-  const mult = Number.isFinite(raw) && raw > 0 ? raw : 0.5;
+  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
   const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
   const vsMargin =
     collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
@@ -249,8 +249,13 @@ function breakevenPlusFeesStopPx(
 }
 
 /**
- * Staged in-profit lock — sit tight under the peak and take the meat.
- * $11 peak → lock ~$9 (L2 85%). Giveback ~15–20%, not 65%+.
+ * Staged in-profit lock: several rungs so fees cannot eat a small winner,
+ * while a real run still has air to develop.
+ *
+ *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
+ *   L2 partial peak < 4× min-close → keep ~55%
+ *   L3 core    peak < 8× min-close → keep ~40%
+ *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
  */
 function stagedProfitLock(
   peakPnlUsd: number,
@@ -264,18 +269,19 @@ function stagedProfitLock(
   const ratio = peakPnlUsd / need;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
-  if (ratio < 1.25) {
+  if (ratio < 2) {
     level = 'fee';
-    keepFrac = 0.9;
-  } else if (ratio < 2.5) {
+    keepFrac = 0;
+  } else if (ratio < 4) {
     level = 'partial';
-    keepFrac = 0.85;
-  } else if (ratio < 5) {
+    keepFrac = 0.55;
+  } else if (ratio < 8) {
     level = 'core';
-    keepFrac = 0.82;
+    keepFrac = 0.4;
   } else {
     level = 'runner';
-    keepFrac = 0.8;
+    keepFrac =
+      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
   }
   return {
     level,
@@ -768,27 +774,32 @@ async function evaluateDynamicTrailInner(
     }
 
     const peakFracBase = config.hyperliquid.profitPeakDropFraction;
-    const peakFrac = peakFracBase > 0 ? peakFracBase : 0.18;
-    const needUsd = profitCloseNeedUsd(feesUsd, input.collateralUsd);
+    // LONGs get extra giveback room so stage-2 trail can run with explosions.
+    // Still capped — stages are not skipped; grab only after a real peak retrace.
+    const peakFrac =
+      input.direction === 'LONG'
+        ? Math.min(0.82, peakFracBase * 1.2)
+        : peakFracBase;
+    const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
+    const runWiden =
+      trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
     if (
-      rec.highestPnlSinceEntry >= needUsd &&
+      rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
+      rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd)
+      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longPeakTooSmallToTrailClose(
+        input.direction,
+        rec.highestPnlSinceEntry,
+        input.collateralUsd
+      )
     ) {
       const drop = rec.highestPnlSinceEntry - input.pnlUsd;
-      const minDrop = rec.highestPnlSinceEntry * peakFrac;
-      if (
-        drop >= minDrop &&
-        profitClearsFeeGate(
-          input.pnlUsd,
-          feesUsd,
-          rec.highestPnlSinceEntry,
-          input.collateralUsd
-        )
-      ) {
+      const minDrop = Math.max(feesUsd, rec.highestPnlSinceEntry * peakFrac * runWiden);
+      if (drop >= minDrop) {
         const detail = `PEAK PROFIT GRAB · ${input.direction} ${input.coin} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)}`;
         return {
           record: rec,

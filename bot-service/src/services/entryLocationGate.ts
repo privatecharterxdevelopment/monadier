@@ -4,15 +4,21 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * Never invert the MTF signal. LONG: take the long print except at the wick high.
- * SHORT: breakdown, not R-fade.
+ * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
+ * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
+ * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
+ * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
+ * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { logger } from '../utils/logger';
+import { btcTapeIsGreen } from './macroBetaGate';
 import {
   computeResistanceZone,
   computeSupportZone,
   evaluateZoneReversalGate,
+  zoneReversalConfirmed,
   type PriceZone,
 } from './resistanceZone';
 
@@ -268,18 +274,20 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    // Signal LONG is a LONG (mid-range / continuation included). Only skip tagging R.
-    if (analysis.nearResistance) {
-      const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
-      const clearedAboveR =
-        ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
-      if (analysis.confirmedBreakoutUp && clearedAboveR) {
-        return {
-          ok: true,
-          analysis,
-          reason: `Breakout through resistance ${fmtLevel(ceiling)} confirmed`,
-        };
-      }
+    // BTC / majors still green: LONG through local R. Never fade a green tape.
+    if (
+      btcTapeIsGreen() &&
+      (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock)
+    ) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
+      };
+    }
+    // At the resistance line: no LONG unless green tape / confirmed breakout.
+    // Do NOT flip to SHORT — resistance shorts are off.
+    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
       const zone =
         analysis.resistanceZone != null
           ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
@@ -287,13 +295,35 @@ export function evaluateEntryLocation(
       return {
         ok: false,
         analysis,
-        reason: `LONG blocked — tagging range high R ${zone} (not a LONG at the peak)`,
+        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
       };
     }
+
+    const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
+    const clearedAboveR =
+      ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
+    if (analysis.confirmedBreakoutUp && clearedAboveR) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Breakout through resistance ${fmtLevel(ceiling)} confirmed`,
+      };
+    }
+
+    // 3) Lower line / near S → LONG allowed (bounce).
+    if (analysis.nearSupport || analysis.pricePosition <= cfg.rangeBottomBlock) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Support/lower-range LONG (${(analysis.pricePosition * 100).toFixed(0)}% of range, S ${fmtLevel(analysis.support)})`,
+      };
+    }
+
+    // 4) Mid-range — no LONG.
     return {
-      ok: true,
+      ok: false,
       analysis,
-      reason: `LONG location OK (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
+      reason: `LONG blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need lower line / S ≤${(cfg.rangeBottomBlock * 100).toFixed(0)}% or breakout above R)`,
     };
   }
 
@@ -399,15 +429,69 @@ export async function validateEntryLocation(opts: {
     };
   }
 
-  // Never invert the MTF signal. Bad location = wait, not a flip.
-  if (zoneGate.flipTo && zoneGate.flipTo !== opts.direction) {
+  // Floor reverse: confirmed support bounce → LONG on ANY coin (user: not majors-only).
+  // Dump tape (incl. BTC) still hard-blocks in hlTrading — no knife into red tape.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
+    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
+      return {
+        ok: false,
+        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
+        analysis: sr,
+      };
+    }
+    logger.info('HL floor/R zone flip proposed', {
+      coin: opts.coin,
+      from: opts.direction,
+      to: zoneGate.flipTo,
+      reason: zoneGate.reason,
+      profile: config.hyperliquid.directionProfile.name,
+    });
+    return {
+      ok: true,
+      reason: zoneGate.reason,
+      analysis: sr,
+      flipTo: zoneGate.flipTo,
+    };
+  }
+
+  // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).
+  if (
+    !config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
     return {
       ok: false,
-      reason: `${zoneGate.reason} — signal is ${opts.direction}, no direction invert`,
+      reason: `${zoneGate.reason} — zone flip disabled; waiting (no counter-open)`,
       analysis: sr,
     };
   }
 
   const classic = evaluateEntryLocation(opts.direction, sr);
+  const revCandles = candles5.length >= 12 ? candles5 : candles15;
+
+  // Floor reverse (classic): SHORT at S + bounce → LONG any coin when LONGs enabled.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    config.hyperliquid.directionProfile.allowLongOpens &&
+    opts.direction === 'SHORT' &&
+    !classic.ok &&
+    sr.nearSupport &&
+    !sr.confirmedBreakdown &&
+    sr.supportZone != null &&
+    zoneReversalConfirmed(revCandles, sr.supportZone, 4)
+  ) {
+    return {
+      ok: true,
+      reason: `Floor reverse — support bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
+      analysis: sr,
+      flipTo: 'LONG',
+    };
+  }
+
   return classic;
 }

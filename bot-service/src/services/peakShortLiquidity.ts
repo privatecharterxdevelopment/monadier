@@ -20,11 +20,6 @@ export function isPostPeakShortPhase(phase: PumpSweepPhase | string | null | und
   return phase === 'at_apex' || phase === 'post_pump_fade';
 }
 
-/** At the pump wick high — no new LONGs. Continuation / mid-range LONGs stay allowed. */
-export function isLongAtPeak(analysis: PumpSweepAnalysis | null | undefined): boolean {
-  return analysis?.phase === 'at_apex';
-}
-
 export type PeakDirectionResolution = {
   direction: 'LONG' | 'SHORT';
   /** True when a LONG (or flat primary) was forced to SHORT because of the apex. */
