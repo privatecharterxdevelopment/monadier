@@ -1537,7 +1537,21 @@
       "atEmail": " {{email}} पर",
       "on": "चालू",
       "off": "बंद",
-      "saveFailed": "सेव नहीं हो सका"
+      "saveFailed": "सेव नहीं हो सका",
+      "followEmailTitle": "फॉलो किए गए ट्रेडर ईमेल",
+      "followEmailDesc": "जब कोई Hyperliquid ट्रेडर जिसे आप फॉलो करते हैं पोज़ीशन खोले तो ईमेल{{at}}।",
+      "followTitle": "Hyperliquid ट्रेडर फॉलो करें",
+      "followDesc": "Hyperliquid यूज़रनेम खोजें या 0x वॉलेट पेस्ट करें। ट्रेड खुलने पर सूचना मिलेगी — HyperGain कॉपी नहीं करता।",
+      "followPlaceholder": "यूज़रनेम या 0x…",
+      "followAdd": "जोड़ें",
+      "followAdded": "जोड़ा गया",
+      "followEmpty": "अभी कोई ट्रेडर फॉलो नहीं।",
+      "followLoading": "लोड हो रहा है…",
+      "followLimit": "{{count}} / {{max}} फॉलो",
+      "followRemoveAria": "अनफॉलो",
+      "followSearchFailed": "खोज विफल",
+      "followAddFailed": "ट्रेडर नहीं जोड़ा जा सका",
+      "followRemoveFailed": "ट्रेडर नहीं हटाया जा सका"
     },
     "tradeEmail": {
       "title": "बंद ट्रेड पर ट्रेड सूचनाएँ",
@@ -1604,7 +1618,8 @@
     "viewHistory": "इतिहास देखें",
     "kindBet": "बेट",
     "kindBot": "बॉट",
-    "kindCommunity": "कम्युनिटी"
+    "kindCommunity": "कम्युनिटी",
+    "kindFollow": "फॉलो"
   },
   "news": {
     "title": "समाचार",

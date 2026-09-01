@@ -32,10 +32,10 @@ export const CAUTIOUS_ALTS = new Set([
   'BRETT',
 ]);
 
-export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL']);
+export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE']);
 
 /** Empty-slot fill order — chart majors the bot should try before alt wicks. */
-export const MAJOR_FILL_COINS = ['BTC', 'ETH', 'SOL'] as const;
+export const MAJOR_FILL_COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE'] as const;
 
 export function isMajorFillCoin(coin: string): boolean {
   return (MAJOR_FILL_COINS as readonly string[]).includes(coin.toUpperCase());

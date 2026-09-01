@@ -6,6 +6,7 @@ import { applyStoredReferralForUser } from '../lib/referralCapture';
 import { emitAuthSignedIn } from '../components/auth/AuthWalletReset';
 import { setWalletAuthGate } from '../lib/walletAuthGate';
 import { User } from '@supabase/supabase-js';
+import { isRegistrationClosedError } from '../lib/productShutdown';
 
 // Demo account constants
 const DEMO_EMAIL = 'amanda.campbell22@gmail.com';
@@ -86,6 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await withTimeout(ensureUserProfile(currentUser), PROFILE_TIMEOUT_MS);
       } catch (error) {
+        if (isRegistrationClosedError(error)) {
+          return;
+        }
         console.error('[Auth] ensureUserProfile failed:', error);
         if (attempt < MAX_PROFILE_RETRIES) {
           const timer = setTimeout(() => {

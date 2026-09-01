@@ -1429,7 +1429,8 @@
     "empty": "Sin actividad aún",
     "viewHistory": "Ver historial",
     "kindBet": "Apuesta",
-    "kindBot": "Agent"
+    "kindBot": "Agent",
+    "kindFollow": "Seguir"
   },
   "news": {
     "title": "Noticias",

@@ -18,6 +18,7 @@ import {
   isEmailConfirmationRequired,
   authErrorCode,
 } from './authErrors';
+import { REGISTRATION_CLOSED, REGISTRATION_CLOSED_MESSAGE } from '../productShutdown';
 
 export type RegisterFormValues = {
   fullName: string;
@@ -44,6 +45,9 @@ export async function startGoogleAuth(messages: Pick<RegisterFlowMessages, 'goog
   ok: boolean;
   error?: string;
 }> {
+  if (REGISTRATION_CLOSED) {
+    return { ok: false, error: REGISTRATION_CLOSED_MESSAGE };
+  }
   try {
     const { error } = await signInWithGoogle();
     if (error) throw error;
@@ -60,6 +64,9 @@ export async function submitRegister(
   values: RegisterFormValues,
   messages: RegisterFlowMessages
 ): Promise<RegisterFlowResult> {
+  if (REGISTRATION_CLOSED) {
+    return { ok: false, error: REGISTRATION_CLOSED_MESSAGE };
+  }
   if (!values.acceptedTerms) {
     return { ok: false, error: messages.acceptTermsRequired };
   }

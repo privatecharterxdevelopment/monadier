@@ -77,6 +77,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                 const unread = isUnread(n);
                 const isBetting = n.kind === 'betting';
                 const isCommunity = n.kind === 'community';
+                const isFollow = n.kind === 'follow';
                 return (
                   <li key={n.id}>
                     <button
@@ -95,6 +96,11 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                               <span className="hl-notif-kind">{t('notifications.kindCommunity')}</span>{' '}
                               {n.headline}
                             </>
+                          ) : isFollow ? (
+                            <>
+                              <span className="hl-notif-kind">{t('notifications.kindFollow')}</span>{' '}
+                              {n.headline}
+                            </>
                           ) : isBetting ? (
                             <>
                               <span className="hl-notif-kind">{t('notifications.kindBet')}</span>{' '}
@@ -105,7 +111,7 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             n.headline
                           )}
                         </span>
-                        {!isCommunity ? (
+                        {!isCommunity && !isFollow ? (
                           <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
                             {fmtClosedPnl(n.profitLoss)}
                             {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
@@ -126,7 +132,12 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             {n.detail.length > 48 ? '…' : ''}
                           </span>
                         ) : null}
-                        {!isBetting && !isCommunity && n.highlightId ? (
+                        {isFollow && n.detail ? (
+                          <span className="hl-notif-kind" style={{ marginLeft: 6 }}>
+                            {n.detail.split('\n')[0]}
+                          </span>
+                        ) : null}
+                        {!isBetting && !isCommunity && !isFollow && n.highlightId ? (
                           <span className="hl-notif-kind">{t('notifications.kindBot')}</span>
                         ) : null}
                       </span>

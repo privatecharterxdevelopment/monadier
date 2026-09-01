@@ -415,7 +415,7 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   const switchToRegister = useCallback(() => {
     setSignInReason(undefined);
-    setAuthModal('register');
+    setAuthModal('signin');
   }, []);
 
   const switchToSignIn = useCallback(() => {
@@ -441,10 +441,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     setSearchParams(params, { replace: true });
 
     if (user) return;
-    if (auth === 'register') {
-      setSignInReason(undefined);
-      setAuthModal('register');
-    } else {
+    if (auth === 'register' || auth === 'signin' || auth === 'login') {
       setAuthModal('signin');
     }
   }, [sessionReady, user, searchParams, setSearchParams]);
@@ -667,6 +664,10 @@ const Dashboard2ProPageContent: React.FC = () => {
     }
     if (notification.kind === 'community') {
       openBotHistory();
+      return;
+    }
+    if (notification.kind === 'follow') {
+      openProfile('security');
       return;
     }
     if (notification.kind === 'betting') {

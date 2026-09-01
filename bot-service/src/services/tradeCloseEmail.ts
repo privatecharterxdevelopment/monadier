@@ -28,6 +28,7 @@ type PendingRow = {
   trade_history_id: string | null;
   hl_betting_close_id: string | null;
   community_post_id: string | null;
+  wallet_address?: string;
   headline: string;
   detail: string | null;
   profit_loss: number | string;
@@ -405,15 +406,72 @@ async function sendResendEmail(
   return true;
 }
 
+function followTraderDeepLink(): string {
+  const base = APP_TRADE_HISTORY_URL.replace(/\/$/, '');
+  return `${base}/?section=profile&tab=security`;
+}
+
+function followTraderEmailHtml(params: {
+  headline: string;
+  detail: string | null;
+  closedAt: string;
+  wallet: string;
+}): string {
+  const { headline, detail, closedAt, wallet } = params;
+  const when = new Date(closedAt).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  const openUrl = followTraderDeepLink();
+  const scanUrl = /^0x[a-f0-9]{40}$/.test(wallet)
+    ? `https://hypurrscan.io/address/${wallet}`
+    : openUrl;
+  const unsubscribeUrl = notificationEmailUnsubscribeUrl(APP_TRADE_HISTORY_URL);
+  const safeHeadline = escapeHtml(headline);
+  const safeDetail = detail ? escapeHtml(detail) : null;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff;padding:40px 20px;">
+<tr><td align="center">
+<table width="100%" style="max-width:480px;">
+${emailBrandHeaderHtml()}
+<tr><td style="background:#f5f5f5;border-radius:16px;padding:32px;">
+<h1 style="margin:0 0 8px;font-size:20px;font-weight:500;color:#0a0a0a;text-align:center;">Followed trader opened</h1>
+<p style="margin:0 0 24px;font-size:15px;color:#525252;text-align:center;">${safeHeadline}</p>
+${
+  safeDetail
+    ? `<table width="100%" style="background:#fff;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px;"><p style="margin:0;font-size:14px;color:#0a0a0a;line-height:1.5;white-space:pre-wrap;">${safeDetail}</p></td></tr></table>`
+    : ''
+}
+<p style="margin:0 0 24px;font-size:13px;color:#888;text-align:center;">${when}</p>
+<a href="${scanUrl}" style="display:block;text-align:center;padding:14px 24px;background:#0a0a0a;color:#fff;text-decoration:none;border-radius:50px;font-size:14px;font-weight:500;">View on HypurrScan</a>
+<p style="margin:16px 0 0;font-size:12px;color:#888;text-align:center;"><a href="${openUrl}" style="color:#525252;text-decoration:underline;">Manage follows in ${BRAND_NAME}</a></p>
+</td></tr>
+<tr><td style="padding-top:24px;text-align:center;">
+<p style="margin:0;font-size:12px;color:#888;">
+<a href="${unsubscribeUrl}" style="color:#525252;text-decoration:underline;">Unsubscribe</a>
+ in your ${BRAND_NAME} dashboard (Profile → Security).
+</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 async function resolveUserEmail(userId: string): Promise<{
   email: string | null;
   recipients: string[];
   emailEnabled: boolean;
   communityMentionEmailEnabled: boolean;
+  followTraderEmailEnabled: boolean;
 }> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email, trade_close_email_enabled, community_mention_email_enabled')
+    .select(
+      'email, trade_close_email_enabled, community_mention_email_enabled, follow_trader_email_enabled'
+    )
     .eq('id', userId)
     .maybeSingle();
 
@@ -436,6 +494,7 @@ async function resolveUserEmail(userId: string): Promise<{
     recipients: recipientsForUser(userId, email),
     emailEnabled: profile?.trade_close_email_enabled !== false,
     communityMentionEmailEnabled: profile?.community_mention_email_enabled !== false,
+    followTraderEmailEnabled: profile?.follow_trader_email_enabled !== false,
   };
 }
 
@@ -474,6 +533,7 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
       trade_history_id,
       hl_betting_close_id,
       community_post_id,
+      wallet_address,
       headline,
       detail,
       profit_loss,
@@ -528,6 +588,36 @@ export async function processPendingTradeCloseEmails(limit = 40): Promise<number
             userId: row.user_id.slice(0, 8),
             notificationId: row.id,
             postId: row.community_post_id,
+            to: recipients,
+          });
+        }
+        continue;
+      }
+
+      // Followed HL traders — in-app + optional email (never copies the trade).
+      if (row.kind === 'follow') {
+        const { recipients, followTraderEmailEnabled } = await resolveUserEmail(row.user_id);
+        if (!followTraderEmailEnabled || recipients.length === 0) {
+          await markNotificationEmailHandled(row.id);
+          continue;
+        }
+        const ok = await sendResendEmail(
+          recipients,
+          `${BRAND_NAME} · ${row.headline}`,
+          followTraderEmailHtml({
+            headline: row.headline,
+            detail: row.detail,
+            closedAt: row.closed_at,
+            wallet: row.wallet_address ?? '',
+          })
+        );
+        if (ok) {
+          sent += 1;
+          await markNotificationEmailHandled(row.id);
+          logger.info('Follow-trader email sent', {
+            userId: row.user_id.slice(0, 8),
+            notificationId: row.id,
+            wallet: row.wallet_address?.slice(0, 10),
             to: recipients,
           });
         }

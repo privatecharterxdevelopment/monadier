@@ -1429,7 +1429,8 @@
     "empty": "Пока нет активности",
     "viewHistory": "Смотреть историю",
     "kindBet": "Ставка",
-    "kindBot": "Бот"
+    "kindBot": "Бот",
+    "kindFollow": "Подписка"
   },
   "news": {
     "title": "Новости",

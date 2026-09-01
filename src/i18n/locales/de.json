@@ -1507,7 +1507,21 @@
       "atEmail": " an {{email}}",
       "on": "An",
       "off": "Aus",
-      "saveFailed": "Speichern fehlgeschlagen"
+      "saveFailed": "Speichern fehlgeschlagen",
+      "followEmailTitle": "E-Mails zu gefolgten Tradern",
+      "followEmailDesc": "E-Mail, wenn ein Hyperliquid-Trader, dem du folgst, eine Position öffnet{{at}}.",
+      "followTitle": "Hyperliquid-Trader folgen",
+      "followDesc": "Hyperliquid-Username suchen oder 0x-Wallet einfügen. Du bekommst eine Benachrichtigung, wenn er einen Trade öffnet — HyperGain kopiert ihn nicht.",
+      "followPlaceholder": "Username oder 0x…",
+      "followAdd": "Hinzufügen",
+      "followAdded": "Hinzugefügt",
+      "followEmpty": "Noch keine Trader gefolgt.",
+      "followLoading": "Laden…",
+      "followLimit": "{{count}} / {{max}} gefolgt",
+      "followRemoveAria": "Entfolgen",
+      "followSearchFailed": "Suche fehlgeschlagen",
+      "followAddFailed": "Trader konnte nicht hinzugefügt werden",
+      "followRemoveFailed": "Trader konnte nicht entfernt werden"
     },
     "tradeEmail": {
       "title": "Trade-Benachrichtigungen bei geschlossenen Trades",
@@ -1574,7 +1588,8 @@
     "viewHistory": "Historie anzeigen",
     "kindBet": "Wette",
     "kindBot": "Agent",
-    "kindCommunity": "Community"
+    "kindCommunity": "Community",
+    "kindFollow": "Follow"
   },
   "news": {
     "title": "News",

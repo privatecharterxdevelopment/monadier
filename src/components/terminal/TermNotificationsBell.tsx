@@ -78,6 +78,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                   const unread = isUnread(n);
                   const isBetting = n.kind === 'betting';
                   const isCommunity = n.kind === 'community';
+                  const isFollow = n.kind === 'follow';
                   return (
                     <li key={n.id}>
                       <button
@@ -95,6 +96,10 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                               <>
                                 {t('notifications.kindCommunity')} · {n.headline}
                               </>
+                            ) : isFollow ? (
+                              <>
+                                {t('notifications.kindFollow')} · {n.headline}
+                              </>
                             ) : isBetting ? (
                               <>
                                 {t('notifications.kindBet')} · {n.headline}
@@ -104,7 +109,7 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                               n.headline
                             )}
                           </span>
-                          {!isCommunity ? (
+                          {!isCommunity && !isFollow ? (
                             <span
                               className={
                                 n.profitLoss >= 0
@@ -121,7 +126,19 @@ const TermNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             {date} · {time}
                           </span>
                         </div>
-                        {!isBetting && !isCommunity && n.verifyUrl ? (
+                        {isFollow && n.verifyUrl ? (
+                          <a
+                            href={n.verifyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="term-notif-verify"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            HypurrScan
+                            <ExternalLink size={11} />
+                          </a>
+                        ) : null}
+                        {!isBetting && !isCommunity && !isFollow && n.verifyUrl ? (
                           <a
                             href={n.verifyUrl}
                             target="_blank"

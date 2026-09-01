@@ -13,6 +13,7 @@ import {
   VAULT_SETTINGS_COLUMNS_BASE,
 } from './vaultSettingsSchema';
 import { ARBITRUM_ONE_CHAIN_ID } from './usdcArbitrum';
+import { BOT_SHUT_DOWN } from './productShutdown';
 
 function clampMaxConcurrentPositions(raw: unknown): number {
   const n = Number(raw);
@@ -230,6 +231,9 @@ export async function persistVaultSettings(
 ): Promise<PersistVaultSettingsResult> {
   const wallet = opts.settings.walletAddress.toLowerCase();
   const leverage = clampLeverage(opts.settings.leverage, opts.planTier);
-  const savedSettings = await saveVaultSettingsToDatabase(wallet, opts.settings, leverage);
+  const settings = BOT_SHUT_DOWN
+    ? { ...opts.settings, autoTradeEnabled: false }
+    : opts.settings;
+  const savedSettings = await saveVaultSettingsToDatabase(wallet, settings, leverage);
   return { savedToDatabase: true, syncedOnChain: false, settings: savedSettings };
 }

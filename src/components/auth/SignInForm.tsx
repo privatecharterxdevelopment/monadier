@@ -6,6 +6,7 @@ import { submitSignIn, startGoogleSignIn } from '../../lib/auth/signInFlow';
 import GoogleMark from '../ui/GoogleMark';
 import AuthPasswordField from './AuthPasswordField';
 import { enableDemoMode, isDemoModeAllowed } from '../../lib/demoMode';
+import { REGISTRATION_CLOSED, REGISTRATION_CLOSED_MESSAGE } from '../../lib/productShutdown';
 import '../../styles/auth-form.css';
 
 export type SignInFormProps = {
@@ -137,16 +138,22 @@ const SignInForm: React.FC<SignInFormProps> = ({
       </form>
 
       <p className="hl-signin-foot">
-        {t('auth.signInModal.newHere')}{' '}
-        {registerHref ? (
-          <Link to={registerHref} className="hl-signin-link-btn">
-            {t('auth.signInModal.createAccount')}
-          </Link>
-        ) : (
-          <button type="button" className="hl-signin-link-btn" onClick={onSwitchToRegister}>
-            {t('auth.signInModal.createAccount')}
-          </button>
-        )}
+        {REGISTRATION_CLOSED
+          ? REGISTRATION_CLOSED_MESSAGE
+          : (
+            <>
+              {t('auth.signInModal.newHere')}{' '}
+              {registerHref ? (
+                <Link to={registerHref} className="hl-signin-link-btn">
+                  {t('auth.signInModal.createAccount')}
+                </Link>
+              ) : (
+                <button type="button" className="hl-signin-link-btn" onClick={onSwitchToRegister}>
+                  {t('auth.signInModal.createAccount')}
+                </button>
+              )}
+            </>
+          )}
       </p>
 
       {showDemo && isDemoModeAllowed() ? (

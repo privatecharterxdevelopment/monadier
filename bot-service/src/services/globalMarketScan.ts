@@ -223,7 +223,7 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
 
-/** BTC/ETH/SOL — looser MTF bar so empty slots fill majors instead of alt wicks. */
+/** Liquid majors — looser MTF bar so empty slots fill these instead of alt wicks. */
 async function scanMajorChartFallback(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
@@ -666,8 +666,7 @@ export async function scanGlobalHlSignals(
   let finalStandard = standard;
   let aggressiveFiltered = aggressive;
 
-  // Always keep BTC/ETH/SOL on the book when they print MTF. Alt 100% LONGs
-  // (HYPE/LDO) must not starve the major that should fill empty slots.
+  // Always keep liquid majors on the book when they print MTF. Memes must not starve the fill.
   {
     const majorCoins = MAJOR_FILL_COINS.filter((c) => coins.includes(c));
     const majorRaw = await mapPool(majorCoins, 3, async (coin) => {

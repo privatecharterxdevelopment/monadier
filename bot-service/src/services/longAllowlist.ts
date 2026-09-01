@@ -1,12 +1,12 @@
 /**
- * LONG allowlist — BTC/ETH/SOL in bear / default.
+ * LONG allowlist — liquid majors in bear / default.
  * Bull market: any non-excluded coin may LONG (hard excludes still apply at open).
  * AVA normalizes to AVAX.
  * Override: HL_LONG_ONLY_COINS="*" or "ALL" = unrestricted; "BTC,ETH,SOL" = majors only.
  */
 import { config } from '../config';
 
-const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL'] as const;
+const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE'] as const;
 
 export function normalizeLongCoin(coin: string): string {
   const c = coin.trim().toUpperCase();

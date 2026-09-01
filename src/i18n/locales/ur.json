@@ -1537,7 +1537,21 @@
       "atEmail": " {{email}} پر",
       "on": "آن",
       "off": "بند",
-      "saveFailed": "سیو نہیں ہو سکا"
+      "saveFailed": "سیو نہیں ہو سکا",
+      "followEmailTitle": "فالو کردہ ٹریڈر ای میلز",
+      "followEmailDesc": "جب کوئی Hyperliquid ٹریڈر جسے آپ فالو کرتے ہیں پوزیشن کھولے تو ای میل{{at}}۔",
+      "followTitle": "Hyperliquid ٹریڈرز فالو کریں",
+      "followDesc": "Hyperliquid یوزرنیم تلاش کریں یا 0x والیٹ پیسٹ کریں۔ ٹریڈ کھلنے پر نوٹیفکیشن — HyperGain کاپی نہیں کرتا۔",
+      "followPlaceholder": "یوزرنیم یا 0x…",
+      "followAdd": "شامل کریں",
+      "followAdded": "شامل",
+      "followEmpty": "ابھی کوئی ٹریڈر فالو نہیں۔",
+      "followLoading": "لوڈ ہو رہا ہے…",
+      "followLimit": "{{count}} / {{max}} فالو",
+      "followRemoveAria": "ان فالو",
+      "followSearchFailed": "تلاش ناکام",
+      "followAddFailed": "ٹریڈر شامل نہیں ہو سکا",
+      "followRemoveFailed": "ٹریڈر ہٹایا نہیں جا سکا"
     },
     "tradeEmail": {
       "title": "بند ٹریڈز پر ٹریڈ اطلاعات",
@@ -1604,7 +1618,8 @@
     "viewHistory": "ہسٹری دیکھیں",
     "kindBet": "بیٹ",
     "kindBot": "بوٹ",
-    "kindCommunity": "کمیونٹی"
+    "kindCommunity": "کمیونٹی",
+    "kindFollow": "فالو"
   },
   "news": {
     "title": "خبریں",

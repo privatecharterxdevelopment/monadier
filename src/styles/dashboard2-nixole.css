@@ -862,6 +862,105 @@
   line-height: 1.45;
 }
 
+.term-profile-follow {
+  margin: 4px 0 8px;
+}
+
+.term-profile-follow-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0 8px;
+}
+
+.term-profile-follow-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.term-profile-follow-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--term-muted);
+  pointer-events: none;
+}
+
+.term-profile-follow-input {
+  width: 100%;
+  padding-left: 30px;
+  padding-right: 28px;
+}
+
+.term-profile-follow-spin {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--term-muted);
+}
+
+.term-profile-follow-hits,
+.term-profile-follow-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-profile-follow-hits li,
+.term-profile-follow-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.term-profile-follow-hit-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.term-profile-follow-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--term-text);
+}
+
+.term-profile-follow-hit-meta code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--term-muted);
+}
+
+.term-profile-follow-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.term-profile-follow-scan {
+  display: inline-flex;
+  color: var(--term-muted);
+  padding: 4px;
+}
+
+.term-profile-follow-limit {
+  margin: 0;
+  font-size: 11px;
+}
+
 .term-profile-toggle {
   flex-shrink: 0;
   min-width: 52px;

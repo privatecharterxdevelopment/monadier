@@ -2,6 +2,7 @@ import { getSupabaseClient, getAuthRedirectBase, supabase } from './supabaseClie
 import { normalizeUsernameInput } from './username';
 import { ensureUserProfile, patchUserProfile } from './profile';
 import { humanizeSignInError } from './auth/authErrors';
+import { REGISTRATION_CLOSED, registrationClosedError } from './productShutdown';
 
 export { supabase };
 
@@ -31,6 +32,9 @@ export const signUp = async (
   country: string,
   username: string
 ) => {
+  if (REGISTRATION_CLOSED) {
+    return { data: { user: null, session: null }, error: registrationClosedError() };
+  }
   const emailRedirectTo = `${getAuthRedirectBase()}/auth/callback`;
   const { data, error } = await supabase.auth.signUp({
     email,

@@ -47,6 +47,8 @@ import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
+import { runFollowWalletAlertTick } from './services/followWalletAlerts';
+import { hlTraderSearchRateLimited, searchHlTraders } from './services/hlTraderSearch';
 import {
   emailAllClosedTradesPdf,
   maybeEmailClosedTradesOnBoot,
@@ -139,7 +141,7 @@ const healthServer = http.createServer(async (req, res) => {
         process.env.GIT_COMMIT?.slice(0, 7) ||
         null,
       policy: {
-        profitOnlyExits: config.hyperliquid.profitOnlyExits,
+        botHalted: config.hyperliquid.botHalted,
         longLetRun: config.hyperliquid.longLetRun,
         letRunAll: await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll(),
         letRunAllConfigFallback: config.hyperliquid.letRunAll,
@@ -1303,6 +1305,40 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/hl-trader-search' && req.method === 'GET') {
+    try {
+      const ip =
+        String(req.headers['x-forwarded-for'] ?? '')
+          .split(',')[0]
+          ?.trim() ||
+        req.socket.remoteAddress ||
+        'unknown';
+      if (hlTraderSearchRateLimited(ip)) {
+        res.writeHead(429, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'Too many searches' }));
+        return;
+      }
+      const q = (url.searchParams.get('q') || '').trim();
+      if (q.length < 2) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, results: [] }));
+        return;
+      }
+      const results = await searchHlTraders(q);
+      res.writeHead(200, {
+        ...corsHeaders,
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+      });
+      res.end(JSON.stringify({ success: true, results }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'trader search failed';
+      logger.error('API: hl-trader-search failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/public-leaderboard' && req.method === 'GET') {
     try {
       const sortRaw = (url.searchParams.get('sort') || 'recent_all').toLowerCase();
@@ -1791,6 +1827,22 @@ async function updateBotAnalysis(): Promise<void> {
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
+  if (config.hyperliquid.botHalted) {
+    lastTradeCheck = Date.now();
+    lastCycleStats = {
+      at: new Date(lastTradeCheck).toISOString(),
+      activeBots: 0,
+      processed: 0,
+      succeeded: 0,
+      skipped: 0,
+      failed: 0,
+      globalSignals: 0,
+      ms: 0,
+    };
+    logger.info('HL bot halted — no opens, no closes; open books left untouched');
+    return;
+  }
+
   // Prevent concurrent trading cycles (race condition prevention)
   if (isTradingCycleRunning) {
     logger.debug('Trading cycle already running, skipping');
@@ -1918,11 +1970,16 @@ async function main(): Promise<void> {
   await ensureProfitTrailStateHydrated();
 
   // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
-  await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  // Halted: skip — leave every open book exactly as it is.
+  if (!config.hyperliquid.botHalted) {
+    await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  }
 
   // Run immediately on startup
   await runTradingCycle();
-  void hyperliquidTradingService.runFastPositionMonitor();
+  if (!config.hyperliquid.botHalted) {
+    void hyperliquidTradingService.runFastPositionMonitor();
+  }
 
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
   const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
@@ -1933,25 +1990,37 @@ async function main(): Promise<void> {
 
   const positionMonitorMs = config.hyperliquid.positionMonitorMs;
 
-  if (positionMonitorMs < 1000) {
-    setInterval(() => {
-      void hyperliquidTradingService.runFastPositionMonitor();
-    }, positionMonitorMs);
-  } else {
-    const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
-    cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
-      await hyperliquidTradingService.runFastPositionMonitor();
-    });
-  }
+  if (!config.hyperliquid.botHalted) {
+    if (positionMonitorMs < 1000) {
+      setInterval(() => {
+        void hyperliquidTradingService.runFastPositionMonitor();
+      }, positionMonitorMs);
+    } else {
+      const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
+      cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
+        await hyperliquidTradingService.runFastPositionMonitor();
+      });
+    }
 
-  setInterval(() => {
-    void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
-  }, 60_000);
+    setInterval(() => {
+      void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+    }, 60_000);
+  }
 
   setInterval(() => {
     void processPendingTradeCloseEmails(40);
   }, 15_000);
   void processPendingTradeCloseEmails(40).catch(() => undefined);
+
+  const followPollMs = Math.max(10_000, config.followWalletPollMs);
+  setInterval(() => {
+    void runFollowWalletAlertTick().catch((err) => {
+      logger.warn('Follow-wallet alert tick failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, followPollMs);
+  void runFollowWalletAlertTick().catch(() => undefined);
 
   setInterval(() => {
     void syncBettingClosesForEmails(25).catch(() => undefined);
@@ -1968,24 +2037,27 @@ async function main(): Promise<void> {
   }, twitterTickMs);
   void runTwitterSocialTick().catch(() => undefined);
 
-  const autoBetMs = Math.max(30_000, config.hyperliquid.autoBettingIntervalMs);
-  setInterval(() => {
-    void runAutoBettingCycle().catch((err) => {
-      logger.warn('Auto-betting cycle error', {
-        error: err instanceof Error ? err.message : String(err),
+  if (!config.hyperliquid.botHalted) {
+    const autoBetMs = Math.max(30_000, config.hyperliquid.autoBettingIntervalMs);
+    setInterval(() => {
+      void runAutoBettingCycle().catch((err) => {
+        logger.warn('Auto-betting cycle error', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
-    });
-  }, autoBetMs);
-  void runAutoBettingCycle().catch(() => undefined);
+    }, autoBetMs);
+    void runAutoBettingCycle().catch(() => undefined);
+  }
 
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
-  logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
-  logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
-  logger.info(`- Trade/bet win emails: every 15s`);
-  logger.info(`- Betting history sync: every 60s`);
-  logger.info(`- X/IG/FB social tick: every ${Math.round(twitterTickMs / 1000)}s`);
-  logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
+  if (config.hyperliquid.botHalted) {
+    logger.info('- HL bot HALTED — no new opens, no closes; open positions left on Hyperliquid');
+  } else {
+    logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
+    logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
+    logger.info(`- AI auto-betting: every ${Math.round(Math.max(30_000, config.hyperliquid.autoBettingIntervalMs) / 1000)}s`);
+  }
   void ensureTwitterSettings()
     .then((s) => {
       const snapHint = twitterCredentialsConfigured()

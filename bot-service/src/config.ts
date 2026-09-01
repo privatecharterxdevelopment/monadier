@@ -111,6 +111,11 @@ export const config = {
   executionVenue: 'hyperliquid' as const,
 
   hyperliquid: {
+    /**
+     * Hard halt: no new opens, no trail/SL/force closes. Books stay on Hyperliquid.
+     * Re-enable only with HL_BOT_HALTED=false.
+     */
+    botHalted: process.env.HL_BOT_HALTED !== 'false',
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,
@@ -176,16 +181,20 @@ export const config = {
       ]),
     ],
     /**
-     * Bot scan/open universe — majors only. Alts (KAITO/VVV/DOGE/FARTCOIN/…) never
-     * enter even in bull. `*` / `ALL` are ignored (that used to dump the junk book).
-     * Override: HL_BOT_TRADE_COINS="BTC,ETH,SOL"
+     * Bot scan/open universe — liquid majors only. Memes (KAITO/VVV/DOGE/FARTCOIN/…)
+     * never enter. `*` / `ALL` are ignored.
+     * Override: HL_BOT_TRADE_COINS="BTC,ETH,SOL,BNB,XRP,HYPE"
      */
     botTradeCoins: (() => {
-      const parsed = (process.env.HL_BOT_TRADE_COINS || 'BTC,ETH,SOL')
+      const parsed = (
+        process.env.HL_BOT_TRADE_COINS || 'BTC,ETH,SOL,BNB,XRP,HYPE'
+      )
         .split(',')
         .map((s) => s.trim().toUpperCase())
         .filter((s) => s && s !== '*' && s !== 'ALL');
-      return parsed.length > 0 ? [...new Set(parsed)] : ['BTC', 'ETH', 'SOL'];
+      return parsed.length > 0
+        ? [...new Set(parsed)]
+        : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE'];
     })(),
     /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
@@ -195,7 +204,7 @@ export const config = {
      */
     longOnlyCoins: [
       ...new Set(
-        (process.env.HL_LONG_ONLY_COINS || 'BTC,ETH,SOL')
+        (process.env.HL_LONG_ONLY_COINS || 'BTC,ETH,SOL,BNB,XRP,HYPE')
           .split(',')
           .map((s) => s.trim().toUpperCase())
           .map((s) => (s === 'AVA' ? 'AVAX' : s))
@@ -723,31 +732,29 @@ export const config = {
       shortAllowAbovePosition: Number(process.env.HL_PUMP_SWEEP_SHORT_ALLOW || 0.58),
     },
     /**
-     * Gemini Vision ENTRY LOCATION validator before every HL open.
-     * Charts: 5m + 15m + 1h + 4h for both sides. ALLOW|BLOCK only (never flip).
+     * OpenAI Vision picks LONG or SHORT before location gates.
+     * Bot proposal is context only — visual side is the trade side.
      * Fail-closed on timeout, missing key, bad JSON, unusable charts.
-     * HL_LLM_GATE_ENABLED=false also fail-closes (no silent skip).
      */
     llmTradeConfirm: {
-      /** Chart-screenshot vision before every bot open. Profile cannot disable this. */
       get enabled() {
         return process.env.HL_LLM_GATE_ENABLED !== 'false';
       },
-      /** Default ENFORCE — shadow was why Gemini never stopped SOL-at-high / KAITO. */
       mode: (process.env.HL_LLM_GATE_MODE === 'shadow' ? 'shadow' : 'enforce') as
         | 'shadow'
         | 'enforce',
-      provider: (process.env.HL_LLM_PROVIDER || 'gemini').toLowerCase(),
-      model: process.env.HL_LLM_MODEL || 'gemini-2.0-flash',
+      provider: (process.env.HL_LLM_PROVIDER || 'openai').toLowerCase(),
+      model: process.env.HL_LLM_MODEL || 'gpt-4o',
       apiKey:
-        process.env.GEMINI_API_KEY ||
-        process.env.GOOGLE_API_KEY ||
-        process.env.DEEPSEEK_API_KEY ||
-        '',
+        (process.env.HL_LLM_PROVIDER || 'openai').toLowerCase() === 'gemini'
+          ? process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
+          : process.env.OPENAI_API_KEY || '',
       baseUrl:
         process.env.HL_LLM_BASE_URL ||
-        'https://generativelanguage.googleapis.com/v1beta',
-      timeoutMs: Number(process.env.HL_LLM_TIMEOUT_MS || 20_000),
+        ((process.env.HL_LLM_PROVIDER || 'openai').toLowerCase() === 'gemini'
+          ? 'https://generativelanguage.googleapis.com/v1beta'
+          : 'https://api.openai.com/v1'),
+      timeoutMs: Number(process.env.HL_LLM_TIMEOUT_MS || 25_000),
     },
     /** Minimum margin USD per HL open slot (split across max concurrent positions). */
     minMarginUsd: Number(process.env.HL_MIN_MARGIN_USD || 8),
@@ -775,7 +782,20 @@ export const config = {
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.RESEND_FROM || 'HyperGain <hello@hypergain.io>',
+    /** Copy-signal alerts when watched HL wallets open. Empty = log only. */
+    followAlertTo: (process.env.HL_FOLLOW_ALERT_EMAIL || '').trim(),
   },
+
+  /**
+   * Extra public HL wallets to poll (ops). User watchlists live in hl_followed_traders.
+   * Never auto-copies into the bot.
+   * HL_FOLLOW_WALLETS="0xabc...,0xdef..."
+   */
+  followWallets: (process.env.HL_FOLLOW_WALLETS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^0x[a-f0-9]{40}$/.test(s)),
+  followWalletPollMs: Number(process.env.HL_FOLLOW_POLL_MS || 20_000),
 
   /** X / Twitter auto-posts (AI drafts + daily win flyer). Secrets on Railway only. */
   twitter: {

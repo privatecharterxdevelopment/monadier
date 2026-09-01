@@ -1,30 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import Logo from '../components/ui/Logo';
 import MarketingSeo from '../components/seo/MarketingSeo';
-import RegisterForm from '../components/auth/RegisterForm';
-import { afterAuthGo, getOpenAppPath, consumeRegisterEmail, peekRegisterEmail } from '../lib/appUrls';
-import { queueAuthToast } from '../lib/authToast';
-import { captureReferralFromSearch } from '../lib/referralCapture';
+import { REGISTRATION_CLOSED_MESSAGE } from '../lib/productShutdown';
 
 const RegisterPage: React.FC = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [prefillEmail] = useState(
-    () => searchParams.get('email')?.trim() || peekRegisterEmail() || ''
-  );
-
-  useEffect(() => {
-    if (prefillEmail) consumeRegisterEmail();
-  }, [prefillEmail]);
-
-  useEffect(() => {
-    const ref = searchParams.get('ref') ?? searchParams.get('referral');
-    if (ref) captureReferralFromSearch(`?ref=${ref}`);
-  }, [searchParams]);
 
   return (
     <div className="auth-page auth-page--register">
@@ -40,20 +22,14 @@ const RegisterPage: React.FC = () => {
             <div className="auth-card-brand">
               <Logo size="sm" theme="light" />
             </div>
-            <h1 className="auth-card-title">{t('auth.register.title')}</h1>
-            <RegisterForm
-              idPrefix="page-reg"
-              initialEmail={prefillEmail}
-              signInHref="/login"
-              onSessionCreated={() => {
-                queueAuthToast('signed_in');
-                const returnTo = searchParams.get('from');
-                afterAuthGo(
-                  returnTo && returnTo.startsWith('/') ? returnTo : getOpenAppPath(),
-                  navigate
-                );
-              }}
-            />
+            <h1 className="auth-card-title">{REGISTRATION_CLOSED_MESSAGE}</h1>
+            <button
+              type="button"
+              className="term-modal-primary mt-10 w-full"
+              onClick={() => navigate('/login')}
+            >
+              Sign in
+            </button>
           </div>
         </motion.div>
       </div>

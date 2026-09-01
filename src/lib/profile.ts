@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { normalizeUsernameInput, validateUsername } from './username';
+import { REGISTRATION_CLOSED, registrationClosedError } from './productShutdown';
 
 export type ProfileRow = {
   id: string;
@@ -21,6 +22,18 @@ export type ProfileRow = {
  */
 export async function ensureUserProfile(user: User): Promise<void> {
   if (!user?.id) throw new Error('No auth user — cannot create profile');
+
+  if (REGISTRATION_CLOSED) {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (!existing?.id) {
+      await supabase.auth.signOut().catch(() => undefined);
+      throw registrationClosedError();
+    }
+  }
 
   const { error: rpcError } = await supabase.rpc('ensure_own_profile');
 
@@ -103,6 +116,9 @@ export async function patchUserProfile(
     'avatar_url',
     'avatar_emoji',
     'wallet_address',
+    'trade_close_email_enabled',
+    'community_mention_email_enabled',
+    'follow_trader_email_enabled',
   ]);
 
   const safeUpdates = Object.fromEntries(

@@ -70,7 +70,9 @@ function notifyFreshToasts(
   showToast: (msg: string, ms?: number) => void
 ) {
   const notable = fresh.filter(
-    (n) => n.kind !== 'community' && (n.profitLoss > 0 || n.eventType === 'open')
+    (n) =>
+      n.kind === 'follow' ||
+      (n.kind !== 'community' && (n.profitLoss > 0 || n.eventType === 'open'))
   );
   if (notable.length === 0) return;
   const sorted = [...notable].sort(

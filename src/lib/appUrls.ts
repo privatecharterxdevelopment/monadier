@@ -443,13 +443,8 @@ export function peekRegisterEmail(): string {
 }
 
 /** Navigate to Pro Trade and open the in-app register modal (same RegisterForm as Pro Trade). */
-export function goToOpenAppRegister(replace = false, email?: string): void {
-  const trimmed = email?.trim() ?? '';
-  if (trimmed) stashRegisterEmail(trimmed);
-  const q = trimmed
-    ? `?auth=register&email=${encodeURIComponent(trimmed)}`
-    : '?auth=register';
-  goToOpenApp(q, replace);
+export function goToOpenAppRegister(replace = false, _email?: string): void {
+  goToOpenAppSignIn(replace);
 }
 
 /** Navigate to Pro Trade and open the in-app sign-in modal. */

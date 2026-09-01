@@ -1429,7 +1429,8 @@
     "empty": "まだアクティビティなし",
     "viewHistory": "履歴を見る",
     "kindBet": "ベット",
-    "kindBot": "ボット"
+    "kindBot": "ボット",
+    "kindFollow": "フォロー"
   },
   "news": {
     "title": "ニュース",

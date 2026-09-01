@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import LandingMacbookDashboard from './LandingMacbookDashboard';
 import LandingHeroLines from './LandingHeroLines';
 import { useLandingUserCount } from '../../hooks/useLandingUserCount';
-import { goToOpenAppRegister } from '../../lib/appUrls';
 
 const ROTATE_FALLBACK = [
   'on Hyperliquid',
@@ -21,7 +20,6 @@ const fade = (delay = 0) => ({
 
 const LandingAlphaHero: React.FC = () => {
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
   const { label: userCountLabel } = useLandingUserCount();
   const rotateLinesRaw = t('landing.hero.rotateLines', { returnObjects: true });
   const rotateLines =
@@ -30,13 +28,6 @@ const LandingAlphaHero: React.FC = () => {
       : [...ROTATE_FALLBACK];
 
   const userLabel = `${userCountLabel} ${t('landing.alpha.usersLabel')}`;
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed || !trimmed.includes('@')) return;
-    goToOpenAppRegister(false, trimmed);
-  };
 
   return (
     <section className="landing-al-hero" aria-labelledby="landing-al-hero-title">
@@ -65,28 +56,16 @@ const LandingAlphaHero: React.FC = () => {
           <span className="landing-al-hero-lead-line">{t('landing.alpha.leadSub')}</span>
         </p>
 
-        <form className="landing-al-signup" onSubmit={onSubmit} noValidate>
+        <div className="landing-al-signup">
           <div className="landing-al-signup-bar">
-            <label className="sr-only" htmlFor="landing-al-signup-email">
-              {t('landing.alpha.emailLabel')}
-            </label>
-            <input
-              id="landing-al-signup-email"
-              className="landing-al-signup-input"
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder={t('landing.alpha.emailPlaceholder')}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <button type="submit" className="landing-al-signup-btn">
-              {t('landing.alpha.signUp')}
-            </button>
+            <p className="landing-al-hero-lead-line" style={{ padding: '1.25rem 0', maxWidth: '48ch', lineHeight: 1.6 }}>
+              software sold to china.
+            </p>
+            <a href="/login" className="landing-al-signup-btn">
+              Sign in
+            </a>
           </div>
-        </form>
+        </div>
       </motion.div>
 
       <LandingMacbookDashboard embedded />

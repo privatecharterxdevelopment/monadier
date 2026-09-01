@@ -11,7 +11,7 @@ export type UserTradeNotificationRow = {
   community_post_id?: string | null;
   community_comment_id?: string | null;
   wallet_address: string;
-  kind: 'bot' | 'manual' | 'betting' | 'community';
+  kind: 'bot' | 'manual' | 'betting' | 'community' | 'follow';
   headline: string;
   detail: string | null;
   event_type: 'open' | 'close' | 'mention' | null;
@@ -66,6 +66,26 @@ export function userTradeNotificationToActivity(row: UserTradeNotificationRow): 
     };
   }
 
+  if (row.kind === 'follow') {
+    const wallet = row.wallet_address?.toLowerCase() ?? '';
+    return {
+      id: `un-${row.id}`,
+      kind: 'follow',
+      headline: row.headline,
+      detail: row.detail,
+      eventType: 'open',
+      profitLoss: 0,
+      profitLossPercent: null,
+      closedAt: row.closed_at,
+      highlightId: wallet || null,
+      verifyUrl: /^0x[a-f0-9]{40}$/.test(wallet)
+        ? `https://hypurrscan.io/address/${wallet}`
+        : null,
+      dbId: row.id,
+      readAt: row.read_at,
+    };
+  }
+
   const isBetting = row.kind === 'betting';
   const { profitLoss, profitLossPercent } = realizedPnlFromRow(row);
   return {
@@ -85,6 +105,7 @@ export function userTradeNotificationToActivity(row: UserTradeNotificationRow): 
 
 /** Only rows tied to a real close (or AI bet open / community mention) — matches email queue. */
 export function isBellEligibleNotification(row: UserTradeNotificationRow): boolean {
+  if (row.kind === 'follow') return true;
   if (row.kind === 'community' && row.community_post_id) return true;
   if (row.kind === 'betting' && row.event_type === 'open') return true;
   if (row.trade_history_id) return true;

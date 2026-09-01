@@ -1552,7 +1552,21 @@
       "atEmail": " at {{email}}",
       "on": "On",
       "off": "Off",
-      "saveFailed": "Could not save"
+      "saveFailed": "Could not save",
+      "followEmailTitle": "Followed trader emails",
+      "followEmailDesc": "Email when a Hyperliquid trader you follow opens a position{{at}}.",
+      "followTitle": "Follow Hyperliquid traders",
+      "followDesc": "Search a Hyperliquid username or paste a 0x wallet. You get a notification when they open a trade — HyperGain does not copy it.",
+      "followPlaceholder": "Username or 0x…",
+      "followAdd": "Add",
+      "followAdded": "Added",
+      "followEmpty": "No traders followed yet.",
+      "followLoading": "Loading…",
+      "followLimit": "{{count}} / {{max}} followed",
+      "followRemoveAria": "Unfollow",
+      "followSearchFailed": "Search failed",
+      "followAddFailed": "Could not add trader",
+      "followRemoveFailed": "Could not remove trader"
     },
     "tradeEmail": {
       "title": "Trade notifications on closed trades",
@@ -1619,7 +1633,8 @@
     "viewHistory": "View history",
     "kindBet": "Bet",
     "kindBot": "Agent",
-    "kindCommunity": "Community"
+    "kindCommunity": "Community",
+    "kindFollow": "Follow"
   },
   "news": {
     "title": "News",

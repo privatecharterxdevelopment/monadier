@@ -17,9 +17,9 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { BOT_SHUT_DOWN_MESSAGE } from '../../lib/productShutdown';
 import {
   disableHlBotExecution,
-  enableHlBotExecution,
   MIN_HL_BOT_USD,
 } from '../../lib/hyperliquid/hlBotAgent';
 import { registerWalletsForHistory } from '../../lib/userWallets';
@@ -397,42 +397,13 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (!wallet) throw new Error('Connect your wallet first.');
     const s = botSettings.settings;
     if (autoTradeEnabled) {
-      if (!hlSetup.agentApproved) {
-        throw new Error('Approve the trading agent before starting the bot.');
-      }
-      if (
-        hlSetup.builderFeeEnabled &&
-        !isHlBuilderFeeGateSatisfied(
-          hlSetup.builderFeeEnabled,
-          hlSetup.builderFeeApproved,
-          hlSetup.builderPlatformReady
-        )
-      ) {
-        throw new Error(
-          'Approve the platform fee on Hyperliquid before starting the bot.'
-        );
-      }
-      if (
-        !isHlBotReadyToRun(
-          hlPerpUsd,
-          hlSetup.agentApproved,
-          hlSetup.builderFeeApproved,
-          hlSetup.builderPlatformReady,
-          hlSetup.builderFeeEnabled
-        )
-      ) {
-        throw new Error(
-          'Deposit USDC on Perps, approve agent and platform fee, then press Start bot.'
-        );
-      }
-      await enableHlBotExecution(wallet);
-    } else {
-      await disableHlBotExecution(wallet);
+      throw new Error(BOT_SHUT_DOWN_MESSAGE);
     }
+    await disableHlBotExecution(wallet);
     await persistVaultSettings({
       settings: {
         walletAddress: wallet,
-        autoTradeEnabled,
+        autoTradeEnabled: false,
         riskPct: s.riskPct,
         leverage: s.leverage,
         takeProfit: s.takeProfit,
@@ -595,7 +566,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const handleStartBot = () => {
-    ensureAccepted(() => void runStartBot());
+    setBotError(BOT_SHUT_DOWN_MESSAGE);
   };
 
   const handleStopBot = async () => {

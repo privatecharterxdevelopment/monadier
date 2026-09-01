@@ -81,7 +81,7 @@ import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import { detectRangeRegime, type RangeRegimeResult } from './rangeRegimeDetector';
 import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
-import { isBotTradeCoin } from './botTradeUniverse';
+import { isBotTradeCoin, botTradeUniverseLabel } from './botTradeUniverse';
 import { validatePerpMarketContext } from './perpMarketContextGate';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
 import {
@@ -862,7 +862,7 @@ export class HyperliquidTradingService {
         addSkip(
           signal,
           'liquidity',
-          `${signal.coin}: not in bot universe (BTC/ETH/SOL only)`,
+          `${signal.coin}: not in bot universe (${botTradeUniverseLabel()} only)`,
           'not major'
         );
         continue;
@@ -1240,6 +1240,10 @@ export class HyperliquidTradingService {
       const coin = opts.coin.toUpperCase();
       const force = opts.force === true;
 
+      if (config.hyperliquid.botHalted) {
+        return { success: false, error: 'Bot halted — no new opens; existing positions left open' };
+      }
+
       const rejectOpen = (
         gate: HlOpenBlockGate,
         reason: string,
@@ -1279,54 +1283,12 @@ export class HyperliquidTradingService {
       if (!isBotTradeCoin(coin)) {
         return rejectOpen(
           'majors_only',
-          `${coin} blocked — bot trades BTC/ETH/SOL only`,
+          `${coin} blocked — bot trades ${botTradeUniverseLabel()} only`,
           'majors only'
         );
       }
 
-      // ROOT: bear_market — LONGs disabled at source (no patch-filter roulette).
-      if (opts.direction === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
-        return rejectOpen(
-          'direction_profile',
-          `LONG blocked — ${config.hyperliquid.directionProfile.name} has allowLongOpens=false (SHORT-only)`,
-          'LONG disabled at source'
-        );
-      }
-
-      // ROOT: bull_market — SHORTs disabled at source (no shorting a long bull run).
-      if (opts.direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
-        return rejectOpen(
-          'direction_profile',
-          `SHORT blocked — ${config.hyperliquid.directionProfile.name} has allowShortOpens=false (LONG-only bull run)`,
-          'SHORT disabled at source'
-        );
-      }
-
       await refreshBtcLeadMomentum();
-      if (!force && opts.direction === 'SHORT') {
-        const btcShort = btcLeadAllowsCautiousShort();
-        if (!btcShort.ok) {
-          return rejectOpen(
-            'macro_beta',
-            `No SHORT — ${btcShort.reason}`,
-            'no SHORT into green/inflow BTC'
-          );
-        }
-      }
-
-      // LONG only BTC/ETH/SOL for bot scan — admin force may open any non-excluded coin.
-      if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
-        return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
-      }
-
-      const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
-      if (flipGate.blocked) {
-        return rejectOpen(
-          'anti_flip',
-          flipGate.reason ?? 'Same-coin re-entry blocked',
-          'same-coin anti-flip'
-        );
-      }
 
       const assetIndex = coinToAssetIndex(meta, coin);
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
@@ -1342,8 +1304,68 @@ export class HyperliquidTradingService {
         opts.pick.peakLiquidityGrab === true ||
         isPeakShortOverride(opts.direction, peakAnalysis);
 
-      // Peak = SHORT liquidity grab — but only after BTC's 2–3 candle push fades.
-      // During BTC inflow we stay LONG-only (no fade, no wait-at-high).
+      const scanSide: 'LONG' | 'SHORT' = opts.direction;
+
+      const llmConfirm = await confirmTradeWithLlm(
+        {
+          coin,
+          direction: opts.direction,
+          confidence: opts.pick.confidence,
+          mtfBreakdown: opts.pick.mtfBreakdown,
+          h1Trend: opts.pick.h1Trend,
+          directionalTfCount: opts.pick.directionalTfCount,
+          trendAlignment: opts.pick.trendAlignment,
+          profileName: directionProfile.name,
+          primaryDirection: directionProfile.primaryDirection,
+          pumpPhase: peakAnalysis?.phase ?? null,
+          pumpApex: peakAnalysis?.pumpApex ?? null,
+          positionInSweep: peakAnalysis?.positionInSweep ?? null,
+          pumpSummary: peakAnalysis?.summary ?? null,
+        },
+        peakAnalysis
+      );
+      const visualSide = llmConfirm.chosenDirection;
+      if (!llmConfirm.ok || llmConfirm.decision === 'BLOCK' || !visualSide) {
+        return rejectOpen('llm_confirm', llmConfirm.reason, 'OpenAI visual side');
+      }
+      if (visualSide !== opts.direction) {
+        logger.info('OpenAI visual flipped side', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          from: opts.direction,
+          to: visualSide,
+          reason: llmConfirm.reason.slice(0, 160),
+        });
+        (opts as { direction: 'LONG' | 'SHORT' }).direction = visualSide;
+        opts.pick.direction = visualSide;
+      }
+
+      if (opts.direction === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
+        return rejectOpen(
+          'direction_profile',
+          `LONG blocked — ${config.hyperliquid.directionProfile.name} has allowLongOpens=false (SHORT-only)`,
+          'LONG disabled at source'
+        );
+      }
+      if (opts.direction === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
+        return rejectOpen(
+          'direction_profile',
+          `SHORT blocked — ${config.hyperliquid.directionProfile.name} has allowShortOpens=false (LONG-only bull run)`,
+          'SHORT disabled at source'
+        );
+      }
+      if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
+        return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
+      }
+      const visualFlipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
+      if (visualFlipGate.blocked) {
+        return rejectOpen(
+          'anti_flip',
+          visualFlipGate.reason ?? 'Same-coin re-entry blocked',
+          'same-coin anti-flip'
+        );
+      }
+
       if (
         opts.direction === 'LONG' &&
         peakAnalysis?.phase === 'at_apex'
@@ -1351,12 +1373,13 @@ export class HyperliquidTradingService {
         return rejectOpen(
           'pump_sweep',
           `LONG blocked — ${coin} at pump apex $${peakAnalysis.pumpApex.toFixed(2)} — peak is a SHORT liquidity grab`,
-          'peak blocks LONG'
+          'peak blocks LONG after visual'
         );
       }
 
       const originalSide: 'LONG' | 'SHORT' = opts.direction;
       const safety = createOpenSafetyCard(originalSide);
+      safetyMarkPass(safety, 'vision', opts.direction);
 
       let locationQuality = await evaluateEntryLocationQuality({
         coin,
@@ -1447,46 +1470,24 @@ export class HyperliquidTradingService {
           }
           safetyMarkPass(safety, 'htfSr', opts.direction);
 
-          const forceVision = await confirmTradeWithLlm({
-            coin,
-            direction: opts.direction,
-            confidence: opts.pick.confidence,
-            mtfBreakdown: opts.pick.mtfBreakdown,
-            h1Trend: opts.pick.h1Trend,
-            directionalTfCount: opts.pick.directionalTfCount,
-            trendAlignment: opts.pick.trendAlignment,
-            profileName: directionProfile.name,
-            primaryDirection: directionProfile.primaryDirection,
-            pumpPhase: peakAnalysis?.phase ?? null,
-            pumpApex: peakAnalysis?.pumpApex ?? null,
-            positionInSweep: peakAnalysis?.positionInSweep ?? null,
-            pumpSummary: peakAnalysis?.summary ?? null,
-            htfSrReason: forceHtf.reason,
-            rangePosition1h: locationQuality.rangePosition1h,
-            rangePosition4h: locationQuality.rangePosition4h,
-            impulse15mATR: locationQuality.impulse15mATR,
-            consecutiveDirectionCandles: locationQuality.consecutiveDirectionCandles,
-            deterministicLocationDecision: locationQuality.deterministicLocationDecision,
-          }, peakAnalysis);
           logEntryLocationRecord({
             record: locationQuality,
             vision: {
-              decision: forceVision.decision,
-              location: forceVision.location,
-              extension: forceVision.extension,
-              nearest_structure: forceVision.nearestStructure,
-              confidence: forceVision.confidence,
-              reason: forceVision.reason,
+              decision: llmConfirm.decision,
+              location: llmConfirm.location,
+              extension: llmConfirm.extension,
+              nearest_structure: llmConfirm.nearestStructure,
+              confidence: llmConfirm.confidence,
+              reason: llmConfirm.reason,
             },
-            finalDecision:
-              !forceVision.ok || forceVision.decision === 'BLOCK' ? 'NO_OPEN' : 'OPEN',
+            finalDecision: !llmConfirm.ok || !llmConfirm.chosenDirection ? 'NO_OPEN' : 'OPEN',
             extraBlockedBy:
-              !forceVision.ok || forceVision.decision === 'BLOCK'
-                ? [forceVision.failureReason ? 'VISION_FAILURE' : 'VISION_BLOCK']
+              !llmConfirm.ok || !llmConfirm.chosenDirection
+                ? [llmConfirm.failureReason ? 'VISION_FAILURE' : 'VISION_BLOCK']
                 : [],
           });
-          if (!forceVision.ok || forceVision.decision === 'BLOCK') {
-            return rejectOpen('llm_confirm', forceVision.reason, 'force Vision location');
+          if (!llmConfirm.ok || !llmConfirm.chosenDirection) {
+            return rejectOpen('llm_confirm', llmConfirm.reason, 'force OpenAI visual');
           }
           safetyMarkPass(safety, 'vision', opts.direction);
 
@@ -1571,11 +1572,13 @@ export class HyperliquidTradingService {
             h1Trend === 'STRONG_DOWNTREND');
       const btcLeadWaivesLongH1 =
         opts.direction === 'LONG' && required === 'UP' && btcLeadIsPumping();
+      const visualPickedSide = scanSide !== opts.direction;
       if (
-        opts.pick.confidence < directionRules.minConfidence ||
-        directionalTfs < directionRules.minDirectionalTfs ||
-        trendAlignment < directionRules.minTrendAlignment ||
-        (!h1Matches && !btcLeadWaivesLongH1)
+        !visualPickedSide &&
+        (opts.pick.confidence < directionRules.minConfidence ||
+          directionalTfs < directionRules.minDirectionalTfs ||
+          trendAlignment < directionRules.minTrendAlignment ||
+          (!h1Matches && !btcLeadWaivesLongH1))
       ) {
         return rejectOpen(
           'direction_profile',
@@ -1589,7 +1592,9 @@ export class HyperliquidTradingService {
         );
       }
 
-      const entryTrendGate = await validateProfileEntryTrend({
+      const entryTrendGate = visualPickedSide
+        ? { ok: true as const, reason: 'OpenAI visual side — skip 5m/15m entry-trend veto', trend15m: '' }
+        : await validateProfileEntryTrend({
         coin,
         direction: opts.direction,
       });
@@ -1662,7 +1667,15 @@ export class HyperliquidTradingService {
         opts.direction
       );
 
-      const candleAnalytics = await validatePreOpenCandleAnalytics({
+      const candleAnalytics = visualPickedSide
+        ? {
+            ok: true as const,
+            reason: 'OpenAI visual side — skip pre-open candle veto',
+            summary: '',
+            netMovePct: null as number | null,
+            rangePosition: null as number | null,
+          }
+        : await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
               h1Trend: opts.pick.h1Trend,
@@ -1694,12 +1707,15 @@ export class HyperliquidTradingService {
 
       // SHORT never skips macro beta — shorting into BTC/ETH/coin pumps is the "up market, open shorts" bug.
       const macroGate =
-        opts.direction === 'LONG' &&
-        trustedDirection &&
-        directionRules.bypassMacroBetaWhenTrusted
+        visualPickedSide ||
+        (opts.direction === 'LONG' &&
+          trustedDirection &&
+          directionRules.bypassMacroBetaWhenTrusted)
           ? {
               ok: true as const,
-              reason: `${directionProfile.name}: trusted MTF LONG skips duplicate macro re-check`,
+              reason: visualPickedSide
+                ? 'OpenAI visual side — skip macro beta veto'
+                : `${directionProfile.name}: trusted MTF LONG skips duplicate macro re-check`,
               snapshot: {
                 coin,
                 anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
@@ -1721,10 +1737,12 @@ export class HyperliquidTradingService {
       }
 
       const pumpShortGate =
-        trustedDirection && directionRules.bypassPumpShortWhenTrusted
+        visualPickedSide || (trustedDirection && directionRules.bypassPumpShortWhenTrusted)
           ? {
               ok: true as const,
-              reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate pump-short re-check`,
+              reason: visualPickedSide
+                ? 'OpenAI visual side — skip pump-short veto'
+                : `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate pump-short re-check`,
             }
           : await validateNoAltPumpShort({
               coin,
@@ -1758,7 +1776,9 @@ export class HyperliquidTradingService {
       }
 
       // Live BTC+ETH flow — stubbing this to always-ok let SHORTs open into mega pumps.
-      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
+      const megaGate = visualPickedSide
+        ? { ok: true as const, reason: 'OpenAI visual side — skip mega-pair veto' }
+        : validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
         return rejectOpen('mega_pair', megaGate.reason, 'mega pair volume');
       }
@@ -1808,6 +1828,13 @@ export class HyperliquidTradingService {
 
       let pumpSweepGateLive = pumpSweepGate;
       if (locationGate.flipTo && locationGate.flipTo !== opts.direction) {
+        if (visualPickedSide) {
+          return rejectOpen(
+            'sr_zone_flip',
+            `OpenAI said ${opts.direction}; S/R wants ${locationGate.flipTo} — no second guess`,
+            'visual side vs zone flip'
+          );
+        }
         const zoneFlipFrom = opts.direction;
         const flipped = locationGate.flipTo;
         const floorReverseLong =
@@ -2074,10 +2101,12 @@ export class HyperliquidTradingService {
       // Regression: 23bd6b8 (2026-08-12) “allow SHORT continuation” + relaxSecondaryGates
       // skipped this gate and dropped shortMinRange to 0.12 → FIL bottom shorts. Do not repeat.
       const momentumGate =
-        relaxSecondaryGates && opts.direction === 'LONG'
+        visualPickedSide || (relaxSecondaryGates && opts.direction === 'LONG')
           ? {
               ok: true as const,
-              reason: `Scan pick — LONG momentum confirm skipped (${opts.pick.confidence}%)`,
+              reason: visualPickedSide
+                ? 'OpenAI visual side — skip momentum veto'
+                : `Scan pick — LONG momentum confirm skipped (${opts.pick.confidence}%)`,
               change5mPct: 0,
               change15mPct: 0,
               change1hPct: 0,
@@ -2088,41 +2117,12 @@ export class HyperliquidTradingService {
         return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
       }
 
-      // Gemini Vision = final entry-location validator (ALLOW|BLOCK, never flip).
+      // OpenAI already picked the side before location gates. Do not call vision twice.
       const tradeDirection: 'LONG' | 'SHORT' = opts.direction;
       const locationGateForOpen = locationGate;
       const pumpSweepGateForOpen = pumpSweepGateLive;
 
-      const llmConfirm = await confirmTradeWithLlm(
-        {
-          coin,
-          direction: opts.direction,
-          confidence: opts.pick.confidence,
-          mtfBreakdown: opts.pick.mtfBreakdown,
-          h1Trend: opts.pick.h1Trend,
-          directionalTfCount: opts.pick.directionalTfCount,
-          trendAlignment: opts.pick.trendAlignment,
-          profileName: directionProfile.name,
-          primaryDirection: directionProfile.primaryDirection,
-          pumpPhase: peakAnalysis?.phase ?? pumpSweepGate.analysis?.phase,
-          pumpApex: peakAnalysis?.pumpApex ?? pumpSweepGate.analysis?.pumpApex,
-          positionInSweep:
-            peakAnalysis?.positionInSweep ?? pumpSweepGate.analysis?.positionInSweep,
-          pumpSummary: peakAnalysis?.summary ?? pumpSweepGate.analysis?.summary,
-          htfSrReason: htfSrGate?.reason ?? null,
-          candleSummary: candleAnalytics.summary,
-          netMovePct: candleAnalytics.netMovePct,
-          rangePosition: candleAnalytics.rangePosition,
-          rangePosition1h: locationQuality.rangePosition1h,
-          rangePosition4h: locationQuality.rangePosition4h,
-          impulse15mATR: locationQuality.impulse15mATR,
-          consecutiveDirectionCandles: locationQuality.consecutiveDirectionCandles,
-          deterministicLocationDecision: locationQuality.deterministicLocationDecision,
-        },
-        peakAnalysis
-      );
-
-      const visionBlocked = !llmConfirm.ok || llmConfirm.decision === 'BLOCK';
+      const visionBlocked = !llmConfirm.ok || !llmConfirm.chosenDirection;
       logEntryLocationRecord({
         record: locationQuality,
         vision: {
@@ -2140,7 +2140,7 @@ export class HyperliquidTradingService {
       });
 
       if (visionBlocked) {
-        return rejectOpen('llm_confirm', llmConfirm.reason, 'Vision entry-location blocked');
+        return rejectOpen('llm_confirm', llmConfirm.reason, 'OpenAI visual side');
       }
       safetyMarkPass(safety, 'vision', tradeDirection);
 
@@ -2295,6 +2295,26 @@ export class HyperliquidTradingService {
         ? Math.max(1, Math.floor(opts.leverage))
         : null;
 
+    if (config.hyperliquid.botHalted) {
+      return {
+        coin,
+        direction,
+        dryRun,
+        leverage: leverageOverride,
+        opened: 0,
+        eligible: 0,
+        skipped: 0,
+        failed: 1,
+        results: [
+          {
+            wallet: 'n/a',
+            success: false,
+            error: 'Bot halted — no new opens; existing positions left open',
+          },
+        ],
+      };
+    }
+
     // Global hard-delist — every wallet, force-open included (no exceptions).
     if (config.hyperliquid.excludedCoins.includes(coin)) {
       return {
@@ -2330,7 +2350,7 @@ export class HyperliquidTradingService {
           {
             wallet: 'n/a',
             success: false,
-            error: `${coin} blocked — bot trades BTC/ETH/SOL only`,
+            error: `${coin} blocked — bot trades ${botTradeUniverseLabel()} only`,
           },
         ],
       };
@@ -3308,6 +3328,7 @@ export class HyperliquidTradingService {
 
   /** Fast loop — open positions only, no global scan (runs every ~250ms). */
   async runFastPositionMonitor(): Promise<void> {
+    if (config.hyperliquid.botHalted) return;
     if (fastPositionMonitorRunning) return;
     fastPositionMonitorRunning = true;
     const started = Date.now();
@@ -3900,7 +3921,7 @@ export class HyperliquidTradingService {
       if (!opts.reduceOnly && opts.botManaged && !isBotTradeCoin(coin)) {
         return {
           success: false,
-          error: `${coin} blocked — bot trades BTC/ETH/SOL only`,
+          error: `${coin} blocked — bot trades ${botTradeUniverseLabel()} only`,
         };
       }
       const agentAddr = await this.getAgentAddress(opts.userAddress);

@@ -1,9 +1,6 @@
 /**
- * Gemini Vision ENTRY LOCATION validator — not a signal generator.
- *
- * Charts (both LONG and SHORT): 5m + 15m + 1h + 4h.
- * Decision: ALLOW | BLOCK. Never flip direction.
- * Any parse/timeout/key/chart failure: fail-closed (no open).
+ * OpenAI Vision picks LONG or SHORT before location gates.
+ * Bot lean is context only. Fail-closed on timeout / missing key / bad JSON.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -61,6 +58,7 @@ export type LlmTradeConfirmResult = {
   verdict: LlmTradeVerdict;
   decision: 'ALLOW' | 'BLOCK';
   direction: 'LONG' | 'SHORT';
+  chosenDirection: 'LONG' | 'SHORT' | null;
   enforce: boolean;
   shadow: boolean;
   confidence: number;
@@ -122,9 +120,14 @@ function asUpper(v: unknown): string {
     .toUpperCase();
 }
 
+function oppositeSide(d: 'LONG' | 'SHORT'): 'LONG' | 'SHORT' {
+  return d === 'LONG' ? 'SHORT' : 'LONG';
+}
+
 /**
- * Location-validator schema. Missing/unknown required fields → null (fail-closed).
- * Flip / opposite-direction hints → BLOCK, never LONG↔SHORT.
+ * Visual picks LONG or SHORT.
+ * ALLOW / ja → proposed side. BLOCK / nein → opposite side.
+ * Explicit LONG|SHORT wins.
  */
 export function parseLlmJson(
   raw: string,
@@ -136,10 +139,17 @@ export function parseLlmJson(
   if (start < 0 || end <= start) return null;
   try {
     const obj = JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
-    const decisionRaw = asUpper(obj.decision || obj.verdict);
-    if (decisionRaw !== 'ALLOW' && decisionRaw !== 'BLOCK' && decisionRaw !== 'FLIP') {
-      return null;
+    const dirRaw = asUpper(obj.direction || obj.side || obj.decision || obj.verdict);
+    let direction: 'LONG' | 'SHORT' | null = null;
+    if (dirRaw === 'LONG' || dirRaw === 'SHORT') {
+      direction = dirRaw;
+    } else if (dirRaw === 'ALLOW' || dirRaw === 'YES' || dirRaw === 'JA') {
+      direction = proposedDirection;
+    } else if (dirRaw === 'BLOCK' || dirRaw === 'NO' || dirRaw === 'NEIN' || dirRaw === 'FLIP') {
+      direction = oppositeSide(proposedDirection);
     }
+    if (!direction) return null;
+
     const location = asUpper(obj.location);
     const extension = asUpper(obj.extension);
     const nearest = asUpper(obj.nearest_structure ?? obj.nearestStructure);
@@ -151,19 +161,12 @@ export function parseLlmJson(
     const confidence = Number(obj.confidence);
     if (!Number.isFinite(confidence)) return null;
 
-    let decision: 'ALLOW' | 'BLOCK' = decisionRaw === 'ALLOW' ? 'ALLOW' : 'BLOCK';
-    let reasonOut = reason;
-    if (decisionRaw === 'FLIP') {
-      decision = 'BLOCK';
-      reasonOut = `vision flip refused (no guess): ${reason}`;
-    }
-
     return {
-      verdict: decision === 'ALLOW' ? 'allow' : 'block',
-      decision,
-      direction: proposedDirection,
+      verdict: 'allow',
+      decision: 'ALLOW',
+      direction,
       confidence: Math.max(0, Math.min(100, confidence)),
-      reason: reasonOut,
+      reason,
       location: location as VisionLocationLabel,
       extension: extension as VisionExtensionLabel,
       nearestStructure: nearest as VisionNearestStructure,
@@ -174,32 +177,31 @@ export function parseLlmJson(
 }
 
 function applyLocationSanity(
-  proposed: 'LONG' | 'SHORT',
+  _proposed: 'LONG' | 'SHORT',
   parsed: ParsedLlmJson
 ): ParsedLlmJson {
-  if (parsed.decision !== 'ALLOW') return parsed;
   if (parsed.confidence < 50) {
     return {
       ...parsed,
       verdict: 'block',
       decision: 'BLOCK',
-      reason: `Vision uncertain (confidence ${parsed.confidence}) — fail-closed: ${parsed.reason}`,
+      reason: `Vision uncertain (confidence ${parsed.confidence}) — no open: ${parsed.reason}`,
     };
   }
-  if (proposed === 'LONG' && parsed.location === 'TOP' && parsed.extension === 'HIGH') {
+  if (parsed.direction === 'LONG' && parsed.location === 'TOP' && parsed.extension === 'HIGH') {
     return {
       ...parsed,
       verdict: 'block',
       decision: 'BLOCK',
-      reason: `Vision labels contradict ALLOW (TOP+HIGH) — fail-closed: ${parsed.reason}`,
+      reason: `Vision LONG contradicted by TOP+HIGH — no open: ${parsed.reason}`,
     };
   }
-  if (proposed === 'SHORT' && parsed.location === 'BOTTOM' && parsed.extension === 'HIGH') {
+  if (parsed.direction === 'SHORT' && parsed.location === 'BOTTOM' && parsed.extension === 'HIGH') {
     return {
       ...parsed,
       verdict: 'block',
       decision: 'BLOCK',
-      reason: `Vision labels contradict ALLOW (BOTTOM+HIGH) — fail-closed: ${parsed.reason}`,
+      reason: `Vision SHORT contradicted by BOTTOM+HIGH — no open: ${parsed.reason}`,
     };
   }
   return parsed;
@@ -209,7 +211,7 @@ function applyLocationSanity(
 export function buildGeminiRequestPayload(input: LlmTradeConfirmInput): {
   model: string;
   schema: {
-    decision: string;
+    direction: string;
     location: string;
     extension: string;
     nearest_structure: string;
@@ -224,7 +226,7 @@ export function buildGeminiRequestPayload(input: LlmTradeConfirmInput): {
   return {
     model: cfg.model,
     schema: {
-      decision: "'ALLOW'|'BLOCK'",
+      direction: "'LONG'|'SHORT'",
       location: "'BOTTOM'|'LOWER_RANGE'|'MID_RANGE'|'UPPER_RANGE'|'TOP'",
       extension: "'LOW'|'MEDIUM'|'HIGH'",
       nearest_structure: "'SUPPORT'|'RESISTANCE'|'NONE'",
@@ -269,49 +271,31 @@ function timeoutFallback(
     extension: null,
     nearestStructure: null,
     failureReason: why,
+    chosenDirection: null,
   };
 }
 
 function buildTextPrompt(input: LlmTradeConfirmInput, tfs: VisionChartTimeframe[]): string {
   return [
-    'You are an ENTRY LOCATION validator, not a trade signal generator.',
-    `A deterministic trading system proposes a ${input.direction} trade.`,
-    `Analyze the supplied ${tfs.join(', ')} candlestick charts.`,
-    'Your only task is determining whether CURRENT PRICE is a sensible entry location for the proposed direction.',
+    'You decide the trade SIDE. LONG or SHORT. You are not a yes/no checker on the bot.',
+    `Charts: ${tfs.join(', ')} candlesticks. Current price is the last close.`,
+    `The bot currently leans ${input.direction}. Ignore that if the chart disagrees.`,
+    'If the bot leans LONG: ja = LONG, nein = SHORT.',
+    'If the bot leans SHORT: ja = SHORT, nein = LONG.',
     '',
-    'Do not generate trade direction. Do not recommend another direction. Do not flip the trade.',
-    'When uncertain, BLOCK.',
-    '',
-    `For LONG, BLOCK if any major issue exists such as:`,
-    '* current price near local/HTF swing high',
-    '* price extended after strong bullish impulse',
-    '* resistance directly above',
-    '* repeated bullish candles indicating late entry/chasing',
-    '* upper-wick rejection',
-    '* apex/blow-off structure',
-    '* poor upside room',
-    '* 1h/4h distribution or lower-high structure',
-    '* ambiguous structure',
-    '',
-    `For SHORT, BLOCK if any major issue exists such as:`,
-    '* current price near local/HTF swing low',
-    '* price extended after strong bearish impulse',
-    '* support directly below',
-    '* repeated bearish candles indicating late entry/chasing',
-    '* lower-wick rejection',
-    '* capitulation/sweep-low structure',
-    '* poor downside room',
-    '* bullish HTF reversal structure',
-    '* ambiguous structure',
+    'Pick LONG when price is a sensible long entry (discount, support, range low, confirmed hold).',
+    'Pick SHORT when price is a sensible short entry (premium, resistance, range high, rejection).',
+    'Do not LONG a spike/top. Do not SHORT a flush/floor.',
+    'When uncertain, still pick the side that matches location (high → SHORT, low → LONG) only if the location is clear; otherwise set confidence below 50.',
     '',
     'Return strict JSON only:',
-    '{"decision":"ALLOW"|"BLOCK","location":"BOTTOM"|"LOWER_RANGE"|"MID_RANGE"|"UPPER_RANGE"|"TOP","extension":"LOW"|"MEDIUM"|"HIGH","nearest_structure":"SUPPORT"|"RESISTANCE"|"NONE","confidence":0-100,"reason":"short reason"}',
+    '{"direction":"LONG"|"SHORT","location":"BOTTOM"|"LOWER_RANGE"|"MID_RANGE"|"UPPER_RANGE"|"TOP","extension":"LOW"|"MEDIUM"|"HIGH","nearest_structure":"SUPPORT"|"RESISTANCE"|"NONE","confidence":0-100,"reason":"short reason"}',
     '',
     'Numeric context (secondary to the images):',
     JSON.stringify(
       {
         coin: input.coin,
-        proposedDirection: input.direction,
+        botLean: input.direction,
         signalConfidence: input.confidence,
         directionalTfCount: input.directionalTfCount,
         trendAlignment: input.trendAlignment,
@@ -381,13 +365,74 @@ export async function captureDirectionChartShots(
   return shots;
 }
 
+async function callOpenAiVision(
+  input: LlmTradeConfirmInput,
+  shots: ChartVisionShot[],
+  timeoutMs: number
+): Promise<string> {
+  const cfg = config.hyperliquid.llmTradeConfirm;
+  const key = process.env.OPENAI_API_KEY || '';
+  if (!key) throw new Error('OPENAI_API_KEY missing');
+
+  const tfs = shots.map((s) => s.timeframe);
+  const content: Array<Record<string, unknown>> = [
+    { type: 'text', text: buildTextPrompt(input, tfs) },
+  ];
+  for (const shot of shots) {
+    content.push({
+      type: 'text',
+      text: `Chart: ${input.coin} ${shot.timeframe} (${shot.candleCount} candles)`,
+    });
+    content.push({
+      type: 'image_url',
+      image_url: {
+        url: `data:${shot.mimeType};base64,${shot.base64}`,
+        detail: 'low',
+      },
+    });
+  }
+
+  const url = `${cfg.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0.1,
+        max_tokens: 400,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'user', content }],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`OpenAI HTTP ${res.status}: ${body.slice(0, 240)}`);
+    }
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const text = data.choices?.[0]?.message?.content ?? '';
+    if (!text.trim()) throw new Error('OpenAI empty content');
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callGeminiVision(
   input: LlmTradeConfirmInput,
   shots: ChartVisionShot[],
   timeoutMs: number
 ): Promise<string> {
   const cfg = config.hyperliquid.llmTradeConfirm;
-  const key = cfg.apiKey;
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || cfg.apiKey;
   if (!key) throw new Error('GEMINI_API_KEY missing');
 
   const tfs = shots.map((s) => s.timeframe);
@@ -439,7 +484,7 @@ async function callGeminiVision(
 }
 
 /**
- * Entry-location Vision gate. Fail-closed on any error. Never flips direction.
+ * OpenAI Vision picks LONG or SHORT. Fail-closed on any error.
  */
 export async function confirmTradeWithLlm(
   input: LlmTradeConfirmInput,
@@ -461,6 +506,7 @@ export async function confirmTradeWithLlm(
       verdict: 'block',
       decision: 'BLOCK',
       direction: enriched.direction,
+      chosenDirection: null,
       enforce: true,
       shadow: false,
       confidence: 0,
@@ -478,16 +524,21 @@ export async function confirmTradeWithLlm(
     };
   }
 
-  if (!cfg.apiKey) {
+  const openai = cfg.provider !== 'gemini';
+  const keyOk = openai ? Boolean(process.env.OPENAI_API_KEY) : Boolean(cfg.apiKey);
+  if (!keyOk) {
     return {
       ok: false,
       verdict: 'block',
       decision: 'BLOCK',
       direction: enriched.direction,
+      chosenDirection: null,
       enforce: true,
       shadow: false,
       confidence: 0,
-      reason: 'LLM/vision key missing — fail-closed (no open without chart review)',
+      reason: openai
+        ? 'OPENAI_API_KEY missing — fail-closed (no open without visual side)'
+        : 'LLM/vision key missing — fail-closed (no open without chart review)',
       latencyMs: 0,
       provider: cfg.provider,
       model: cfg.model,
@@ -514,12 +565,15 @@ export async function confirmTradeWithLlm(
           : 'No chart snapshots captured for vision'
       );
     }
-    const raw = await callGeminiVision(enriched, shots, cfg.timeoutMs);
+    const raw = openai
+      ? await callOpenAiVision(enriched, shots, cfg.timeoutMs)
+      : await callGeminiVision(enriched, shots, cfg.timeoutMs);
     const latencyMs = Date.now() - started;
     const parsedRaw = parseLlmJson(raw, enriched.direction);
     if (!parsedRaw) {
-      logger.warn('Gemini trade confirm: malformed JSON', {
+      logger.warn('Vision trade confirm: malformed JSON', {
         coin: enriched.coin,
+        provider: cfg.provider,
         raw: raw.slice(0, 240),
       });
       const fallback = timeoutFallback(
@@ -553,6 +607,7 @@ export async function confirmTradeWithLlm(
       verdict: result.verdict,
       decision: result.decision,
       direction: result.direction,
+      chosenDirection: ok ? result.direction : null,
       enforce: true,
       shadow: false,
       confidence: result.confidence,
@@ -582,9 +637,12 @@ export async function confirmTradeWithLlm(
       visionTimeframes: out.visionTimeframes,
     });
 
-    logger.info('Gemini vision entry-location validator', {
+    logger.info('Vision side decision', {
       coin: enriched.coin,
-      proposed: enriched.direction,
+      provider: cfg.provider,
+      model: cfg.model,
+      botLean: enriched.direction,
+      visualSide: out.direction,
       decision: out.decision,
       location: out.location,
       extension: out.extension,
@@ -598,8 +656,9 @@ export async function confirmTradeWithLlm(
   } catch (err: unknown) {
     const latencyMs = Date.now() - started;
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn('Gemini vision trade confirm failed', {
+    logger.warn('Vision trade confirm failed', {
       coin: enriched.coin,
+      provider: cfg.provider,
       error: msg.slice(0, 200),
       latencyMs,
     });

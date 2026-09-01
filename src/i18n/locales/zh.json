@@ -1429,7 +1429,8 @@
     "empty": "暂无动态",
     "viewHistory": "查看历史",
     "kindBet": "投注",
-    "kindBot": "机器人"
+    "kindBot": "机器人",
+    "kindFollow": "关注"
   },
   "news": {
     "title": "新闻",

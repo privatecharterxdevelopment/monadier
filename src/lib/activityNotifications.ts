@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 import { devError } from './devLog';
 import { fmtClosedPnl } from './hyperliquid/format';
 
-export type ActivityNotificationKind = 'bot' | 'betting' | 'community';
+export type ActivityNotificationKind = 'bot' | 'betting' | 'community' | 'follow';
 
 export type ActivityNotification = {
   id: string;
@@ -87,6 +87,9 @@ export function isActivityUnread(
 export function toastMessageForNotification(n: ActivityNotification): string {
   if (n.kind === 'community') {
     return n.headline || 'You were mentioned in Community';
+  }
+  if (n.kind === 'follow') {
+    return n.headline || 'Followed trader opened a position';
   }
 
   const amount = fmtClosedPnl(n.profitLoss);

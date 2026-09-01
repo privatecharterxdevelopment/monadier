@@ -33,10 +33,17 @@ export function normalizeHlPerpCoin(coin: string): string {
 export const BOT_MIN_DAY_VOLUME_USD = 2_500_000;
 
 /**
- * Fallback bot universe — majors only (BTC/ETH/SOL).
+ * Fallback bot universe — liquid majors (no memes).
  * Live list comes from `/api/global-signals` → `botUniverse`.
  */
-export const BOT_TRADE_FALLBACK_COINS = ['BTC', 'ETH', 'SOL'] as const;
+export const BOT_TRADE_FALLBACK_COINS = [
+  'BTC',
+  'ETH',
+  'SOL',
+  'BNB',
+  'XRP',
+  'HYPE',
+] as const;
 
 const BOT_TRADE_FALLBACK_SET = new Set<string>(BOT_TRADE_FALLBACK_COINS);
 
@@ -88,7 +95,7 @@ export function isHiddenFromBotUi(coin: string): boolean {
   );
 }
 
-/** Bot-only: majors (BTC/ETH/SOL), not hard-excluded. Live universe cannot re-add alts. */
+/** Bot-only: liquid majors, not hard-excluded. Live universe cannot re-add memes. */
 export function isBotTradeableHlCoin(
   coin: string,
   liveUniverse?: readonly string[] | null
