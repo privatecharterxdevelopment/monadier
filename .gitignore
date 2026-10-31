@@ -40,6 +40,8 @@ supabase/.env
 supabase/.temp/
 bot-service-source-review.zip
 .env*
+!.env.example
+!bot-service/.env.example
 .cursor/
 tmp-lorenzo-bot-logs/
 bot-service/tmp/
