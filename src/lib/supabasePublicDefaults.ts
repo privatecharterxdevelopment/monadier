@@ -1,7 +1,7 @@
-/** Public HyperGain/HyperGain Supabase defaults (anon key is publishable by design). */
-export const DEFAULT_SUPABASE_URL = 'https://gbgafseabgqinnvlfslc.supabase.co';
+/** Public HyperGain Supabase defaults (anon key is publishable by design). */
+export const DEFAULT_SUPABASE_URL = 'https://hnaldfvommthfgoryitt.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiZ2Fmc2VhYmdxaW5udmxmc2xjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyOTIxNTksImV4cCI6MjA2MTg2ODE1OX0.G4fy9Oyy5BWsWjRh3zU2L0MIjpE4tdl87Iog_n9uoLw';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuYWxkZnZvbW10aGZnb3J5aXR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjAzOTcsImV4cCI6MjEwOTAzNjM5N30.1xRlssWJUrBsW8RwoUQ1jH1GNFOdqp8BXMFCFPqXc9w';
 
 function isPlaceholder(value: string | undefined): boolean {
   if (!value) return true;

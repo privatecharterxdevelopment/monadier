@@ -113,9 +113,9 @@ export const config = {
   hyperliquid: {
     /**
      * Hard halt: no new opens, no trail/SL/force closes. Books stay on Hyperliquid.
-     * Re-enable only with HL_BOT_HALTED=false.
+     * Default ON (live). Set HL_BOT_HALTED=true only for emergency stop.
      */
-    botHalted: process.env.HL_BOT_HALTED !== 'false',
+    botHalted: process.env.HL_BOT_HALTED === 'true',
     /** Seeds per-user agent keys — never expose to frontend */
     agentMasterSecret:
       process.env.HL_AGENT_MASTER_SECRET || process.env.BOT_PRIVATE_KEY!,

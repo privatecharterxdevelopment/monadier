@@ -19,7 +19,7 @@ function loadEnvLocal() {
 }
 
 const env = { ...process.env, ...loadEnvLocal() };
-const url = env.VITE_SUPABASE_URL || 'https://gbgafseabgqinnvlfslc.supabase.co';
+const url = env.VITE_SUPABASE_URL || 'https://hnaldfvommthfgoryitt.supabase.co';
 const key = env.VITE_SUPABASE_ANON_KEY;
 
 if (!key || key.includes('your-')) {

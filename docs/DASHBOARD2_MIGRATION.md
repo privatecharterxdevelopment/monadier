@@ -14,7 +14,7 @@ Dashboard2 (`/dashboard2`) is the primary trading terminal. Legacy `/dashboard/*
 | Plans / subscriptions in D2 | Skipped | Not part of product direction |
 | Redirect `/dashboard` → `/dashboard2` | Done | `App.tsx` |
 
-### Supabase (remote `gbgafseabgqinnvlfslc`)
+### Supabase (remote `hnaldfvommthfgoryitt`)
 
 **Do not delete the production database** unless you intentionally want to wipe all users, positions, vault settings, and trade history.
 
@@ -24,7 +24,7 @@ Dashboard2 (`/dashboard2`) is the primary trading terminal. Legacy `/dashboard/*
 
 ```bash
 cd /path/to/monadier
-supabase link --project-ref gbgafseabgqinnvlfslc   # once
+supabase link --project-ref hnaldfvommthfgoryitt   # once
 supabase migration list                            # local vs remote
 supabase db push                                   # apply pending
 ```

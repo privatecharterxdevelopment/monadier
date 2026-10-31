@@ -1,21 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-const InviteOnlyPopup: React.FC = () => {
-  const [open, setOpen] = useState(true);
-  if (!open) return null;
-
-  return (
-    <div className="invite-only-overlay" role="dialog" aria-modal="true" aria-labelledby="invite-only-title">
-      <div className="invite-only-card">
-        <p id="invite-only-title" className="invite-only-title">
-          this software was sold to a chinese company.
-        </p>
-        <button type="button" className="invite-only-ok" onClick={() => setOpen(false)}>
-          OK
-        </button>
-      </div>
-    </div>
-  );
-};
+/** Unused while public registration is open. Kept for a future invite-only mode. */
+const InviteOnlyPopup: React.FC = () => null;
 
 export default InviteOnlyPopup;

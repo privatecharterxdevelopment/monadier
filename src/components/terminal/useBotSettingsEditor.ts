@@ -7,8 +7,6 @@ import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import type { VaultSettingsSnapshot } from '../../lib/vaultSettingsSnapshot';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
 import type { HlBotStrategy } from '../../lib/hlBotStrategy';
-import { BOT_SHUT_DOWN, BOT_SHUT_DOWN_MESSAGE } from '../../lib/productShutdown';
-
 export type BotSettingsEditorOptions = {
   settings: VaultSettingsSnapshot;
   walletAddress?: string;
@@ -201,11 +199,6 @@ export function useBotSettingsEditor({
 
     if (autoTrade && !allowAutoTrade) {
       setError('Deposit USDC on Hyperliquid and approve the agent before starting the bot.');
-      return { ok: false };
-    }
-
-    if (BOT_SHUT_DOWN && autoTrade) {
-      setError(BOT_SHUT_DOWN_MESSAGE);
       return { ok: false };
     }
 
