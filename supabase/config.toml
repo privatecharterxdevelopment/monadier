@@ -1,0 +1,77 @@
+# Supabase Configuration for HyperGain
+# Production Site URL — hypergain.io (www redirects here via apex→www in Vercel).
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+# Canonical production host (www). Apex redirects to www on Vercel.
+site_url = "https://www.hypergain.io"
+additional_redirect_urls = [
+  "https://www.hypergain.io/auth/callback",
+  "https://www.hypergain.io/reset-password",
+  "https://hypergain.io/auth/callback",
+  "https://hypergain.io/reset-password",
+  "https://app.hypergain.io/auth/callback",
+  "https://app.hypergain.io/reset-password",
+  "http://localhost:5173/auth/callback",
+  "http://localhost:5173/reset-password",
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+# Register → immediate session (standard SaaS UX). Password reset still uses email links.
+enable_confirmations = false
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+# Google Client ID/Secret live only in the Supabase Dashboard — omit provider
+# block here so `config push` does not disable Google.
+
+[auth.external.discord]
+enabled = false
+
+[analytics]
+enabled = false
+
+[functions.stripe-checkout]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.manage-subscription]
+verify_jwt = true
+
+[functions.activate-license]
+verify_jwt = true
+
+[functions.send-support-message]
+verify_jwt = true

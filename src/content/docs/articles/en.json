@@ -1,0 +1,114 @@
+{
+  "what-is-hypergain-io": {
+    "title": "What is HyperGain.io?",
+    "description": "HyperGain.io is a Hyperliquid AI crypto trading agent — not the Hyper Gain protein / mass-gainer supplement brand.",
+    "body": [
+      "HyperGain.io (hypergain.io) is non-custodial trading software for Hyperliquid: an AI perpetuals agent, pro perps terminal, and on-chain outcome markets — one interface.",
+      "It is not affiliated with any “Hyper Gain”, “Hypergain”, or similar fitness / protein / mass-gainer supplement products. If you searched for muscle powder and landed here, you want a different brand.",
+      "Our product lives at hypergain.io and app.hypergain.io. Official social: @HyperGainAi on X. Support: administration@hypergain.io.",
+      "You fund native USDC on Arbitrum into your own Hyperliquid account, approve the trading agent once, and can run full-auto scanning across 200+ HL perps. HyperGain never holds private keys and never takes custody into a company wallet.",
+      "There are no promised or guaranteed returns. Leveraged crypto trading is high risk. Not financial advice."
+    ]
+  },
+  "overview": {
+    "title": "Overview",
+    "description": "What HyperGain is and how the non-custodial agent fits on Hyperliquid.",
+    "body": [
+      "HyperGain.io is a non-custodial Hyperliquid trading platform: an AI perpetuals agent that can run 24/7 on your HL account, plus pro perps and on-chain sports/outcome betting — one interface.",
+      "We supply the automation layer. Your USDC stays on Hyperliquid in your name. HyperGain never holds private keys and never takes custody of deposits into a company wallet.",
+      "The agent scans 200+ Hyperliquid perps while Start bot is on, opens and closes according to your risk settings (slots, leverage, trailing), and can be stopped anytime. You can also close positions manually in the terminal.",
+      "There are no promised or guaranteed returns. Leveraged crypto trading is high risk — you can lose money. Past P/L on the leaderboard does not predict future results. Not financial advice.",
+      "Brand note: HyperGain.io is crypto trading software. It is unrelated to Hyper Gain protein or mass-gainer supplements that share a similar name."
+    ]
+  },
+  "hypergain-101": {
+    "title": "HyperGain 101",
+    "description": "Learn the basics — wallet, USDC on Arbitrum, agent approval, and Start bot.",
+    "body": [
+      "HyperGain is built for people who want Hyperliquid perpetuals automation without babysitting charts or handing over keys.",
+      "Create a free account, connect MetaMask or WalletConnect, and make sure you are on Arbitrum One. Fund with native USDC on Arbitrum — other chains or USDC variants will not credit correctly into the HL flow.",
+      "Deposit into your Hyperliquid account via the in-app Funds flow. HL’s minimum deposit is $5; the agent typically needs about $20+ USDC on HL to run usefully.",
+      "Approve the trading agent once. That approval is for trading only — not withdrawals. Withdrawals always require your wallet on Hyperliquid.",
+      "Press Start bot when funded. You do not need to keep the browser open; automation runs on HyperGain servers until you stop it."
+    ]
+  },
+  "getting-started": {
+    "title": "Getting started",
+    "description": "Four steps from signup to live automation.",
+    "body": [
+      "Step 1 — Account & wallet: Register free, sign in, and connect MetaMask or WalletConnect on Arbitrum One.",
+      "Step 2 — Fund Hyperliquid: Use the Funds tab to bridge native Arbitrum USDC into your HL account. Wrong chain / wrong USDC variant will not work.",
+      "Step 3 — Approve once: Grant the HyperGain trading agent permission to place orders on your HL account. It cannot withdraw.",
+      "Step 4 — Start bot: Choose slots / risk preferences if needed, then press Start bot. While it is on and you have enough free margin, the agent scans and may open or close positions around the clock.",
+      "Stop bot anytime. Open positions remain yours on Hyperliquid until you close them (manually or via the agent’s exit logic). Always size for risk you can afford to lose."
+    ]
+  },
+  "non-custodial": {
+    "title": "Non-custodial funds",
+    "description": "Keys, withdrawals, and what the agent can (and cannot) do.",
+    "body": [
+      "Custody is the first question serious users ask. HyperGain does not take deposits into a platform hot wallet. Your USDC lives on Hyperliquid under your account.",
+      "We never hold your private keys. Signing in and connecting a wallet does not give HyperGain the ability to drain funds.",
+      "After you approve the trading agent, it can place and manage trades on Hyperliquid according to your settings. It cannot withdraw USDC off HL. Withdrawals always need your wallet action on Hyperliquid.",
+      "If someone asks you to seed a “company wallet” or share a seed phrase to use HyperGain — that is not us. Keep keys offline and only approve the official agent flow in the app."
+    ]
+  },
+  "profit-trailing": {
+    "title": "Profit trailing",
+    "description": "How winners are trailed and when the agent cuts a pullback.",
+    "body": [
+      "When a position turns profitable, the agent can arm a trailing stop that follows favorable price and exits on a defined pullback — so winners can run without requiring you to watch every candle.",
+      "For longs, the trail sits below the high (favorable extreme) and ratchets up as price makes new highs. For shorts, the trail sits above the low and ratchets down.",
+      "The trail should never sit on the wrong side of the market (e.g. a long stop above mark). If something looks inverted, stop the agent and review the position in the terminal.",
+      "Per-position “let run” overrides trail for that coin only when you turn it on — useful when you want to manage an exit manually. Default is trail-capable when the position is in profit and let run is off."
+    ]
+  },
+  "leaderboard": {
+    "title": "On-chain leaderboard",
+    "description": "Why closes are public and how to verify on HypurrScan.",
+    "body": [
+      "Marketing screenshots are easy to fake. HyperGain’s public leaderboard is wired to real Hyperliquid closes from agent activity.",
+      "Wallets are masked on the site for privacy. Full addresses and fills can be verified on HypurrScan and other HL explorers.",
+      "Use the board as transparency — not as a yield promise. Past results do not predict future performance, and leveraged trading can lose money quickly."
+    ]
+  },
+  "fees": {
+    "title": "Fees",
+    "description": "Hyperliquid trading fees, builder fees, and platform success fees.",
+    "body": [
+      "Hyperliquid charges trading fees on perp fills (maker/taker style depending on the venue fill). Those fees are part of trading on HL whether or not you use HyperGain.",
+      "HyperGain may charge a builder fee on HL orders and subscription tiers for agent access. Check Pricing on the site and fee settings in the app for current numbers.",
+      "Platform success fees on agent closes typically apply only when a trade is profitable — see current terms in the app. Losing closes should not be billed as “success.”",
+      "Deposits and bridging into Hyperliquid do not include an extra HyperGain deposit fee — see Deposit successful (no HyperGain deposit fee). Always leave enough free margin for HL fees and adverse moves."
+    ]
+  },
+  "depositing-bridging-hyperliquid": {
+    "title": "Depositing / bridging on Hyperliquid",
+    "description": "How HyperGain bridges native Arbitrum USDC into your Hyperliquid account — wallet sign, Arbitrum confirm, then HL credit.",
+    "body": [
+      "Open Funds → Deposit in HyperGain. Connect a wallet on Arbitrum One and deposit native USDC only — not BNB, BSC, ETH mainnet, or USDC on other chains.",
+      "After you sign in your wallet, HyperGain shows Depositing to Hyperliquid with three steps: Wallet signed → Arbitrum confirmed → Hyperliquid credit. The first two usually finish quickly; HL credit often takes about 1–3 minutes.",
+      "You can open the Arbitrum transaction and your HypurrScan wallet from the modal to verify the bridge on-chain. Until Hyperliquid credit completes, the new USDC will not appear as trading balance.",
+      "HyperGain never takes custody into a company wallet. The deposit lands on your Hyperliquid account in your name. Wrong chain or the wrong USDC variant will not credit correctly."
+    ]
+  },
+  "deposit-successful-no-extra-fees": {
+    "title": "Deposit successful — no HyperGain deposit fee",
+    "description": "When HL credit completes, USDC shows on your Hyperliquid balance. HyperGain does not charge an extra deposit or bridge fee — only Hyperliquid / network fees apply.",
+    "body": [
+      "When the bridge finishes, the modal shows Deposit successful with the amount credited and your updated Hyperliquid total. Press Done to return to Funds.",
+      "HyperGain does not charge anything extra to deposit or bridge USDC into Hyperliquid. There is no HyperGain deposit markup, bridge surcharge, or “processing” fee on top of the transfer.",
+      "You may still pay normal network gas on Arbitrum and whatever Hyperliquid protocol costs apply to the deposit path — those are Hyperliquid / chain fees, not HyperGain fees.",
+      "Trading later still follows Hyperliquid trading fees and any HyperGain agent success / builder fees described under Fees. The deposit itself stays free of HyperGain add-ons."
+    ]
+  },
+  "sports-betting": {
+    "title": "AI sports betting",
+    "description": "Outcome markets from HL spot — same non-custodial model.",
+    "body": [
+      "HyperGain also surfaces Hyperliquid outcome markets for sports and macro-style events. Funding comes from your HL spot balance — same non-custodial model as the trading agent.",
+      "Pick Yes/No at live odds, size the stake you can afford, and track open bets in the app. Cash out when liquidity allows, or hold to settlement.",
+      "Odds and available size depend on HL market liquidity. Thin books can mean wider prices or limited cash-out. This is not a sportsbook deposit account; funds stay on Hyperliquid."
+    ]
+  }
+}

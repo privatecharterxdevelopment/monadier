@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en" class="notranslate" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Apply stored landing theme before first paint (prevents white flash on load / nav) -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('landing-theme');
+          if (t !== 'dark' && t !== 'light') t = 'light';
+          document.documentElement.dataset.landingTheme = t;
+          document.documentElement.style.colorScheme = t;
+          if (t === 'dark') {
+            document.documentElement.style.backgroundColor = '#000000';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- Canonical must match the requested path. A hardcoded "/" makes Google treat
+         /docs, /faqs, etc. as duplicates of home (common GSC “alternate canonical”). -->
+    <link id="hg-canonical" rel="canonical" href="https://www.hypergain.io/" />
+    <script>
+      (function () {
+        try {
+          var origin = 'https://www.hypergain.io';
+          var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+          var url = origin + (path === '/' ? '/' : path);
+          var link = document.getElementById('hg-canonical');
+          if (link) link.setAttribute('href', url);
+          var og = document.querySelector('meta[property="og:url"]');
+          if (og) og.setAttribute('content', url);
+        } catch (e) {}
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+    <!-- Mobile App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HyperGain" />
+    <meta name="theme-color" content="#e8e8ec" />
+    <script>
+      (function () {
+        try {
+          if (document.documentElement.dataset.landingTheme === 'dark') {
+            var m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.setAttribute('content', '#000000');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- SEO Meta Tags (fallback for crawlers — per-route tags via react-helmet-async) -->
+    <meta name="description" content="HyperGain.io is the Hyperliquid AI trading agent (crypto) — not a protein brand. Full-auto perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns." />
+    <meta name="keywords" content="hypergain.io, HyperGain.io, HyperGain Hyperliquid, hyperliquid agent, hyperliquid trading agent, full auto AI trading agent, crypto trading agent, non-custodial trading agent" />
+    <meta name="author" content="HyperGain.io" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+
+    <!-- Open Graph / Social Media — absolute URLs for crawlers -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.hypergain.io/" />
+    <meta property="og:site_name" content="HyperGain.io" />
+    <meta property="og:title" content="HyperGain.io | Hyperliquid AI Trading Agent — full auto 24/7" />
+    <meta property="og:description" content="HyperGain.io is the Hyperliquid AI trading agent (crypto) — not a protein brand. Full-auto perps, USDC on Arbitrum, 200+ markets, non-custodial. No guaranteed returns." />
+    <meta property="og:image" content="https://www.hypergain.io/og/hypergain-flyer-share.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="HyperGain.io | Hyperliquid AI Trading Agent — full auto 24/7" />
+    <meta name="twitter:description" content="HyperGain.io is the Hyperliquid AI trading agent (crypto) — not a protein brand. Full-auto perps on Hyperliquid. No guaranteed returns." />
+    <meta name="twitter:image" content="https://www.hypergain.io/og/hypergain-flyer-share.png" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "HyperGain.io — Hyperliquid AI trading agent",
+      "alternateName": ["HyperGain", "HyperGain Hyperliquid agent"],
+      "url": "https://www.hypergain.io/",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web",
+      "description": "HyperGain.io is a non-custodial Hyperliquid AI trading agent for crypto perpetuals — not a protein or mass-gainer brand. Full auto 24/7. No guaranteed returns.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "No monthly subscription; Hyperliquid fees apply; Platform Success Fee may apply on profitable closes as disclosed"
+      },
+      "featureList": [
+        "Full auto Hyperliquid trading agent",
+        "Non-custodial Hyperliquid account trading",
+        "200+ Hyperliquid perpetual markets",
+        "24/7 automated execution",
+        "Live chart terminal",
+        "Configurable risk management"
+      ]
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&display=swap">
+    </noscript>
+    <title>HyperGain.io | Hyperliquid AI Trading Agent — full auto 24/7</title>
+    <!-- Hide SEO bootstrap from humans during SPA boot; crawlers still see it in raw HTML. -->
+    <style>
+      #seo-crawler {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+      }
+    </style>
+  </head>
+  <body class="bg-background text-[#0a0a0a] font-sans antialiased">
+    <div id="root">
+      <div id="seo-crawler">
+        <header>
+          <img src="/images/brand/hypergain-logo.webp" alt="HyperGain.io — Hyperliquid AI crypto trading agent (not a supplement brand)" width="320" height="91" />
+          <h1>HyperGain.io | Hyperliquid AI Trading Agent — full auto 24/7</h1>
+          <p>HyperGain.io is a full-auto AI trading agent on Hyperliquid (crypto) — not a protein or mass-gainer brand. Non-custodial perpetuals, native USDC on Arbitrum. No guaranteed returns.</p>
+          <nav>
+            <a href="/docs/what-is-hypergain-io">What is HyperGain.io?</a>
+            <a href="/trading-bot">Hyperliquid trading agent</a>
+            <a href="/how-it-works">How it works</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="/docs">Docs</a>
+            <a href="/images/media-kit.html">Media kit</a>
+            <a href="/support">Help center</a>
+            <a href="/faqs">FAQs</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="https://app.hypergain.io/">Open app</a>
+            <a href="https://hyperliquid.xyz/" rel="noopener noreferrer">Hyperliquid</a>
+          </nav>
+        </header>
+        <main>
+          <h2>How the Hyperliquid agent works</h2>
+          <img
+            src="/images/docs/hypergain-hyperliquid-ai-trading-agent-flyer.png"
+            alt="HyperGain.io official flyer — Hyperliquid AI crypto trading agent (not a supplement brand)"
+            width="1200"
+            height="630"
+          />
+          <img
+            src="/images/how-it-works/hypergain-bot-funds-deposit-withdraw.png"
+            alt="HyperGain.io agent Funds tab showing Hyperliquid USDC trading balance and Deposit / Withdraw"
+            width="567"
+            height="1024"
+          />
+          <img
+            src="/images/docs/hypergain-hyperliquid-usdc-deposit-bridging.png"
+            alt="HyperGain.io depositing USDC to Hyperliquid — Arbitrum bridge in progress"
+            width="1024"
+            height="504"
+          />
+          <img
+            src="/images/docs/hypergain-hyperliquid-deposit-successful-no-extra-fees.png"
+            alt="HyperGain.io Hyperliquid deposit successful — no HyperGain extra deposit fee"
+            width="1024"
+            height="505"
+          />
+          <img
+            src="/images/how-it-works/hypergain-bot-running-settings.png"
+            alt="HyperGain.io Hyperliquid AI trading agent settings — risk leverage profit trail"
+            width="567"
+            height="1024"
+          />
+          <img
+            src="/images/how-it-works/hypergain-bot-open-trade-slots.png"
+            alt="HyperGain.io open trade slots for Hyperliquid perpetual positions"
+            width="560"
+            height="1024"
+          />
+          <img
+            src="/images/how-it-works/hyperliquid-usdc-deposit.png"
+            alt="HyperGain.io Hyperliquid USDC deposit from Arbitrum — no exchange API"
+            width="674"
+            height="856"
+          />
+          <p>Deposit native USDC on Arbitrum, approve the agent once, and the agent scans 200+ perpetual markets 24/7 from your Hyperliquid account.</p>
+          <p><a href="/images/media-kit.html">HyperGain.io media kit — all official Hyperliquid trading agent screenshots</a></p>
+          <p><a href="/docs/depositing-bridging-hyperliquid">Docs: Depositing / bridging on Hyperliquid</a></p>
+          <p><a href="/docs/deposit-successful-no-extra-fees">Docs: Deposit successful — no HyperGain deposit fee</a></p>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dedicated image sitemap for Google Images (hypergain.io product shots). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://www.hypergain.io/images/media-kit.html</loc>
+    <lastmod>2026-08-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/docs/hypergain-hyperliquid-ai-trading-agent-flyer.png</image:loc>
+      <image:title>HyperGain.io Hyperliquid AI trading agent flyer</image:title>
+      <image:caption>Official HyperGain.io flyer for the Hyperliquid AI crypto trading agent — not a fitness supplement brand.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/docs/hypergain-hyperliquid-usdc-deposit-bridging.png</image:loc>
+      <image:title>HyperGain.io depositing USDC to Hyperliquid — Arbitrum bridge</image:title>
+      <image:caption>HyperGain.io Funds: bridging native Arbitrum USDC to Hyperliquid. Wallet signed, Arbitrum confirmed, HL credit pending.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/docs/hypergain-hyperliquid-deposit-successful-no-extra-fees.png</image:loc>
+      <image:title>HyperGain.io Hyperliquid deposit successful — no extra deposit fee</image:title>
+      <image:caption>HyperGain.io deposit successful on Hyperliquid. No HyperGain deposit markup — only HL / network fees.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/how-it-works/hypergain-bot-funds-deposit-withdraw.png</image:loc>
+      <image:title>HyperGain.io Hyperliquid Funds — deposit and withdraw USDC</image:title>
+      <image:caption>HyperGain.io agent Funds tab: Hyperliquid trading balance and Deposit / Withdraw.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/how-it-works/hypergain-bot-running-settings.png</image:loc>
+      <image:title>HyperGain.io Hyperliquid agent settings</image:title>
+      <image:caption>HyperGain.io AI trading agent running with risk, leverage, and profit trail on Hyperliquid.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/how-it-works/hypergain-bot-open-trade-slots.png</image:loc>
+      <image:title>HyperGain.io open trade slots on Hyperliquid</image:title>
+      <image:caption>HyperGain.io settings: 2 or 3 open Hyperliquid perpetual trade slots.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/how-it-works/hyperliquid-usdc-deposit.png</image:loc>
+      <image:title>HyperGain.io Hyperliquid USDC deposit from Arbitrum</image:title>
+      <image:caption>Deposit native Arbitrum USDC into Hyperliquid via HyperGain.io — no exchange API.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.hypergain.io/images/brand/hypergain-logo.png</image:loc>
+      <image:title>HyperGain.io logo — Hyperliquid AI trading agent</image:title>
+      <image:caption>Official HyperGain.io logo for the Hyperliquid crypto trading agent (hypergain.io).</image:caption>
+    </image:image>
+  </url>
+</urlset>

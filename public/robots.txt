@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Auth, verification, admin — not for search
+Disallow: /login
+Disallow: /register
+Disallow: /auth/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /kyc
+Disallow: /admin
+Disallow: /28858885
+Disallow: /dashboard
+Disallow: /dashboard2
+Disallow: /app
+
+# Secondary marketing URLs are noindex via meta (see src/lib/seo/pages.ts).
+# Do not Disallow them — crawlers need to see the noindex directive.
+
+Sitemap: https://www.hypergain.io/sitemap.xml
+Sitemap: https://www.hypergain.io/image-sitemap.xml

@@ -1,0 +1,1522 @@
+{
+  "languages": {
+    "en": "English",
+    "de": "Deutsch",
+    "zh": "中文",
+    "ja": "日本語",
+    "th": "ไทย",
+    "es": "Español",
+    "it": "Italiano",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "ur": "اردو"
+  },
+  "language": {
+    "select": "言語を選択"
+  },
+  "nav": {
+    "howItWorks": "仕組み",
+    "aiTradingBot": "AIトレーディングボット",
+    "aiSportsBetting": "AIスポーツベッティング",
+    "aiAutoBetting": "AIスポーツベッティング",
+    "perpsTrading": "パーペ取引",
+    "bot": "ボット",
+    "leaderboard": "リーダーボード",
+    "betting": "ベッティング",
+    "technology": "テクノロジー",
+    "pricing": "料金",
+    "about": "概要"
+  },
+  "common": {
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "openApp": "アプリを開く",
+    "app": "アプリ",
+    "startBot": "ボット開始",
+    "connect": "接続",
+    "restoring": "復元中…",
+    "support": "サポート",
+    "affiliate": "アフィリエイト",
+    "download": "ダウンロード",
+    "trade": "取引",
+    "createAccount": "アカウント作成",
+    "closeMenu": "メニューを閉じる",
+    "openMenu": "メニューを開く",
+    "toggleMenu": "メニュー切替",
+    "getStarted": "始める",
+    "openAppProfile": "アプリを開く、{{name}}",
+    "launchApp": "アプリを起動",
+    "helpCenter": "ヘルプセンター",
+    "leaderboard": "リーダーボード",
+    "howItWorks": "仕組み"
+  },
+  "footer": {
+    "terms": "利用規約",
+    "privacy": "プライバシー",
+    "support": "サポート",
+    "about": "概要",
+    "copyright": "© {{year}} HyperGain · Hyperliquid 自動取引 · administration@hypergain.io",
+    "faqs": "FAQ",
+    "blog": "ブログ",
+    "docs": "Docs"
+  },
+  "landing": {
+    "hero": {
+      "lineDarkTop": "フルオート",
+      "lineDarkTopAccent": "AIトレーディングエージェント",
+      "rotateLines": [
+        "Hyperliquid で",
+        "自動パーペチュアル",
+        "200以上の市場で",
+        "HL口座で24時間365日"
+      ],
+      "disclaimer": "HyperGain は Hyperliquid 口座での AI 自動パーペチュアル取引を可能にします。USDC は常に Hyperliquid に残り、非カストディアルで秘密鍵を保持せず、ウォレットへのアクセスや出金もできません。提供するのは取引技術と自動化のみです。レバレッジ付き暗号資産取引には大きな損失リスクがあり、AI や自動化は市場を誤読することがあります。利益の約束や保証はありません。過去の実績は将来を保証しません。金融・投資・税務・法的助言ではありません。"
+    },
+    "carousel": {
+      "titleStart": "収益を",
+      "titleEarn": "取引を",
+      "rotateWords": [
+        "自動で",
+        "今日",
+        "明日",
+        "いつでも"
+      ],
+      "description": "HyperGain は Hyperliquid 上で自動ボット取引、プロのパーペチュアル執行、スポーツベッティング、予測市場を統合 — 1 アカウント、1 インターフェース。AI ボットが 200+ マーケットを 24/7 スキャンし、ライブチャートと板情報で取引、またはスポーツ・暗号・マクロのオンチェーン結果市場を開く。USDC は常に Hyperliquid に留まります。",
+      "cards": {
+        "bot": {
+          "title": "完全自動ボット取引",
+          "cta": "ボット開始"
+        },
+        "perps": {
+          "title": "プロパーペ取引",
+          "cta": "パーペ取引"
+        },
+        "betting": {
+          "title": "スポーツベッティング",
+          "cta": "ベッティングを開く"
+        },
+        "predictions": {
+          "title": "予測市場",
+          "cta": "マーケットを開く"
+        }
+      }
+    },
+    "bento": {
+      "ariaLabel": "取引機能",
+      "bot": {
+        "title": "ボットで取引",
+        "desc": "AI が 200+ HL パーペを毎サイクルスキャン — 24/7 でエントリー、利益追跡、損切り。",
+        "cta": "ボット開始",
+        "pillScan": "HL スキャン中",
+        "pillLong": "BTC LONG 81%",
+        "pillTrail": "トレール作動"
+      },
+      "charts": {
+        "title": "ローソク足を取引",
+        "desc": "ライブ Hyperliquid チャート、板、執行 — ボットが読む同じ流動性。",
+        "cta": "チャートを開く"
+      },
+      "sports": {
+        "title": "スポーツと予測市場",
+        "desc": "Hyperliquid の HIP-4 結果市場 — マクロ、暗号、ライブスポーツ、オンチェーン決済。",
+        "cta": "ベッティングを開く"
+      },
+      "title": "すべてが",
+      "titleMuted": "一つの口座に",
+      "sub": "Hyperliquid のフレームワークで駆動。"
+    },
+    "pitch": {
+      "cta": "ボット開始",
+      "ctaRegister": "無料登録",
+      "ctaLaunchBot": "Agentを今すぐ起動",
+      "ctaFinal": "Start trading now",
+      "lines": [
+        [
+          {
+            "text": "世界最先端の",
+            "muted": true
+          },
+          {
+            "text": "取引ボット"
+          }
+        ],
+        [
+          {
+            "text": "",
+            "muted": true
+          },
+          {
+            "text": "200 ペア"
+          },
+          {
+            "text": "以上を検索、自動執行・決済",
+            "muted": true
+          }
+        ],
+        [
+          {
+            "text": "最低 $20 ",
+            "muted": true
+          },
+          {
+            "text": "最大 40 倍レバレッジ"
+          }
+        ],
+        [
+          {
+            "text": "",
+            "muted": true
+          },
+          {
+            "text": "24/7、365 日"
+          },
+          {
+            "text": "、完全に ",
+            "muted": true
+          },
+          {
+            "text": "Hyperliquid"
+          }
+        ],
+        [
+          {
+            "text": "インテリジェントな",
+            "muted": true
+          },
+          {
+            "text": "AI 分析とニュース"
+          },
+          {
+            "text": "をリアルタイムで",
+            "muted": true
+          }
+        ],
+        [
+          {
+            "text": "今すぐ",
+            "muted": true
+          },
+          {
+            "text": "収益を始める"
+          }
+        ]
+      ]
+    },
+    "faq": {
+      "titleAccent": "よくある",
+      "titleRest": "質問",
+      "titleDark": "よくある",
+      "titleGrey": "質問",
+      "tabs": {
+        "all": "すべて",
+        "platform": "プラットフォーム",
+        "bot": "取引ボット",
+        "betting": "ベッティング",
+        "vault": "入金と手数料"
+      },
+      "tabPanelLabel": "{{tab}} の質問",
+      "items": [
+        {
+          "tab": "platform",
+          "q": "HyperGain とは？",
+          "a": "HyperGain は Hyperliquid 上の自動パーペチュアルボットです。Hyperliquid アカウントに USDC を入金し、HyperGain 取引エージェントを一度承認すると、サーバーが HL 全マーケットを 24/7 スキャンして取引の開閉を行います。"
+        },
+        {
+          "tab": "platform",
+          "q": "HyperGain は安全ですか？",
+          "a": "HyperGain は Hyperliquid 上で非カストディアルです。USDC はあなた名義の HL アカウントに残ります。取引エージェントは注文できますが、ウォレットなしでは出金できません。自動取引は「ボット開始」を押したときのみ動作します。"
+        },
+        {
+          "tab": "platform",
+          "q": "HyperGain は非カストディアルですか？",
+          "a": "はい。資金は HyperGain のボルトではなく Hyperliquid アカウントにあります。私たちは秘密鍵を保持しません。出金には常に Hyperliquid 上でのウォレット署名が必要です。"
+        },
+        {
+          "tab": "platform",
+          "q": "HyperGain は完全分散型ですか？",
+          "a": "取引は承認したエージェント経由で Hyperliquid インフラ上で実行されます。シグナル分析と自動化は HyperGain サーバー（Railway）で動作します。残高とポジションは HyperGain ダッシュボードでいつでも確認できます。"
+        },
+        {
+          "tab": "platform",
+          "q": "これは金融アドバイスですか？",
+          "a": "いいえ。HyperGain は Hyperliquid パーペ自動取引用ソフトウェアを提供するもので、投資・税務・法律のアドバイスではありません。暗号資産とレバレッジ取引には大きなリスクがあります。自己責任で、失ってもよい資金のみご利用ください。"
+        },
+        {
+          "tab": "platform",
+          "q": "自動取引に Hyperliquid を使う理由は？",
+          "a": "Hyperliquid は深いパーペ流動性、高速約定、独自 L1 上の USDC 証拠金を提供します。HL への 1 回の入金で全上場マーケットを取引でき、従来の L2 ボルトよりシンプルです。"
+        },
+        {
+          "tab": "agent",
+          "q": "取引ボットはどう動きますか？",
+          "a": "ボット稼働中、HyperGain サーバー（Railway）が約 10 秒ごとに HL 残高を確認し、マルチタイムフレームシグナルで全 Hyperliquid パーペをスキャン、最強セットアップを開き、TP/SL を監視して決済後に繰り返します。"
+        },
+        {
+          "tab": "agent",
+          "q": "取引ボットはどのくらい動きますか？",
+          "a": "「ボット開始」がオンで Hyperliquid に最低 $20 USDC がある限り 24/7 稼働。セッションタイムアウトはなく、「ボット停止」までサーバーがサイクルします。"
+        },
+        {
+          "tab": "agent",
+          "q": "ボットは 24/7 取引できますか？",
+          "a": "はい。暗号市場に休場はありません。開始後、ボットは HL 全パーペを常時スキャンし、いつでもポジションの開閉が可能です。オンラインである必要はありません。"
+        },
+        {
+          "tab": "agent",
+          "q": "手動で決済できますか？",
+          "a": "はい。未決済ポジションは HyperGain ターミナルで決済できます。ボット停止は新規エントリーのみ停止。既存ポジションは TP/SL または手動決済まで残ります。"
+        },
+        {
+          "tab": "agent",
+          "q": "ボットはどの暗号資産を取引しますか？",
+          "a": "有効なマーケットシグナルのあるアクティブな Hyperliquid パーペすべて。ボットは HL 全ユニバース（200+ ペア）を読み込み、各サイクルで最強セットアップを選び、固定 ETH/BTC リストではありません。"
+        },
+        {
+          "tab": "agent",
+          "q": "ボットはどのレバレッジを使いますか？",
+          "a": "ボット設定でレバレッジ、利確、損切りを設定します。各取引で Hyperliquid の資産別最大値（例：BTC 40×、ETH 25×）に制限されます。"
+        },
+        {
+          "tab": "agent",
+          "q": "PC をつけたままにする必要はありますか？",
+          "a": "いいえ。ボットは HyperGain サーバー（Railway）で動作します。ボット開始と HL 入金後、ブラウザを開かなくても 24/7 取引します。"
+        },
+        {
+          "tab": "agent",
+          "q": "ボットを開始するにはどう入金しますか？",
+          "a": "HyperGain 資金パネルで、Arbitrum One 上のネイティブ USDC のみ入金 — BNB、BSC、ETH メインネットや他チェーンの USDC は不可。HL 最低 $5、ボットは $20+。その後エージェント承認 → ボット開始。"
+        },
+        {
+          "tab": "vault",
+          "q": "開始に必要な USDC は？",
+          "a": "ボットには Hyperliquid アカウントに最低 $20 USDC（HL 最低入金 $5）。ボットに使う分だけ入金 — 別ボルトではなく HL 残高から取引します。"
+        },
+        {
+          "tab": "vault",
+          "q": "ボットの手数料は？",
+          "a": "各パーペ取引に Hyperliquid 取引手数料がかかります。HyperGain は HL 注文に builder 手数料やボットアクセス用サブスクリプションを課す場合があります。最新設定はアプリで確認してください。"
+        },
+        {
+          "tab": "vault",
+          "q": "USDC はいつでも出金できますか？",
+          "a": "はい — HyperGain 資金パネルから Hyperliquid からウォレットへ。証拠金使用中は先にポジションを決済。取引エージェントは代わりに出金できません。"
+        },
+        {
+          "tab": "vault",
+          "q": "ボルトではなく Hyperliquid の理由は？",
+          "a": "USDC はあなた名義の Hyperliquid アカウントに残ります。ボットは承認したエージェント経由でのみ取引し、資金を動かせません。残高とポジションは HL で直接確認できます。"
+        },
+        {
+          "tab": "vault",
+          "q": "ウォレット取引に署名が必要ですか？",
+          "a": "入金、出金、一度きりのエージェント承認には必要です。継続的なボット取引は承認済みエージェントが署名 — 各取引を手動署名する必要はありません。"
+        },
+        {
+          "tab": "betting",
+          "q": "HyperGain の検証済みスポーツマーケットとは？",
+          "a": "Hyperliquid HIP-4 結果マーケットとして掲載されたライブ・ upcoming スポーツイベントを閲覧 — オッズは板の動きに合わせ on-chain で更新されます。"
+        },
+        {
+          "tab": "betting",
+          "q": "HyperGain ベッティングは非カストディアルですか？",
+          "a": "USDC は Hyperliquid アカウントに残ります。注文はウォレット署名。HyperGain は秘密鍵を保持しません。"
+        },
+        {
+          "tab": "betting",
+          "q": "オンチェーンベッティングの約定速度は？",
+          "a": "Hyperliquid 結果コントラクトに直接 Yes/No ベット。アプリでポジション開閉、キャッシュアウト、P/L 追跡。"
+        },
+        {
+          "tab": "betting",
+          "q": "透明な決済はどう機能しますか？",
+          "a": "マーケットは検証済み結果で決済。ポジションと残高は Hyperliquid で可視 — 不透明なブックメーカー台帳はありません。"
+        }
+      ],
+      "viewAll": "すべての FAQ を見る",
+      "searchPlaceholder": "FAQ を検索…",
+      "searchEmpty": "一致する質問がありません。",
+      "page": {
+        "eyebrow": "FAQ",
+        "title": "よくある質問",
+        "lead": "HyperGain、Hyperliquid ボット、入金、手数料、スポーツベッティング——検索または一覧で確認。"
+      }
+    },
+    "bettingFaq": {
+      "titleDark": "ベッティング ",
+      "titleGrey": "FAQ",
+      "pageTitle": "よくある質問",
+      "lead": "Hyperliquid 上の HIP-4 結果マーケット — ウォレット署名、オンチェーンオッズ、透明な決済。"
+    },
+    "macbook": {
+      "title": "トレーディングダッシュボード",
+      "lead": "チャート、ボット操作、資金、履歴——Hyperliquid 上の一つのワークスペース。",
+      "alt": "ライブチャート、自動ボットパネル、取引履歴を表示する HyperGain ダッシュボード"
+    },
+    "alpha": {
+      "watchFilm": "フィルムを見る",
+      "usersLabel": "人がボット取引中",
+      "title": "フルオートAIトレーディングエージェント",
+      "lead": "Hyperliquid 口座での AI 自動パーペチュアル取引。",
+      "leadSub": "非カストディアル——USDC は HL に残り、ボットが24時間取引、鍵はあなたのもの。",
+      "scrollDown": "下へスクロール",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Please enter your valid email",
+      "signUp": "Sign Up",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
+    },
+    "socialProof": {
+      "aria": "トレーダーに信頼されています",
+      "before": "",
+      "after": " 人のトレーダーに信頼",
+      "afterWorldwide": " 人のトレーダーが世界中で利用"
+    },
+    "features": {
+      "title": "Hyperliquid のために設計",
+      "lead": "自動化、パープ、オンチェーン市場——一つの非カストディアル口座。",
+      "cards": {
+        "how": {
+          "title": "仕組み",
+          "text": "ウォレット接続、USDC を Hyperliquid へブリッジ、エージェントを一度承認し、ボットを開始。"
+        },
+        "bot": {
+          "title": "ボット取引",
+          "text": "AI が 200+ の HL パープを24時間スキャン——エントリー、利確トレール、損切りを自動化。"
+        },
+        "betting": {
+          "title": "スポーツベッティング",
+          "text": "Hyperliquid の HIP-4 結果市場——ライブオッズ、ウォレット署名、透明な決済。"
+        },
+        "perps": {
+          "title": "プロパープ",
+          "text": "ボットと同じ HL 流動性で取引——チャート、板、執行が一つのターミナルに。"
+        }
+      }
+    },
+    "howStrip": {
+      "title": "仕組み",
+      "lead": "ウォレットから Hyperliquid ライブボットまでの4ステップ。",
+      "learnMore": "詳しく見る",
+      "startApp": "アプリを起動",
+      "stepLabel": "ステップ {{n}}",
+      "steps": {
+        "connect": {
+          "title": "ウォレット接続",
+          "text": "サインインして MetaMask または WalletConnect を連携。"
+        },
+        "bridge": {
+          "title": "Hyperliquid へブリッジ",
+          "text": "Arbitrum から Hyperliquid 口座へ入金。"
+        },
+        "usdc": {
+          "title": "Arbitrum の USDC",
+          "text": "Arbitrum One のネイティブ USDC で資金調達——HL に必要。"
+        },
+        "bot": {
+          "title": "ボット開始",
+          "text": "取引エージェントを一度承認し、スタートを押す。"
+        }
+      }
+    },
+    "sleepEarnings": {
+      "title": "完全透明なオンチェーン・リーダーボード",
+      "description": "ライブの Hyperliquid ボット決済——勝ち負け——マスク済みウォレット、ペア、サイド、PnL、日時。過去の結果は将来を保証しません。",
+      "pillsAria": "ボットのハイライト",
+      "registerCta": "無料登録",
+      "pills": {
+        "run247": "平均勝率 71.4%"
+      }
+    },
+    "agentSections": {
+      "aria": "HyperGain ボット機能",
+      "calc": {
+        "eyebrow": "ライブリーダーボード",
+        "title": "最新のボット決済",
+        "desc": "ライブの Hyperliquid ボット結果——勝ち負け——ウォレット、ペア、サイド、PnL、日時。決済に合わせて更新。"
+      },
+      "toolkit": {
+        "aria": "HyperGain ボット市場アナライザー",
+        "eyebrow": "14以上のオープン前ゲート",
+        "title": "オープン前の14以上の取引ゲート",
+        "desc": "マクロベータ、パンプショート、4h/24h バイアスなど——ライブ端末と同じマルチゲートパイプラインで初めて建玉。",
+        "portfolioDesc": "Hyperliquid パープ、スポット残高、ベッティングポジションを一つのポートフォリオで。",
+        "newsDesc": "アクティブトレーダー向けのマクロ／暗号ニュース——Pro Trade 内。",
+        "openCta": "アプリで{{section}}を開く"
+      },
+      "winrate": {
+        "eyebrow": "ワンクリック接続",
+        "title": "使い慣れたウォレットを連携",
+        "desc": "MetaMask、Coinbase Wallet、Binance Web3、WalletConnect など——Arbitrum で接続し、HyperGain を離れずに Hyperliquid へ入金。",
+        "boxAria": "対応ウォレット接続",
+        "boxLabel": "対応ウォレット",
+        "boxCaption": "Arbitrum One · ネイティブ USDC · WalletConnect & injected"
+      }
+    },
+    "widgets": {
+      "title": "すべてが一つの口座に",
+      "sub": "Hyperliquid のフレームワークで駆動。",
+      "bot": {
+        "title": "AI で取引",
+        "desc": "200+ の Hyperliquid パープを MTF スキャン。ボットが24時間エントリー・トレール・損切り。"
+      },
+      "perps": {
+        "title": "ローソク足を取引",
+        "desc": "プロチャート、板、執行——ボットと同じ HL 流動性。"
+      },
+      "sports": {
+        "title": "スポーツベッティング",
+        "desc": "HIP-4 結果市場——ライブサッカー、ワールドカップ、オンチェーン決済。"
+      },
+      "predictions": {
+        "title": "予測市場",
+        "desc": "マクロ、暗号、イベント市場——Hyperliquid 上の透明な Yes/No オッズ。"
+      },
+      "calc": {
+        "eyebrow": "ボット ROI",
+        "title": "収益を試算",
+        "stakeLabel": "Hyperliquid の USDC 残高",
+        "leverage": "レバレッジ",
+        "monthlyProfit": "月間利益（試算）",
+        "endBalance": "残高（試算）",
+        "tradesDay": "1日あたり取引",
+        "returnMult": "月間倍数",
+        "perWin": "勝ちトレードあたり",
+        "perLoss": "負けあたりリスク",
+        "weeklyTrades": "週あたり取引",
+        "slots": "最大スロット",
+        "winsCopy": "{{total}} 件中 {{wins}} 件成功",
+        "winsSub": "約 {{min}}–{{max}} 件/日 · 勝率 {{winRate}} · 参考値のみ",
+        "footnote": "金融助言ではありません。少額では通常月 2–3× 程度が目安で、10× ではありません。結果は異なります。"
+      },
+      "lb": {
+        "aria": "ライブボットリーダーボード",
+        "live": "ライブ",
+        "subtitle": "勝ちと負け",
+        "loading": "決済を読み込み中…",
+        "empty": "最近の決済はまだありません。",
+        "footnote": "公開された決済のみ（マスク済みウォレット）。過去の結果は将来を保証しません。金融助言ではありません。"
+      },
+      "markets": {
+        "volume24h": "24h 出来高",
+        "change24h": "24h 変動",
+        "impliedWin": "示唆勝率",
+        "marketOdds": "市場オッズ",
+        "decimalOdds": "オッズ",
+        "payoutStake": "$25 賭け払い戻し",
+        "stake": "ステーク",
+        "sportsBet": "スポーツベット",
+        "toWin": "獲得見込み"
+      }
+    },
+    "legal": {
+      "ariaLabel": "法的開示",
+      "operator": [
+        "{{brand}} での取引は、ウォレットをご自身の Hyperliquid 口座に接続します。注文は USDC 証拠金を用いて Hyperliquid のパーペチュアルおよびアウトカム市場で執行されます。これは実金融商品によるライブ取引であり、シミュレーションやデモ評価プログラムではありません。",
+        "{{brand}} は Lorenzo Vanza により設立・作成・開発されました。ウェブサイト {{domain}} は、自動化取引ツール、ダッシュボード、および Hyperliquid 上の任意のスポーツアウトカム市場へのアクセスを提供します。現在の運用および法的責任は Lorenzo Vanza が個人で負っており、製品により現在過負荷であることを認めています。公式 X/Twitter（のみ）：@{{xHandle}}。{{brand}} は Telegram にはいません — {{brand}} を名乗る Telegram アカウント、グループ、ボット、DM は詐欺です。その他のソーシャルアカウントは公式ではありません。法務・コンプライアンスのお問い合わせは {{email}} まで。"
+      ],
+      "blocks": [
+        {
+          "id": "legal-disclosure",
+          "heading": "法的開示",
+          "paragraphs": [
+            "{{brand}} は、設定と市場シグナルに基づき Hyperliquid でのエントリー／エグジットを自動化し得るソフトウェアを提供します。本サービスは執行と監視の支援を目的とし、収益性やリスクフリー取引の保証を構成しません。"
+          ]
+        },
+        {
+          "id": "no-promised-returns",
+          "heading": "約束・保証されたリターンはありません",
+          "paragraphs": [
+            "{{domain}}、アプリ、マーケティング資料、サポート連絡のいずれも、利益・利回り・特定の取引結果の約束、予測、保証を構成しません。暗号資産およびレバレッジデリバティブは投機的です。証拠金の一部または全部を失う可能性があります。例、勝率、バックテスト、過去のボット実績は説明目的のみであり、将来の結果を示すものではありません。",
+            "リターンは市況、レバレッジ、手数料、スリッページ、レイテンシ、ユーザー設定により異なります。自動システムは市場を誤読したり、ボラティリティで失敗したり、技術的問題で停止したりします。各取引の金融リスクはすべてお客様が負います。"
+          ]
+        },
+        {
+          "id": "country-responsibility",
+          "heading": "国・地域ごとの責任",
+          "paragraphs": [
+            "HyperGain、Hyperliquid、暗号デリバティブ、自動取引ボット、スポーツアウトカム市場または関連サービスの利用が、居住・国籍・アクセス先の国／地域で許可されているかは、お客様の単独責任で判断してください。",
+            "インドおよび暗号・デリバティブ・ギャンブルに関する特定の税務・報告ルールがある他の法域の居住者は、所得税、GST、TDS 等を含む現地法を遵守する必要があります。HyperGain は税務助言を行わず、申告も代行しません。",
+            "自動取引、レバレッジ暗号、予測市場が居住地で制限または禁止されている場合、本サービスを利用してはなりません。制限回避のための VPN・プロキシ・位置偽装によるアクセスは禁止です（利用規約参照）。違法利用について当社は責任を負いません。"
+          ]
+        },
+        {
+          "id": "vpn-policy",
+          "heading": "VPN と位置偽装",
+          "paragraphs": [
+            "地理的制限、コンプライアンス管理、アカウント執行を回避する目的で、VPN・プロキシ・Tor 等により真の所在地を隠して {{brand}} にアクセスすることはポリシー違反です。",
+            "{{brand}} は、VPN／プロキシ利用に起因する損失、アカウント措置、規制リスク、税務結果について責任を負いません。迂回を検知した場合、未払いプラットフォーム手数料や未使用のソフトウェアアクセスの返金なしに、アカウントを停止または永久終了することがあります。"
+          ]
+        },
+        {
+          "id": "no-custody",
+          "heading": "顧客資金の保管なし",
+          "paragraphs": [
+            "{{brand}} はブローカー、ディーラー、取引所、カストディアン、銀行、投資顧問ではありません。顧客預金を受領・保有・管理しません。USDC はお客様名義の Hyperliquid 口座に残ります。入出金にはウォレット署名が必要です。承認済み取引エージェントは注文を出せますが、お客様なしでは出金できません。"
+          ]
+        },
+        {
+          "id": "live-trading",
+          "heading": "ライブ取引 — 実リスク",
+          "paragraphs": [
+            "ペーパー／評価口座とは異なり、{{brand}} は Hyperliquid 上の実ポジションを自動化します。証拠金の一部または全部を失う可能性があります。レバレッジは損益を拡大します。失ってもよい資金のみを使い、居住地で暗号デリバティブが許可されていることを確認してください。"
+          ]
+        },
+        {
+          "id": "not-advice",
+          "heading": "投資助言ではありません",
+          "paragraphs": [
+            "すべてのコンテンツ、シグナル、ダッシュボード、ツールは情報提供およびソフトウェア利用のためにのみ提供されます。本サイトのいかなる内容も投資・税務・法的助言、または金融商品・暗号資産・デリバティブの売買勧誘ではありません。取引前に独立した助言者に相談してください。"
+          ]
+        },
+        {
+          "id": "performance",
+          "heading": "パフォーマンス開示",
+          "paragraphs": [
+            "マーケティングやアプリに示される過去実績、勝率、バックテスト、例は将来の結果を示すものではありません。自動戦略は、ボラティリティが高い、流動性が低い、ニュース主導の状況で失敗し得ます。仮説・シミュレーション結果には固有の限界があり、実際の取引コスト、スリッページ、レイテンシを反映しない場合があります。"
+          ]
+        },
+        {
+          "id": "jurisdiction",
+          "heading": "法域制限",
+          "paragraphs": [
+            "18歳以上であり、所在法域で暗号デリバティブの利用が法的に許可されている必要があります。{{brand}} は、そうしたサービスが禁止されている利用者を対象としません。現地法、制裁、税務義務の遵守はお客様の責任です。法令によりアクセスが制限または終了される場合があります。"
+          ]
+        },
+        {
+          "id": "risk",
+          "heading": "リスク警告",
+          "paragraphs": [
+            "パーペチュアル先物、レバレッジ暗号、オンチェーンアウトカム市場の取引には大きな損失リスクがあります。市場はギャップし、ポジションを清算し、一時的に利用不能になることがあります。スマートコントラクト、ブリッジ、ウォレット、第三者プロトコルのリスクが適用されます。Hyperliquid は独自の規約に従う別プラットフォームです。"
+          ]
+        },
+        {
+          "id": "fees",
+          "heading": "手数料と返金",
+          "paragraphs": [
+            "各取引に Hyperliquid のプロトコル／ネットワーク手数料が適用されます。HyperGain は利益確定時の成功報酬型プラットフォーム手数料、ビルダー手数料、またはアプリに開示されるその他の料金を請求する場合があります。未払いのプラットフォーム手数料は決済まで新規ボット開始およびアプリ内 Hyperliquid 出金をブロックすることがあります。現行手数料と執行ルールは利用規約を参照してください。"
+          ]
+        }
+      ],
+      "tagline": "銀行預金ではありません · FDIC／政府保険の対象外 · リターンの保証なし · 投資元本の全額を失う可能性があります"
+    },
+    "volume": {
+      "label": "日間取引高",
+      "labelAccent": "HG Agent が管理",
+      "live": "ライブ"
+    },
+    "buyPage": {
+      "eyebrow": "Card on-ramp",
+      "titleBefore": "Buy ",
+      "titleAccent": "USDC",
+      "titleAfter": " with {{provider}}",
+      "lead": "Connect your wallet, pay by card or Apple Pay, then optionally register and start the HyperGain bot — USDC lands on Arbitrum in your wallet.",
+      "stepConnect": "Connect wallet",
+      "stepBuy": "Buy USDC",
+      "stepTrade": "Register & trade",
+      "connectFirst": "Connect a wallet first — checkout sends USDC to that Arbitrum address.",
+      "connectCta": "Connect wallet",
+      "connectHint": "No HyperGain account needed to buy. Register after if you want the bot.",
+      "afterTitle": "Ready to trade?",
+      "afterLead": "After USDC arrives, register (optional) and open the app to deposit on Hyperliquid and start the agent.",
+      "registerCta": "Register now",
+      "startBotCta": "Start bot trading",
+      "stepsLabel": "How it works"
+    },
+    "howShowcase": {
+      "title": "仕組み",
+      "lead": "左：本物のアプリ。右：実際にやること。",
+      "steps": {
+        "funds": {
+          "title": "資金は<0>Hyperliquidに残る</0>",
+          "text": "残高・引出可能USDC・証拠金を1つのFundsで。いつでも入出金。当社は資金を預かりません。",
+          "alt": "HyperGain agent Funds tab showing Hyperliquid USDC trading balance, withdrawable amount, and Deposit USDC / Withdraw USDC buttons",
+          "badges": [
+            "ノンカストディアル",
+            "Funds",
+            "いつでも引出"
+          ]
+        },
+        "settings": {
+          "title": "<0>エージェント設定</0>はアプリと同じくらい簡単",
+          "text": "リスク・レバレッジ・利確トレール。数カードでStart agent。",
+          "alt": "HyperGain agent running with simple settings: risk, leverage, profit trail stop loss, and Stop agent",
+          "badges": [
+            "リスク",
+            "レバレッジ",
+            "利確トレール"
+          ]
+        },
+        "slots": {
+          "title": "あなたが決める：<0>2または3スロット</0>",
+          "text": "同時オープン数を選択。リスクは分散。コントロールはあなた。",
+          "alt": "HyperGain agent Settings: open trade slots toggle between 2 slots and 3 slots on Hyperliquid",
+          "badges": [
+            "2または3",
+            "リスク分散",
+            "あなたが制御"
+          ]
+        },
+        "deposit": {
+          "title": "いつでも入出金",
+          "text": "APIなし。取引所ログインなし。HyperliquidのネイティブUSDC—毎回あなたが署名。",
+          "alt": "Hyperliquid USDC deposit from Arbitrum wallet into HyperGain — Deposit to Hyperliquid, no exchange API",
+          "badges": [
+            "APIなし",
+            "取引所なし",
+            "ネイティブUSDC"
+          ]
+        },
+        "auto": {
+          "title": "エージェントの自動売買を見る",
+          "text": "建玉・管理・利確トレールを自動で。あなたは監視。",
+          "alt": "HyperGain auto trading dashboard with BTC perpetual chart, entry line, intelligent trailing stop loss in profit, and live Hyperliquid positions",
+          "caption": "HyperGain auto-trading with intelligent trailing stop-loss in profit on Hyperliquid"
+        }
+      }
+    }
+  },
+  "marketing": {
+    "howItWorks": {
+      "eyebrow": "プロダクト",
+      "title": "仕組み",
+      "lead": "Arbitrum でネイティブ USDC を入金し、ボットを一度承認 — 戦略が Hyperliquid で 24/7 稼働します。",
+      "sub": "No API keys. No smart contracts. Non-custodial — through Hyperliquid.",
+      "arbitrum": {
+        "title": "Arbitrum One の USDC — 必須",
+        "text": "ボットを動かすにはウォレットに Arbitrum One のネイティブ USDC が必要です。Hyperliquid は BNB、ETH メインネット、その他チェーンの USDC を受け付けません。",
+        "minHl": "HL 最低 $5 入金 · ボットは $20+",
+        "gas": "入金 gas 用に Arbitrum で少量の ETH を用意してください。",
+        "doNotUse": "使用不可",
+        "minDepositValue": "$5",
+        "minDepositLabel": "Hyperliquid の最低入金額",
+        "startBotValue": "$20",
+        "startBotLabel": "ボットを開始するには",
+        "doNotUseItems": [
+          "BNB / BSC（BNBスマートチェーン）",
+          "EthereumメインネットのETH",
+          "Polygon / Base / Optimism / Solana上のUSDTまたはUSDC",
+          "ブリッジUSDC.eのみ — 先にArbitrumネイティブUSDCへ",
+          "取引所出金？ネットワーク: Arbitrum · コイン: USDC（ネイティブ）"
+        ]
+      },
+      "stepsTitle": "4 ステップでセットアップ",
+      "stepsSub": "HyperGain アプリで一度だけ設定。",
+      "steps": [
+        {
+          "title": "ウォレット接続",
+          "text": "サインインし、Arbitrum で MetaMask または WalletConnect をリンク。"
+        },
+        {
+          "title": "USDC 入金",
+          "text": "Funds タブから Arbitrum ウォレットのネイティブ USDC を Hyperliquid アカウントへ。"
+        },
+        {
+          "title": "エージェント承認 & ボット開始",
+          "text": "1 回の署名で取引のみ許可 — 出金不可。ボット開始を押す。"
+        },
+        {
+          "title": "いつでも出金",
+          "text": "P/L は HL に残り、Arbitrum ウォレットへ USDC を出金するまで。"
+        }
+      ],
+      "fundsTitle": "資金の保管方法",
+      "fundsSub": "共有ボールトではなく — あなた名義の Hyperliquid アカウント。. Never held by HyperGain.",
+      "funds": [
+        {
+          "title": "ログイン vs ウォレット",
+          "text": "メール/Google = HyperGain ダッシュボード。MetaMask = 入出金に署名。"
+        },
+        {
+          "title": "HL アカウント",
+          "text": "USDC は Hyperliquid アカウントに。ボットはエージェント承認でのみ取引 — 出金不可。"
+        },
+        {
+          "title": "取引決済時",
+          "text": "P/L は HL 残高に計上、MetaMask には自動送金されません。"
+        },
+        {
+          "title": "出金",
+          "text": "Funds タブ → 出金。すべての出金は自分で署名。"
+        }
+      ],
+      "risksTitle": "リスク",
+      "risks": [
+        "Hyperliquid とボットの運用リスク",
+        "暗号資産のボラティリティとレバレッジ",
+        "失ってもよい金額のみ入金"
+      ],
+      "ctaSecondary": "料金",
+      "disclaimer": "金融アドバイスではありません。資本はリスクにさらされます。",
+      "custody": {
+        "through": "Through Hyperliquid",
+        "points": [
+          "No API",
+          "No smart contract",
+          "Non custodial"
+        ],
+        "text": "Funds are held on Hyperliquid — not on our wallet or infrastructure. The agent only trades via agent approval; it cannot withdraw."
+      },
+      "settingsTitle": "アプリのボット設定",
+      "settingsSub": "Agent trade でレバレッジ、リスク、スロット、ストップロス、勝率ゲートを設定します — HyperGain アプリと同じコントロールです。保存は新規オープンに適用されます。",
+      "settings": [
+        {
+          "title": "レバレッジ（Leverage）",
+          "text": "各ポジションの Hyperliquid 上のレバレッジ（スライダー最大 40×）。HL の上限は銘柄ごと — 例: BTC はスライダー最大 40×。ボットはオープン時に各市場の上限へクランプします。高レバレッジでは小さな逆行で清算され得ます（40× で約 ~2.3%）。"
+        },
+        {
+          "title": "トレードあたりのリスク（Risk per trade）",
+          "text": "トレードの証拠金として使う Hyperliquid 残高の割合 — レバレッジではありません。プリセット 1%〜100%。アプリはスロットあたりの推定証拠金と想定元本（証拠金×レバレッジ）を表示します。例: リスク 90%・スロット 2 なら証拠金を両ポジションに分割。"
+        },
+        {
+          "title": "オープンスロット（Open trade slots）",
+          "text": "同時に持てるボットポジション数（2 または 3）。リスク%はスロットで分割（2 なら ½、3 なら ⅓）。AI ベッティング予算を設定しない限り、HL 残高全体を使います。ボット稼働中でもスロット変更と保存は可能です。"
+        },
+        {
+          "title": "ストップロス（Stop loss）",
+          "text": "ポジションが赤字のときの証拠金上の最大損失。Off（ボット判断）= 利益時のみプロフィットトレイル — 赤字では自動決済しません。5〜50%／カスタム%を選ぶと、その証拠金損失でクローズします。"
+        },
+        {
+          "title": "勝率ゲート（Win rate gate）",
+          "text": "任意: 直近の勝率がしきい値を下回ったら新規トレードを一時停止。Off = 直近勝率に関係なくオープン可能。"
+        }
+      ],
+      "settingsNote": "設定の保存でリスク、レバレッジ、ストップロス、スロット、勝率ゲートを保存します。売買の開始／停止は Agent タブから。ボット稼働中でもスロットは変更・保存できます — レバレッジ、リスク、ストップロスを変えるにはボットを停止してください。"
+    },
+    "support": {
+      "eyebrow": "サポート",
+      "title": "ヘルプとお問い合わせ",
+      "lead": "HL アカウント、取引ボット、HyperGain アカウントについて — お問い合わせまたは FAQ をご覧ください。",
+      "sub": "緊急の取引問題には、ウォレットアドレスとダッシュボードのスクリーンショットを添付してください。",
+      "contactEmailTitle": "メールサポート",
+      "contactEmailText": "メッセージをお送りください — 通常 24 時間以内に返信します。",
+      "contactHoursTitle": "サポート時間",
+      "contactHoursText": "毎日 24/7。ボットは当社インフラ上で常時稼働しています — いつでもご連絡ください。",
+      "faqTitle": "よくある質問",
+      "faqSub": "セットアップ、安全性、手数料に関する簡潔な回答。",
+      "faqExtra": {
+        "q": "サポートの返信はどのくらい早いですか？",
+        "a": "このページの「メールを送る」ボタンをご利用ください — 24 時間以内の返信を目指します。サポートとボットは毎日 24/7 対応です。"
+      },
+      "ctaContact": "サポートに連絡",
+      "disclaimer": "セキュリティのため、シードフレーズや秘密鍵は誰にも共有しないでください — サポートを含め。",
+      "contactEmailCta": "メールを送る"
+    }
+  },
+  "auth": {
+    "welcomeBack": "おかえりなさい",
+    "email": "メール",
+    "password": "パスワード",
+    "emailPlaceholder": "your@email.com",
+    "forgotPassword": "パスワードを忘れた？",
+    "signInButton": "サインイン",
+    "orContinueWith": "または",
+    "continueGoogle": "Google で続行",
+    "noAccount": "アカウントをお持ちでない？",
+    "applyAccess": "アクセスを申請",
+    "fundsLink": "資金の保管方法",
+    "demoDashboard": "Open demo dashboard (local dev)",
+    "signInFailed": "サインインに失敗",
+    "googleSignInFailed": "Google サインインに失敗",
+    "signInToAccount": "HyperGain アカウントにサインイン。",
+    "signInToProfile": "プロフィールとボット設定を開くにはサインイン。",
+    "signInToAffiliate": "アフィリエイトダッシュボードを見るにはサインイン。",
+    "signInToSupport": "サポートに連絡するにはサインイン。",
+    "signInOrRegister": "サインインまたは登録",
+    "register": {
+      "title": "Apply for Access",
+      "checkEmail": "Check your email",
+      "checkEmailDesc": "We sent a confirmation link to {{email}}. Click it, then sign in.",
+      "goToSignIn": "Go to sign in",
+      "referralLinked": "Referral linked",
+      "referralDesc": "Referrer earns 2% on your profitable agent trades",
+      "acceptTermsRequired": "You must accept the Terms to continue",
+      "usernameTaken": "That username is already taken",
+      "createFailed": "Failed to create account. Please try again.",
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "John Smith",
+      "username": "Username",
+      "usernamePlaceholder": "trader_jane",
+      "usernameHint": "3–20 chars, lowercase, numbers, underscore. Cannot be changed later.",
+      "country": "Country",
+      "countryPlaceholder": "Switzerland",
+      "createAccount": "Create Account",
+      "acceptTerms": "I accept the",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy",
+      "alreadyHaveAccount": "Already have an account? ",
+      "signInLink": "Sign In",
+      "referralNotificationTitle": "Referral linked",
+      "referralNotificationMessage": "Your referrer earns 2% when you close profitable agent trades.",
+      "modalTitle": "Register",
+      "modalSub": "Create your HyperGain account for agent trading and Pro Trade.",
+      "referralApplied": "Referral code applied — referrer earns 2% on your profitable agent trades",
+      "accountCreatedWelcome": "Account created — welcome!",
+      "createFailedShort": "Failed to create account",
+      "orDivider": "or",
+      "visualKicker": "HyperGain Pro Trade",
+      "visualTitle": "HyperGain agent + trading terminal",
+      "visualCopy": "Perps, spot, portfolio, and HyperGain agent — one trading workspace.",
+      "fullNameLabel": "Full name",
+      "acceptTermsMarketing": ", including use of my agent trade outcomes for marketing and public verification (e.g. HypurrScan)"
+    },
+    "signInModal": {
+      "kicker": "HyperGain",
+      "title": "Welcome back",
+      "close": "Close",
+      "continueGoogle": "Continue with Google",
+      "orEmail": "or sign in with email",
+      "signInButton": "Sign in",
+      "newHere": "New here?",
+      "createAccount": "Create account",
+      "signedInSuccess": "Signed in successfully"
+    }
+  },
+  "app": {
+    "buyUsdc": {
+      "title": "Buy USDC",
+      "sub": "USDC on Arbitrum via {{provider}}",
+      "trust": "{{provider}} takes the payment. We never see your card.",
+      "connectFirst": "Connect your wallet — {{provider}} sends USDC there.",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "{{provider}} 経由のカード購入はパートナー承認待ちです。もうしばらくお待ちください。",
+      "notConfigured": "Card buy is not enabled yet on this environment.",
+      "notConfiguredHint": "Set VITE_MOONPAY_API_KEY (or VITE_RAMP_HOST_API_KEY) in your deploy env.",
+      "loading": "Loading secure checkout…",
+      "openExternal": "Open in new tab",
+      "afterBuy": "Then deposit USDC to Hyperliquid.",
+      "cta": "Buy USDC with card",
+      "ctaShort": "Buy with card",
+      "pasteWallet": "Paste this Arbitrum address in checkout if asked:",
+      "copy": "Copy",
+      "copied": "Copied",
+      "ctaHint": "Visa, Mastercard, Apple Pay · USDC on Arbitrum",
+      "ctaSecure": "SSL encrypted by {{provider}}"
+    },
+    "buyCrypto": {
+      "navLabel": "Buy crypto",
+      "navShort": "Buy",
+      "titleBefore": "Buy ",
+      "cryptoWord": "crypto",
+      "titleAfter": " instantly with {{provider}}",
+      "lead": "Card, Apple Pay or Google Pay — crypto lands in your connected wallet on Arbitrum.",
+      "widgetLabel": "MoonPay checkout",
+      "partners": "Accepted payment methods"
+    },
+    "nav": {
+      "perps": "パーペ",
+      "bot": "Botトレード",
+      "betting": "ベッティング",
+      "portfolio": "ポートフォリオ",
+      "news": "ニュース",
+      "leaderboard": "リーダーボード",
+      "sections": "プロ取引セクション"
+    },
+    "account": {
+      "title": "HyperGain アカウント",
+      "guestDesc": "ボット設定、プロフィール、取引履歴を保存するにはサインイン。",
+      "profileSettings": "プロフィールと設定",
+      "profileSettingsFallback": "プロフィールとボット設定",
+      "affiliateProgram": "アフィリエイトプログラム",
+      "securityPassword": "セキュリティとパスワード",
+      "linkedWallets": "連携ウォレット",
+      "loginHistory": "ログイン履歴",
+      "botTradeHistory": "ボット取引履歴",
+      "closeAccountMenu": "アカウントメニューを閉じる",
+      "accountMenu": "アカウントメニュー",
+      "guestAccountMenu": "ゲストアカウントメニュー"
+    },
+    "portfolio": {
+      "connectWallet": "ウォレットを接続してポートフォリオを表示。",
+      "loading": "ポートフォリオを読み込み中…",
+      "title": "ポートフォリオ",
+      "lead": "Hyperliquid のパープ、スポット残高、ベッティングをひとつの画面で。",
+      "perpAccount": "パープ口座",
+      "withdrawable": "出金可能 {{amount}}",
+      "spotAccount": "スポット口座",
+      "totalEst": "合計（概算）",
+      "perpsPlusSpot": "パープ + スポット",
+      "affiliateProgram": "アフィリエイト",
+      "affiliateDesc": "紹介先のボット利益トレードから 2% を獲得。",
+      "perpPositions": "パープポジション",
+      "openCount": "{{count}} 件オープン",
+      "noPerpPositions": "オープンのパープポジションはありません。",
+      "coin": "コイン",
+      "size": "サイズ",
+      "entry": "エントリー",
+      "upnl": "uPnL",
+      "spotBalances": "スポット残高",
+      "tokensCount": "{{count}} トークン",
+      "noSpotBalances": "スポット残高はありません。",
+      "token": "トークン",
+      "total": "合計",
+      "onHold": "ロック",
+      "mark": "マーク",
+      "valueEst": "評価額",
+      "betting": "ベッティング",
+      "withdrawableMargin": "出金可能 {{withdrawable}} · 証拠金 {{margin}}"
+    },
+    "support": {
+      "title": "Support",
+      "guestLead": "Sign in to contact our team. Support is available for registered users only.",
+      "signInForHelp": "Sign in to get help",
+      "securityNote": "Never share your seed phrase or private keys — not even with support.",
+      "sendingAs": "Sending as",
+      "userId": "User ID:",
+      "subject": "Subject",
+      "subjectPlaceholder": "e.g. Agent not trading, deposit, withdrawal",
+      "message": "Message",
+      "messagePlaceholder": "Describe your issue — include wallet/network details if relevant.",
+      "messageSent": "Message sent. We'll reply to {{email}}.",
+      "sending": "Sending…",
+      "sent": "Sent",
+      "sendMessage": "Send message",
+      "supportHours": "Support hours",
+      "supportHoursDetail": "Monday – Sunday, 9:00 – 20:00 CET · replies within 24h",
+      "searchPlaceholder": "ヘルプ記事を検索…",
+      "articleCount": "{{count}} 件の記事",
+      "articlesTitle": "ヘルプ記事",
+      "articlesAll": "すべてのトピック — 閲覧または検索。",
+      "articlesInTopic": "{{topic}} の記事を表示。",
+      "helpLead": "トピックで回答を検索し、記事を開くかライブチャットを開始 — 会話ごとにアカウントプロフィールが見えます。"
+    }
+  },
+  "bot": {
+    "autoTrading": "自動取引",
+    "autoTradingHintModal": "Agent trades from your Hyperliquid balance on signals",
+    "autoTradingHintPanel": "Use the Agent tab → Start agent (not this panel) to turn trading on.",
+    "riskPerTrade": "取引あたりのリスク",
+    "riskHint": "% of your HL balance used as margin — <strong>not</strong> leverage.",
+    "riskAria": "Risk percent of HL balance per trade",
+    "leverage": "レバレッジ (LVRG)",
+    "leverageHint": "Up to {{max}} on Hyperliquid{{caps}}. The agent clamps to each market cap when opening.",
+    "leverageCaps": " (BTC {{btc}}x · ETH {{eth}}x per HL)",
+    "leverageHigh": "High leverage: ~{{pct}}% move can liquidate.",
+    "leveragePnl": "+1% price ≈ +{{lev}}% on position P/L.",
+    "askBeforeTrade": "各取引前に確認",
+    "askBeforeTradeHint": "5 min to approve via notification",
+    "winRateGate": "勝率ゲート",
+    "winRateActive": "有効",
+    "winRateOff": "オフ",
+    "winRateHint": "Optional: pause new trades if recent win rate drops below your threshold. Set 0% to disable.",
+    "minWinRate": "最低勝率 (0 = オフ)",
+    "closedTradesGate": "ゲート適用前の決済数",
+    "fewerTrades": "取引数を減らす",
+    "moreTrades": "取引数を増やす",
+    "exitsHint": "<strong>Exits:</strong> Agent trails stop loss into profit automatically — no manual TP/SL. Standard arms at +$0.06 uPnL (min lock +$0.03). Aggressive arms at +$0.02 (lock +$0.01).",
+    "leverageShort": "レバレッジ"
+  },
+  "trading": {
+    "order": {
+      "isolated": "Isolated",
+      "cross": "Cross",
+      "limit": "指値",
+      "market": "成行",
+      "scale": "Scale",
+      "tpsl": "TP/SL",
+      "twap": "TWAP",
+      "buy": "買い",
+      "sell": "売り",
+      "buyLong": "買い / ロング",
+      "sellShort": "売り / ショート",
+      "buyMarket": "買い / 成行",
+      "buyLimit": "買い / 指値",
+      "sellMarket": "売り / 成行",
+      "sellLimit": "売り / 指値",
+      "availableToTrade": "取引可能額",
+      "sizePercent": "サイズ％",
+      "marginUsd": "証拠金 (USDC)",
+      "amountUsd": "金額 (USDC)",
+      "price": "価格",
+      "startPrice": "開始価格",
+      "endPrice": "終了価格",
+      "totalOrders": "注文数",
+      "sizeSkew": "サイズ傾斜",
+      "takeProfit": "テイクプロフィット",
+      "stopLoss": "ストップロス",
+      "optional": "任意",
+      "duration": "期間（分、最低5）",
+      "randomize": "スライス時間をランダム化",
+      "twapHint": "Hyperliquidサーバーで実行 — タブを閉じても継続。",
+      "serverTwapRunning": "サーバーTWAP #{{id}} 実行中",
+      "filled": "約定 {{executed}} / {{total}} ({{pct}}%)",
+      "filledSimple": "約定 {{executed}} / {{total}}",
+      "size": "サイズ",
+      "sizeTotal": "サイズ（合計）",
+      "sizeUnit": "サイズ単位",
+      "reduceOnly": "Reduce Only",
+      "orderValue": "注文金額: {{value}}",
+      "marginRequired": "必要証拠金: {{value}}",
+      "scaleRange": "開始: {{start}} — 終了: {{end}}",
+      "restoringWallet": "ウォレット復帰中…",
+      "connectWallet": "ウォレット接続",
+      "cancelTwap": "TWAP取消",
+      "hlDeposit": "HL入金",
+      "perpsSpot": "Perps ⇄ Spot",
+      "hlWithdraw": "HL出金",
+      "successOrder": "注文送信済み",
+      "successScale": "Scale注文送信済み",
+      "successTpsl": "TP/SL送信済み",
+      "successTwap": "TWAP送信済み（サーバー）",
+      "twapActive": "TWAP稼働中（{{minutes}}分）",
+      "placeOrders": "{{count}}件の注文",
+      "placeTpsl": "TP/SLを出す",
+      "startTwap": "TWAP開始",
+      "failedLeverage": "レバレッジ更新に失敗"
+    },
+    "book": {
+      "orderBook": "板情報",
+      "recentTrades": "直近約定",
+      "amount": "数量 ({{coin}})",
+      "total": "合計",
+      "spread": "スプレッド {{pct}}%",
+      "all": "全て",
+      "buys": "買い",
+      "sells": "売り",
+      "noTrades": "直近の約定はありません"
+    },
+    "manualMode": "手動パープ · あなたの取引のみ"
+  },
+  "betting": {
+    "hero": {
+      "kicker": "Hyperliquid · HIP-4",
+      "title": "Betting",
+      "sub": "World Cup, crypto & macro markets"
+    },
+    "searchMarkets": "市場を検索",
+    "searchPlaceholder": "チーム、リーグ、イベント…",
+    "searchAria": "ベッティング市場を検索",
+    "clearSearch": "検索をクリア",
+    "syncing": "同期中…",
+    "syncingAria": "Syncing markets",
+    "refresh": "更新",
+    "refreshAria": "Refresh markets",
+    "pickYesNo": "Yes / No を選択",
+    "orderSettings": "注文設定",
+    "betOrCashOut": "ベットまたはキャッシュアウト",
+    "bet": "ベット",
+    "cashOut": "キャッシュアウト",
+    "limitPrice": "指値",
+    "contractsToSell": "売却コントラクト",
+    "contracts": "コントラクト",
+    "amountUsd": "金額 (USD)",
+    "quickStakes": "クイックステーク",
+    "odds": "オッズ",
+    "min": "最小",
+    "position": "ポジション",
+    "platformFee": "プラットフォーム手数料",
+    "depositNow": "今すぐ入金",
+    "betSide": "ベット側",
+    "cashOutSide": "キャッシュアウト側",
+    "betPlaced": "ベット完了",
+    "cashOutSubmitted": "キャッシュアウト送信",
+    "signInToPlaceBets": "ベットするにはサインイン",
+    "on": "オン",
+    "slip": {
+      "ariaLabel": "Bet slip",
+      "myBets": "My bets",
+      "pending": "Pending",
+      "history": "History",
+      "connectToSeeBets": "Connect wallet to see your bets.",
+      "signInToTrack": "Sign in to track bets and history.",
+      "signInToTrackReason": "Sign in to track your bets.",
+      "loadingBets": "Loading your bets…",
+      "noPositions": "No open positions. Pick Yes or No on a market to bet.",
+      "noPending": "No pending limit orders.",
+      "noHistory": "No recent fills yet.",
+      "signInPending": "Sign in and connect wallet to manage pending orders.",
+      "signInHistory": "Sign in to view your betting history.",
+      "cancel": "Cancel",
+      "cashOutBtn": "Cash out"
+    },
+    "placeBet": "ベットする",
+    "betSlip": "ベットスリップ",
+    "closeBetPanel": "ベットパネルを閉じる",
+    "regionBlocked": "Sports betting on Hyperliquid outcome markets is limited to eligible regions.",
+    "region": {
+      "kicker": "Regional access",
+      "title": "Betting isn't available in your region",
+      "detectedLocation": "Detected location",
+      "tradePerpsInstead": "Trade perps instead",
+      "footnote": "Perps trading and the HyperGain agent remain available. Outcome markets follow regional compliance rules."
+    },
+    "categoriesAria": "ベッティングカテゴリ",
+    "marketsAria": "ベッティング市場",
+    "catAll": "すべて",
+    "catSports": "スポーツ",
+    "catCrypto": "暗号資産",
+    "catMacro": "マクロ",
+    "catMore": "その他",
+    "featured": "注目",
+    "allMarkets": "すべての市場",
+    "loadingMarkets": "市場を読み込み中…",
+    "noMarkets": "このカテゴリに市場はありません。すべてか別のフィルタを試してください。",
+    "emptyPick": "カテゴリを選ぶか市場を検索。",
+    "yourBets": "あなたのベット",
+    "openBets": "オープンベット",
+    "recentResults": "最近の結果",
+    "selection": "セレクション",
+    "loadingShort": "読み込み中…",
+    "noOpenBets": "オープンベットはまだありません。",
+    "noPendingBets": "保留中のベットはありません。",
+    "allMarketsLead": "スポーツ・暗号・マクロ — 行を選んでベット",
+    "yes": "Yes",
+    "no": "No",
+    "cancel": "取消",
+    "market": "市場",
+    "side": "サイド",
+    "size": "サイズ",
+    "avg": "平均",
+    "mark": "マーク",
+    "value": "価値",
+    "pnl": "PnL",
+    "coin": "コイン"
+  },
+  "tradePanel": {
+    "title": "{{brand}}ボット",
+    "tabBot": "ボット",
+    "tabSettings": "設定",
+    "tabFunds": "資金",
+    "status": "ステータス",
+    "statusHeadline": {
+      "connectWallet": "ウォレット接続",
+      "signInRequired": "ログインが必要",
+      "loading": "読み込み中…",
+      "fundAccount": "口座に入金",
+      "moveUsdc": "USDCをPerpsへ移動",
+      "oneTimeApproval": "初回承認",
+      "platformFee": "プラットフォーム手数料",
+      "ready": "準備完了",
+      "running": "稼働中{{timer}}"
+    },
+    "stopBot": "ボット停止",
+    "stopping": "停止中…",
+    "startBot": "ボット開始",
+    "starting": "開始中…",
+    "parameters": "パラメータ",
+    "parametersAria": "ボットパラメータ",
+    "adjust": "調整",
+    "risk": "リスク",
+    "lvrg": "LVRG",
+    "sl": "SL",
+    "trail": "トレール",
+    "profitTrail": "利確トレール",
+    "maxSl": "最大 −{{pct}}%",
+    "openPositions": "建玉",
+    "hlBalance": "HL残高",
+    "withdrawable": "出金可能",
+    "marginLocked": "拘束証拠金",
+    "upnl": "含み損益",
+    "totalPnl": "合計損益",
+    "open": "建玉数",
+    "howBotWorks": "ボットの仕組み",
+    "refresh": "更新",
+    "connectWallet": "ウォレット接続",
+    "signIn": "ログイン",
+    "depositUsdc": "USDC入金",
+    "withdrawUsdc": "USDC出金",
+    "tradingBalance": "取引残高",
+    "totalBalance": "合計残高",
+    "hyperliquidAccount": "Hyperliquid口座",
+    "stopFirstTitle": "先にボットを停止",
+    "stopFirstSubtitle": "ボット稼働中はレバレッジとリスクがロックされます",
+    "keepRunning": "稼働を続ける",
+    "stopFirstHint": "1. ボット停止 · 2. 設定変更 · 3. もう一度ボット開始。",
+    "stopFirstNote": "レバレッジとリスクに適用 — 稼働中は変更できません。"
+  },
+  "dock": {
+    "ariaPanels": "アカウントパネル",
+    "tabs": {
+      "balances": "残高",
+      "positions": "ポジション",
+      "orders": "未約定注文",
+      "twap": "TWAP",
+      "trailing": "トレーリング",
+      "tradeHistory": "取引履歴",
+      "feeHistory": "手数料履歴",
+      "fundingHistory": "ファンディング履歴",
+      "orderHistory": "注文履歴"
+    },
+    "coinsPlaceholder": "コイン…",
+    "cancelAll": "すべて取消",
+    "seeCompleteHistory": "全履歴を見る →",
+    "closedFillsLabel": "決済約定と損益",
+    "connectWallet": "ウォレット接続で口座データを表示。",
+    "syncing": "同期中…",
+    "noSpotBalances": "スポット残高なし。",
+    "noOpenOrders": "未約定注文なし。",
+    "noTradeHistory": "取引履歴はまだありません。",
+    "noTradesMatch": "「{{query}}」に一致する取引なし。",
+    "noPlatformFees": "プラットフォーム手数料の記録なし。",
+    "noFundingHistory": "ファンディング履歴なし。",
+    "noOrderHistory": "注文履歴なし。",
+    "noTwap": "TWAP注文なし。",
+    "noTriggers": "トリガー/ストップ注文なし。",
+    "noData": "データなし。",
+    "noManualPositions": "手動のパープ建玉なし — ここで約定するかボットを確認。",
+    "noOpenPositions": "建玉なし。",
+    "cols": {
+      "token": "トークン",
+      "total": "合計",
+      "onHold": "拘束",
+      "asset": "資産",
+      "available": "利用可能",
+      "coin": "コイン",
+      "side": "売買",
+      "size": "数量",
+      "value": "評価額",
+      "entry": "建値",
+      "mark": "マーク",
+      "pnl": "損益",
+      "lev": "レバ",
+      "stop": "ストップ",
+      "time": "時刻",
+      "type": "種類",
+      "direction": "方向",
+      "price": "価格",
+      "reduce": "減のみ",
+      "action": "操作",
+      "fee": "手数料",
+      "platform": "PF",
+      "result": "結果",
+      "closedPnl": "確定損益",
+      "verify": "確認",
+      "source": "ソース",
+      "profit": "利益",
+      "feeTenPct": "手数料 (10%)",
+      "hlPaid": "HL支払済",
+      "owed": "未払",
+      "status": "状態",
+      "payment": "支払",
+      "rate": "利率",
+      "filled": "約定済",
+      "duration": "期間",
+      "trigger": "トリガー",
+      "condition": "条件",
+      "balanceAfter": "決済後残高",
+      "balanceAfterHint": "Estimated wallet equity right after this close (reconstructs from current balance; deposits/withdrawals make older rows approximate)."
+    },
+    "usdcUnified": "USDC（統合）",
+    "usdcPerp": "USDC（Perp）",
+    "usdcSpot": "USDC（Spot）",
+    "marginUsed": "使用証拠金",
+    "notional": "想定元本",
+    "cancel": "取消"
+  },
+  "profile": {
+    "tabsAria": "プロフィールセクション",
+    "tabs": {
+      "identity": "プロフィール",
+      "security": "セキュリティ",
+      "wallets": "ウォレット",
+      "betting": "ベッティング",
+      "botTrades": "ボット取引",
+      "history": "ログイン履歴"
+    },
+    "hyperliquidAccount": "Hyperliquid 口座",
+    "detailsTitle": "プロフィール詳細",
+    "securityTitle": "セキュリティと認証情報",
+    "walletsTitle": "ウォレット",
+    "bettingTitle": "ベッティング",
+    "bettingLead": "損益付きのオープン／クローズベット — アカウントに保存。",
+    "loginHistoryTitle": "ログイン履歴",
+    "botHistory": {
+      "title": "ボット取引履歴",
+      "subtitle": "ボット取引のみ — 手動パープの約定は Perps タブにあります。",
+      "account": "アカウント: {{name}}",
+      "userId": "ユーザー ID: {{id}}",
+      "gain": "利益",
+      "loss": "損失",
+      "upnl": "uPnL",
+      "openCount": "{{count}} オープン",
+      "totalsAria": "ボット合計",
+      "downloadPdf": "PDFをダウンロード",
+      "exporting": "エクスポート中…",
+      "pdfAria": "ボット取引履歴をPDFでダウンロード",
+      "exportFailed": "PDFのエクスポートに失敗しました。",
+      "sinceToday": "本日より · {{date}}",
+      "sinceDays": "{{date}} から · {{count}}日",
+      "sinceMonths": "{{date}} から · {{count}}ヶ月",
+      "sinceYears": "{{date}} から · {{count}}年"
+    },
+    "identity": {
+      "uploadLogo": "ロゴをアップロード",
+      "removePhoto": "写真を削除",
+      "photoSaved": "写真をプロフィールに保存しました",
+      "username": "ユーザー名",
+      "fullName": "氏名",
+      "country": "国",
+      "namePlaceholder": "お名前",
+      "countryPlaceholder": "スイス",
+      "save": "プロフィールを保存",
+      "saved": "保存済み",
+      "nameCountryRequired": "氏名と国が必要です",
+      "usernameTaken": "このユーザー名は既に使われています",
+      "saveFailed": "保存に失敗",
+      "emojiFailed": "絵文字を保存できません",
+      "uploadFailed": "アップロード失敗",
+      "removeFailed": "削除失敗"
+    },
+    "wallets": {
+      "add": "追加",
+      "removeAria": "削除",
+      "invalidAddress": "無効なアドレス",
+      "alreadyLinked": "既に連携済み",
+      "addFailed": "追加に失敗",
+      "removeFailed": "削除に失敗"
+    },
+    "tradeEmail": {
+      "title": "決済メール",
+      "desc": "ボット取引やベットが利益で閉じたらメール通知{{at}}。",
+      "atEmail": "（{{email}}）",
+      "on": "オン",
+      "off": "オフ",
+      "saveFailed": "保存できませんでした"
+    },
+    "betting": {
+      "connectWallet": "ウォレットを接続してベッティングを同期。"
+    },
+    "loginHistory": {
+      "loading": "アクティビティを読み込み中…",
+      "empty": "セッションはまだありません。",
+      "ipUnavailable": "IP なし",
+      "unknownDevice": "不明なデバイス",
+      "browser": "ブラウザ",
+      "fallbackNote": "最後のアカウントサインインを表示。完全な履歴はセキュリティ移行後に利用可能。"
+    },
+    "security": {
+      "resetByEmail": "メールでリセット",
+      "resetPasswordByEmail": "メールでパスワードをリセット",
+      "resetDesc": "{{email}} に安全なリンクを送ります。この端末で開き、新しいパスワードを設定してください。",
+      "checkInbox": "受信トレイを確認",
+      "checkInboxText": "数分で届かない場合はスパムを確認。リンクは短時間で期限切れです。",
+      "sending": "送信中…",
+      "resendIn": "{{sec}}秒後に再送可",
+      "sendAnother": "もう一度送る",
+      "sendReset": "パスワードリセットメールを送信",
+      "changePassword": "パスワード変更",
+      "changePasswordNow": "今すぐパスワード変更",
+      "changeDescGoogle": "Googleでサインインしています。上のメールリセットでパスワードを追加／変更してください。",
+      "changeDesc": "サインイン中にすぐ更新（メール不要）。",
+      "newPassword": "新しいパスワード",
+      "confirmPassword": "パスワード確認",
+      "pwPlaceholder": "8文字以上",
+      "pwRepeat": "新しいパスワードを再入力",
+      "hidePassword": "パスワードを隠す",
+      "showPassword": "パスワードを表示",
+      "savePassword": "新しいパスワードを保存",
+      "passwordUpdated": "パスワードを更新しました",
+      "emailBadge": "メール",
+      "noEmail": "このアカウントにメールがありません。",
+      "rateLimited": "リクエストが多すぎます — 数分待ってください。",
+      "minChars": "8文字以上にしてください。",
+      "mismatch": "パスワードが一致しません。",
+      "sessionExpired": "セッション期限切れ — 再度サインイン。",
+      "samePassword": "現在と異なるパスワードを選んでください。",
+      "updateFailed": "パスワードを更新できません。メールリセットを試してください。",
+      "loginHistoryDesc": "最近のサインイン。不明な活動があればサポートへ。",
+      "forgotHow": "登録方法を忘れた場合",
+      "resetFromLogin": "ログインページからリセット"
+    }
+  },
+  "notifications": {
+    "aria": "通知",
+    "unreadAria": "通知、未読 {{count}}",
+    "dialogAria": "取引通知",
+    "title": "アクティビティ",
+    "markRead": "既読にする",
+    "loading": "読み込み中…",
+    "empty": "まだアクティビティなし",
+    "viewHistory": "履歴を見る",
+    "kindBet": "ベット",
+    "kindBot": "ボット",
+    "kindFollow": "フォロー"
+  },
+  "news": {
+    "title": "ニュース",
+    "subtitle": "CNBC、ロイター、Bloomberg、CoinDesk など — 市場への影響をスキャン。",
+    "categoryAria": "ニュースカテゴリ",
+    "crypto": "暗号資産",
+    "sports": "スポーツ",
+    "refresh": "更新",
+    "refreshAria": "ニュースを更新",
+    "headlines": "見出し",
+    "loading": "見出しを読み込み中…",
+    "loadError": "ニュースを読み込めません",
+    "empty": "このカテゴリに過去48時間の見出しはありません。"
+  },
+  "leaderboard": {
+    "title": "リーダーボード",
+    "lead": "ユーザーの本物の Hyperliquid ボット利益 — ウォレットはマスク、HypurrScan で検証。",
+    "bestPositions": "ベストポジション",
+    "topByPnl": "P/L Top {{n}} · HypurrScan",
+    "topWins": "トップ勝ち",
+    "recentRefresh": "直近 · 10秒更新 · HLライブ",
+    "loading": "検証済みトレードを読み込み中…",
+    "emptyTop": "検証済みの勝ちはまだありません。",
+    "emptyRecent": "直近の勝ちはまだありません。",
+    "wallet": "ウォレット",
+    "pair": "ペア",
+    "side": "サイド",
+    "opened": "エントリー",
+    "closed": "決済",
+    "pnl": "P/L",
+    "verify": "検証",
+    "hypurrScan": "HypurrScan",
+    "justNow": "たった今",
+    "minsAgo": "{{n}}分前",
+    "hoursAgo": "{{n}}時間前",
+    "daysAgo": "{{n}}日前",
+    "live": "LIVE",
+    "onChain": "オンチェーン",
+    "faqRealQ": "リーダーボードは本物ですか？",
+    "faqRealA": "はい。HyperGainエージェントのウォレットによるHyperliquid L1のライブ約定です。ウォレットはマスク表示、HypurrScanで全アドレス・約定・損益を確認できます。過去の成績は将来を保証しません。",
+    "faqFeesQ": "プラットフォーム手数料はいつ？",
+    "faqFeesA": "エージェントの利益確定クローズのみ。入金・損失・手動取引にはかかりません。請求まで取引は継続可能。Arbitrum USDCで支払い。詳細は利用規約。"
+  },
+  "welcomeWalkthrough": {
+    "languageLabel": "言語",
+    "languageAsk": "どの言語を使いますか？",
+    "close": "閉じる",
+    "progress": "{{current}} / {{total}}",
+    "title": "HyperGainへようこそ",
+    "lead": "世界最先端のフル自動トレーディング＆ベッティングボット。",
+    "step1Title": "ウォレットを接続",
+    "step1Body": "Hyperliquidで使うウォレットを接続します。",
+    "connectWallet": "ウォレットを接続",
+    "connected": "接続済み · {{address}}",
+    "step2Title": "USDCを用意",
+    "step2Body": "MetaMaskや取引所でArbitrumのUSDCを用意します — このアプリ内ではありません。",
+    "step2Hint": "またはウォレット／DEXで他トークンをArbitrumのネイティブUSDCに変換。",
+    "openWallet": "ウォレットを開く",
+    "step3Title": "ボットを開始",
+    "step3Body": "Agent tradeを開き、必要ならHyperliquidへ入金し、エージェントを一度承認してからStart agentを押します。",
+    "skip": "スキップ",
+    "back": "戻る",
+    "next": "次へ",
+    "startTrading": "今すぐ取引を開始"
+  },
+  "blog": {
+    "title": "Blog",
+    "lead": "The latest news and product notes from HyperGain.",
+    "recent": "Recent posts",
+    "back": "All posts"
+  },
+  "docs": {
+    "navLabel": "ドキュメント",
+    "title": "HyperGain <0>ドキュメント</0>",
+    "lead": "ノンカストディアルな Hyperliquid AI トレーディングエージェントの使い方：Arbitrum USDC の入金、一度きりのエージェント承認、利確トレール、手数料、オンチェーンリーダーボード、AI スポーツベッティング — キーは手放しません。",
+    "familiar": "HyperGain を知る",
+    "browse": "ドキュメントを見る",
+    "learnMore": "詳しく",
+    "back": "すべてのドキュメント",
+    "englishOnlyNote": "ドキュメント本文は現在英語です。",
+    "sections": {
+      "introduction": "はじめに",
+      "getting-started": "はじめに",
+      "agent": "トレーディングエージェント",
+      "funds": "資金と手数料",
+      "betting": "ベッティング"
+    }
+  }
+}

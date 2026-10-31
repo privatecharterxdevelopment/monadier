@@ -1,0 +1,1048 @@
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  CandlestickSeries,
+  ColorType,
+  HistogramSeries,
+  LineStyle,
+  createChart,
+  createSeriesMarkers,
+  type IChartApi,
+  type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type IPriceLine,
+  type CandlestickData,
+  type HistogramData,
+  type SeriesMarker,
+  type UTCTimestamp,
+} from 'lightweight-charts';
+import type { HlCandleBar, HlInterval } from '../../lib/hyperliquid/types';
+import type { HlOpenOrder } from '../../lib/hyperliquid/user';
+import { toNum } from '../../lib/hyperliquid/parse';
+import type { ProTradeTheme } from '../../lib/proTradeTheme';
+import { getProTradeChartColors } from '../../lib/proTradeTheme';
+import {
+  CHART_VISIBLE_BARS,
+  chartBarSpacing,
+  chartMinBarSpacing,
+  chartSecondsVisible,
+} from '../../lib/hyperliquid/chartZoom';
+import {
+  candlePriceRange,
+  chartSanitizeRef,
+  patchFormingCandleWithMark,
+  resolveChartCandlesForDisplay,
+} from '../../lib/hyperliquid/chartCandles';
+import {
+  buildChartPriceFormatter,
+  buildChartTickmarksFormatter,
+  buildSeriesPriceFormat,
+} from '../../lib/hyperliquid/chartPriceAxis';
+import { normalizeHlPerpCoin } from '../../lib/botTradingPairs';
+import {
+  computeResistanceZone,
+  computeSupportZone,
+  type PriceZone,
+} from '../../lib/hyperliquid/resistanceZone';
+import { chartDebugWarn } from '../../lib/hyperliquid/chartDebug';
+
+type Props = {
+  coin: string;
+  interval?: HlInterval;
+  candles: HlCandleBar[];
+  loading: boolean;
+  openOrders?: HlOpenOrder[];
+  orderCoin?: string;
+  theme: ProTradeTheme;
+  layoutKey?: string;
+  positionOverlay?: {
+    entryPx: number;
+    liqPx?: number;
+    side: 'long' | 'short';
+    trailStopPx?: number;
+    trailStopLocked?: boolean;
+    trailFloorUsd?: number;
+    trailCloseFloorUsd?: number;
+    trailBreached?: boolean;
+    unrealizedPnlUsd?: number;
+    stopLossPx?: number;
+    takeProfitPx?: number;
+    stopLossMarginPct?: number;
+    takeProfitMarginPct?: number;
+  };
+  tradeMarkers?: SeriesMarker<UTCTimestamp>[];
+  /** Live mark price — horizontal line follows HL quote between candle closes. */
+  markPx?: number;
+  /** Bump to re-enable auto-scroll after user panned away. */
+  scrollToLiveTick?: number;
+  onFollowLiveChange?: (following: boolean) => void;
+  onRetry?: () => void;
+  wsConnected?: boolean;
+  chartError?: string | null;
+  fetchAttempts?: number;
+};
+
+const RES_ZONE_HI = '#f59e0b';
+const RES_ZONE_LO = '#fbbf24';
+const SUP_ZONE_HI = '#fcd34d';
+const SUP_ZONE_LO = '#eab308';
+
+function applySrZonePriceLines(
+  series: ISeriesApi<'Candlestick'>,
+  zoneLinesRef: React.MutableRefObject<IPriceLine[]>,
+  resistance: PriceZone | null,
+  support: PriceZone | null
+) {
+  for (const line of zoneLinesRef.current) {
+    series.removePriceLine(line);
+  }
+  zoneLinesRef.current = [];
+
+  if (resistance && resistance.zoneHigh > 0 && resistance.zoneLow > 0) {
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: resistance.zoneHigh,
+        color: RES_ZONE_HI,
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'R↑',
+      })
+    );
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: resistance.zoneLow,
+        color: RES_ZONE_LO,
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'R↓',
+      })
+    );
+  }
+
+  if (support && support.zoneHigh > 0 && support.zoneLow > 0) {
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: support.zoneHigh,
+        color: SUP_ZONE_HI,
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: 'S↑',
+      })
+    );
+    zoneLinesRef.current.push(
+      series.createPriceLine({
+        price: support.zoneLow,
+        color: SUP_ZONE_LO,
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'S↓',
+      })
+    );
+  }
+}
+
+function safeChartOp(fn: () => void) {
+  try {
+    fn();
+  } catch (e) {
+    console.warn('[ProTradeHlLightweightChart]', e);
+  }
+}
+
+type OverlayProps = NonNullable<Props['positionOverlay']>;
+
+/** Reject ghost limit lines far from the chart (wrong-coin / corrupt px). */
+function priceInChartBand(px: number, refPx: number): boolean {
+  if (!(px > 0) || !(refPx > 0)) return false;
+  return px >= refPx * 0.5 && px <= refPx * 1.5;
+}
+
+function applyPositionPriceLines(
+  series: ISeriesApi<'Candlestick'>,
+  priceLinesRef: React.MutableRefObject<IPriceLine[]>,
+  opts: {
+    openOrders: HlOpenOrder[];
+    overlayCoin: string;
+    positionOverlay?: OverlayProps;
+    chartColors: ReturnType<typeof getProTradeChartColors>;
+    bandRefPx?: number;
+  }
+) {
+  for (const line of priceLinesRef.current) {
+    series.removePriceLine(line);
+  }
+  priceLinesRef.current = [];
+
+  const { openOrders, overlayCoin, positionOverlay, chartColors, bandRefPx } = opts;
+  const coinKey = normalizeHlPerpCoin(overlayCoin);
+  const refPx =
+    (bandRefPx && bandRefPx > 0 ? bandRefPx : 0) ||
+    (positionOverlay && positionOverlay.entryPx > 0 ? positionOverlay.entryPx : 0);
+  const coinOrders = openOrders.filter(
+    (o) => normalizeHlPerpCoin(o.coin) === coinKey
+  );
+  for (const o of coinOrders) {
+    const px = toNum(o.limitPx);
+    if (px <= 0) continue;
+    if (refPx > 0 && !priceInChartBand(px, refPx)) continue;
+    const isBuy = o.side === 'B';
+    const line = series.createPriceLine({
+      price: px,
+      color: isBuy ? chartColors.up : chartColors.down,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: '',
+    });
+    priceLinesRef.current.push(line);
+  }
+
+  if (positionOverlay && positionOverlay.entryPx > 0) {
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: positionOverlay.entryPx,
+        color: positionOverlay.side === 'long' ? chartColors.up : chartColors.down,
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'Entry',
+      })
+    );
+  }
+
+  // Max-loss / liquidation are settings-only — never drawn or dragged on the chart.
+
+  const trailPx = positionOverlay?.trailStopPx;
+  if (trailPx != null && trailPx > 0 && (refPx <= 0 || priceInChartBand(trailPx, refPx))) {
+    const locked = positionOverlay.trailStopLocked === true;
+    const breached = positionOverlay.trailBreached === true;
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: trailPx,
+        color: breached ? '#ef4444' : locked ? '#22c55e' : '#eab308',
+        lineWidth: 2,
+        lineStyle: locked ? LineStyle.Solid : LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: locked ? (breached ? 'Trail!' : 'Trail') : 'Trail',
+      })
+    );
+  }
+
+  const tpPx = positionOverlay?.takeProfitPx;
+  if (tpPx != null && tpPx > 0 && (refPx <= 0 || priceInChartBand(tpPx, refPx))) {
+    const tpPct = positionOverlay.takeProfitMarginPct ?? 0;
+    priceLinesRef.current.push(
+      series.createPriceLine({
+        price: tpPx,
+        color: '#22c55e',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: tpPct > 0 ? `TP +${tpPct}%` : 'Take profit',
+      })
+    );
+  }
+}
+
+/** @deprecated use CHART_VISIBLE_BARS per interval */
+const VISIBLE_BARS_FALLBACK = 72;
+
+const ProTradeHlLightweightChart: React.FC<Props> = ({
+  coin,
+  interval = '5m',
+  candles,
+  loading,
+  openOrders = [],
+  orderCoin,
+  theme,
+  layoutKey,
+  positionOverlay,
+  tradeMarkers = [],
+  markPx,
+  scrollToLiveTick = 0,
+  onFollowLiveChange,
+  onRetry,
+  wsConnected,
+  chartError,
+  fetchAttempts,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
+  const zoneLinesRef = useRef<IPriceLine[]>([]);
+  const markLineRef = useRef<IPriceLine | null>(null);
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
+  const candlesRef = useRef<HlCandleBar[]>([]);
+  const followLiveRef = useRef(true);
+  const suppressFollowDetectRef = useRef(false);
+  /** User dragged/zoomed the time axis — never overwrite their view until → Live / coin / TF. */
+  const userHeldViewRef = useRef(false);
+  const interactingRef = useRef(false);
+  const aliveRef = useRef(true);
+  const overlayCoin = orderCoin ?? coin;
+  const chartColors = useMemo(() => getProTradeChartColors(theme), [theme]);
+  const srZones = useMemo(() => {
+    const bars = candles.map((c) => ({
+      high: c.high,
+      low: c.low,
+      open: c.open,
+      close: c.close,
+      time: c.time,
+    }));
+    return {
+      resistance: computeResistanceZone(bars),
+      support: computeSupportZone(bars),
+    };
+  }, [candles]);
+  const srZonesRef = useRef(srZones);
+  srZonesRef.current = srZones;
+  const overlayRef = useRef(positionOverlay);
+  overlayRef.current = positionOverlay;
+  const markPxRef = useRef(markPx);
+  markPxRef.current = markPx;
+  const onFollowLiveChangeRef = useRef(onFollowLiveChange);
+  onFollowLiveChangeRef.current = onFollowLiveChange;
+  const themeRef = useRef(theme);
+  const prevThemeForDataRef = useRef(theme);
+  const prevCoinForDataRef = useRef(coin);
+  const prevIntervalForDataRef = useRef(interval);
+  const intervalRef = useRef(interval);
+  intervalRef.current = interval;
+  const lastChartSizeRef = useRef({ w: 0, h: 0 });
+  const lastAxisRefPxRef = useRef(0);
+
+  const buildAutoscaleProvider = () => {
+    return () => {
+      // Autoscale from candles + live mark ONLY.
+      // Overlay Stop/TP/Liq must not stretch the scale — orphan drafts / max-loss lines
+      // squash candles to a flat strip at the bottom (classic empty chart look).
+      const liveMark = markPxRef.current;
+      const extra: number[] = [];
+      if (liveMark != null && liveMark > 0) extra.push(liveMark);
+      const range = candlePriceRange(candlesRef.current, liveMark ?? undefined, extra);
+      if (range) return { priceRange: range };
+      return null;
+    };
+  };
+
+  const applyChartPriceAxis = (
+    chart: IChartApi,
+    series: ISeriesApi<'Candlestick'>,
+    refPx: number
+  ) => {
+    const px = refPx > 0 ? refPx : 1;
+    // Skip noise — tiny ref swings flip priceFormat digits and resize the right axis → L/R shake.
+    const prev = lastAxisRefPxRef.current;
+    if (prev > 0 && Math.abs(px - prev) / prev < 0.002) return;
+    lastAxisRefPxRef.current = px;
+    chart.applyOptions({
+      localization: {
+        priceFormatter: buildChartPriceFormatter(px),
+        tickmarksPriceFormatter: buildChartTickmarksFormatter(px),
+      },
+      rightPriceScale: {
+        minimumWidth: 88,
+        ticksVisible: true,
+        alignLabels: true,
+      },
+    });
+    series.applyOptions({
+      priceFormat: buildSeriesPriceFormat(px),
+    });
+  };
+
+  const applyChartTheme = (
+    chart: IChartApi,
+    series: ISeriesApi<'Candlestick'>,
+    colors: ReturnType<typeof getProTradeChartColors>
+  ) => {
+    chart.applyOptions({
+      layout: {
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.text,
+      },
+      grid: {
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
+      },
+      rightPriceScale: { borderColor: colors.border },
+      timeScale: { borderColor: colors.border },
+      crosshair: {
+        vertLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+        horzLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+      },
+    });
+    series.applyOptions({
+      upColor: colors.up,
+      downColor: colors.down,
+      borderUpColor: colors.up,
+      borderDownColor: colors.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
+    });
+  };
+
+  useEffect(() => {
+    aliveRef.current = true;
+    const el = containerRef.current;
+    if (!el) return undefined;
+
+    const colors = getProTradeChartColors(themeRef.current);
+
+    const chart = createChart(el, {
+      layout: {
+        background: { type: ColorType.Solid, color: colors.background },
+        textColor: colors.text,
+        fontSize: 11,
+        fontFamily: 'DM Sans, system-ui, sans-serif',
+      },
+      grid: {
+        vertLines: { color: colors.grid },
+        horzLines: { color: colors.grid },
+      },
+      rightPriceScale: {
+        borderColor: colors.border,
+        scaleMargins: { top: 0.04, bottom: 0.2 },
+        autoScale: true,
+        minimumWidth: 88,
+        ticksVisible: true,
+        alignLabels: true,
+      },
+      timeScale: {
+        borderColor: colors.border,
+        timeVisible: true,
+        secondsVisible: chartSecondsVisible(interval),
+        barSpacing: 14,
+        minBarSpacing: chartMinBarSpacing(),
+        rightOffset: 0,
+        // When false, panning left stays put while new bars arrive (no snap-back).
+        shiftVisibleRangeOnNewBar: false,
+        fixLeftEdge: false,
+        fixRightEdge: false,
+      },
+      crosshair: {
+        vertLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+        horzLine: { color: colors.crosshair, labelBackgroundColor: colors.crosshairLabel },
+      },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: colors.up,
+      downColor: colors.down,
+      borderVisible: true,
+      borderUpColor: colors.up,
+      borderDownColor: colors.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
+      wickVisible: true,
+      lastValueVisible: true,
+      priceLineVisible: false,
+    });
+
+    series.applyOptions({
+      autoscaleInfoProvider: buildAutoscaleProvider(),
+    });
+
+    const seedPx =
+      candlesRef.current[candlesRef.current.length - 1]?.close ??
+      markPxRef.current ??
+      1;
+    applyChartPriceAxis(chart, series, seedPx);
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+      // Volume ~15k on SOL looks like a bogus price on the axis (classic "14,754" ghost).
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0.02 },
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+    volumeRef.current = volumeSeries;
+    markersPluginRef.current = createSeriesMarkers(series, [], { zOrder: 'top' });
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      if (suppressFollowDetectRef.current) return;
+      const range = chart.timeScale().getVisibleLogicalRange();
+      const n = candlesRef.current.length;
+      if (!range || n <= 0) return;
+      const following = range.to >= n - 1 - 1e-6;
+      // Pointer on chart (axis drag / pan / pinch) → user owns zoom+scroll until → Live.
+      if (interactingRef.current || !following) {
+        userHeldViewRef.current = true;
+      }
+      if (following !== followLiveRef.current) {
+        followLiveRef.current = following;
+        onFollowLiveChangeRef.current?.(following);
+      }
+    });
+
+    const onPointerDown = () => {
+      interactingRef.current = true;
+    };
+    const onPointerUp = () => {
+      interactingRef.current = false;
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    const ro = new ResizeObserver(() => {
+      if (!aliveRef.current) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w < 2 || h < 2) return;
+      const prev = lastChartSizeRef.current;
+      if (Math.abs(prev.w - w) < 1 && Math.abs(prev.h - h) < 1) return;
+      lastChartSizeRef.current = { w, h };
+      safeChartOp(() => {
+        // Size only — never reset barSpacing/visible range (axis-drag zoom must stick).
+        chart.applyOptions({ width: w, height: h });
+        const bars = candlesRef.current;
+        const candleSeries = seriesRef.current;
+        const volume = volumeRef.current;
+        if (bars.length > 0 && candleSeries && volume && candleSeries.dataByIndex(0) == null) {
+          candleSeries.setData(
+            bars.map((c) => ({
+              time: c.time as CandlestickData['time'],
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }))
+          );
+          volume.setData(
+            bars
+              .filter((c) => (c.volume ?? 0) > 0)
+              .map((c) => ({
+                time: c.time as HistogramData['time'],
+                value: c.volume ?? 0,
+                color:
+                  c.close >= c.open
+                    ? getProTradeChartColors(themeRef.current).volumeUp
+                    : getProTradeChartColors(themeRef.current).volumeDown,
+              }))
+          );
+        }
+      });
+    });
+    ro.observe(el);
+    safeChartOp(() => {
+      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      lastChartSizeRef.current = { w: el.clientWidth, h: el.clientHeight };
+    });
+
+    return () => {
+      aliveRef.current = false;
+      el.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      ro.disconnect();
+      safeChartOp(() => chart.remove());
+      chartRef.current = null;
+      seriesRef.current = null;
+      volumeRef.current = null;
+      priceLinesRef.current = [];
+      zoneLinesRef.current = [];
+      markLineRef.current = null;
+      markersPluginRef.current = null;
+      el.replaceChildren();
+    };
+  }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series || !aliveRef.current) return;
+
+    safeChartOp(() => {
+      // Do not touch barSpacing here — srZones/orders update constantly and would
+      // wipe the user's time-axis zoom.
+      chart.timeScale().applyOptions({
+        minBarSpacing: chartMinBarSpacing(),
+        secondsVisible: chartSecondsVisible(interval),
+      });
+      applyPositionPriceLines(series, priceLinesRef, {
+        openOrders,
+        overlayCoin,
+        positionOverlay: overlayRef.current,
+        chartColors: getProTradeChartColors(themeRef.current),
+        bandRefPx: markPxRef.current ?? overlayRef.current?.entryPx,
+      });
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
+    });
+  }, [openOrders, overlayCoin, srZones, interval]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series || !aliveRef.current) return;
+
+    const el = containerRef.current;
+    const width = el?.clientWidth ?? 800;
+    const spacing = chartBarSpacing(width, interval);
+    userHeldViewRef.current = false;
+    followLiveRef.current = true;
+    safeChartOp(() => {
+      chart.timeScale().applyOptions({
+        barSpacing: spacing,
+        minBarSpacing: chartMinBarSpacing(),
+        secondsVisible: chartSecondsVisible(interval),
+      });
+      if (candlesRef.current.length > 0) {
+        applyChartZoom(chart, candlesRef.current.length);
+      }
+    });
+  }, [interval]);
+
+  useEffect(() => {
+    themeRef.current = theme;
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    const el = containerRef.current;
+    if (!chart || !series || !el || !aliveRef.current) return;
+
+    const colors = getProTradeChartColors(theme);
+    safeChartOp(() => {
+      applyChartTheme(chart, series, colors);
+      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    });
+  }, [theme]);
+
+  const applyChartZoom = (chart: IChartApi, barCount: number) => {
+    if (barCount <= 0) return;
+    const el = containerRef.current;
+    const width = el?.clientWidth ?? 800;
+    const visibleBars = CHART_VISIBLE_BARS[interval] ?? VISIBLE_BARS_FALLBACK;
+    const spacing = chartBarSpacing(width, interval);
+    suppressFollowDetectRef.current = true;
+    try {
+      chart.timeScale().applyOptions({
+        barSpacing: spacing,
+        minBarSpacing: chartMinBarSpacing(),
+        secondsVisible: chartSecondsVisible(interval),
+      });
+      if (barCount <= visibleBars + 24) {
+        chart.timeScale().fitContent();
+        chart.timeScale().applyOptions({ rightOffset: 0 });
+        chart.timeScale().scrollToRealTime();
+      } else {
+        const from = Math.max(0, barCount - visibleBars);
+        chart.timeScale().setVisibleLogicalRange({ from, to: barCount - 1 });
+        chart.timeScale().applyOptions({ rightOffset: 0 });
+      }
+      followLiveRef.current = true;
+      userHeldViewRef.current = false;
+    } finally {
+      requestAnimationFrame(() => {
+        suppressFollowDetectRef.current = false;
+      });
+    }
+  };
+
+  const showLatestBars = (chart: IChartApi, barCount: number) => {
+    applyChartZoom(chart, barCount);
+  };
+
+  const scrollLive = (chart: IChartApi) => {
+    suppressFollowDetectRef.current = true;
+    try {
+      chart.timeScale().scrollToRealTime();
+    } finally {
+      requestAnimationFrame(() => {
+        suppressFollowDetectRef.current = false;
+      });
+    }
+  };
+
+  useEffect(() => {
+    const plugin = markersPluginRef.current;
+    if (!plugin || !aliveRef.current) return;
+    safeChartOp(() => {
+      plugin.setMarkers(tradeMarkers);
+    });
+  }, [tradeMarkers, coin]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    const volumeSeries = volumeRef.current;
+    const chart = chartRef.current;
+    if (!series || !volumeSeries || !chart || !aliveRef.current) return;
+
+    candlesRef.current = [];
+    prevCoinForDataRef.current = '';
+    prevIntervalForDataRef.current = '';
+    followLiveRef.current = true;
+    userHeldViewRef.current = false;
+    lastAxisRefPxRef.current = 0;
+
+    safeChartOp(() => {
+      series.setData([]);
+      volumeSeries.setData([]);
+      for (const line of priceLinesRef.current) {
+        series.removePriceLine(line);
+      }
+      priceLinesRef.current = [];
+      for (const line of zoneLinesRef.current) {
+        series.removePriceLine(line);
+      }
+      zoneLinesRef.current = [];
+      if (markLineRef.current) {
+        series.removePriceLine(markLineRef.current);
+        markLineRef.current = null;
+      }
+      markersPluginRef.current?.setMarkers([]);
+    });
+  }, [coin, layoutKey]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const el = containerRef.current;
+    if (!chart || !el || !aliveRef.current) return;
+    const frame = requestAnimationFrame(() => {
+      if (!aliveRef.current) return;
+      safeChartOp(() => {
+        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [layoutKey, coin, interval]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !aliveRef.current) return undefined;
+    let attempts = 0;
+    let raf = 0;
+    let didInitialZoom = false;
+    const ensureSize = () => {
+      if (!aliveRef.current) return;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if ((w < 2 || h < 2) && attempts < 24) {
+        attempts += 1;
+        raf = requestAnimationFrame(ensureSize);
+        return;
+      }
+      const chart = chartRef.current;
+      if (chart && w >= 2 && h >= 2) {
+        safeChartOp(() => {
+          chart.applyOptions({ width: w, height: h });
+          lastChartSizeRef.current = { w, h };
+          if (candlesRef.current.length > 0 && !didInitialZoom) {
+            applyChartZoom(chart, candlesRef.current.length);
+            didInitialZoom = true;
+          }
+        });
+      }
+    };
+    ensureSize();
+    return () => cancelAnimationFrame(raf);
+  }, [layoutKey, coin, interval]);
+
+  useEffect(() => {
+    if (!scrollToLiveTick) return;
+    const chart = chartRef.current;
+    if (!chart || !aliveRef.current) return;
+    followLiveRef.current = true;
+    userHeldViewRef.current = false;
+    onFollowLiveChange?.(true);
+    scrollLive(chart);
+  }, [scrollToLiveTick, onFollowLiveChange]);
+
+  useEffect(() => {
+    const resize = () => {
+      const chart = chartRef.current;
+      const el = containerRef.current;
+      if (!chart || !el || !aliveRef.current) return;
+      safeChartOp(() => {
+        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      });
+    };
+    window.addEventListener('orientationchange', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    return () => {
+      window.removeEventListener('orientationchange', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    const volumeSeries = volumeRef.current;
+    const chart = chartRef.current;
+    if (!series || !volumeSeries || !chart || !aliveRef.current) return;
+
+    if (candles.length === 0) {
+      candlesRef.current = [];
+      // Must reset — otherwise the next real bars look like “same coin” and
+      // take the incremental update() path (blank chart until TF change).
+      prevCoinForDataRef.current = '';
+      prevIntervalForDataRef.current = '';
+      safeChartOp(() => {
+        series.setData([]);
+        volumeSeries.setData([]);
+      });
+      return;
+    }
+
+    const refPx = chartSanitizeRef(candles, markPxRef.current);
+    const liveCandles = patchFormingCandleWithMark(candles, markPxRef.current);
+    const resolved = resolveChartCandlesForDisplay(liveCandles, refPx);
+    const clean = resolved.candles;
+
+    if (clean.length === 0) {
+      candlesRef.current = [];
+      prevCoinForDataRef.current = '';
+      prevIntervalForDataRef.current = '';
+      safeChartOp(() => {
+        series.setData([]);
+        volumeSeries.setData([]);
+      });
+      return;
+    }
+
+    const prev = candlesRef.current;
+    const prevFirst = prev[0]?.time;
+    const nextFirst = clean[0]?.time;
+    const prevClose = prev[prev.length - 1]?.close ?? 0;
+    const nextClose = clean[clean.length - 1]?.close ?? 0;
+    const priceScaleJump =
+      prevClose > 0 &&
+      nextClose > 0 &&
+      (nextClose / prevClose > 1.8 || nextClose / prevClose < 1 / 1.8);
+    const themeChanged = prevThemeForDataRef.current !== theme;
+    const coinChanged = prevCoinForDataRef.current !== coin;
+    const intervalChanged = prevIntervalForDataRef.current !== interval;
+    if (themeChanged) prevThemeForDataRef.current = theme;
+    // Only commit coin/interval after a full setData paint (below).
+    const fullReset =
+      themeChanged ||
+      coinChanged ||
+      intervalChanged ||
+      priceScaleJump ||
+      prev.length === 0 ||
+      prevFirst !== nextFirst ||
+      clean.length < prev.length;
+
+    const toCandle = (c: HlCandleBar): CandlestickData => ({
+      time: c.time as CandlestickData['time'],
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    });
+
+    const toVol = (c: HlCandleBar): HistogramData => ({
+      time: c.time as HistogramData['time'],
+      value: c.volume ?? 0,
+      color: c.close >= c.open ? chartColors.volumeUp : chartColors.volumeDown,
+    });
+
+    const axisRefPx =
+      refPx ?? clean[clean.length - 1]?.close ?? markPxRef.current ?? 1;
+
+    const paintSeries = (bars: HlCandleBar[], snapToLive: boolean) => {
+      const data = bars.map(toCandle);
+      const volData = bars.filter((c) => (c.volume ?? 0) > 0).map(toVol);
+      // Preserve the user's time window across setData (logical indexes shift on history changes).
+      const heldTimeRange =
+        !snapToLive && (userHeldViewRef.current || !followLiveRef.current)
+          ? chart.timeScale().getVisibleRange()
+          : null;
+      applyChartPriceAxis(chart, series, axisRefPx);
+      candlesRef.current = bars;
+      series.setData(data);
+      volumeSeries.setData(volData);
+      prevCoinForDataRef.current = coin;
+      prevIntervalForDataRef.current = interval;
+      applySrZonePriceLines(
+        series,
+        zoneLinesRef,
+        srZonesRef.current.resistance,
+        srZonesRef.current.support
+      );
+      if (snapToLive && followLiveRef.current && !userHeldViewRef.current) {
+        showLatestBars(chart, data.length);
+      } else if (heldTimeRange) {
+        suppressFollowDetectRef.current = true;
+        try {
+          chart.timeScale().setVisibleRange(heldTimeRange);
+        } finally {
+          requestAnimationFrame(() => {
+            suppressFollowDetectRef.current = false;
+          });
+        }
+      }
+    };
+
+    safeChartOp(() => {
+      // Autoscale reads candlesRef — keep it in sync BEFORE setData.
+      if (fullReset) {
+        const snapToLive =
+          !userHeldViewRef.current &&
+          (followLiveRef.current ||
+            coinChanged ||
+            intervalChanged ||
+            prev.length === 0);
+        paintSeries(clean, snapToLive);
+        return;
+      }
+
+      const last = clean[clean.length - 1];
+      const prevLast = prev[prev.length - 1];
+      const newBar = last.time !== prevLast?.time && clean.length > prev.length;
+
+      // If series was cleared (resize/race) but we still have history, full repaint.
+      let seriesEmpty = false;
+      try {
+        seriesEmpty = series.dataByIndex(0) == null && clean.length > 0;
+      } catch {
+        seriesEmpty = clean.length > 0;
+      }
+      if (seriesEmpty) {
+        chartDebugWarn('hl-chart', 'repaint-empty-series', {
+          coin,
+          interval,
+          bars: clean.length,
+        });
+        paintSeries(clean, followLiveRef.current && !userHeldViewRef.current);
+        return;
+      }
+
+      candlesRef.current = clean;
+      series.update(toCandle(last));
+      if ((last.volume ?? 0) > 0) {
+        volumeSeries.update(toVol(last));
+      }
+
+      if (newBar && clean.length > prev.length + 1) {
+        for (let i = prev.length; i < clean.length - 1; i++) {
+          series.update(toCandle(clean[i]));
+          const v = clean[i];
+          if ((v.volume ?? 0) > 0) volumeSeries.update(toVol(v));
+        }
+      }
+
+      // Never snap while the user holds a custom time-axis view.
+      if (followLiveRef.current && !userHeldViewRef.current && newBar) {
+        scrollLive(chart);
+      }
+      if (newBar) {
+        applySrZonePriceLines(
+          series,
+          zoneLinesRef,
+          srZonesRef.current.resistance,
+          srZonesRef.current.support
+        );
+      }
+    });
+  }, [candles, coin, interval, theme, layoutKey]);
+
+  // Live mark → forming bar wick only (avoid full setData on every mid tick).
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    if (markPx == null || !(markPx > 0)) return;
+    const prev = candlesRef.current;
+    if (prev.length === 0) return;
+    const patched = patchFormingCandleWithMark(prev, markPx);
+    const last = patched[patched.length - 1];
+    const prevLast = prev[prev.length - 1];
+    if (!last || last === prevLast) return;
+    candlesRef.current = patched;
+    safeChartOp(() => {
+      series.update({
+        time: last.time as CandlestickData['time'],
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        close: last.close,
+      });
+    });
+  }, [markPx]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+
+    safeChartOp(() => {
+      applyPositionPriceLines(series, priceLinesRef, {
+        openOrders,
+        overlayCoin,
+        positionOverlay,
+        chartColors,
+        bandRefPx: markPxRef.current ?? positionOverlay?.entryPx,
+      });
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
+    });
+  }, [openOrders, overlayCoin, theme, positionOverlay, chartColors, srZones]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+    safeChartOp(() => {
+      applySrZonePriceLines(series, zoneLinesRef, srZones.resistance, srZones.support);
+    });
+  }, [srZones]);
+
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !aliveRef.current) return;
+
+    safeChartOp(() => {
+      if (markPx != null && markPx > 0) {
+        if (markLineRef.current) {
+          // Updating the existing line avoids remove/create flicker on every mid tick.
+          markLineRef.current.applyOptions({
+            price: markPx,
+            color: chartColors.crosshair,
+          });
+        } else {
+          markLineRef.current = series.createPriceLine({
+            price: markPx,
+            color: chartColors.crosshair,
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: 'Mark',
+          });
+        }
+      } else if (markLineRef.current) {
+        series.removePriceLine(markLineRef.current);
+        markLineRef.current = null;
+      }
+    });
+  }, [markPx, chartColors.crosshair]);
+
+  const isBlank = !loading && candles.length === 0;
+
+  return (
+    <div className="hl-chart-canvas-wrap">
+      {loading && candles.length === 0 ? (
+        <div className="hl-chart-empty">Loading chart…</div>
+      ) : null}
+      {isBlank ? (
+        <div className="hl-chart-empty hl-chart-empty--action">
+          <span>{chartError ?? 'Chart data unavailable'}</span>
+          {onRetry ? (
+            <button type="button" className="hl-chart-empty__retry" onClick={onRetry}>
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div ref={containerRef} className="hl-chart-canvas" />
+    </div>
+  );
+};
+
+export default ProTradeHlLightweightChart;

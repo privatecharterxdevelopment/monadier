@@ -1,0 +1,87 @@
+/* Admin monitor — dark tokens inside Pro Trade shell */
+.admin-monitor-scope .text-primary {
+  color: #fafafa;
+}
+.admin-monitor-scope .text-secondary {
+  color: #a1a1aa;
+}
+.admin-monitor-scope .text-muted {
+  color: #71717a;
+}
+.admin-monitor-scope .bg-card-dark {
+  background: #141416;
+}
+.admin-monitor-scope .bg-background {
+  background: #0f0f11;
+}
+.admin-monitor-scope .border-border {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.admin-monitor-scope .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.admin-monitor-page {
+  touch-action: pan-y;
+}
+
+.admin-monitor-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.admin-monitor-tabs {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+}
+
+.admin-monitor-tabs::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
+
+.admin-monitor-tabs::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.admin-monitor-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+}
+
+.admin-monitor-table-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+.admin-monitor-table-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+.admin-monitor-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #141416;
+}
+
+
+/* Hide AppKit network/switch overlays while on admin */
+body:has(.admin-monitor-page) w3m-modal,
+body:has(.admin-monitor-page) w3m-router,
+body:has(.admin-monitor-page) aside[class*="w3m"] {
+  display: none !important;
+  pointer-events: none !important;
+}

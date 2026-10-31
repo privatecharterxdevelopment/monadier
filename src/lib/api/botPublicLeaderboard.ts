@@ -1,0 +1,133 @@
+import { fetchBotApi } from '../botApiFetch';
+import { supabase } from '../supabaseClient';
+import { hlTxExplorerUrl, hlWalletExplorerUrl } from '../hyperliquid/hlApp';
+
+export type BotPublicTradeRow = {
+  id: string;
+  wallet: string;
+  walletLabel: string;
+  pair: string;
+  direction: string;
+  profitUsd: number;
+  openedAt: string | null;
+  closedAt: string;
+  verifyUrl: string;
+  isLive: boolean;
+  /** Raw close_reason from trade_history when matched (manual, trailing_stop, …). */
+  closeReason: string | null;
+};
+
+type RpcRow = {
+  id: string;
+  wallet_address: string;
+  wallet_label: string;
+  token_symbol: string;
+  direction: string;
+  profit_usd: number | string;
+  opened_at: string | null;
+  closed_at: string;
+  exit_tx_hash: string | null;
+  close_reason?: string | null;
+};
+
+export function mapBotPublicLeaderboardRow(row: RpcRow): BotPublicTradeRow | null {
+  const profit = Number(row.profit_usd);
+  if (!Number.isFinite(profit)) return null;
+
+  const wallet = String(row.wallet_address ?? '').trim().toLowerCase();
+  if (!wallet) return null;
+
+  const exitTx = row.exit_tx_hash?.trim() ?? '';
+  const verifyUrl = exitTx ? hlTxExplorerUrl(exitTx) : hlWalletExplorerUrl(wallet);
+  const closedAt = String(row.closed_at ?? '');
+  const closedMs = closedAt ? Date.parse(closedAt) : 0;
+  const isLive = closedMs > 0 && Date.now() - closedMs < 45 * 60 * 1000;
+
+  return {
+    id: String(row.id),
+    wallet,
+    walletLabel: String(row.wallet_label ?? wallet),
+    pair: String(row.token_symbol ?? '—'),
+    direction: String(row.direction ?? 'LONG'),
+    profitUsd: profit,
+    openedAt: row.opened_at ?? null,
+    closedAt,
+    verifyUrl,
+    isLive,
+    closeReason: row.close_reason?.trim() || null,
+  };
+}
+
+async function fetchViaRpc(
+  sort: 'top' | 'recent' | 'recent_all',
+  limit: number
+): Promise<BotPublicTradeRow[]> {
+  const { data, error } = await supabase.rpc('get_public_bot_leaderboard', {
+    p_sort: sort,
+    p_limit: limit,
+  });
+
+  if (error) {
+    console.warn('[botPublicLeaderboard]', error.message);
+    return [];
+  }
+
+  return (data ?? [])
+    .map((row) => mapBotPublicLeaderboardRow(row as RpcRow))
+    .filter((row): row is BotPublicTradeRow => row != null);
+}
+
+async function fetchViaBotApi(
+  sort: 'top' | 'recent' | 'recent_all',
+  limit: number
+): Promise<BotPublicTradeRow[]> {
+  const res = await fetchBotApi(
+    `/api/public-leaderboard?sort=${sort}&limit=${limit}`,
+    { timeoutMs: 35_000, retries: 2 }
+  );
+  if (!res.ok) {
+    throw new Error(`leaderboard ${res.status}`);
+  }
+  const body = (await res.json()) as { rows?: RpcRow[] };
+  return (body.rows ?? [])
+    .map((row) => mapBotPublicLeaderboardRow(row))
+    .filter((row): row is BotPublicTradeRow => row != null);
+}
+
+async function fetchLeaderboard(
+  sort: 'top' | 'recent' | 'recent_all',
+  limit: number
+): Promise<BotPublicTradeRow[]> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const rows = await fetchViaBotApi(sort, limit);
+      if (rows.length > 0 || attempt === 1) return rows;
+      // Empty can be a transient wallet/fill flake — one quick retry before RPC.
+      await new Promise((r) => setTimeout(r, 500));
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+    }
+  }
+  console.warn('[botPublicLeaderboard] bot API fallback to RPC', lastErr);
+  return fetchViaRpc(sort, limit);
+}
+
+/** Public HL wins — top by profit (live HL + DB). */
+export async function fetchBotPublicLeaderboard(limit = 10): Promise<BotPublicTradeRow[]> {
+  return fetchLeaderboard('top', limit);
+}
+
+/** Recent profitable closes — live activity strip. */
+export async function fetchBotPublicLiveWins(limit = 8): Promise<BotPublicTradeRow[]> {
+  return fetchLeaderboard('recent', limit);
+}
+
+/** Latest closes including losses — landing / live feed. */
+export async function fetchBotPublicRecentCloses(limit = 12): Promise<BotPublicTradeRow[]> {
+  return fetchLeaderboard('recent_all', limit);
+}

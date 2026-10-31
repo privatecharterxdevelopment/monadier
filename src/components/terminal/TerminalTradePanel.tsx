@@ -1,0 +1,1096 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  Loader2,
+  Play,
+  Square,
+  Wallet,
+  ArrowDownLeft,
+  ArrowUpRight,
+  RefreshCw,
+  AlertTriangle,
+  ShieldCheck,
+  Info,
+} from 'lucide-react';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
+import { useWeb3 } from '../../contexts/Web3Context';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
+import { persistVaultSettings } from '../../lib/syncVaultSettings';
+import { BOT_SHUT_DOWN_MESSAGE } from '../../lib/productShutdown';
+import {
+  disableHlBotExecution,
+  MIN_HL_BOT_USD,
+} from '../../lib/hyperliquid/hlBotAgent';
+import { registerWalletsForHistory } from '../../lib/userWallets';
+import {
+  approveHlBuilderFeeRequired,
+  approveHlBotAgentRequired,
+} from '../../lib/hyperliquid/hlBotApprovals';
+import { useHlBotSetup } from '../../hooks/useHlBotSetup';
+import { getHlBuilderConfig } from '../../lib/hyperliquid/builderConfig';
+import {
+  hlBotSuccessFeeApprovalHint,
+  hlBotSuccessFeeStepButtonLabel,
+} from '../../lib/hyperliquid/hlBotSuccessFee';
+import { useHlBotRunning } from '../../hooks/useHlBotRunning';
+import { notifyHlBotRunningChange } from '../../lib/hlBotRunningStore';
+import { useBotRuntimeTimer } from '../../hooks/useBotRuntimeTimer';
+import { clearBotRuntimeTimer, markBotRuntimeStarted, readBotRuntimeStartMs } from '../../lib/botRuntimeTimer';
+import {
+  isHlBotReadyToRun,
+  isHlBuilderFeeGateSatisfied,
+} from '../../lib/hlBotGates';
+import { getHlBotSidebarStatus } from '../../lib/hlBotUserStatus';
+import {
+  hlBotOnboardingStorageKey,
+  readHlBotOnboardingComplete,
+  writeHlBotOnboardingComplete,
+} from '../../lib/hlBotOnboarding';
+import { fireProfileOnboardingConfetti } from '../../lib/confettiCelebration';
+import HlBotSetupSteps from './HlBotSetupSteps';
+import HlBotSetupGuideModal from './HlBotSetupGuideModal';
+import ProTradeDepositModal from '../protrade/ProTradeDepositModal';
+import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
+import TerminalBotSettingsModal from './TerminalBotSettingsModal';
+import TerminalLvrgPanel from './TerminalLvrgPanel';
+import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
+import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
+import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
+import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
+import {
+  needsSpotToPerpTransfer,
+  pollHlPerpAfterTransfer,
+  spotToPerpTransferAmount,
+} from '../../lib/hyperliquid/funding';
+import { useBettingUi } from '../../contexts/BettingUiContext';
+import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
+import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
+import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
+import { BRAND_NAME } from '../../lib/brand';
+import { fmtClosedPnl } from '../../lib/hyperliquid/format';
+type PanelTab = 'bot' | 'lvrg' | 'funds';
+
+type Props = {
+  metrics: Dashboard2Metrics;
+  onRefresh: () => void;
+  onOpenHistory?: () => void;
+  /** @deprecated use fundsAction */
+  vaultAction?: 'deposit' | 'withdraw' | null;
+  /** @deprecated use onFundsActionHandled */
+  onVaultActionHandled?: () => void;
+  fundsAction?: 'deposit' | 'withdraw' | null;
+  onFundsActionHandled?: () => void;
+  onRequireSignIn?: (reason: string) => void;
+  /** Pro Trade app — one shared HL funds modal in the page header shell. */
+  useGlobalFundsModal?: boolean;
+};
+
+function fmt(n: number) {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+type SetupPhase = 'connect' | 'loading' | 'approve' | 'fund' | 'ready';
+
+const TerminalTradePanel: React.FC<Props> = ({
+  metrics,
+  onRefresh,
+  onOpenHistory,
+  vaultAction,
+  onVaultActionHandled,
+  fundsAction = vaultAction,
+  onFundsActionHandled = onVaultActionHandled,
+  onRequireSignIn,
+  useGlobalFundsModal = false,
+}) => {
+  const { t } = useTranslation();
+  const { open } = useMonadierAppKit();
+  const { isConnected, address, publicClient, walletClient } = useWeb3();
+  const { address: monadierAddress } = useMonadierWallet();
+  const { transferUsdClass } = useHyperliquidTrading();
+  const { isDemoUser, isAuthenticated, user } = useAuth();
+  const { linkWallet, planTier } = useSubscription();
+  const [panelTab, setPanelTab] = useState<PanelTab>('bot');
+  const {
+    botRunning,
+    settings: botSettingsSnapshot,
+    settingsLoading: botSettingsLoading,
+    wallet: botWallet,
+    bumpSettings,
+  } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+    metricsHasSnapshot: metrics.hasHlSnapshot,
+  });
+  const botSettings = {
+    settings: botSettingsSnapshot,
+    isLoading: botSettingsLoading,
+    wallet: botWallet,
+  };
+  const accountSignedIn = isDemoUser || isAuthenticated;
+  // Login first — never load HL balances / history without HyperGain account.
+  const hlBalanceWallet = accountSignedIn
+    ? monadierAddress ?? botWallet ?? undefined
+    : undefined;
+  const hlSetup = useHlBotSetup(hlBalanceWallet);
+  const builderConfig = getHlBuilderConfig();
+  const botSuccessFeeLabel = hlBotSuccessFeeStepButtonLabel(2);
+  const platformFees = usePlatformFeeGate();
+  const withdrawGate = useWithdrawFeeGate();
+  const [showFundsModal, setShowFundsModal] = useState(false);
+  const [fundsModalTab, setFundsModalTab] = useState<'deposit' | 'withdraw'>('deposit');
+  const [showSettings, setShowSettings] = useState(false);
+  const [startMode, setStartMode] = useState(false);
+  const [botBusy, setBotBusy] = useState(false);
+  const [botError, setBotError] = useState<string | null>(null);
+  const [stopNotice, setStopNotice] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showStopFirstModal, setShowStopFirstModal] = useState(false);
+
+  const { ensureAccepted } = useLegalAcceptance();
+  const { openFunds: openGlobalFunds } = useBettingUi();
+  // Login first — wallet is never "ready" without HyperGain account.
+  const walletReady =
+    accountSignedIn && (isDemoUser || Boolean(monadierAddress) || isConnected);
+  const wallet = accountSignedIn ? botSettings.wallet : undefined;
+  const needsAccountSignIn = !accountSignedIn;
+
+  const onboardingKey = useMemo(
+    () => hlBotOnboardingStorageKey(user?.id, wallet ?? address ?? null),
+    [user?.id, wallet, address]
+  );
+  const [setupGuideComplete, setSetupGuideComplete] = useState(() =>
+    readHlBotOnboardingComplete(onboardingKey)
+  );
+
+  const hlFundingUsd = hlSetup.hlLoaded
+    ? Math.max(hlSetup.accountUsd, hlSetup.rawPerpUsd, 0)
+    : metrics.hasHlSnapshot
+      ? metrics.hlBalanceUsd
+      : 0;
+  const hlEquityUsd = Math.max(hlFundingUsd, hlSetup.accountUsd, 0);
+  const hlPerpUsd = hlSetup.perpUsd;
+  const hlSpotUsd = hlSetup.spotUsdcUsd;
+  const hlUnifiedAccount = hlSetup.unifiedAccount;
+  const hlWithdrawableLive = Math.max(0, hlSetup.withdrawableUsd);
+  const hlMarginUsedUsd = Math.max(
+    0,
+    hlSetup.totalMarginUsedUsd,
+    // Fallback if snapshot margin lagged: equity − withdrawable while positioned.
+    metrics.openPositionsCount > 0
+      ? Math.max(0, hlEquityUsd - hlWithdrawableLive)
+      : 0
+  );
+  const hlNeedsSpotTransfer = needsSpotToPerpTransfer(
+    hlSetup.rawPerpUsd,
+    hlSpotUsd,
+    MIN_HL_BOT_USD,
+    hlUnifiedAccount
+  );
+  const autoTradeDb = botSettings.settings.autoTradeEnabled;
+
+  useEffect(() => {
+    if (readHlBotOnboardingComplete(onboardingKey)) {
+      setSetupGuideComplete(true);
+      return;
+    }
+    if (walletReady && (botRunning || autoTradeDb)) {
+      writeHlBotOnboardingComplete(onboardingKey);
+      setSetupGuideComplete(true);
+    }
+  }, [onboardingKey, walletReady, botRunning, autoTradeDb]);
+  const timerWallet = wallet ?? address ?? undefined;
+  const botRuntime = useBotRuntimeTimer(timerWallet, Boolean(walletReady && botRunning));
+
+  useEffect(() => {
+    if (!botRunning || !timerWallet) return;
+    if (readBotRuntimeStartMs(timerWallet) == null) {
+      markBotRuntimeStarted(timerWallet);
+    }
+  }, [botRunning, timerWallet]);
+
+
+  const hasOpenPosition = metrics.openPositionsCount > 0;
+
+  const phase: SetupPhase = useMemo(() => {
+    if (!walletReady) return 'connect';
+    if (!hlSetup.setupSettled && hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
+      return 'loading';
+    }
+    if (hlSetup.setupSettled) return hlSetup.phase;
+    if (hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) return 'loading';
+    return hlSetup.phase;
+  }, [
+    walletReady,
+    hlSetup.setupSettled,
+    hlSetup.loading,
+    hlSetup.phase,
+    hlPerpUsd,
+    hlSpotUsd,
+  ]);
+
+  const sidebarStatus = useMemo(
+    () =>
+      getHlBotSidebarStatus({
+        walletReady,
+        accountSignedIn,
+        phase,
+        botRunning,
+        hlBalanceUsd: hlFundingUsd,
+        perpUsd: hlPerpUsd,
+        spotUsdcUsd: hlSpotUsd,
+        unifiedAccount: hlUnifiedAccount,
+        agentApproved: hlSetup.agentApproved,
+        builderFeeApproved: hlSetup.builderFeeApproved,
+        builderFeeEnabled: hlSetup.builderFeeEnabled,
+        builderPlatformReady: hlSetup.builderPlatformReady,
+        runtimeLabel: botRuntime.formatted || (botRunning ? '0s' : undefined),
+      }),
+    [
+      walletReady,
+      accountSignedIn,
+      phase,
+      botRunning,
+      hlFundingUsd,
+      hlPerpUsd,
+      hlSpotUsd,
+      hlUnifiedAccount,
+      hlSetup.agentApproved,
+      hlSetup.builderFeeApproved,
+      hlSetup.builderFeeEnabled,
+      botRuntime.formatted,
+    ]
+  );
+
+  const startBlocker = useMemo((): string | null => {
+    if (!walletReady) return null;
+    if (!hlSetup.setupSettled && hlSetup.loading && hlPerpUsd === 0 && hlSpotUsd === 0) {
+      return 'Loading Hyperliquid balance…';
+    }
+    if (hlNeedsSpotTransfer) return null;
+    if (hlSetup.setupSettled && hlPerpUsd < MIN_HL_BOT_USD && hlFundingUsd < MIN_HL_BOT_USD) {
+      return `Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`;
+    }
+    if (!isDemoUser && !isAuthenticated) return `Sign in to ${BRAND_NAME}, then press Start bot.`;
+    return null;
+  }, [
+    walletReady,
+    hlSetup.setupSettled,
+    hlSetup.loading,
+    hlPerpUsd,
+    hlFundingUsd,
+    hlNeedsSpotTransfer,
+    isDemoUser,
+    isAuthenticated,
+  ]);
+
+  const needsAgentApproval = walletReady && hlSetup.setupSettled && !hlSetup.agentApproved;
+  const needsAgentRenew =
+    walletReady &&
+    hlSetup.setupSettled &&
+    hlSetup.agentApproved &&
+    (hlSetup.agentExpiringSoon || hlSetup.agentExpired);
+  const needsBuilderFeeApproval =
+    walletReady &&
+    hlSetup.setupSettled &&
+    hlSetup.builderFeeEnabled &&
+    !hlSetup.builderFeeApproved;
+  const canApproveBuilderFee = needsBuilderFeeApproval && hlSetup.builderPlatformReady;
+
+  const approvalsComplete =
+    hlSetup.agentApproved &&
+    isHlBuilderFeeGateSatisfied(
+      hlSetup.builderFeeEnabled,
+      hlSetup.builderFeeApproved,
+      hlSetup.builderPlatformReady
+    );
+
+  const canStartBot =
+    !botRunning &&
+    !startBlocker &&
+    approvalsComplete &&
+    (phase === 'ready' || (phase === 'fund' && hlNeedsSpotTransfer));
+
+  const requireAccount = (reason: string, next: () => void) => {
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(reason);
+      return;
+    }
+    next();
+  };
+
+  const openFunds = (tab: 'deposit' | 'withdraw') => {
+    if (useGlobalFundsModal) {
+      openGlobalFunds(tab);
+      return;
+    }
+    setFundsModalTab(tab);
+    setShowFundsModal(true);
+  };
+
+  useEffect(() => {
+    if (!fundsAction) return;
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(
+        fundsAction === 'deposit'
+          ? 'Sign in before depositing to Hyperliquid.'
+          : 'Sign in before withdrawing from Hyperliquid.'
+      );
+      onFundsActionHandled?.();
+      return;
+    }
+    openFunds(fundsAction);
+    setPanelTab('funds');
+    onFundsActionHandled?.();
+  }, [fundsAction, onFundsActionHandled, isDemoUser, isAuthenticated, onRequireSignIn]);
+
+  const refreshAll = () => {
+    onRefresh();
+    bumpSettings();
+    void hlSetup.refresh();
+  };
+
+  const openLvrgTab = () => setPanelTab('lvrg');
+
+  const requestLvrgAccess = () => {
+    openLvrgTab();
+  };
+
+  const parseBotTxError = (err: unknown): string => {
+    const msg =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err && 'shortMessage' in err
+          ? String((err as { shortMessage: string }).shortMessage)
+          : 'Failed to start bot';
+    if (msg.includes('User rejected') || msg.includes('denied')) {
+      return 'Signature cancelled in wallet.';
+    }
+    if (/Must deposit before performing actions/i.test(msg)) {
+      return 'No USDC detected on Hyperliquid yet — deposit first (min $20), then approve the agent.';
+    }
+    if (/insufficient funds/i.test(msg) && /gas/i.test(msg)) {
+      return 'Not enough ETH on Arbitrum for gas — add a little ETH to your wallet. Your Hyperliquid USDC is separate.';
+    }
+    if (/insufficient funds/i.test(msg)) {
+      return 'Wallet rejected the request — if you have USDC on Hyperliquid, this is usually a trading permission signature, not a balance issue. Try again or check HL balance in the Funds tab.';
+    }
+    if (/extra agent already used|agent already/i.test(msg)) {
+      return 'This API wallet is already registered on Hyperliquid. If you approved before, refresh the page — otherwise revoke an old API key at app.hyperliquid.xyz → More → API.';
+    }
+    if (/linked to another/i.test(msg)) {
+      return `This wallet is linked to another ${BRAND_NAME} account. Sign in with that account or use a different wallet.`;
+    }
+    if (/builder has insufficient balance|HyperGain platform fee is not active/i.test(msg)) {
+      return '';
+    }
+    if (/409|duplicate key|user_wallets/i.test(msg)) {
+      return 'Could not link wallet — refresh the page and try Start bot again.';
+    }
+    return sanitizeUserFacingError(msg) || 'Could not start bot — try again.';
+  };
+
+  const persistBotRunning = async (autoTradeEnabled: boolean) => {
+    if (!wallet) throw new Error('Connect your wallet first.');
+    const s = botSettings.settings;
+    if (autoTradeEnabled) {
+      throw new Error(BOT_SHUT_DOWN_MESSAGE);
+    }
+    await disableHlBotExecution(wallet);
+    await persistVaultSettings({
+      settings: {
+        walletAddress: wallet,
+        autoTradeEnabled: false,
+        riskPct: s.riskPct,
+        leverage: s.leverage,
+        takeProfit: s.takeProfit,
+        stopLoss: s.stopLoss,
+        askPermission: s.askPermission,
+        minWinRate: s.minWinRate,
+        minTradesForWinRate: s.minTradesForWinRate,
+        maxConcurrentPositions: s.maxConcurrentPositions,
+      },
+      planTier,
+      publicClient: publicClient ?? null,
+      walletClient: walletClient ?? null,
+      userAddress: wallet,
+      isDemoUser,
+      syncTradingParams: false,
+      syncAutoTrade: false,
+    });
+  };
+
+  const runApproveAgent = async (forceRenew = false) => {
+    if (!wallet || !address || !walletClient) {
+      setBotError('Connect and unlock your wallet first.');
+      return;
+    }
+    setBotError(null);
+    setBotBusy(true);
+    try {
+      await approveHlBotAgentRequired({
+        walletClient,
+        walletAddress: address,
+        userId: user?.id,
+        forceRenew,
+      });
+      await hlSetup.refresh();
+    } catch (err: unknown) {
+      setBotError(parseBotTxError(err));
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const runApproveBuilderFee = async () => {
+    if (!wallet || !address || !walletClient) {
+      setBotError('Connect and unlock your wallet first.');
+      return;
+    }
+    if (!hlSetup.builderPlatformReady) {
+      setBotError('Platform fee is activating — try again in a minute.');
+      return;
+    }
+    setBotError(null);
+    setBotBusy(true);
+    try {
+      await approveHlBuilderFeeRequired(walletClient, address);
+      await hlSetup.refresh();
+    } catch (err: unknown) {
+      setBotError(parseBotTxError(err));
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const runStartBot = async () => {
+    if (!walletReady) {
+      open();
+      return;
+    }
+    if (!wallet || !address) {
+      setBotError('Connect your wallet first.');
+      return;
+    }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(`Sign in to ${BRAND_NAME}, then press Start bot.`);
+      return;
+    }
+    if (phase === 'connect' || phase === 'loading') {
+      setBotError(startBlocker ?? 'Loading Hyperliquid account…');
+      return;
+    }
+    if (hlPerpUsd < MIN_HL_BOT_USD && !hlNeedsSpotTransfer && hlFundingUsd < MIN_HL_BOT_USD) {
+      setBotError(`Deposit at least $${MIN_HL_BOT_USD} USDC on Hyperliquid to start the bot.`);
+      return;
+    }
+    if (phase !== 'ready' && !(phase === 'fund' && hlNeedsSpotTransfer)) {
+      setBotError(startBlocker ?? 'Complete approvals before starting the bot.');
+      return;
+    }
+    if (
+      !isHlBuilderFeeGateSatisfied(
+        hlSetup.builderFeeEnabled,
+        hlSetup.builderFeeApproved,
+        hlSetup.builderPlatformReady
+      )
+    ) {
+      setBotError('Approve the platform fee before starting the bot.');
+      return;
+    }
+    if (platformFees.opensBlocked) {
+      setBotError(
+        `Pay ${fmt(platformFees.accruedUsd)} in platform fees after ${platformFees.successWinCount} winning closes to start the bot.`
+      );
+      platformFees.openPayModal();
+      return;
+    }
+    if (!hlSetup.agentApproved) {
+      setBotError('Approve the trading agent before starting the bot.');
+      return;
+    }
+    setBotError(null);
+    if (!isDemoUser && hlNeedsSpotTransfer && (!publicClient || !walletClient)) {
+      setBotError('Wallet not ready — unlock your wallet and try again.');
+      return;
+    }
+
+    setBotBusy(true);
+    notifyHlBotRunningChange(true);
+    try {
+      if (hlNeedsSpotTransfer) {
+        const move = spotToPerpTransferAmount(hlSpotUsd);
+        if (move) {
+          await transferUsdClass(move, true);
+          const snap = await pollHlPerpAfterTransfer(wallet, { minPerpUsd: MIN_HL_BOT_USD });
+          await hlSetup.refresh();
+          if (snap.tradablePerpUsd < MIN_HL_BOT_USD) {
+            throw new Error('Could not move USDC to Perps — try Funds → Transfer Spot → Perps.');
+          }
+        }
+      }
+
+      if (!isDemoUser && user?.id) {
+        await registerWalletsForHistory([address], user.id);
+      }
+
+      await persistBotRunning(true);
+      markBotRuntimeStarted(timerWallet ?? wallet);
+      if (!readHlBotOnboardingComplete(onboardingKey)) {
+        writeHlBotOnboardingComplete(onboardingKey);
+        setSetupGuideComplete(true);
+        fireProfileOnboardingConfetti();
+      }
+      refreshAll();
+    } catch (err: unknown) {
+      notifyHlBotRunningChange(false);
+      setBotError(parseBotTxError(err));
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const handleApproveAgent = () => {
+    ensureAccepted(() => void runApproveAgent(false));
+  };
+
+  const handleRenewAgent = () => {
+    ensureAccepted(() => void runApproveAgent(true));
+  };
+
+  const handleApproveBuilderFee = () => {
+    ensureAccepted(() => void runApproveBuilderFee());
+  };
+
+  const handleStartBot = () => {
+    setBotError(BOT_SHUT_DOWN_MESSAGE);
+  };
+
+  const handleStopBot = async () => {
+    if (!walletReady || !wallet) {
+      open();
+      return;
+    }
+    if (!isDemoUser && !isAuthenticated) {
+      onRequireSignIn?.(`Sign in to ${BRAND_NAME}, then press Stop bot.`);
+      return;
+    }
+    setBotError(null);
+    setStopNotice(null);
+    setBotBusy(true);
+    notifyHlBotRunningChange(false);
+    try {
+      await persistBotRunning(false);
+      clearBotRuntimeTimer(timerWallet ?? wallet);
+      refreshAll();
+      onRefresh();
+      setStopNotice(
+        'Bot stopped — no new trades. Open positions stay protected (TP / SL / profit lock). Stop is instant on Hyperliquid (no MetaMask).'
+      );
+    } catch (e: unknown) {
+      notifyHlBotRunningChange(true);
+      setBotError(e instanceof Error ? e.message : 'Failed to stop bot');
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const botEff = effectiveHlBotSettings(botSettings.settings);
+
+  const handleStopForSettings = async () => {
+    await handleStopBot();
+    setShowStopFirstModal(false);
+    openLvrgTab();
+  };
+
+  return (
+    <aside className="term-trade-panel">
+      <div className="term-trade-header">
+        <div className="term-trade-header-top">
+          <p className="term-trade-title">{t('tradePanel.title', { brand: BRAND_NAME })}</p>
+          <div className="term-trade-header-actions">
+            {setupGuideComplete && walletReady && (
+              <button
+                type="button"
+                className="term-icon-btn term-icon-btn--subtle"
+                onClick={() => setShowSetupGuide(true)}
+                title={t('tradePanel.howBotWorks')}
+                aria-label={t('tradePanel.howBotWorks')}
+              >
+                <Info size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="term-icon-btn"
+              onClick={refreshAll}
+              title={t('tradePanel.refresh')}
+            >
+              <RefreshCw
+                size={14}
+                className={metrics.isLoading && !metrics.hasHlSnapshot ? 'animate-spin' : ''}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="term-panel-tabs">
+        {(
+          [
+            { id: 'bot' as const, label: t('tradePanel.tabBot') },
+            { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
+            { id: 'funds' as const, label: t('tradePanel.tabFunds') },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`term-panel-tab ${panelTab === tab.id ? 'term-panel-tab--on' : ''}`}
+            onClick={() => (tab.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(tab.id))}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="term-trade-body">
+        {panelTab === 'bot' && (
+          <div className="term-panel-stack">
+            {!walletReady ? (
+              <div className="term-panel-card term-panel-card--muted term-connect-banner">
+                <p className="term-hint term-connect-banner-text">
+                  Connect your wallet to set up the {BRAND_NAME} bot.
+                </p>
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                  onClick={() => open()}
+                >
+                  <Wallet size={14} />
+                  {t('tradePanel.connectWallet')}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`term-panel-card term-panel-card--muted term-panel-card--compact hl-bot-status-card hl-bot-status-card--${sidebarStatus.tone}`}
+                >
+                  <span className="term-panel-card-label">{t('tradePanel.status')}</span>
+                  <strong
+                    className={`term-panel-card-value hl-bot-status-headline ${
+                      botRunning ? 'term-pnl-pos' : ''
+                    }`}
+                  >
+                    {t(`tradePanel.statusHeadline.${sidebarStatus.statusKey}`, {
+                      timer: sidebarStatus.statusParams?.timer ?? '',
+                      defaultValue: sidebarStatus.headline,
+                    })}
+                  </strong>
+                  {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
+                    <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                  ) : null}
+                </div>
+              </>
+            )}
+
+            {walletReady && !setupGuideComplete && (
+              <HlBotSetupSteps
+                walletReady={walletReady}
+                hlBalanceUsd={hlFundingUsd}
+                agentApproved={hlSetup.agentApproved}
+                builderFeeApproved={hlSetup.builderFeeApproved}
+                builderFeeEnabled={hlSetup.builderFeeEnabled}
+                botRunning={botRunning}
+                currentStep={sidebarStatus.setupStep}
+              />
+            )}
+
+            <div className="term-bot-action-stack flex flex-col gap-2">
+              {platformFees.feesDue ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary term-btn-sm--fee-pay w-full justify-center"
+                  onClick={platformFees.openPayModal}
+                >
+                  <Wallet size={14} aria-hidden />
+                  {platformFees.botTradingBlocked
+                    ? `Pay Fees · ${fmt(platformFees.accruedUsd)} · Reactivate bot`
+                    : `Pay Fees · ${fmt(platformFees.accruedUsd)}`}
+                  <span className="term-fee-pay-count">
+                    {platformFees.successWinCount}/{platformFees.winsBeforeBlock}
+                  </span>
+                </button>
+              ) : null}
+              {needsAgentRenew ? (
+                <div
+                  className="rounded border border-amber-600/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
+                  role="status"
+                >
+                  {hlSetup.agentExpired
+                    ? 'Trading agent expired — bot cannot open/close until you renew (Hyperliquid ~90 day limit).'
+                    : `Trading agent expires in ~${hlSetup.agentDaysLeft ?? '?'} day(s). Renew now so the bot does not stop silently.`}
+                  <button
+                    type="button"
+                    className="term-btn-sm term-btn-sm--primary w-full justify-center mt-2"
+                    disabled={botBusy}
+                    onClick={() => void handleRenewAgent()}
+                  >
+                    {botBusy ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ShieldCheck size={14} />
+                    )}
+                    {botBusy ? 'Renewing…' : 'Renew trading agent'}
+                  </button>
+                </div>
+              ) : null}
+              {walletReady && botRunning ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                  disabled={botBusy}
+                  onClick={() => void handleStopBot()}
+                >
+                  {botBusy ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
+                  {botBusy ? t('tradePanel.stopping') : t('tradePanel.stopBot')}
+                </button>
+              ) : needsAccountSignIn ? (
+                <button
+                  type="button"
+                  className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                  onClick={() =>
+                    onRequireSignIn?.('Sign in to HyperGain, then press Start bot.')
+                  }
+                >
+                  {t('tradePanel.signIn')}
+                </button>
+              ) : !walletReady ? null : (
+                <>
+                  {needsAgentApproval ? (
+                    <button
+                      type="button"
+                      className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                      disabled={botBusy}
+                      onClick={() => void handleApproveAgent()}
+                    >
+                      {botBusy ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <ShieldCheck size={14} />
+                      )}
+                      {botBusy ? 'Approving agent…' : '1. Approve trading agent'}
+                    </button>
+                  ) : null}
+                  {needsBuilderFeeApproval ? (
+                    <button
+                      type="button"
+                      className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                      disabled={botBusy || !canApproveBuilderFee}
+                      title={hlBotSuccessFeeApprovalHint()}
+                      onClick={() => void handleApproveBuilderFee()}
+                    >
+                      {botBusy ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <ShieldCheck size={14} />
+                      )}
+                      {botBusy ? 'Approving…' : botSuccessFeeLabel}
+                    </button>
+                  ) : null}
+                  {canStartBot ? (
+                    <button
+                      type="button"
+                      className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                      disabled={botBusy}
+                      onClick={() => void handleStartBot()}
+                    >
+                      {botBusy ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Play size={14} />
+                      )}
+                      {botBusy ? t('tradePanel.starting') : t('tradePanel.startBot')}
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            <TerminalBotSettingsStrip
+              settings={botSettings.settings}
+              disabled={walletReady && hlSetup.loading}
+              onAdjust={requestLvrgAccess}
+            />
+
+            {botError && (
+              <div className="term-panel-alert">
+                <AlertTriangle size={14} />
+                <span>{botError}</span>
+              </div>
+            )}
+
+            {walletReady && hlSetup.setupSettled && phase === 'fund' && !botRunning && (
+              <button
+                type="button"
+                className="term-btn-sm term-btn-sm--primary w-full justify-center"
+                onClick={() => openFunds('deposit')}
+              >
+                <ArrowDownLeft size={14} />
+                {t('tradePanel.depositUsdc')}
+              </button>
+            )}
+
+            {onOpenHistory && (
+              <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
+                <span>{t('tradePanel.openPositions')}</span>
+                <span className="term-bot-positions-chevron" aria-hidden>
+                  ›
+                </span>
+              </button>
+            )}
+
+            {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
+          </div>
+        )}
+
+        {panelTab === 'lvrg' && (
+          <div className="term-panel-stack">
+            {!walletReady && (
+              <p className="term-hint">Connect wallet to save leverage & risk for the {BRAND_NAME} bot.</p>
+            )}
+            <TerminalLvrgPanel
+              settings={botSettings.settings}
+              walletAddress={wallet}
+              hlBalanceUsd={hlFundingUsd}
+              disabled={walletReady && hlSetup.loading}
+              botRunning={botRunning}
+              onBlockedSave={() => setShowStopFirstModal(true)}
+              onSaved={refreshAll}
+            />
+          </div>
+        )}
+
+        {panelTab === 'funds' && (
+          <div className="term-panel-stack">
+            <div className="term-panel-card term-panel-card--muted">
+              <span className="term-panel-card-label">{t('tradePanel.hyperliquidAccount')}</span>
+              {hlBalanceWallet ? (
+                <a
+                  className="term-hint hl-funds-wallet-link"
+                  href={hlWalletExplorerUrl(hlBalanceWallet)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {hlBalanceWallet.slice(0, 6)}…{hlBalanceWallet.slice(-4)} on HypurrScan
+                </a>
+              ) : null}
+              <div className="term-funds-breakdown">
+                <div className="term-field-row">
+                  <span>Equity</span>
+                  <strong>{fmt(hlEquityUsd)}</strong>
+                </div>
+                <div className="term-field-row">
+                  <span>{t('tradePanel.open')}</span>
+                  <strong>{metrics.openPositionsCount}</strong>
+                </div>
+                <div className="term-field-row">
+                  <span>{t('tradePanel.upnl')}</span>
+                  <strong
+                    className={
+                      metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
+                    }
+                  >
+                    {fmtClosedPnl(metrics.unrealizedPnlUsd)}
+                  </strong>
+                </div>
+                {hlMarginUsedUsd > 0.005 ? (
+                  <div className="term-field-row">
+                    <span>Margin in use</span>
+                    <strong>{fmt(hlMarginUsedUsd)}</strong>
+                  </div>
+                ) : null}
+                <div className="term-field-row">
+                  <span>{t('tradePanel.withdrawable')}</span>
+                  <strong>{fmt(hlWithdrawableLive)}</strong>
+                </div>
+                {!hlUnifiedAccount ? (
+                  <>
+                    <div className="term-field-row term-field-row--hint">
+                      <span>Perps</span>
+                      <strong>{fmt(hlSetup.rawPerpUsd)}</strong>
+                    </div>
+                    <div className="term-field-row term-field-row--hint">
+                      <span>Spot USDC</span>
+                      <strong>{fmt(hlSpotUsd)}</strong>
+                    </div>
+                  </>
+                ) : null}
+                {platformFees.feesDue ? (
+                  <div className="term-field-row term-field-row--fee">
+                    <span>Bot fees owed</span>
+                    <button
+                      type="button"
+                      className="term-fee-owed-btn term-fee-owed-btn--pay"
+                      onClick={platformFees.openPayModal}
+                    >
+                      <strong>Pay Fees · {fmt(platformFees.accruedUsd)}</strong>
+                      <span className="term-fee-owed-sub">
+                        {platformFees.successWinCount}/{platformFees.winsBeforeBlock} win trades
+                      </span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <span className="term-panel-card-hint">
+                {hlUnifiedAccount
+                  ? 'Unified Hyperliquid account — spot and perps share one USDC balance. Deposit once, then Start bot.'
+                  : hlNeedsSpotTransfer
+                    ? `${fmt(hlSpotUsd)} on HL Spot — standard accounts auto-move to Perps after deposit.`
+                    : `Bot needs $${MIN_HL_BOT_USD}+ USDC on Hyperliquid. Withdrawable is lower while a position is open.`}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="term-btn-sm term-btn-sm--primary w-full justify-center"
+              onClick={() =>
+                requireAccount('Sign in before depositing to Hyperliquid.', () =>
+                  openFunds('deposit')
+                )
+              }
+            >
+              <ArrowDownLeft size={14} />
+              {t('tradePanel.depositUsdc')}
+            </button>
+
+            <button
+              type="button"
+              className="term-btn-sm w-full justify-center"
+              disabled={
+                (walletReady && hlSetup.withdrawableUsd <= 0) || withdrawGate.withdrawBlocked
+              }
+              onClick={() =>
+                requireAccount('Sign in before withdrawing.', () =>
+                  withdrawGate.withdrawBlocked
+                    ? withdrawGate.openPayModal()
+                    : openFunds('withdraw')
+                )
+              }
+            >
+              <ArrowUpRight size={14} />
+              {t('tradePanel.withdrawUsdc')}
+            </button>
+
+            <p className="term-hint">
+              Non-custodial: USDC stays on Hyperliquid. Deposit only <strong>native USDC on Arbitrum</strong>{' '}
+              (not BNB/BSC or other networks). The bot agent cannot withdraw.
+              {withdrawGate.withdrawBlocked ? (
+                <>
+                  {' '}
+                  <strong>Fees are due</strong> — pay bot and/or betting fees on-chain to unlock
+                  in-app withdrawal.
+                </>
+              ) : (
+                <>
+                  {' '}
+                  While a trade is open, withdrawable balance may be lower (margin in use).
+                </>
+              )}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="term-trade-footer term-trade-footer--stable">
+        <div className="term-field-row">
+          <span>Equity</span>
+          <strong>{fmt(hlEquityUsd)}</strong>
+        </div>
+        <div className="term-field-row">
+          <span>{t('tradePanel.open')}</span>
+          <strong>{metrics.openPositionsCount}</strong>
+        </div>
+        <div className="term-field-row">
+          <span>{t('tradePanel.upnl')}</span>
+          <strong
+            className={
+              metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
+            }
+          >
+            {fmtClosedPnl(metrics.unrealizedPnlUsd)}
+          </strong>
+        </div>
+        {hlWithdrawableLive + 0.5 < hlEquityUsd ? (
+          <div className="term-field-row term-field-row--hint">
+            <span>{t('tradePanel.withdrawable')}</span>
+            <strong>{fmt(hlWithdrawableLive)}</strong>
+          </div>
+        ) : null}
+      </div>
+
+      {showFundsModal && !useGlobalFundsModal ? (
+        <ProTradeDepositModal
+          onClose={() => setShowFundsModal(false)}
+          withdrawable={hlSetup.withdrawableUsd.toFixed(2)}
+          hlBalanceUsd={hlFundingUsd}
+          spotUsdc={hlSpotUsd}
+          initialTab={fundsModalTab}
+          onSuccess={() => {
+            if (fundsModalTab === 'withdraw') setShowFundsModal(false);
+            if (!isDemoUser && address) {
+              void linkWallet(address);
+            }
+            refreshAll();
+            if (fundsModalTab === 'deposit') {
+              void hlSetup.pollBalanceAfterDeposit();
+            }
+          }}
+        />
+      ) : null}
+      {showSettings && (
+        <TerminalBotSettingsModal
+          setupPhase={phase}
+          minHlUsd={MIN_HL_BOT_USD}
+          settings={botSettings.settings}
+          walletAddress={wallet}
+          startMode={startMode}
+          onClose={() => {
+            setShowSettings(false);
+            setStartMode(false);
+          }}
+          onSuccess={() => {
+            setShowSettings(false);
+            setStartMode(false);
+            refreshAll();
+          }}
+        />
+      )}
+      {showStopFirstModal && (
+        <BotSettingsStopFirstModal
+          open={showStopFirstModal}
+          onClose={() => setShowStopFirstModal(false)}
+          onStopBot={() => void handleStopForSettings()}
+          stopBusy={botBusy}
+        />
+      )}
+      {showSetupGuide && walletReady && (
+        <HlBotSetupGuideModal
+          walletReady={walletReady}
+          hlBalanceUsd={hlFundingUsd}
+          agentApproved={hlSetup.agentApproved}
+          builderFeeApproved={hlSetup.builderFeeApproved}
+          builderFeeEnabled={hlSetup.builderFeeEnabled}
+          botRunning={botRunning}
+          currentStep={sidebarStatus.setupStep}
+          onClose={() => setShowSetupGuide(false)}
+        />
+      )}
+    </aside>
+  );
+};
+
+export default TerminalTradePanel;

@@ -1,0 +1,145 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { RefreshCw, Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { BETTING_CATEGORY_TABS } from '../../../lib/hyperliquid/outcomes/categories';
+import type { BettingCategoryId } from '../../../lib/hyperliquid/outcomes/categories';
+import { BETTING_MOBILE_MQ, useMediaQuery } from '../../../hooks/useMediaQuery';
+import BettingCategoryNav from './BettingCategoryNav';
+
+type Props = {
+  syncing?: boolean;
+  onRefresh?: () => void;
+  refreshDisabled?: boolean;
+  category: BettingCategoryId;
+  categoryCounts: Record<BettingCategoryId, number>;
+  onCategoryChange: (id: BettingCategoryId) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+};
+
+const SportsbetsHero: React.FC<Props> = ({
+  syncing,
+  onRefresh,
+  refreshDisabled,
+  category,
+  categoryCounts,
+  onCategoryChange,
+  searchQuery,
+  onSearchChange,
+}) => {
+  const { t } = useTranslation();
+  const isMobile = useMediaQuery(BETTING_MOBILE_MQ);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isMobile) setSearchOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) setSearchOpen(true);
+  }, [searchQuery]);
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    onSearchChange('');
+  };
+
+  const showExpandedSearch = !isMobile || searchOpen;
+
+  return (
+    <header className="hl-sb-head">
+      <div
+        className="hl-sb-head-bg"
+        style={{ backgroundImage: "url('/images/betting/world-cup-hero.png')" }}
+        aria-hidden
+      />
+      <div className="hl-sb-head-overlay" aria-hidden />
+
+      <div className="hl-sb-head-inner">
+        <div className="hl-sb-head-main">
+          <div className="hl-sb-head-copy">
+            <p className="hl-sb-head-kicker">{t('betting.hero.kicker')}</p>
+            <h1 className="hl-sb-head-title">{t('betting.hero.title')}</h1>
+            <p className="hl-sb-head-sub">{t('betting.hero.sub')}</p>
+          </div>
+        </div>
+
+        <div className={`hl-sb-head-toolbar${isMobile ? ' hl-sb-head-toolbar--mobile' : ''}`}>
+          <div className="hl-sb-head-toolbar-cats">
+            <BettingCategoryNav
+              tabs={BETTING_CATEGORY_TABS}
+              active={category}
+              counts={categoryCounts}
+              onChange={onCategoryChange}
+              variant="banner"
+            />
+          </div>
+
+          <div className="hl-sb-head-toolbar-actions">
+            {isMobile && !searchOpen ? (
+              <button
+                type="button"
+                className="hl-sb-search-toggle"
+                aria-label={t('betting.searchMarkets')}
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search size={15} aria-hidden />
+              </button>
+            ) : null}
+
+            {showExpandedSearch ? (
+              <div
+                className={`hl-sb-search-wrap hl-sb-search-wrap--head${
+                  isMobile ? ' hl-sb-search-wrap--mobile-expanded' : ''
+                }`}
+              >
+                <Search size={14} className="hl-sb-search-icon" aria-hidden />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  className="hl-sb-search"
+                  placeholder={t('betting.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  aria-label={t('betting.searchAria')}
+                />
+                {searchQuery || isMobile ? (
+                  <button
+                    type="button"
+                    className="hl-sb-search-clear"
+                    aria-label={t('betting.clearSearch')}
+                    onClick={() => (isMobile && !searchQuery ? closeSearch() : onSearchChange(''))}
+                  >
+                    <X size={12} aria-hidden />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {onRefresh ? (
+              <button
+                type="button"
+                className="hl-sb-head-refresh-pill"
+                onClick={onRefresh}
+                disabled={refreshDisabled}
+                aria-label={syncing ? t('betting.syncingAria') : t('betting.refreshAria')}
+              >
+                <RefreshCw size={13} className={syncing ? 'hl-spin' : undefined} aria-hidden />
+                <span>{syncing ? t('betting.syncing') : t('betting.refresh')}</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default SportsbetsHero;

@@ -1,0 +1,457 @@
+import { supabase } from './supabase';
+import { DEMO_WALLET_ADDRESS } from '../contexts/AuthContext';
+import { hlWalletExplorerUrl } from './hyperliquid/hlApp';
+import { explorerTxUrl } from './tradeExplorer';
+import { getAuthUserId, normalizeWalletAddresses, fetchUserWalletAddresses } from './userWallets';
+
+export type ClosedTradeRow = {
+  id: string;
+  positionId: string | null;
+  walletAddress: string;
+  chainId: number;
+  tokenSymbol: string;
+  direction: string;
+  leverage: number;
+  entryAmount: number;
+  profitLoss: number;
+  profitLossPercent: number | null;
+  platformSuccessFee: number | null;
+  executionVenue: string | null;
+  closedAt: string;
+  exitTxHash: string | null;
+  closeReason: string | null;
+};
+
+export type HistoryStatus = 'closed' | 'closing' | 'failed';
+
+export type UnifiedHistoryRow = {
+  id: string;
+  positionId: string | null;
+  walletAddress: string;
+  chainId: number;
+  tokenSymbol: string;
+  direction: string;
+  leverage: number;
+  entryAmount: number;
+  profitLoss: number | null;
+  closedAt: string;
+  exitTxHash: string | null;
+  closeReason: string | null;
+  executionVenue: string | null;
+  status: HistoryStatus;
+  source: 'trade_history' | 'position';
+};
+
+export type TradeVerifyLink = {
+  href: string;
+  label: string;
+};
+
+function mapFromTradeHistory(row: Record<string, unknown>): ClosedTradeRow {
+  return {
+    id: String(row.id),
+    positionId: row.position_id ? String(row.position_id) : null,
+    walletAddress: String(row.wallet_address),
+    chainId: Number(row.chain_id) || 42161,
+    tokenSymbol: String(row.token_symbol),
+    direction: String(row.direction || 'LONG'),
+    leverage: Number(row.leverage) || 1,
+    entryAmount: Number(row.entry_amount) || 0,
+    profitLoss: Number(row.profit_loss) || 0,
+    profitLossPercent:
+      row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
+    platformSuccessFee:
+      row.platform_success_fee != null ? Number(row.platform_success_fee) : null,
+    executionVenue: row.execution_venue ? String(row.execution_venue) : null,
+    closedAt: String(row.closed_at || row.created_at),
+    exitTxHash: row.exit_tx_hash ? String(row.exit_tx_hash) : null,
+    closeReason: row.close_reason ? String(row.close_reason) : null,
+  };
+}
+
+function mapFromPosition(row: Record<string, unknown>): ClosedTradeRow {
+  return {
+    id: String(row.id),
+    positionId: String(row.id),
+    walletAddress: String(row.wallet_address),
+    chainId: Number(row.chain_id) || 42161,
+    tokenSymbol: String(row.token_symbol),
+    direction: String(row.direction || 'LONG'),
+    leverage: Number(row.leverage_multiplier) || 1,
+    entryAmount: Number(row.entry_amount) || 0,
+    profitLoss: Number(row.profit_loss) || 0,
+    profitLossPercent:
+      row.profit_loss_percent != null ? Number(row.profit_loss_percent) : null,
+    platformSuccessFee: null,
+    executionVenue: null,
+    closedAt: String(row.closed_at || row.updated_at),
+    exitTxHash: row.exit_tx_hash ? String(row.exit_tx_hash) : null,
+    closeReason: row.close_reason ? String(row.close_reason) : null,
+  };
+}
+
+function rowKey(row: ClosedTradeRow): string {
+  return row.positionId || row.id;
+}
+
+type FetchOptions = {
+  isDemoUser?: boolean;
+  wallets?: string[];
+  limit?: number;
+};
+
+/** Load closed trades — uses Supabase RLS for signed-in users (no brittle wallet filter). */
+export async function fetchClosedTradesForWallets(
+  wallets: string[],
+  limit = 100,
+  isDemoUser = false
+): Promise<ClosedTradeRow[]> {
+  return fetchClosedTrades({ isDemoUser, wallets, limit });
+}
+
+/** Load closed trades — all profile-linked wallets when signed in. */
+export async function fetchClosedTrades(options: FetchOptions = {}): Promise<ClosedTradeRow[]> {
+  const limit = options.limit ?? 100;
+  let normalized = normalizeWalletAddresses(options.wallets ?? []);
+
+  if (options.isDemoUser) {
+    const demoWallet = (normalized[0] ?? DEMO_WALLET_ADDRESS).toLowerCase();
+    return fetchClosedTradesDirect([demoWallet], limit, true);
+  }
+
+  const userId = await getAuthUserId();
+
+  if (userId) {
+    const linked = await fetchUserWalletAddresses(undefined, false);
+    normalized = normalizeWalletAddresses([...normalized, ...linked]);
+  }
+
+  let merged: ClosedTradeRow[] = [];
+
+  if (userId) {
+    merged = await fetchAccountClosedTrades(limit);
+  }
+
+  if (normalized.length > 0) {
+    const pub = await supabase.rpc('get_wallet_position_history', {
+      p_wallets: normalized,
+      p_limit: limit,
+    });
+    if (!pub.error && pub.data) {
+      const fromPub = mergeClosedTradeRows(
+        [],
+        asRowArray(pub.data).filter((row) => {
+          const status = String(row.status || '');
+          return status === 'closed' || status === 'failed';
+        }),
+        limit
+      );
+      merged = mergeClosedTradeArrays(merged, fromPub, limit);
+    }
+  }
+
+  if (merged.length > 0) {
+    return merged;
+  }
+
+  if (userId) {
+    const rpcRows = await fetchClosedTradesViaSync(limit, normalized);
+    if (rpcRows.length > 0) {
+      return rpcRows;
+    }
+  }
+
+  if (!userId && normalized.length === 0) {
+    return [];
+  }
+
+  return fetchClosedTradesDirect(normalized, limit, false);
+}
+
+function mergeClosedTradeArrays(
+  a: ClosedTradeRow[],
+  b: ClosedTradeRow[],
+  limit: number
+): ClosedTradeRow[] {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  const merged = new Map<string, ClosedTradeRow>();
+  for (const row of [...left, ...right]) {
+    merged.set(rowKey(row), row);
+  }
+  return Array.from(merged.values())
+    .sort((x, y) => new Date(y.closedAt).getTime() - new Date(x.closedAt).getTime())
+    .slice(0, limit);
+}
+
+async function fetchAccountClosedTrades(limit: number): Promise<ClosedTradeRow[]> {
+  const [historyRes, positionsRes] = await Promise.all([
+    supabase.rpc('get_my_trade_history', { p_limit: limit }),
+    supabase.rpc('get_my_positions_history', { p_limit: limit }),
+  ]);
+
+  const rpcMissing = (err: { message?: string } | null) =>
+    Boolean(err?.message?.includes('Could not find the function'));
+
+  if (rpcMissing(historyRes.error) && rpcMissing(positionsRes.error)) {
+    return [];
+  }
+
+  if (historyRes.error && !rpcMissing(historyRes.error)) {
+    console.error('[fetchClosedTrades] rpc trade_history', historyRes.error);
+  }
+  if (positionsRes.error && !rpcMissing(positionsRes.error)) {
+    console.error('[fetchClosedTrades] rpc positions', positionsRes.error);
+  }
+
+  return mergeClosedTradeRows(
+    (historyRes.data ?? []) as Record<string, unknown>[],
+    (positionsRes.data ?? []) as Record<string, unknown>[],
+    limit
+  );
+}
+
+async function fetchClosedTradesViaSync(
+  limit: number,
+  wallets: string[]
+): Promise<ClosedTradeRow[]> {
+  if (wallets.length === 0) return [];
+
+  const sync = await supabase.rpc('sync_wallets_and_get_positions', {
+    p_wallets: wallets,
+    p_limit: limit,
+  });
+
+  const rpcMissing = (err: { message?: string } | null) =>
+    Boolean(err?.message?.includes('Could not find the function'));
+
+  if (!sync.error && sync.data) {
+    return mergeClosedTradeRows(
+      [],
+      asRowArray(sync.data).filter((row) => {
+        const status = String(row.status || '');
+        return status === 'closed' || status === 'failed';
+      }),
+      limit
+    );
+  }
+  if (sync.error && !rpcMissing(sync.error)) {
+    console.error('[fetchClosedTrades] sync positions', sync.error);
+  }
+
+  return [];
+}
+
+async function fetchClosedTradesDirect(
+  wallets: string[],
+  limit: number,
+  isDemoUser: boolean
+): Promise<ClosedTradeRow[]> {
+  const tradeHistorySelect =
+    'id, position_id, wallet_address, chain_id, token_symbol, direction, leverage, entry_amount, profit_loss, profit_loss_percent, platform_success_fee, execution_venue, closed_at, exit_tx_hash, close_reason, created_at';
+  const positionsSelect =
+    'id, wallet_address, chain_id, token_symbol, direction, entry_amount, profit_loss, profit_loss_percent, leverage_multiplier, closed_at, exit_tx_hash, close_reason, updated_at, status';
+
+  let historyQuery = supabase
+    .from('trade_history')
+    .select(tradeHistorySelect)
+    .not('closed_at', 'is', null)
+    .order('closed_at', { ascending: false })
+    .limit(limit);
+
+  let positionsQuery = supabase
+    .from('positions')
+    .select(positionsSelect)
+    .in('status', ['closed', 'failed', 'closing'])
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (wallets.length > 0) {
+    historyQuery = historyQuery.in('wallet_address', wallets);
+    positionsQuery = positionsQuery.in('wallet_address', wallets);
+  } else if (!isDemoUser) {
+    return [];
+  }
+
+  const [historyRes, positionsRes] = await Promise.all([historyQuery, positionsQuery]);
+
+  if (historyRes.error) {
+    console.error('[fetchClosedTrades] trade_history', historyRes.error);
+  }
+  if (positionsRes.error) {
+    console.error('[fetchClosedTrades] positions', positionsRes.error);
+  }
+
+  return mergeClosedTradeRows(
+    (historyRes.data ?? []) as Record<string, unknown>[],
+    (positionsRes.data ?? []) as Record<string, unknown>[],
+    limit
+  );
+}
+
+function asRowArray(data: unknown): Record<string, unknown>[] {
+  return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+}
+
+function mergeClosedTradeRows(
+  historyRows: unknown,
+  positionRows: unknown,
+  limit: number
+): ClosedTradeRow[] {
+  const merged = new Map<string, ClosedTradeRow>();
+
+  for (const row of asRowArray(historyRows)) {
+    const mapped = mapFromTradeHistory(row);
+    merged.set(rowKey(mapped), mapped);
+  }
+
+  for (const row of asRowArray(positionRows)) {
+    const status = String(row.status || '');
+    if (status === 'closing') continue;
+    if (status !== 'closed' && status !== 'failed') continue;
+    const mapped = mapFromPosition(row);
+    const key = rowKey(mapped);
+    if (!merged.has(key)) {
+      merged.set(key, mapped);
+    }
+  }
+
+  return Array.from(merged.values())
+    .sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime())
+    .slice(0, limit);
+}
+
+type PositionLike = {
+  id: string;
+  wallet_address: string;
+  chain_id: number;
+  token_symbol: string;
+  direction: string;
+  entry_amount: number;
+  profit_loss: number | null;
+  leverage_multiplier: number | null;
+  status: string;
+  closed_at: string | null;
+  created_at: string;
+  exit_tx_hash: string | null;
+  close_reason: string | null;
+};
+
+export function mergeUnifiedHistory(
+  closedHistory: ClosedTradeRow[],
+  positionRows: PositionLike[]
+): UnifiedHistoryRow[] {
+  const map = new Map<string, UnifiedHistoryRow>();
+
+  for (const t of closedHistory) {
+    const key = t.positionId || t.id;
+    map.set(key, {
+      id: t.id,
+      positionId: t.positionId,
+      walletAddress: t.walletAddress,
+      chainId: t.chainId,
+      tokenSymbol: t.tokenSymbol,
+      direction: t.direction,
+      leverage: t.leverage,
+      entryAmount: t.entryAmount,
+      profitLoss: t.profitLoss,
+      closedAt: t.closedAt,
+      exitTxHash: t.exitTxHash,
+      closeReason: t.closeReason,
+      executionVenue: t.executionVenue,
+      status: 'closed',
+      source: 'trade_history',
+    });
+  }
+
+  for (const p of positionRows) {
+    if (p.status !== 'closed' && p.status !== 'failed' && p.status !== 'closing') continue;
+    const key = p.id;
+    const existing = map.get(key);
+    const closedAt = p.closed_at || p.created_at;
+    const status = p.status as HistoryStatus;
+    if (existing) {
+      if (status === 'closing') {
+        map.set(key, { ...existing, status: 'closing', closedAt });
+      }
+      continue;
+    }
+    map.set(key, {
+      id: p.id,
+      positionId: p.id,
+      walletAddress: p.wallet_address,
+      chainId: p.chain_id || 42161,
+      tokenSymbol: p.token_symbol,
+      direction: p.direction || 'LONG',
+      leverage: p.leverage_multiplier ?? 1,
+      entryAmount: p.entry_amount || 0,
+      profitLoss: p.profit_loss,
+      closedAt,
+      exitTxHash: p.exit_tx_hash,
+      closeReason: p.close_reason,
+      executionVenue: null,
+      status,
+      source: 'position',
+    });
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+  );
+}
+
+export function verifyLinkForTrade(trade: {
+  exitTxHash: string | null;
+  chainId: number;
+  executionVenue?: string | null;
+  walletAddress?: string;
+}): TradeVerifyLink | null {
+  if (trade.exitTxHash) {
+    return {
+      href: explorerTxUrl(trade.chainId, trade.exitTxHash),
+      label: 'Arbiscan',
+    };
+  }
+  if (trade.executionVenue === 'hyperliquid' && trade.walletAddress) {
+    return {
+      href: hlWalletExplorerUrl(trade.walletAddress),
+      label: 'HypurrScan',
+    };
+  }
+  return null;
+}
+
+export function verifyUrlForTrade(trade: {
+  exitTxHash: string | null;
+  chainId: number;
+  executionVenue?: string | null;
+  walletAddress?: string;
+}): string | null {
+  return verifyLinkForTrade(trade)?.href ?? null;
+}
+
+export function storageKeyForUser(userId: string | undefined, isDemoUser: boolean) {
+  if (isDemoUser) return 'monadier_trade_notif_seen_demo';
+  return userId ? `monadier_trade_notif_seen_${userId}` : 'monadier_trade_notif_seen_guest';
+}
+
+export function loadLastSeenAt(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function saveLastSeenAt(key: string, iso: string) {
+  try {
+    localStorage.setItem(key, iso);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isTradeUnread(trade: ClosedTradeRow, lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return true;
+  return new Date(trade.closedAt).getTime() > new Date(lastSeenAt).getTime();
+}

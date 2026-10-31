@@ -1,0 +1,384 @@
+/* Shared auth forms — used by /login, /register, and in-app auth modals */
+
+.auth-shared-form {
+  color: #18181b;
+}
+
+.auth-shared-form .term-profile-label {
+  display: block;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #52525b;
+}
+
+.auth-shared-form .term-profile-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  color: #0a0a0a;
+  font-size: 13px;
+}
+
+.auth-shared-form .term-profile-input:focus {
+  outline: none;
+  border-color: #107663;
+  box-shadow: 0 0 0 3px rgba(16, 118, 99, 0.15);
+}
+
+.auth-password-field {
+  position: relative;
+  width: 100%;
+}
+
+.auth-password-field .term-profile-input {
+  padding-right: 42px;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+}
+
+.auth-password-toggle:hover {
+  color: #18181b;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid #107663;
+  outline-offset: 2px;
+}
+
+.auth-shared-form .term-modal-primary,
+.auth-shared-form a.term-modal-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #107663;
+  background: linear-gradient(135deg, #107663 0%, #0d5c4d 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.auth-shared-form .term-modal-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-shared-form .hl-signin-error {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.25);
+}
+
+.auth-shared-form .hl-signin-reason {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #52525b;
+}
+
+.auth-shared-form .hl-signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-shared-form .hl-signin-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.auth-shared-form .hl-signin-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: #a1a1aa;
+  font-size: 11px;
+}
+
+.auth-shared-form .hl-signin-divider::before,
+.auth-shared-form .hl-signin-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e4e4e7;
+}
+
+.auth-shared-form .hl-signin-google {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  color: #0a0a0a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-shared-form .hl-signin-google--brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.auth-shared-form .hl-signin-google--brand:hover {
+  background: #fafafa;
+  border-color: #d4d4d8;
+}
+
+.auth-shared-form .hl-signin-foot {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: #71717a;
+}
+
+.auth-shared-form .hl-signin-link-btn {
+  border: none;
+  padding: 0;
+  background: none;
+  color: #107663;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.auth-shared-form .hl-signin-link-btn:hover {
+  text-decoration: underline;
+}
+
+.auth-shared-form .hl-signin-forgot {
+  margin: 0;
+  text-align: right;
+  font-size: 12px;
+}
+
+.auth-shared-form .hl-register-form {
+  margin-top: 4px;
+}
+
+.auth-shared-form .hl-register-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-shared-form .hl-register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-shared-form .hl-register-field .term-profile-label {
+  margin: 0;
+}
+
+.auth-shared-form .hl-register-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #71717a;
+  line-height: 1.35;
+}
+
+.auth-shared-form .hl-register-terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: #52525b;
+  line-height: 1.4;
+}
+
+.auth-shared-form .hl-register-terms input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.auth-shared-form .hl-register-terms a {
+  color: #107663;
+  text-decoration: none;
+}
+
+.auth-shared-form .hl-register-terms a:hover {
+  text-decoration: underline;
+}
+
+.auth-shared-form .hl-auth-referral {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 118, 99, 0.25);
+  background: rgba(16, 118, 99, 0.08);
+  color: #107663;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-shared-form .hl-auth-confirm-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #107663;
+  text-align: center;
+}
+
+.auth-shared-form .hl-auth-confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  background: rgba(16, 118, 99, 0.1);
+  color: #107663;
+}
+
+.auth-shared-form .hl-auth-confirm-text {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #52525b;
+  text-align: center;
+}
+
+.auth-shared-form .hl-auth-confirm-steps {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #3f3f46;
+}
+
+.auth-shared-form .hl-auth-confirm-hint {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #71717a;
+  text-align: center;
+}
+
+.auth-shared-form .hl-auth-confirm-notice {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #107663;
+  background: rgba(16, 118, 99, 0.08);
+  border: 1px solid rgba(16, 118, 99, 0.2);
+  text-align: center;
+}
+
+.auth-shared-form .hl-auth-confirm-resend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 38px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: #fff;
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-shared-form .hl-auth-confirm-resend:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-shared-form .hl-auth-confirm-resend:hover:not(:disabled) {
+  border-color: #107663;
+  color: #107663;
+}
+
+/* Fixed toast for /register (marketing) — mobile + desktop */
+.auth-form-toast-wrap {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10150;
+  pointer-events: none;
+  padding: 0 16px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  justify-content: center;
+}
+
+.auth-form-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #18181b;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: auth-form-toast-in 0.28s ease;
+  text-align: center;
+}
+
+@keyframes auth-form-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

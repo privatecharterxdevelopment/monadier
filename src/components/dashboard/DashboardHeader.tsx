@@ -1,0 +1,239 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Bell, ChevronDown, Wallet, X, TrendingUp, TrendingDown, Check, User, LogOut, Gift } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
+import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { useNavigate } from 'react-router-dom';
+import { signOut } from '../../lib/supabase';
+
+const DashboardHeader: React.FC = () => {
+  const { profile, user } = useAuth();
+  const { planTier } = useSubscription();
+  const navigate = useNavigate();
+
+  // Get display name - prefer full_name, then email username, then fallback
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Member';
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
+  const { open } = useMonadierAppKit();
+  const { address, isConnected } = useMonadierWallet();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      navigate('/', { replace: true });
+    }
+  };
+
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  return (
+    <header className="sticky top-0 z-50 bg-white/55 backdrop-blur-xl py-3 md:py-6 border-b border-border">
+      <div className="flex justify-between items-center">
+        <div className="min-w-0 flex-1 mr-3">
+          <h1 className="font-display text-lg md:text-2xl text-primary truncate">
+            Welcome, {displayName}
+          </h1>
+          <p className="text-secondary text-xs md:text-sm hidden sm:block">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+          {/* Connect Wallet Button - Compact, more compact on mobile */}
+          <button
+            onClick={() => open()}
+            className={`flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-1.5 rounded-lg text-xs md:text-sm transition-all ${
+              isConnected
+                ? 'bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20'
+                : 'bg-black/[0.04] text-accent border border-black/[0.1] hover:bg-black/[0.06]'
+            }`}
+          >
+            <Wallet size={14} />
+            <span className="hidden sm:inline">{isConnected && address ? formatAddress(address) : 'Connect'}</span>
+            <span className="sm:hidden">{isConnected ? formatAddress(address).slice(0, 4) + '..' : 'Wallet'}</span>
+          </button>
+
+          {/* Notification Bell */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 rounded-lg hover:bg-black/[0.04] transition-colors"
+            >
+              <Bell size={20} className="text-secondary hover:text-primary transition-colors" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-xs text-primary font-medium">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown - Responsive width */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-80 bg-card-dark border border-border rounded-xl shadow-2xl overflow-hidden z-50 -mr-2 sm:mr-0">
+                <div className="p-3 border-b border-border flex items-center justify-between">
+                  <h3 className="text-primary font-medium">Notifications</h3>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs text-secondary hover:text-primary transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={clearNotifications}
+                        className="text-xs text-secondary hover:text-red-400 transition-colors"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center">
+                      <Bell size={24} className="text-muted mx-auto mb-2" />
+                      <p className="text-secondary text-sm">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.slice(0, 10).map((notification) => (
+                      <div
+                        key={notification.id}
+                        onClick={() => markAsRead(notification.id)}
+                        className={`p-3 border-b border-border/50 hover:bg-black/[0.04] cursor-pointer transition-colors ${
+                          !notification.read ? 'bg-black/[0.03]' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            notification.type === 'take_profit' ? 'bg-green-500/20' :
+                            notification.type === 'stop_loss' ? 'bg-red-500/20' :
+                            notification.type === 'trade_closed' ? 'bg-blue-500/20' :
+                            notification.type === 'bonus' ? 'bg-amber-500/20' :
+                            'bg-gray-500/20'
+                          }`}>
+                            {notification.type === 'take_profit' && <TrendingUp size={16} className="text-green-400" />}
+                            {notification.type === 'stop_loss' && <TrendingDown size={16} className="text-red-400" />}
+                            {notification.type === 'trade_closed' && <Check size={16} className="text-blue-400" />}
+                            {notification.type === 'bonus' && <Gift size={16} className="text-amber-400" />}
+                            {!['take_profit', 'stop_loss', 'trade_closed', 'bonus'].includes(notification.type) && (
+                              <Bell size={16} className="text-secondary" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-primary text-sm font-medium truncate">{notification.title}</p>
+                              {!notification.read && (
+                                <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 ml-2"></span>
+                              )}
+                            </div>
+                            <p className="text-secondary text-xs mt-0.5 line-clamp-2">{notification.message}</p>
+                            {notification.data?.profit !== undefined && (
+                              <p className={`text-xs font-medium mt-1 ${notification.data.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {notification.data.profit >= 0 ? '+' : ''}${notification.data.profit.toFixed(2)}
+                              </p>
+                            )}
+                            <p className="text-muted text-xs mt-1">{formatTimeAgo(notification.timestamp)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* User Menu Dropdown */}
+          <div className="relative" ref={userMenuRef}>
+            <div
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-3 cursor-pointer hover:bg-black/[0.04] px-3 py-2 rounded-lg transition-colors"
+            >
+              <div className="w-9 h-9 bg-black/[0.06] rounded-full flex items-center justify-center text-primary font-medium">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-primary">{displayName}</p>
+                <p className="text-xs text-secondary">
+                  {planTier === 'elite' || planTier === 'desktop' ? 'Elite Member' :
+                   planTier === 'pro' ? 'Pro Member' :
+                   planTier === 'starter' ? 'Starter Member' :
+                   'Free Member'}
+                </p>
+              </div>
+              <ChevronDown size={16} className={`text-secondary transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* User Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-card-dark border border-border rounded-xl shadow-2xl overflow-hidden z-50">
+                <button
+                  onClick={() => {
+                    navigate('/dashboard/profile');
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-[#52525b] hover:bg-black/[0.04] hover:text-primary transition-colors"
+                >
+                  <User size={18} />
+                  <span>Profile</span>
+                </button>
+                <div className="border-t border-border" />
+                <button
+                  onClick={handleSignOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-[#52525b] hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                >
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default DashboardHeader;

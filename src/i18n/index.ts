@@ -1,0 +1,67 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+import { APP_LANGUAGES, DEFAULT_LANGUAGE, applyDocumentLanguage, isAppLanguage, LANGUAGE_COOKIE_KEY, LANGUAGE_STORAGE_KEY } from './languages';
+import en from './locales/en.json';
+import de from './locales/de.json';
+import zh from './locales/zh.json';
+import ja from './locales/ja.json';
+import th from './locales/th.json';
+import es from './locales/es.json';
+import it from './locales/it.json';
+import ru from './locales/ru.json';
+import hi from './locales/hi.json';
+import ur from './locales/ur.json';
+
+const supportedLngs = APP_LANGUAGES.map((lang) => lang.code);
+
+void i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      de: { translation: de },
+      zh: { translation: zh },
+      ja: { translation: ja },
+      th: { translation: th },
+      es: { translation: es },
+      it: { translation: it },
+      ru: { translation: ru },
+      hi: { translation: hi },
+      ur: { translation: ur },
+    },
+    supportedLngs,
+    fallbackLng: DEFAULT_LANGUAGE,
+    defaultNS: 'translation',
+    /** Re-render every bound hook when language flips (app shell + bot panel). */
+    react: {
+      bindI18n: 'languageChanged loaded',
+      useSuspense: false,
+    },
+    interpolation: { escapeValue: false },
+    detection: {
+      order: ['localStorage', 'cookie', 'navigator'],
+      lookupLocalStorage: LANGUAGE_STORAGE_KEY,
+      lookupCookie: LANGUAGE_COOKIE_KEY,
+      caches: ['localStorage', 'cookie'],
+      cookieMinutes: 60 * 24 * 365,
+      convertDetectedLanguage: (lng) => {
+        const base = lng.split('-')[0]?.toLowerCase();
+        if (base === 'zh') return 'zh';
+        return isAppLanguage(base) ? base : DEFAULT_LANGUAGE;
+      },
+    },
+  });
+
+i18n.on('languageChanged', (lng) => {
+  const base = lng.split('-')[0]?.toLowerCase() ?? DEFAULT_LANGUAGE;
+  applyDocumentLanguage(isAppLanguage(base) ? base : DEFAULT_LANGUAGE);
+});
+
+{
+  const initial = (i18n.language ?? DEFAULT_LANGUAGE).split('-')[0]?.toLowerCase() ?? DEFAULT_LANGUAGE;
+  applyDocumentLanguage(isAppLanguage(initial) ? initial : DEFAULT_LANGUAGE);
+}
+
+export default i18n;

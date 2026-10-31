@@ -1,0 +1,114 @@
+{
+  "what-is-hypergain-io": {
+    "title": "什么是 HyperGain.io？",
+    "description": "HyperGain.io 是面向 Hyperliquid 的 AI 加密交易代理 — 不是 Hyper Gain 蛋白粉 / 增肌粉品牌。",
+    "body": [
+      "HyperGain.io（hypergain.io）是面向 Hyperliquid 的非托管交易软件：AI 永续合约代理、专业永续终端，以及链上结果市场 — 同一界面。",
+      "与任何名为 “Hyper Gain”“Hypergain” 或类似的健身 / 蛋白粉 / 增肌粉产品无关。若你在找增肌粉却到了这里，那是另一家品牌。",
+      "产品地址：hypergain.io 与 app.hypergain.io。官方社交：X 上的 @HyperGainAi。支持：administration@hypergain.io。",
+      "将 Arbitrum 上的原生 USDC 充入你自己的 Hyperliquid 账户，一次性批准交易代理，即可在 200+ 个 HL 永续上全自动扫描。HyperGain 从不持有私钥，也从不把资金托管到公司钱包。",
+      "没有承诺或保证收益。杠杆加密交易风险很高。不构成投资建议。"
+    ]
+  },
+  "overview": {
+    "title": "概览",
+    "description": "HyperGain 是什么，以及非托管代理如何接入 Hyperliquid。",
+    "body": [
+      "HyperGain.io 是非托管的 Hyperliquid 交易平台：可在你的 HL 账户上 24/7 运行的 AI 永续代理，加上专业永续与链上体育/结果投注 — 同一界面。",
+      "我们提供自动化层。你的 USDC 仍以你的名义留在 Hyperliquid 上。HyperGain 从不持有私钥，也从不把充值托管到公司钱包。",
+      "在 Start bot 开启期间，代理会扫描 200+ 个 Hyperliquid 永续，按你的风险设置（仓位槽、杠杆、追踪止盈）开平仓，并可随时停止。你也可以在终端手动平仓。",
+      "没有承诺或保证收益。杠杆加密交易风险很高 — 可能亏钱。排行榜上的历史盈亏不能预测未来结果。不构成投资建议。",
+      "品牌说明：HyperGain.io 是加密交易软件，与名称相近的 Hyper Gain 蛋白粉或增肌粉无关。"
+    ]
+  },
+  "hypergain-101": {
+    "title": "HyperGain 入门",
+    "description": "基础 — 钱包、Arbitrum 上的 USDC、代理批准与 Start bot。",
+    "body": [
+      "HyperGain 面向希望在 Hyperliquid 上自动化永续交易、又不想盯盘或交出私钥的人。",
+      "免费注册账户，连接 MetaMask 或 WalletConnect，并确认网络为 Arbitrum One。请使用 Arbitrum 上的原生 USDC — 其他链或 USDC 变体无法正确计入 HL 流程。",
+      "通过应用内 Funds 流程充入你的 Hyperliquid 账户。HL 最低充值 $5；代理通常需要 HL 上约 $20+ USDC 才能有效运行。",
+      "一次性批准交易代理。该批准仅用于交易 — 不能提现。提现始终需要你在 Hyperliquid 上用钱包操作。",
+      "资金到位后按 Start bot。无需保持浏览器打开；自动化在 HyperGain 服务器上运行，直到你停止。"
+    ]
+  },
+  "getting-started": {
+    "title": "开始使用",
+    "description": "从注册到实时自动化的四个步骤。",
+    "body": [
+      "步骤 1 — 账户与钱包：免费注册并登录，在 Arbitrum One 上连接 MetaMask 或 WalletConnect。",
+      "步骤 2 — 为 Hyperliquid 充值：使用 Funds 标签将 Arbitrum 原生 USDC 桥接到你的 HL 账户。错误的链 / USDC 变体无效。",
+      "步骤 3 — 一次性批准：授权 HyperGain 交易代理在你的 HL 账户上下单。它不能提现。",
+      "步骤 4 — Start bot：按需选择仓位槽 / 风险偏好，然后按 Start bot。开启期间且有足够可用保证金时，代理会全天候扫描并可能开平仓。",
+      "随时 Stop bot。未平仓位仍属于你在 Hyperliquid 上的持仓，直到你平仓（手动或由代理退出逻辑）。始终按你能承受的损失来控制仓位。"
+    ]
+  },
+  "non-custodial": {
+    "title": "非托管资金",
+    "description": "私钥、提现，以及代理能做（与不能做）的事。",
+    "body": [
+      "托管是认真用户的第一个问题。HyperGain 不会把充值打入平台热钱包。你的 USDC 在 Hyperliquid 上属于你的账户。",
+      "我们从不持有你的私钥。登录并连接钱包不会让 HyperGain 有能力抽走资金。",
+      "批准交易代理后，它可按你的设置在 Hyperliquid 上下单并管理交易。它不能将 USDC 从 HL 提走。提现始终需要你在 Hyperliquid 上用钱包操作。",
+      "若有人要求你向“公司钱包”充值或分享助记词才能使用 HyperGain — 那不是我们。请离线保管私钥，并只在应用中批准官方代理流程。"
+    ]
+  },
+  "profit-trailing": {
+    "title": "盈利追踪止盈",
+    "description": "如何追踪盈利单，以及代理何时在回撤时平仓。",
+    "body": [
+      "当仓位转为盈利时，代理可启用追踪止损，跟随有利价格并在既定回撤时退出 — 让盈利奔跑，而无需你盯每一根 K 线。",
+      "做多时，追踪止损位于高点（有利极值）下方，并随价格创新高而上移。做空时，追踪止损位于低点上方并随之下移。",
+      "追踪止损绝不应落在市场错误一侧（例如多头止损高于标记价）。若看起来颠倒，请停止代理并在终端检查仓位。",
+      "按仓位的 “let run” 覆盖会在开启时仅对该币关闭追踪 — 便于你手动管理退出。默认在仓位盈利且 let run 关闭时启用追踪。"
+    ]
+  },
+  "leaderboard": {
+    "title": "链上排行榜",
+    "description": "为何平仓公开，以及如何在 HypurrScan 上核实。",
+    "body": [
+      "营销截图很容易伪造。HyperGain 的公开排行榜对接代理活动产生的真实 Hyperliquid 平仓。",
+      "站点上钱包地址会做脱敏以保护隐私。完整地址与成交可在 HypurrScan 及其他 HL 浏览器上核实。",
+      "把排行榜当作透明度工具 — 不是收益承诺。过往业绩不代表未来表现，杠杆交易可能迅速亏损。"
+    ]
+  },
+  "fees": {
+    "title": "费用",
+    "description": "Hyperliquid 交易费、builder 费用与平台成功费。",
+    "body": [
+      "Hyperliquid 对永续成交收取交易费（按成交方为 maker/taker 风格）。无论是否使用 HyperGain，这些费用都是在 HL 上交易的一部分。",
+      "HyperGain 可能对 HL 订单收取 builder 费用，并对代理访问提供订阅档位。请查看网站 Pricing 与应用内费用设置以获取当前数字。",
+      "代理平仓的平台成功费通常仅在盈利时收取 — 详见应用内当前条款。亏损平仓不应按“成功”计费。",
+      "充值与桥接到 Hyperliquid 不包含额外的 HyperGain 充值费 — 见 Deposit successful（无 HyperGain 充值费）。请始终留出足够可用保证金以支付 HL 费用与不利波动。"
+    ]
+  },
+  "depositing-bridging-hyperliquid": {
+    "title": "在 Hyperliquid 上充值 / 桥接",
+    "description": "HyperGain 如何将 Arbitrum 原生 USDC 桥接到你的 Hyperliquid 账户 — 钱包签名、Arbitrum 确认，然后 HL 入账。",
+    "body": [
+      "在 HyperGain 中打开 Funds → Deposit。在 Arbitrum One 上连接钱包，并仅存入原生 USDC — 不要用 BNB、BSC、ETH 主网或其他链上的 USDC。",
+      "钱包签名后，HyperGain 会显示 Depositing to Hyperliquid，分三步：Wallet signed → Arbitrum confirmed → Hyperliquid credit。前两步通常很快；HL 入账往往约需 1–3 分钟。",
+      "可从弹窗打开 Arbitrum 交易与你的 HypurrScan 钱包，在链上核实桥接。在 Hyperliquid 入账完成前，新的 USDC 不会显示为交易余额。",
+      "HyperGain 从不托管到公司钱包。充值以你的名义进入你的 Hyperliquid 账户。错误的链或错误的 USDC 变体无法正确入账。"
+    ]
+  },
+  "deposit-successful-no-extra-fees": {
+    "title": "充值成功 — 无 HyperGain 充值费",
+    "description": "HL 入账完成后，USDC 会显示在你的 Hyperliquid 余额中。HyperGain 不额外收取充值或桥接费 — 仅适用 Hyperliquid / 网络费用。",
+    "body": [
+      "桥接完成后，弹窗会显示 Deposit successful，以及入账金额与更新后的 Hyperliquid 总额。按 Done 返回 Funds。",
+      "HyperGain 不对将 USDC 充值或桥接到 Hyperliquid 收取任何额外费用。没有 HyperGain 充值加价、桥接附加费或在转账之上的“处理费”。",
+      "你仍可能支付 Arbitrum 上的正常网络 gas，以及充值路径适用的 Hyperliquid 协议费用 — 这些是 Hyperliquid / 链上费用，不是 HyperGain 费用。",
+      "之后的交易仍遵循 Hyperliquid 交易费以及 Fees 中说明的 HyperGain 代理成功费 / builder 费。充值本身没有 HyperGain 附加费用。"
+    ]
+  },
+  "sports-betting": {
+    "title": "AI 体育投注",
+    "description": "来自 HL 现货的结果市场 — 同样的非托管模式。",
+    "body": [
+      "HyperGain 也展示 Hyperliquid 上的体育与宏观类结果市场。资金来自你的 HL 现货余额 — 与交易代理相同的非托管模式。",
+      "按实时赔率选择 Yes/No，下注你能承受的金额，并在应用中跟踪未结算投注。有流动性时可提前兑现，或持有至结算。",
+      "赔率与可用规模取决于 HL 市场流动性。簿深度不足可能导致价差更大或兑现受限。这不是体育博彩存款账户；资金仍留在 Hyperliquid。"
+    ]
+  }
+}

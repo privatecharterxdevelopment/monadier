@@ -1,0 +1,1095 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Settings,
+  AlertTriangle,
+  Shield,
+  Zap,
+  History,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Pause,
+  Percent,
+  DollarSign,
+  Flame,
+  TestTube,
+  Globe
+} from 'lucide-react';
+import {
+  SUPPORTED_CHAINS,
+  TESTNET_CHAINS,
+  CHAIN_GAS_ESTIMATES,
+  ChainConfig,
+  isTestnet,
+  getAllChains
+} from '../../lib/chains';
+
+export type BotMode = 'manual' | 'auto' | 'signals';
+export type TradingStrategy = 'spot' | 'grid' | 'dca' | 'arbitrage' | 'custom';
+export type TradingInterval = '1m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '12h' | '24h';
+
+export interface TradingConfig {
+  // Chain selection
+  selectedChainId: number;
+  useTestnet: boolean;
+
+  // Bot mode and strategy
+  botMode: BotMode;
+  strategy: TradingStrategy;
+  tradingInterval: TradingInterval;
+
+  // Slippage
+  slippagePercent: number;
+
+  // Safety limits
+  maxPositionPercent: number; // Max % of balance per trade
+  maxDailyLossPercent: number; // Max daily loss before auto-stop
+  maxGasPercent: number; // Warn if gas > this % of trade
+
+  // Take Profit & Stop Loss
+  takeProfitEnabled: boolean;
+  takeProfitPercent: number; // Auto-close when profit reaches this %
+  stopLossEnabled: boolean;
+  stopLossPercent: number; // Auto-close when loss reaches this %
+
+  // Auto-reopen settings
+  autoReopenEnabled: boolean; // Reopen new trade after closing in profit
+  autoReopenOnLoss: boolean; // Also reopen after stop loss
+  maxTradesPerSession: number; // Max trades before pausing (0 = unlimited)
+
+  // Grid bot settings
+  gridLevels: number; // Number of grid levels
+  gridSpreadPercent: number; // Spread between levels
+
+  // DCA settings
+  dcaAmount: number; // Amount per DCA buy
+  dcaEnabled: boolean;
+
+  // Arbitrage settings
+  arbitrageMinSpread: number; // Minimum spread % to execute
+  arbitrageDexes: string[]; // DEXes to scan
+
+  // Custom strategy settings
+  customConditions: CustomCondition[];
+
+  // Auto trading
+  autoPauseOnHighGas: boolean;
+  gasThresholdGwei: number;
+  autoTradeEnabled: boolean;
+
+  // Signal filtering (AI Quality Control)
+  minConfidence: number; // Minimum confidence % to execute trade (default 75)
+  minRiskReward: number; // Minimum risk/reward ratio (default 1.5)
+  volumeFilterEnabled: boolean; // Require volume confirmation
+  trendFilterEnabled: boolean; // Don't trade against strong trends
+}
+
+export interface CustomCondition {
+  id: string;
+  indicator: 'rsi' | 'macd' | 'sma' | 'ema' | 'price';
+  operator: '<' | '>' | '=' | 'crossover' | 'crossunder';
+  value: number;
+  period?: number;
+  action: 'buy' | 'sell';
+}
+
+export interface TradeHistoryItem {
+  id: string;
+  timestamp: number;
+  chainId: number;
+  chainName: string;
+  type: 'buy' | 'sell';
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: string;
+  amountOut: string;
+  txHash: string;
+  gasCost: string;
+  gasCostUsd: number;
+  profit?: number;
+  blockExplorerUrl: string;
+}
+
+interface TradingSettingsProps {
+  config: TradingConfig;
+  onConfigChange: (config: TradingConfig) => void;
+  tradeHistory: TradeHistoryItem[];
+  currentChain: ChainConfig | undefined;
+  nativeTokenPrice: number;
+  onSwitchChain: (chainId: number) => Promise<void>;
+  onEmergencyStop: () => void;
+  dailyPnL: number;
+  isTrading: boolean;
+}
+
+const DEFAULT_CONFIG: TradingConfig = {
+  selectedChainId: 56, // Default to BSC (cheaper)
+  useTestnet: false,
+  botMode: 'manual',
+  strategy: 'spot',
+  tradingInterval: '1h',
+  slippagePercent: 0.5,
+  maxPositionPercent: 100, // Allow full balance by default
+  maxDailyLossPercent: 10,
+  maxGasPercent: 5,
+  // Take Profit & Stop Loss
+  takeProfitEnabled: true,
+  takeProfitPercent: 5,
+  stopLossEnabled: true,
+  stopLossPercent: 3,
+  // Auto-reopen
+  autoReopenEnabled: false,
+  autoReopenOnLoss: false,
+  maxTradesPerSession: 10,
+  // Grid
+  gridLevels: 5,
+  gridSpreadPercent: 2,
+  dcaAmount: 100,
+  dcaEnabled: false,
+  arbitrageMinSpread: 0.5,
+  arbitrageDexes: ['uniswap', 'sushiswap', 'pancakeswap'],
+  customConditions: [],
+  autoPauseOnHighGas: true,
+  gasThresholdGwei: 50,
+  autoTradeEnabled: false,
+  // Signal filtering defaults - very relaxed, bot decides anyway
+  minConfidence: 40,      // Match bot-service "risky" strategy (40%)
+  minRiskReward: 0.1,     // Almost always pass - let bot decide
+  volumeFilterEnabled: false,  // Was true - volume often low on altcoins
+  trendFilterEnabled: false    // Was true - allow counter-trend trades
+};
+
+export const getDefaultConfig = (): TradingConfig => {
+  const saved = localStorage.getItem('tradingConfig');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      // Migration: if old maxPositionPercent was 25% (old default), update to 100%
+      if (parsed.maxPositionPercent === 25) {
+        parsed.maxPositionPercent = 100;
+      }
+      // Migration: add new signal filter settings if missing
+      if (parsed.minConfidence === undefined) parsed.minConfidence = 40;
+      if (parsed.minRiskReward === undefined) parsed.minRiskReward = 0.1;
+      if (parsed.volumeFilterEnabled === undefined) parsed.volumeFilterEnabled = false;
+      if (parsed.trendFilterEnabled === undefined) parsed.trendFilterEnabled = false;
+      // Migration: relax old restrictive defaults that caused constant "WAIT"
+      if (parsed.minConfidence >= 60) parsed.minConfidence = 40;
+      if (parsed.minRiskReward >= 1.0) parsed.minRiskReward = 0.1;
+      return { ...DEFAULT_CONFIG, ...parsed };
+    } catch {
+      return DEFAULT_CONFIG;
+    }
+  }
+  return DEFAULT_CONFIG;
+};
+
+export const TradingSettings: React.FC<TradingSettingsProps> = ({
+  config,
+  onConfigChange,
+  tradeHistory,
+  currentChain,
+  nativeTokenPrice,
+  onSwitchChain,
+  onEmergencyStop,
+  dailyPnL,
+  isTrading
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'settings' | 'history' | 'safety'>('settings');
+
+  // Save config to localStorage
+  useEffect(() => {
+    localStorage.setItem('tradingConfig', JSON.stringify(config));
+  }, [config]);
+
+  // Get available chains based on testnet toggle
+  const availableChains = getAllChains(config.useTestnet);
+
+  // Calculate estimated gas cost in USD
+  const estimateGasCostUsd = (chainId: number): number => {
+    const gasEstimate = CHAIN_GAS_ESTIMATES[chainId];
+    if (!gasEstimate) return 0;
+
+    const gasCostNative = (gasEstimate.swapGas * gasEstimate.avgGasPrice) / 1e9;
+    return gasCostNative * nativeTokenPrice;
+  };
+
+  // Check if daily loss limit exceeded
+  const isDailyLossExceeded = dailyPnL < 0 &&
+    Math.abs(dailyPnL) > (config.maxDailyLossPercent / 100) * 1000; // Assuming $1000 base
+
+  // Handle chain selection
+  const handleChainSelect = async (chainId: number) => {
+    onConfigChange({ ...config, selectedChainId: chainId });
+    await onSwitchChain(chainId);
+  };
+
+  return (
+    <div className="dashboard-panel rounded-xl border border-border overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-black/[0.03] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4 dashboard-section-icon" />
+          <span className="dashboard-section-title">Trading Settings</span>
+          {config.useTestnet && (
+            <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
+              TESTNET
+            </span>
+          )}
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="w-4 h-4 text-secondary" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-secondary" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="border-t border-border"
+        >
+          {/* Tabs */}
+          <div className="flex border-b border-border">
+            {[
+              { id: 'settings', label: 'Settings', icon: Settings },
+              { id: 'safety', label: 'Safety', icon: Shield },
+              { id: 'history', label: 'History', icon: History }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex-1 px-4 py-2 flex items-center justify-center gap-2 text-sm transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-accent border-b-2 border-accent bg-accent/5'
+                    : 'text-secondary hover:text-primary'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4">
+            {/* Settings Tab */}
+            {activeTab === 'settings' && (
+              <div className="space-y-4">
+                {/* Info: Auto trading is handled by Bot Service */}
+                <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-xs text-blue-400">
+                    <span className="font-medium">Manual Trading Mode</span> - Auto trading is handled on the Bot History page
+                  </p>
+                </div>
+
+                {/* Trading Strategy Selector */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">Strategy</label>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {[
+                      { id: 'spot', label: 'Spot', desc: 'Buy/Sell swaps' },
+                      { id: 'grid', label: 'Grid', desc: 'Price levels' },
+                      { id: 'dca', label: 'DCA', desc: 'Auto-buy intervals' }
+                    ].map(strat => (
+                      <button
+                        key={strat.id}
+                        onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
+                        className={`p-2 rounded-lg border text-center transition-all ${
+                          config.strategy === strat.id
+                            ? 'border-accent bg-black/[0.04] text-accent'
+                            : 'border-gray-700 text-secondary hover:border-gray-600'
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{strat.label}</p>
+                        <p className="text-xs opacity-70">{strat.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'arbitrage', label: 'Arbitrage', desc: 'Multi-DEX spreads' },
+                      { id: 'custom', label: 'Custom', desc: 'Build your own' }
+                    ].map(strat => (
+                      <button
+                        key={strat.id}
+                        onClick={() => onConfigChange({ ...config, strategy: strat.id as any })}
+                        className={`p-2 rounded-lg border text-center transition-all ${
+                          config.strategy === strat.id
+                            ? 'border-accent bg-black/[0.04] text-accent'
+                            : 'border-gray-700 text-secondary hover:border-gray-600'
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{strat.label}</p>
+                        <p className="text-xs opacity-70">{strat.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trading Interval Selector - Only show for Auto mode */}
+                {config.botMode === 'auto' && (
+                  <div>
+                    <label className="block text-secondary text-xs mb-2">Trading Interval</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['1m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '24h'] as const).map(interval => (
+                        <button
+                          key={interval}
+                          onClick={() => onConfigChange({ ...config, tradingInterval: interval })}
+                          className={`px-2 py-2 rounded-lg text-sm transition-colors ${
+                            config.tradingInterval === interval
+                              ? 'bg-white text-gray-900'
+                              : 'bg-white border border-[#c5c5cb] text-[#52525b] hover:bg-black/[0.04]'
+                          }`}
+                        >
+                          {interval}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid Settings - Only show for Grid strategy */}
+                {config.strategy === 'grid' && (
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Grid Settings</p>
+                    <div>
+                      <label className="block text-secondary text-xs mb-1">
+                        Grid Levels: {config.gridLevels}
+                      </label>
+                      <input
+                        type="range"
+                        min="3"
+                        max="20"
+                        value={config.gridLevels}
+                        onChange={(e) => onConfigChange({ ...config, gridLevels: parseInt(e.target.value) })}
+                        className="w-full accent-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-secondary text-xs mb-1">
+                        Spread: {config.gridSpreadPercent}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="10"
+                        step="0.5"
+                        value={config.gridSpreadPercent}
+                        onChange={(e) => onConfigChange({ ...config, gridSpreadPercent: parseFloat(e.target.value) })}
+                        className="w-full accent-accent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* DCA Settings - Only show for DCA strategy */}
+                {config.strategy === 'dca' && (
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">DCA Settings</p>
+                    <div>
+                      <label className="block text-secondary text-xs mb-1">
+                        Amount per buy: ${config.dcaAmount}
+                      </label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="1000"
+                        step="10"
+                        value={config.dcaAmount}
+                        onChange={(e) => onConfigChange({ ...config, dcaAmount: parseInt(e.target.value) })}
+                        className="w-full accent-accent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Arbitrage Settings - Only show for Arbitrage strategy */}
+                {config.strategy === 'arbitrage' && (
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Arbitrage Settings</p>
+                    <div>
+                      <label className="block text-secondary text-xs mb-1">
+                        Min Spread to Execute: {config.arbitrageMinSpread}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="5"
+                        step="0.1"
+                        value={config.arbitrageMinSpread}
+                        onChange={(e) => onConfigChange({ ...config, arbitrageMinSpread: parseFloat(e.target.value) })}
+                        className="w-full accent-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-secondary text-xs mb-2">DEXes to Scan</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['uniswap', 'sushiswap', 'pancakeswap', 'quickswap', 'curve'].map(dex => (
+                          <button
+                            key={dex}
+                            onClick={() => {
+                              const dexes = config.arbitrageDexes.includes(dex)
+                                ? config.arbitrageDexes.filter(d => d !== dex)
+                                : [...config.arbitrageDexes, dex];
+                              onConfigChange({ ...config, arbitrageDexes: dexes });
+                            }}
+                            className={`px-2 py-1 rounded text-xs capitalize transition-colors ${
+                              config.arbitrageDexes.includes(dex)
+                                ? 'bg-white text-gray-900'
+                                : 'bg-gray-700 text-secondary'
+                            }`}
+                          >
+                            {dex}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-yellow-400 text-xs flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Requires fast execution. High gas on Ethereum.
+                    </p>
+                  </div>
+                )}
+
+                {/* Custom Strategy Settings */}
+                {config.strategy === 'custom' && (
+                  <div className="p-3 dashboard-panel-inner space-y-3">
+                    <p className="text-primary text-sm font-medium">Custom Strategy Builder</p>
+                    <p className="text-secondary text-xs">Set conditions for automated trading</p>
+
+                    {config.customConditions.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-secondary text-sm mb-2">No conditions set</p>
+                        <button
+                          onClick={() => {
+                            const newCondition: any = {
+                              id: Math.random().toString(36).substr(2, 9),
+                              indicator: 'rsi',
+                              operator: '<',
+                              value: 30,
+                              period: 14,
+                              action: 'buy'
+                            };
+                            onConfigChange({
+                              ...config,
+                              customConditions: [...config.customConditions, newCondition]
+                            });
+                          }}
+                          className="px-3 py-1.5 bg-white text-gray-900 text-sm rounded-lg"
+                        >
+                          + Add Condition
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {config.customConditions.map((cond, idx) => (
+                          <div key={cond.id} className="flex items-center gap-2 p-2 dashboard-panel-inner">
+                            <span className="text-secondary text-xs">IF</span>
+                            <select
+                              value={cond.indicator}
+                              onChange={(e) => {
+                                const updated = [...config.customConditions];
+                                updated[idx] = { ...cond, indicator: e.target.value as any };
+                                onConfigChange({ ...config, customConditions: updated });
+                              }}
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded"
+                            >
+                              <option value="rsi">RSI</option>
+                              <option value="sma">SMA</option>
+                              <option value="ema">EMA</option>
+                              <option value="price">Price</option>
+                            </select>
+                            <select
+                              value={cond.operator}
+                              onChange={(e) => {
+                                const updated = [...config.customConditions];
+                                updated[idx] = { ...cond, operator: e.target.value as any };
+                                onConfigChange({ ...config, customConditions: updated });
+                              }}
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded"
+                            >
+                              <option value="<">&lt;</option>
+                              <option value=">">&gt;</option>
+                              <option value="crossover">crosses above</option>
+                              <option value="crossunder">crosses below</option>
+                            </select>
+                            <input
+                              type="number"
+                              value={cond.value}
+                              onChange={(e) => {
+                                const updated = [...config.customConditions];
+                                updated[idx] = { ...cond, value: parseFloat(e.target.value) };
+                                onConfigChange({ ...config, customConditions: updated });
+                              }}
+                              className="bg-gray-700 text-primary text-xs px-2 py-1 rounded w-16"
+                            />
+                            <span className="text-secondary text-xs">THEN</span>
+                            <select
+                              value={cond.action}
+                              onChange={(e) => {
+                                const updated = [...config.customConditions];
+                                updated[idx] = { ...cond, action: e.target.value as any };
+                                onConfigChange({ ...config, customConditions: updated });
+                              }}
+                              className={`text-xs px-2 py-1 rounded ${
+                                cond.action === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                              }`}
+                            >
+                              <option value="buy">BUY</option>
+                              <option value="sell">SELL</option>
+                            </select>
+                            <button
+                              onClick={() => {
+                                onConfigChange({
+                                  ...config,
+                                  customConditions: config.customConditions.filter(c => c.id !== cond.id)
+                                });
+                              }}
+                              className="text-red-400 hover:text-red-300 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const newCondition: any = {
+                              id: Math.random().toString(36).substr(2, 9),
+                              indicator: 'rsi',
+                              operator: '>',
+                              value: 70,
+                              action: 'sell'
+                            };
+                            onConfigChange({
+                              ...config,
+                              customConditions: [...config.customConditions, newCondition]
+                            });
+                          }}
+                          className="w-full px-3 py-1.5 border border-dashed border-gray-600 text-secondary text-sm rounded-lg hover:border-accent hover:text-accent"
+                        >
+                          + Add Another Condition
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Testnet Toggle */}
+                <div className="flex items-center justify-between p-3 dashboard-panel-inner">
+                  <div className="flex items-center gap-2">
+                    <TestTube className="w-4 h-4 text-yellow-400" />
+                    <span className="text-primary text-sm">Testnet Mode</span>
+                  </div>
+                  <button
+                    onClick={() => onConfigChange({ ...config, useTestnet: !config.useTestnet })}
+                    className={`w-12 h-6 rounded-full transition-colors ${
+                      config.useTestnet ? 'bg-yellow-500' : 'bg-gray-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      config.useTestnet ? 'translate-x-6' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Chain Selector */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">Select Network</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableChains.slice(0, 6).map(chain => {
+                      const gasCost = estimateGasCostUsd(chain.id);
+                      const isSelected = config.selectedChainId === chain.id;
+                      const isTest = isTestnet(chain.id);
+
+                      return (
+                        <button
+                          key={chain.id}
+                          onClick={() => handleChainSelect(chain.id)}
+                          className={`p-3 rounded-lg border transition-all text-left ${
+                            isSelected
+                              ? 'border-accent bg-black/[0.04]'
+                              : 'border-gray-700 hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`font-medium ${isSelected ? 'text-accent' : 'text-primary'}`}>
+                              {chain.shortName}
+                            </span>
+                            {isTest && (
+                              <span className="text-xs text-yellow-400">TEST</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-secondary">
+                            <Flame className="w-3 h-3" />
+                            <span>~${gasCost.toFixed(2)} gas</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Slippage Control */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">
+                    Slippage Tolerance: {config.slippagePercent}%
+                  </label>
+                  <div className="flex gap-2">
+                    {[0.1, 0.5, 1.0, 2.0, 5.0].map(value => (
+                      <button
+                        key={value}
+                        onClick={() => onConfigChange({ ...config, slippagePercent: value })}
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          config.slippagePercent === value
+                            ? 'bg-white text-gray-900'
+                            : 'bg-white border border-[#c5c5cb] text-[#52525b] hover:bg-black/[0.04]'
+                        }`}
+                      >
+                        {value}%
+                      </button>
+                    ))}
+                  </div>
+                  {config.slippagePercent > 2 && (
+                    <p className="text-yellow-400 text-xs mt-2 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      High slippage may result in unfavorable trades
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Safety Tab */}
+            {activeTab === 'safety' && (
+              <div className="space-y-4">
+                {/* Emergency Stop */}
+                <button
+                  onClick={onEmergencyStop}
+                  disabled={!isTrading}
+                  className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
+                    isTrading
+                      ? 'bg-red-500 hover:bg-red-600 text-primary'
+                      : 'bg-gray-700 text-secondary cursor-not-allowed'
+                  }`}
+                >
+                  <Pause className="w-5 h-5" />
+                  Emergency Stop All Trades
+                </button>
+
+                {/* Daily Loss Warning */}
+                {isDailyLossExceeded && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="font-medium">Daily Loss Limit Exceeded</span>
+                    </div>
+                    <p className="text-secondary text-sm mt-1">
+                      Trading automatically paused. Current loss: ${Math.abs(dailyPnL).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Take Profit */}
+                <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-green-400" />
+                      <span className="text-primary text-sm font-medium">Take Profit</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        takeProfitEnabled: !config.takeProfitEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.takeProfitEnabled ? 'bg-green-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.takeProfitEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.takeProfitEnabled && (
+                    <div>
+                      <label className="block text-secondary text-xs mb-2">
+                        Close at +{config.takeProfitPercent}% profit
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        step="0.5"
+                        value={config.takeProfitPercent}
+                        onChange={(e) => onConfigChange({
+                          ...config,
+                          takeProfitPercent: parseFloat(e.target.value)
+                        })}
+                        className="w-full accent-green-500"
+                      />
+                      <div className="flex justify-between text-xs text-secondary">
+                        <span>+1%</span>
+                        <span>+10%</span>
+                        <span>+25%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stop Loss */}
+                <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                      <span className="text-primary text-sm font-medium">Stop Loss</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        stopLossEnabled: !config.stopLossEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.stopLossEnabled ? 'bg-red-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.stopLossEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.stopLossEnabled && (
+                    <div>
+                      <label className="block text-secondary text-xs mb-2">
+                        Close at -{config.stopLossPercent}% loss
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        step="0.5"
+                        value={config.stopLossPercent}
+                        onChange={(e) => onConfigChange({
+                          ...config,
+                          stopLossPercent: parseFloat(e.target.value)
+                        })}
+                        className="w-full accent-red-500"
+                      />
+                      <div className="flex justify-between text-xs text-secondary">
+                        <span>-1%</span>
+                        <span>-10%</span>
+                        <span>-25%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-Reopen (Scalping Mode) */}
+                <div className="p-3 bg-accent/5 border border-accent/20 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-accent" />
+                      <span className="text-primary text-sm font-medium">Auto-Reopen (Scalping)</span>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        autoReopenEnabled: !config.autoReopenEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.autoReopenEnabled ? 'bg-accent' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.autoReopenEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {config.autoReopenEnabled && (
+                    <>
+                      <p className="text-secondary text-xs">
+                        Bot will automatically open a new trade after closing in profit
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-secondary text-xs">Also reopen after stop loss</span>
+                        <button
+                          onClick={() => onConfigChange({
+                            ...config,
+                            autoReopenOnLoss: !config.autoReopenOnLoss
+                          })}
+                          className={`w-10 h-5 rounded-full transition-colors ${
+                            config.autoReopenOnLoss ? 'bg-accent' : 'bg-gray-600'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            config.autoReopenOnLoss ? 'translate-x-5' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-secondary text-xs mb-2">
+                          Max trades per session: {config.maxTradesPerSession === 0 ? 'Unlimited' : config.maxTradesPerSession}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="50"
+                          value={config.maxTradesPerSession}
+                          onChange={(e) => onConfigChange({
+                            ...config,
+                            maxTradesPerSession: parseInt(e.target.value)
+                          })}
+                          className="w-full accent-accent"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Max Position Size */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">
+                    Max Position Size: {config.maxPositionPercent}% of balance
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    value={config.maxPositionPercent}
+                    onChange={(e) => onConfigChange({
+                      ...config,
+                      maxPositionPercent: parseInt(e.target.value)
+                    })}
+                    className="w-full accent-accent"
+                  />
+                  <div className="flex justify-between text-xs text-secondary">
+                    <span>5%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Max Daily Loss */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">
+                    Max Daily Loss: {config.maxDailyLossPercent}%
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    value={config.maxDailyLossPercent}
+                    onChange={(e) => onConfigChange({
+                      ...config,
+                      maxDailyLossPercent: parseInt(e.target.value)
+                    })}
+                    className="w-full accent-accent"
+                  />
+                </div>
+
+                {/* Gas Warning Threshold */}
+                <div>
+                  <label className="block text-secondary text-xs mb-2">
+                    Warn if gas exceeds: {config.maxGasPercent}% of trade
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    value={config.maxGasPercent}
+                    onChange={(e) => onConfigChange({
+                      ...config,
+                      maxGasPercent: parseInt(e.target.value)
+                    })}
+                    className="w-full accent-accent"
+                  />
+                </div>
+
+                {/* Auto-pause on high gas */}
+                <div className="flex items-center justify-between p-3 dashboard-panel-inner">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-yellow-400" />
+                    <span className="text-primary text-sm">Auto-pause on high gas</span>
+                  </div>
+                  <button
+                    onClick={() => onConfigChange({
+                      ...config,
+                      autoPauseOnHighGas: !config.autoPauseOnHighGas
+                    })}
+                    className={`w-12 h-6 rounded-full transition-colors ${
+                      config.autoPauseOnHighGas ? 'bg-accent' : 'bg-gray-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      config.autoPauseOnHighGas ? 'translate-x-6' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Signal Quality Controls */}
+                <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                    <span className="text-primary text-sm font-medium">AI Signal Quality Filters</span>
+                  </div>
+
+                  {/* Min Confidence */}
+                  <div>
+                    <label className="block text-secondary text-xs mb-2">
+                      Min Confidence: {config.minConfidence}% (4+ indicators needed for 85%+)
+                    </label>
+                    <input
+                      type="range"
+                      min="50"
+                      max="90"
+                      step="5"
+                      value={config.minConfidence}
+                      onChange={(e) => onConfigChange({
+                        ...config,
+                        minConfidence: parseInt(e.target.value)
+                      })}
+                      className="w-full accent-blue-500"
+                    />
+                    <div className="flex justify-between text-xs text-secondary">
+                      <span>50% (More trades)</span>
+                      <span>75%</span>
+                      <span>90% (Quality)</span>
+                    </div>
+                  </div>
+
+                  {/* Min Risk/Reward */}
+                  <div>
+                    <label className="block text-secondary text-xs mb-2">
+                      Min Risk/Reward Ratio: {config.minRiskReward.toFixed(1)}x
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="3"
+                      step="0.1"
+                      value={config.minRiskReward}
+                      onChange={(e) => onConfigChange({
+                        ...config,
+                        minRiskReward: parseFloat(e.target.value)
+                      })}
+                      className="w-full accent-blue-500"
+                    />
+                    <div className="flex justify-between text-xs text-secondary">
+                      <span>1.0x</span>
+                      <span>1.5x</span>
+                      <span>3.0x</span>
+                    </div>
+                  </div>
+
+                  {/* Volume Filter */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-primary text-sm">Volume Confirmation</span>
+                      <p className="text-secondary text-xs">Require 1.2x avg volume</p>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        volumeFilterEnabled: !config.volumeFilterEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.volumeFilterEnabled ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.volumeFilterEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Trend Filter */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-primary text-sm">Trend Protection</span>
+                      <p className="text-secondary text-xs">Don't trade against strong trends</p>
+                    </div>
+                    <button
+                      onClick={() => onConfigChange({
+                        ...config,
+                        trendFilterEnabled: !config.trendFilterEnabled
+                      })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        config.trendFilterEnabled ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                        config.trendFilterEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* History Tab */}
+            {activeTab === 'history' && (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {tradeHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History className="w-8 h-8 text-muted mx-auto mb-2" />
+                    <p className="text-secondary text-sm">No trades yet</p>
+                  </div>
+                ) : (
+                  tradeHistory.slice(0, 20).map(trade => (
+                    <div
+                      key={trade.id}
+                      className="p-3 dashboard-panel-inner"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                            trade.type === 'buy'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {trade.type.toUpperCase()}
+                          </span>
+                          <span className="text-primary text-sm">
+                            {trade.amountIn} → {trade.amountOut}
+                          </span>
+                        </div>
+                        <a
+                          href={trade.blockExplorerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent hover:text-accent-hover"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-secondary">
+                        <span>{trade.chainName}</span>
+                        <span>Gas: ${trade.gasCostUsd.toFixed(2)}</span>
+                        {trade.profit !== undefined && (
+                          <span className={trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}>
+                            {trade.profit >= 0 ? '+' : ''}{trade.profit.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted mt-1">
+                        {new Date(trade.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
+export default TradingSettings;

@@ -1,0 +1,173 @@
+/* Language switcher — landing nav + app header */
+
+.lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-switch-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lang-switch--landing-light .lang-switch-trigger {
+  color: #0a0a0a;
+}
+
+.lang-switch--landing-light .lang-switch-trigger:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #71717a;
+}
+
+.lang-switch--landing-dark .lang-switch-trigger {
+  color: #a1a1aa;
+}
+
+.lang-switch--landing-dark .lang-switch-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.lang-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 80;
+  min-width: 168px;
+  max-height: min(70vh, 440px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.lang-switch--landing-light .lang-switch-menu {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+}
+
+.lang-switch--landing-dark .lang-switch-menu {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lang-switch-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lang-switch--landing-light .lang-switch-option {
+  color: #27272a;
+}
+
+.lang-switch--landing-light .lang-switch-option:hover,
+.lang-switch--landing-light .lang-switch-option--active {
+  background: #f4f4f5;
+  color: #0a0a0a;
+}
+
+.lang-switch--landing-dark .lang-switch-option {
+  color: #d4d4d8;
+}
+
+.lang-switch--landing-dark .lang-switch-option:hover,
+.lang-switch--landing-dark .lang-switch-option--active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.lang-switch-check {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* Welcome walkthrough — labeled language dropdown */
+.lang-switch--welcome {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lang-switch-welcome-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.lang-switch-welcome-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: #fff;
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-switch-welcome-trigger:hover {
+  border-color: #107663;
+  color: #107663;
+}
+
+.lang-switch-welcome-chevron {
+  opacity: 0.65;
+}
+
+.lang-switch-menu--welcome {
+  right: 0;
+  left: auto;
+  z-index: 10300;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+}
+
+html[dir='rtl'] .lang-switch-menu,
+html[dir='rtl'] .lang-switch-menu--welcome,
+html[dir='rtl'] .hl-lang-switch-menu {
+  right: auto;
+  left: 0;
+}
+
+html[dir='rtl'] .lang-switch-option,
+html[dir='rtl'] .hl-lang-switch-option {
+  text-align: right;
+}
+
+html[dir='rtl'] .lang-switch--welcome {
+  align-items: flex-start;
+}
