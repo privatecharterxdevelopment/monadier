@@ -8,8 +8,8 @@ Code is ready. You must finish **Vercel env**, **Supabase Auth URLs**, and **Goo
 
 | Name | Value |
 |------|--------|
-| `VITE_SUPABASE_URL` | `https://hathjgtvmgyxahqfhjka.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` `public` |
+| `VITE_SUPABASE_URL` | `https://hathjgtvmgyxahqfhjka.supabase.co` (**not** the deleted `gbgafseabgqinnvlfslc`) |
+| `VITE_SUPABASE_ANON_KEY` | Hathjgt anon JWT (see `.env.example`) |
 | `VITE_SITE_URL` | `https://www.hypergain.io` |
 | `VITE_APP_URL` | `https://app.hypergain.io` |
 | `VITE_SPLIT_DOMAINS` | `true` (when marketing + app are separate hosts) |

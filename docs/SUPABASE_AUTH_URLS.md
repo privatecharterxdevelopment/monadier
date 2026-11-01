@@ -6,6 +6,12 @@
 
 **Site URL:** `https://www.hypergain.io`
 
+**Auth flags (live):**
+
+- `mailer_autoconfirm=true` — email/password signup gets a session immediately (no confirm mail required). Needed while Resend/SMTP is unset; Supabase free mail hits rate limits otherwise.
+- `disable_signup=false`
+- Google OAuth: still **off** until Client ID/Secret are pasted in Dashboard.
+
 **Redirect URLs (all allowed):**
 
 ```
@@ -17,9 +23,17 @@ https://app.hypergain.io/auth/callback
 https://app.hypergain.io/reset-password
 http://localhost:5173/auth/callback
 http://localhost:5173/reset-password
+http://localhost:43127/auth/callback
+http://localhost:43127/reset-password
+http://127.0.0.1:43127/auth/callback
+http://127.0.0.1:43127/reset-password
+https://monadier.vercel.app/auth/callback
+https://monadier.vercel.app/reset-password
 ```
 
 Google provider Client ID/Secret live only in the Supabase Dashboard (do not push via `config.toml`).
+
+**Vercel:** set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` to `hathjgt…`. The app also ignores the deleted `gbgafseabgqinnvlfslc` ref if it is still present in env.
 
 ## App behavior
 
