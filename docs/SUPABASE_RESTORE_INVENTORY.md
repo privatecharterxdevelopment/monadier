@@ -17,9 +17,9 @@
 
 ## Current live project
 
-- **Active target (Nov 1 evening):** `hathjgtvmgyxahqfhjka` — URL wired in app + Railway; **schema/edge functions still need apply** (MCP has no access to this project yet)
-- Previous scratch project: `hnaldfvommthfgoryitt` (HyperGain) — schema was restored there; prefer migrating/re-applying onto `hathjgt…`
-- Need on Railway: real `SUPABASE_SERVICE_KEY` (`service_role` / secret) for `hathjgt…`
+- **Active target:** `hathjgtvmgyxahqfhjka` (ap-southeast-2) — schema applied via `psql` (52 public tables), signup trigger OK, Railway has `service_role` JWT
+- Previous scratch: `hnaldfvommthfgoryitt` (org MCP / HyperGain)
+- Edge functions on hathjgt: deploy when CLI access token available (source in `supabase/functions`)
 
 ## Rebuild steps (clean project)
 
