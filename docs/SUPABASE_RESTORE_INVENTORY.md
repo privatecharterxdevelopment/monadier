@@ -18,7 +18,9 @@
 ## Current live project
 
 - Ref: `hnaldfvommthfgoryitt` (HyperGain, eu-central-1)
-- Schema partially restored Oct 31; missing pieces (community / support / flyers / followed traders / forex / betting tables) are re-applied from the migration files above
+- Schema restored Nov 1 (incl. community, support, trade_flyers, followed traders, forex, HL betting)
+- Edge functions live: `auth-lockout`, `request-password-reset`, `send-welcome-email`, `send-support-message`, `admin-set-password`
+- Not yet redeployed (source in git only): Stripe / Forex / verify-trade helpers — deploy when those flows are needed
 
 ## Rebuild steps (clean project)
 
