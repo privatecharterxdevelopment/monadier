@@ -121,15 +121,11 @@ const healthServer = http.createServer(async (req, res) => {
 
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
 
-  // Health check endpoint
+  // Health check — must stay sync/fast. Railway probes /health during deploy;
+  // awaiting Supabase (or any I/O) here previously hung probes past the
+  // healthcheckTimeout (~100s) → "Network › Healthcheck" failure.
   if (url.pathname === '/health' || url.pathname === '/') {
     const uptime = Math.floor((Date.now() - botStartTime) / 1000);
-    let twitter: Awaited<ReturnType<typeof getTwitterHealthSnapshot>> | null = null;
-    try {
-      twitter = await getTwitterHealthSnapshot();
-    } catch {
-      twitter = null;
-    }
     const status = {
       status: 'healthy',
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
@@ -143,7 +139,6 @@ const healthServer = http.createServer(async (req, res) => {
       policy: {
         botHalted: config.hyperliquid.botHalted,
         longLetRun: config.hyperliquid.longLetRun,
-        letRunAll: await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll(),
         letRunAllConfigFallback: config.hyperliquid.letRunAll,
         botCrossMargin: config.hyperliquid.botCrossMargin,
         invalidationExit: config.hyperliquid.invalidationExit.enabled,
@@ -170,11 +165,54 @@ const healthServer = http.createServer(async (req, res) => {
           allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
         },
       },
-      twitter,
       lastCycle: lastCycleStats,
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
+    return;
+  }
+
+  // Richer bot status (may hit Supabase) — not used by Railway healthchecks.
+  if (url.pathname === '/api/health-detail') {
+    try {
+      let twitter: Awaited<ReturnType<typeof getTwitterHealthSnapshot>> | null = null;
+      try {
+        twitter = await getTwitterHealthSnapshot();
+      } catch {
+        twitter = null;
+      }
+      let letRunAll = config.hyperliquid.letRunAll;
+      try {
+        letRunAll = await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll();
+      } catch {
+        /* keep config fallback */
+      }
+      const uptime = Math.floor((Date.now() - botStartTime) / 1000);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          status: 'healthy',
+          uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+          lastCheck: new Date(lastTradeCheck).toISOString(),
+          tradesExecuted: totalTradesExecuted,
+          version: 'v15.0-multi-user-scale',
+          policy: {
+            botHalted: config.hyperliquid.botHalted,
+            letRunAll,
+            letRunAllConfigFallback: config.hyperliquid.letRunAll,
+            directionProfile: {
+              mode: getDirectionProfileMode(),
+              name: config.hyperliquid.directionProfile.name,
+            },
+          },
+          twitter,
+          lastCycle: lastCycleStats,
+        })
+      );
+    } catch (err: any) {
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ status: 'error', error: err?.message || String(err) }));
+    }
     return;
   }
 

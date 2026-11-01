@@ -20,8 +20,9 @@
 - **Active target:** `hathjgtvmgyxahqfhjka` (ap-southeast-2) — schema applied via `psql`
 - **Parity vs prior HyperGain DB:** 52/52 public tables identical; all prior RPCs present (+5 extras)
 - **Auto-trade path verified:** bot reads `vault_settings.auto_trade_enabled=true` → `activeBots` increments (test row)
-- Railway: `service_role` JWT set; trade-close emails need `RESEND_API_KEY` on Railway
-- Edge functions (welcome / password-reset / support): source in `supabase/functions` — deploy needs `SUPABASE_ACCESS_TOKEN` + same `RESEND_API_KEY` as function secrets
+- Railway: `service_role` JWT set; `HL_BOT_HALTED=false`; trade-close emails still need `RESEND_API_KEY` on Railway (skipped in env setup — emails degrade gracefully)
+- Edge functions: **16/16 ACTIVE** on `hathjgt` (redeployed); secrets `APP_PUBLIC_URL` + `RESEND_FROM` set. `RESEND_API_KEY` not set (user skipped) — welcome/support/reset mails will fail until added
+- Auth URL config: Site URL `https://www.hypergain.io` + production/local redirect allow-list applied via Management API
 
 ## Rebuild steps (clean project)
 
