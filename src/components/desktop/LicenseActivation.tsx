@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Key, Loader2, AlertCircle, Check, Monitor } from 'lucide-react';
 import { useDesktopLicense } from '../../hooks/useDesktopLicense';
 import { getMarketingUrl } from '../../lib/appUrls';
+import { resolveSupabasePublicEnv } from '../../lib/supabasePublicDefaults';
 import Logo from '../ui/Logo';
 
 interface LicenseActivationProps {
@@ -17,7 +18,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
 
   const { validateLicense } = useDesktopLicense();
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const { url: supabaseUrl } = resolveSupabasePublicEnv();
 
   const formatLicenseCode = (value: string): string => {
     // Remove all non-alphanumeric characters and convert to uppercase
