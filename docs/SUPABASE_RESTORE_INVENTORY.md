@@ -17,9 +17,11 @@
 
 ## Current live project
 
-- **Active target:** `hathjgtvmgyxahqfhjka` (ap-southeast-2) — schema applied via `psql` (52 public tables), signup trigger OK, Railway has `service_role` JWT
-- Previous scratch: `hnaldfvommthfgoryitt` (org MCP / HyperGain)
-- Edge functions on hathjgt: deploy when CLI access token available (source in `supabase/functions`)
+- **Active target:** `hathjgtvmgyxahqfhjka` (ap-southeast-2) — schema applied via `psql`
+- **Parity vs prior HyperGain DB:** 52/52 public tables identical; all prior RPCs present (+5 extras)
+- **Auto-trade path verified:** bot reads `vault_settings.auto_trade_enabled=true` → `activeBots` increments (test row)
+- Railway: `service_role` JWT set; trade-close emails need `RESEND_API_KEY` on Railway
+- Edge functions (welcome / password-reset / support): source in `supabase/functions` — deploy needs `SUPABASE_ACCESS_TOKEN` + same `RESEND_API_KEY` as function secrets
 
 ## Rebuild steps (clean project)
 
