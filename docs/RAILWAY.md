@@ -1,7 +1,8 @@
-# Railway — Monadier bot-service
+# Railway — HyperGain bot-service
 
 Project: `jubilant-tranquility` (`38979153-d629-42f6-ae11-eb8f1418d750`)  
-Service: `b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6`
+Service: `hypergain-bot` (`63bc77f7-21a3-4fa9-96db-7ecf7cd55802`)  
+Environment: `production` (`c133dcc4-8acf-4a71-b1d9-ce3967ea7971`)
 
 ## Service settings
 
@@ -11,7 +12,7 @@ Service: `b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6`
 | **Build** | Dockerfile (`bot-service/Dockerfile` — not Nixpacks CLI snapshots) |
 | **Start** | `npm run start` (see `bot-service/railway.json`) |
 | **Health check** | `/health` |
-| **Public networking** | `https://monadier-production.up.railway.app` |
+| **Public networking** | `https://hypergain-bot-production.up.railway.app` |
 
 ## Required variables (Hyperliquid-only — no Arbitrum vault)
 
@@ -34,17 +35,17 @@ See `bot-service/.env.example`:
 ```bash
 cd bot-service
 npx @railway/cli login
-npx @railway/cli link -p 38979153-d629-42f6-ae11-eb8f1418d750 -s b65e307a-42cd-48ce-b8bd-5e04bc6dbcc6
+npx @railway/cli link -p 38979153-d629-42f6-ae11-eb8f1418d750 -s 63bc77f7-21a3-4fa9-96db-7ecf7cd55802
 npx @railway/cli variables set HL_BUILDER_ADDRESS=0x... HL_BUILDER_FEE_PERP=30 HL_BUILDER_MAX_APPROVAL=0.1%
-cd .. && ./scripts/verify-bot-api.sh "$(cd bot-service && npx @railway/cli domain)"
-curl -s "$(cd bot-service && npx @railway/cli domain)/api/hl-builder/status" | jq
+cd .. && ./scripts/verify-bot-api.sh "https://hypergain-bot-production.up.railway.app"
+curl -s "https://hypergain-bot-production.up.railway.app/api/hl-builder/status" | jq
 ```
 
 ## Vercel (production dashboard)
 
-- `VITE_BOT_API_URL` = Railway public URL
-- `VITE_SITE_URL=https://www.monadier.io`
-- `VITE_APP_URL=https://app.monadier.io`
+- `VITE_BOT_API_URL` = `https://hypergain-bot-production.up.railway.app`
+- `VITE_SITE_URL=https://www.hypergain.io` (or `https://monadier.vercel.app` until DNS is live)
+- `VITE_APP_URL=https://www.hypergain.io`
 - `VITE_HL_BUILDER_ADDRESS` = Railway `HL_BUILDER_ADDRESS` (HL 0.1% builder only)
 - `VITE_PLATFORM_FEE_TREASURY_ADDRESS` = Railway `PLATFORM_FEE_TREASURY_ADDRESS` (your MetaMask for success fees)
 
