@@ -17,10 +17,9 @@
 
 ## Current live project
 
-- Ref: `hnaldfvommthfgoryitt` (HyperGain, eu-central-1)
-- Schema restored Nov 1 (incl. community, support, trade_flyers, followed traders, forex, HL betting)
-- Edge functions live: `auth-lockout`, `request-password-reset`, `send-welcome-email`, `send-support-message`, `admin-set-password`
-- Not yet redeployed (source in git only): Stripe / Forex / verify-trade helpers — deploy when those flows are needed
+- **Active target (Nov 1 evening):** `hathjgtvmgyxahqfhjka` — URL wired in app + Railway; **schema/edge functions still need apply** (MCP has no access to this project yet)
+- Previous scratch project: `hnaldfvommthfgoryitt` (HyperGain) — schema was restored there; prefer migrating/re-applying onto `hathjgt…`
+- Need on Railway: real `SUPABASE_SERVICE_KEY` (`service_role` / secret) for `hathjgt…`
 
 ## Rebuild steps (clean project)
 

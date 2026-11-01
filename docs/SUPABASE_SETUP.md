@@ -1,6 +1,6 @@
 # Supabase setup (step by step)
 
-Project ref: `hnaldfvommthfgoryitt`
+Project ref: `hathjgtvmgyxahqfhjka`
 
 ## 1. Local env
 
@@ -10,8 +10,8 @@ cp .env.example .env.local
 
 Set in `.env.local`:
 
-- `VITE_SUPABASE_URL=https://hnaldfvommthfgoryitt.supabase.co`
-- `VITE_SUPABASE_ANON_KEY` — Supabase Dashboard → Settings → API → anon public
+- `VITE_SUPABASE_URL=https://hathjgtvmgyxahqfhjka.supabase.co`
+- `VITE_SUPABASE_ANON_KEY` — publishable key or legacy anon JWT (Dashboard → Settings → API)
 
 Restart Vite after changing env.
 
@@ -19,7 +19,7 @@ Restart Vite after changing env.
 
 ```bash
 supabase login
-supabase link --project-ref hnaldfvommthfgoryitt
+supabase link --project-ref hathjgtvmgyxahqfhjka
 supabase migration list    # compare local vs remote
 supabase db push           # apply pending SQL
 ```

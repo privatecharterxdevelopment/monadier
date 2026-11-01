@@ -2,7 +2,7 @@
 
 **Site URL (canonical):** `https://www.hypergain.io`
 
-## Production (project `hnaldfvommthfgoryitt`)
+## Production (project `hathjgtvmgyxahqfhjka`)
 
 **Site URL:** `https://www.hypergain.io`
 
@@ -41,7 +41,7 @@ http://localhost:5173
 3. **Authorized redirect URI** (Supabase only — do not add hypergain paths here):
 
 ```
-https://hnaldfvommthfgoryitt.supabase.co/auth/v1/callback
+https://hathjgtvmgyxahqfhjka.supabase.co/auth/v1/callback
 ```
 
 4. Paste Client ID + Secret → Supabase → Authentication → Providers → Google → Enable

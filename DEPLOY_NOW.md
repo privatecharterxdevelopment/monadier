@@ -8,7 +8,7 @@ Code is ready. You must finish **Vercel env**, **Supabase Auth URLs**, and **Goo
 
 | Name | Value |
 |------|--------|
-| `VITE_SUPABASE_URL` | `https://hnaldfvommthfgoryitt.supabase.co` |
+| `VITE_SUPABASE_URL` | `https://hathjgtvmgyxahqfhjka.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` `public` |
 | `VITE_SITE_URL` | `https://www.hypergain.io` |
 | `VITE_APP_URL` | `https://app.hypergain.io` |
@@ -46,7 +46,7 @@ Full guide: [docs/SUPABASE_AUTH_URLS.md](docs/SUPABASE_AUTH_URLS.md)
 ## YOU — Google login
 
 1. [Google Cloud](https://console.cloud.google.com/) → Credentials → OAuth Web client  
-2. **Redirect URI:** `https://hnaldfvommthfgoryitt.supabase.co/auth/v1/callback`  
+2. **Redirect URI:** `https://hathjgtvmgyxahqfhjka.supabase.co/auth/v1/callback`  
 3. **JS origins:** `https://hypergain.io`, `https://www.hypergain.io`, `https://app.hypergain.io`, `http://localhost:5173`  
 4. Paste Client ID + Secret → Supabase → Authentication → Google → **Enable**
 

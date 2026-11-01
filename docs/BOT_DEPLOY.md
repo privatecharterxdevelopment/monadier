@@ -29,7 +29,7 @@ See **`docs/RAILWAY.md`** for project/service IDs, root directory `bot-service`,
 | Variable | Wert |
 |----------|------|
 | `BOT_PRIVATE_KEY` | Hot-Wallet des Vault-Bots (geheim) |
-| `SUPABASE_URL` | `https://hnaldfvommthfgoryitt.supabase.co` |
+| `SUPABASE_URL` | `https://hathjgtvmgyxahqfhjka.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | Service Role (geheim) |
 | `TREASURY_ADDRESS` | Treasury-Wallet |
 | `ARBITRUM_VAULT_ADDRESS` | `0x7dE97f35887b2623dCad2ebA68197f58F7607854` |

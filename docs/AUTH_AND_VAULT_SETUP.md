@@ -16,7 +16,7 @@ This is **custodial pooled vault** (like a small exchange), not MetaMask self-cu
 
 ### Step 1 — Supabase Dashboard
 
-Project: `hnaldfvommthfgoryitt` (HyperGain)
+Project: `hathjgtvmgyxahqfhjka` (HyperGain)
 
 1. **Authentication → Providers → Google** → Enable ON
 2. Copy **Client ID** and **Client Secret** from Google (step 2)
@@ -53,13 +53,13 @@ http://localhost:5173
 4. **Authorized redirect URIs** (Supabase callback, not your app):
 
 ```
-https://hnaldfvommthfgoryitt.supabase.co/auth/v1/callback
+https://hathjgtvmgyxahqfhjka.supabase.co/auth/v1/callback
 ```
 
 ### Step 3 — Vercel env
 
 ```env
-VITE_SUPABASE_URL=https://hnaldfvommthfgoryitt.supabase.co
+VITE_SUPABASE_URL=https://hathjgtvmgyxahqfhjka.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key from Supabase → Settings → API>
 VITE_SITE_URL=https://hypergain.io
 VITE_APP_URL=https://app.hypergain.io
