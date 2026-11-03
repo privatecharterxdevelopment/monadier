@@ -6,7 +6,7 @@ const ADMIN_EMAILS = ['ipsunlorem@gmail.com', 'lorenzo.vanza@hotmail.com'];
 const BOT_API = (
   process.env.BOT_API_URL ||
   process.env.VITE_BOT_API_URL ||
-  'https://monadier-production.up.railway.app'
+  'https://hypergain-bot-production.up.railway.app'
 ).replace(/\/$/, '');
 
 function json(res, status, body) {
