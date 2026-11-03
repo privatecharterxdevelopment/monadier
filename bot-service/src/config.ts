@@ -181,20 +181,18 @@ export const config = {
       ]),
     ],
     /**
-     * Bot scan/open universe — liquid majors only. Memes (KAITO/VVV/DOGE/FARTCOIN/…)
-     * never enter. `*` / `ALL` are ignored.
-     * Override: HL_BOT_TRADE_COINS="BTC,ETH,SOL,BNB,XRP,HYPE"
+     * Bot scan/open universe. Empty / `*` / `ALL` = every listed HL perp
+     * except hard-delist (21 Aug: full book). Restrict with
+     * HL_BOT_TRADE_COINS="BTC,ETH,SOL".
      */
     botTradeCoins: (() => {
-      const parsed = (
-        process.env.HL_BOT_TRADE_COINS || 'BTC,ETH,SOL,BNB,XRP,HYPE'
-      )
+      const raw = (process.env.HL_BOT_TRADE_COINS ?? '').trim();
+      if (!raw || raw === '*' || raw.toUpperCase() === 'ALL') return [];
+      const parsed = raw
         .split(',')
         .map((s) => s.trim().toUpperCase())
         .filter((s) => s && s !== '*' && s !== 'ALL');
-      return parsed.length > 0
-        ? [...new Set(parsed)]
-        : ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE'];
+      return [...new Set(parsed)];
     })(),
     /**
      * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
@@ -217,7 +215,7 @@ export const config = {
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -740,7 +738,7 @@ export const config = {
       get enabled() {
         return process.env.HL_LLM_GATE_ENABLED !== 'false';
       },
-      mode: (process.env.HL_LLM_GATE_MODE === 'shadow' ? 'shadow' : 'enforce') as
+      mode: (process.env.HL_LLM_GATE_MODE === 'enforce' ? 'enforce' : 'shadow') as
         | 'shadow'
         | 'enforce',
       provider: (process.env.HL_LLM_PROVIDER || 'openai').toLowerCase(),

@@ -1978,6 +1978,16 @@ async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
 
+  const { setRuntimeLetRunAll } = await import('./services/hlRuntimePolicy');
+  const letRunReset = await setRuntimeLetRunAll(false, 'aug21-restore');
+  if (!letRunReset.ok) {
+    logger.warn('Could not clear let_run_all (21 Aug trail mode)', {
+      error: letRunReset.error,
+    });
+  } else {
+    logger.info('Runtime let_run_all=false (21 Aug — profit trail can close)');
+  }
+
   // Seed BTC (or forced) direction profile before the first trade cycle.
   const bootProfile = await refreshLiveDirectionProfile();
   logger.info('Direction profile ready', {

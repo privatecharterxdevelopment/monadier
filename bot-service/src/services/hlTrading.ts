@@ -1324,11 +1324,14 @@ export class HyperliquidTradingService {
         },
         peakAnalysis
       );
-      const visualSide = llmConfirm.chosenDirection;
-      if (!llmConfirm.ok || llmConfirm.decision === 'BLOCK' || !visualSide) {
+      const visualSide = llmConfirm.shadow ? opts.direction : llmConfirm.chosenDirection;
+      if (
+        !llmConfirm.shadow &&
+        (!llmConfirm.ok || llmConfirm.decision === 'BLOCK' || !visualSide)
+      ) {
         return rejectOpen('llm_confirm', llmConfirm.reason, 'OpenAI visual side');
       }
-      if (visualSide !== opts.direction) {
+      if (visualSide && visualSide !== opts.direction) {
         logger.info('OpenAI visual flipped side', {
           user: opts.userAddress.slice(0, 10),
           coin,
@@ -1480,13 +1483,19 @@ export class HyperliquidTradingService {
               confidence: llmConfirm.confidence,
               reason: llmConfirm.reason,
             },
-            finalDecision: !llmConfirm.ok || !llmConfirm.chosenDirection ? 'NO_OPEN' : 'OPEN',
+            finalDecision:
+              !llmConfirm.shadow && (!llmConfirm.ok || !llmConfirm.chosenDirection)
+                ? 'NO_OPEN'
+                : 'OPEN',
             extraBlockedBy:
-              !llmConfirm.ok || !llmConfirm.chosenDirection
+              !llmConfirm.shadow && (!llmConfirm.ok || !llmConfirm.chosenDirection)
                 ? [llmConfirm.failureReason ? 'VISION_FAILURE' : 'VISION_BLOCK']
                 : [],
           });
-          if (!llmConfirm.ok || !llmConfirm.chosenDirection) {
+          if (
+            !llmConfirm.shadow &&
+            (!llmConfirm.ok || !llmConfirm.chosenDirection)
+          ) {
             return rejectOpen('llm_confirm', llmConfirm.reason, 'force OpenAI visual');
           }
           safetyMarkPass(safety, 'vision', opts.direction);
@@ -2122,7 +2131,8 @@ export class HyperliquidTradingService {
       const locationGateForOpen = locationGate;
       const pumpSweepGateForOpen = pumpSweepGateLive;
 
-      const visionBlocked = !llmConfirm.ok || !llmConfirm.chosenDirection;
+      const visionBlocked =
+        !llmConfirm.shadow && (!llmConfirm.ok || !llmConfirm.chosenDirection);
       logEntryLocationRecord({
         record: locationQuality,
         vision: {

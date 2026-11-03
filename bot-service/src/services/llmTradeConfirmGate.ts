@@ -245,6 +245,35 @@ function applyHardApexRules(
   return { result: parsed, hardRuleApplied: false };
 }
 
+function shadowPass(
+  input: LlmTradeConfirmInput,
+  reason: string,
+  extra: Partial<LlmTradeConfirmResult> = {}
+): LlmTradeConfirmResult {
+  const cfg = config.hyperliquid.llmTradeConfirm;
+  return {
+    ok: true,
+    verdict: 'allow',
+    decision: 'ALLOW',
+    direction: input.direction,
+    chosenDirection: input.direction,
+    enforce: false,
+    shadow: true,
+    confidence: input.confidence,
+    reason,
+    latencyMs: extra.latencyMs ?? 0,
+    provider: cfg.provider,
+    model: cfg.model,
+    hardRuleApplied: extra.hardRuleApplied ?? false,
+    timedOut: extra.timedOut ?? false,
+    visionTimeframes: extra.visionTimeframes,
+    location: extra.location ?? null,
+    extension: extra.extension ?? null,
+    nearestStructure: extra.nearestStructure ?? null,
+    failureReason: extra.failureReason,
+  };
+}
+
 function timeoutFallback(
   input: LlmTradeConfirmInput,
   latencyMs: number,
@@ -252,6 +281,14 @@ function timeoutFallback(
   why: string
 ): LlmTradeConfirmResult {
   const cfg = config.hyperliquid.llmTradeConfirm;
+  if (cfg.mode === 'shadow') {
+    return shadowPass(input, `${why} — shadow pass (21 Aug)`, {
+      latencyMs,
+      timedOut: true,
+      visionTimeframes,
+      failureReason: why,
+    });
+  }
   return {
     ok: false,
     verdict: 'block',
@@ -501,6 +538,13 @@ export async function confirmTradeWithLlm(
   const visionTfs = visionTimeframesForDirection(enriched.direction);
 
   if (!cfg.enabled) {
+    if (cfg.mode === 'shadow') {
+      return shadowPass(
+        enriched,
+        'LLM/vision gate disabled — shadow pass (21 Aug)',
+        { visionTimeframes: visionTfs, failureReason: 'gate_disabled' }
+      );
+    }
     return {
       ok: false,
       verdict: 'block',
@@ -527,6 +571,15 @@ export async function confirmTradeWithLlm(
   const openai = cfg.provider !== 'gemini';
   const keyOk = openai ? Boolean(process.env.OPENAI_API_KEY) : Boolean(cfg.apiKey);
   if (!keyOk) {
+    if (cfg.mode === 'shadow') {
+      return shadowPass(
+        enriched,
+        openai
+          ? 'OPENAI_API_KEY missing — shadow pass (21 Aug)'
+          : 'LLM/vision key missing — shadow pass (21 Aug)',
+        { visionTimeframes: visionTfs, failureReason: 'missing_api_key' }
+      );
+    }
     return {
       ok: false,
       verdict: 'block',
@@ -600,18 +653,19 @@ export async function confirmTradeWithLlm(
 
     const parsed = applyLocationSanity(enriched.direction, parsedRaw);
     const { result, hardRuleApplied } = applyHardApexRules(enriched, parsed);
-    const ok = result.decision === 'ALLOW';
+    const shadow = cfg.mode === 'shadow';
+    const ok = shadow || result.decision === 'ALLOW';
 
     const out: LlmTradeConfirmResult = {
       ok,
-      verdict: result.verdict,
-      decision: result.decision,
+      verdict: shadow ? 'allow' : result.verdict,
+      decision: shadow ? 'ALLOW' : result.decision,
       direction: result.direction,
-      chosenDirection: ok ? result.direction : null,
-      enforce: true,
-      shadow: false,
+      chosenDirection: shadow ? enriched.direction : ok ? result.direction : null,
+      enforce: !shadow,
+      shadow,
       confidence: result.confidence,
-      reason: result.reason,
+      reason: shadow ? `shadow: ${result.reason}` : result.reason,
       latencyMs,
       provider: cfg.provider,
       model: cfg.model,

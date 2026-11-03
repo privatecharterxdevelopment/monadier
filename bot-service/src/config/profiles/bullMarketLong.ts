@@ -7,15 +7,13 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — LONG-primary, SHORT only as strict counter-trend.
- *
- * Goal: dip-buy / continuation LONGs across liquid HL perps; SHORTs when a
- * real dump/breakdown signal prints (never resistance fade, never into green BTC).
+ * BULL MARKET — 21 Aug 2026 winning book: LONG-only, 52% / 2 TFs.
+ * SHORTs stay off (12 Aug SHORT-continuation printed FIL bottoms).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-primary bull: dip/continuation LONGs; SHORTs when dump/breakdown signals print.',
+    'LONG-only bull (21 Aug): dip/continuation LONGs across liquid HL perps. No new SHORTs.',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -31,11 +29,11 @@ export const BULL_MARKET: HlDirectionProfile = {
   useScalpAlignment: false,
   useAggressiveScalpSignals: false,
   enableHtfSr: true,
-  /** LLM/Gemini vision before every bot open (cannot starve-disable in bull). */
+  /** Vision logs in shadow; never fail-closed (Aug 21 traded without vision starve). */
   enableLlmConfirm: true,
   allowLongOpens: true,
-  /** Dump/breakdown SHORTs allowed; LONG stays primary in pickWinner. */
-  allowShortOpens: true,
+  /** 21 Aug ROOT: bull never opens SHORT. */
+  allowShortOpens: false,
   long: {
     ...PRIMARY_RULES,
     minConfidence: 52,
