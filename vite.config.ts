@@ -42,7 +42,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/bot-service': {
-        target: 'https://monadier-production.up.railway.app',
+        target: 'https://hypergain-bot-production.up.railway.app',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/bot-service/, ''),
       },

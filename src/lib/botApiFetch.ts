@@ -13,7 +13,7 @@ export function getBotApiBase(): string {
   if (fromEnv) return fromEnv;
   return import.meta.env.DEV
     ? 'http://localhost:3001'
-    : 'https://monadier-production.up.railway.app';
+    : 'https://hypergain-bot-production.up.railway.app';
 }
 
 function sleep(ms: number): Promise<void> {
