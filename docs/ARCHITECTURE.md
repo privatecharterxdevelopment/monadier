@@ -113,7 +113,7 @@ Haupt-UI: Chart (Lightweight Charts), Order Panel, Bot-Dock, Portfolio, Sports B
 ### Bot-API vom Browser
 
 Production: Same-Origin **`/bot-service/*`** → Vercel Rewrite → Railway  
-(`vercel.json` → `https://monadier-production.up.railway.app`)
+(`vercel.json` → `https://hypergain-bot-production.up.railway.app`)
 
 Local: Vite-Proxy oder `VITE_BOT_API_URL` Override.
 
@@ -383,7 +383,7 @@ Der Bot öffnet nur, wenn **alle** relevanten Gates passieren. Wichtig für Debu
 | Service | Host | URL (Beispiel) |
 |---------|------|----------------|
 | Frontend | Vercel | `www.hypergain.io`, `app.hypergain.io` |
-| Bot | Railway | `monadier-production.up.railway.app` |
+| Bot | Railway | `hypergain-bot-production.up.railway.app` |
 | DB/Auth | Supabase | `*.supabase.co` |
 
 ### Deploy-Flow

@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
+import { resolveSupabasePublicEnv } from './supabasePublicDefaults';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+function supabaseFunctionsBase(): string {
+  return resolveSupabasePublicEnv().url.replace(/\/$/, '');
+}
 
 // ============================================
 // TYPES
@@ -116,7 +119,7 @@ export async function createForexCheckout(
     const token = await getAuthToken();
     const billingCycle = planType === 'forex-lifetime' ? 'lifetime' : 'monthly';
 
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/forex-checkout`, {
+    const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/forex-checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -162,7 +165,7 @@ export async function checkForexPaymentStatus(sessionId?: string): Promise<Forex
   try {
     const token = await getAuthToken();
 
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/forex-payment-status`, {
+    const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/forex-payment-status`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -299,7 +302,7 @@ export async function validateForexLicense(licenseKey: string): Promise<LicenseV
  */
 export async function validateLicenseServerSide(licenseKey: string): Promise<LicenseValidationResult> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-forex-license`, {
+    const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/validate-forex-license`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

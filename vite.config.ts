@@ -1,5 +1,6 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { scrubStalePublicEnv } from './src/lib/publicEnvSanitize';
 
 const GA_ID_RE = /^G-[A-Z0-9]+$/i;
 
@@ -28,24 +29,30 @@ function googleAnalyticsHtml(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), googleAnalyticsHtml()],
-  // Accept misnamed Next.js-style env vars on Vercel (NEXT_PUBLIC_*),
-  // in addition to the Vite-native VITE_* prefix.
-  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
-  optimizeDeps: {
-    exclude: ['lucide-react'],
-  },
-  server: {
-    port: 5173,
-    strictPort: true,
-    host: true,
-    proxy: {
-      '/bot-service': {
-        target: 'https://hypergain-bot-production.up.railway.app',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/bot-service/, ''),
+export default defineConfig(({ mode }) => {
+  const loaded = loadEnv(mode, process.cwd(), '');
+  Object.assign(process.env, loaded);
+  scrubStalePublicEnv(process.env);
+
+  return {
+    plugins: [react(), googleAnalyticsHtml()],
+    // Accept misnamed Next.js-style env vars on Vercel (NEXT_PUBLIC_*),
+    // in addition to the Vite-native VITE_* prefix.
+    envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
+    optimizeDeps: {
+      exclude: ['lucide-react'],
+    },
+    server: {
+      port: 5173,
+      strictPort: true,
+      host: true,
+      proxy: {
+        '/bot-service': {
+          target: 'https://hypergain-bot-production.up.railway.app',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/bot-service/, ''),
+        },
       },
     },
-  },
+  };
 });

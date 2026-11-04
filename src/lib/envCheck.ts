@@ -1,3 +1,5 @@
+import { isPlaceholder, isRetiredSupabaseValue } from './publicEnvSanitize';
+
 export type EnvIssue = {
   title: string;
   steps: string[];
@@ -9,15 +11,9 @@ export type EnvIssue = {
  * Falls back to baked-in public defaults — so production should not brick.
  */
 export function getEnvSetupIssue(): EnvIssue | null {
-  // Public defaults keep the app bootable; only surface a soft hint in DEV
-  // when neither VITE_ nor NEXT_PUBLIC_ is set.
   const env = import.meta.env as Record<string, string | undefined>;
-  const hasAny =
-    Boolean(env.VITE_SUPABASE_ANON_KEY && !env.VITE_SUPABASE_ANON_KEY.includes('your-')) ||
-    Boolean(
-      env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-        !env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes('your-')
-    );
+  const anon = env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const hasAny = Boolean(anon) && !isPlaceholder(anon) && !isRetiredSupabaseValue(anon);
 
   if (hasAny || import.meta.env.PROD) return null;
 

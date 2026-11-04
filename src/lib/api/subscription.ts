@@ -1,7 +1,10 @@
 // Subscription API Client for Supabase Edge Functions
 import { supabase } from '../supabase';
+import { resolveSupabasePublicEnv } from '../supabasePublicDefaults';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+function supabaseFunctionsBase(): string {
+  return resolveSupabasePublicEnv().url.replace(/\/$/, '');
+}
 
 // Types
 export interface CheckoutResponse {
@@ -79,7 +82,7 @@ export async function createCheckoutSession(
 ): Promise<CheckoutResponse> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/stripe-checkout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -106,7 +109,7 @@ export async function createCheckoutSession(
 export async function getSubscription(): Promise<SubscriptionResponse> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-subscription`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/manage-subscription`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -125,7 +128,7 @@ export async function getSubscription(): Promise<SubscriptionResponse> {
 export async function cancelSubscription(): Promise<{ success: boolean; message: string; endDate: string }> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-subscription`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/manage-subscription`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -146,7 +149,7 @@ export async function cancelSubscription(): Promise<{ success: boolean; message:
 export async function resumeSubscription(): Promise<{ success: boolean; message: string }> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-subscription`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/manage-subscription`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -167,7 +170,7 @@ export async function resumeSubscription(): Promise<{ success: boolean; message:
 export async function getCustomerPortalUrl(): Promise<{ url: string }> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-subscription`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/manage-subscription`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -192,7 +195,7 @@ export async function recordTrade(): Promise<{
 }> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-subscription`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/manage-subscription`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -217,7 +220,7 @@ export async function activateLicense(
 ): Promise<LicenseActivationResponse> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/activate-license`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/activate-license`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -274,7 +277,7 @@ export async function verifyTrade(
 ): Promise<VerifyTradeResponse> {
   const token = await getAuthToken();
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-trade`, {
+  const response = await fetch(`${supabaseFunctionsBase()}/functions/v1/verify-trade`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

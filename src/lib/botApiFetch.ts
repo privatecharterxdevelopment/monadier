@@ -1,19 +1,19 @@
+import { LIVE_BOT_API_URL, isRetiredBotApiUrl } from './publicEnvSanitize';
+
 /**
  * Same-origin /bot-service proxy (Vite dev + Vercel prod) → Railway bot.
+ * Ignore deleted Railway hosts even if Vercel still injects them.
  */
 export function getBotApiBase(): string {
+  const raw = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
+  const fromEnv = raw && !isRetiredBotApiUrl(raw) ? raw : '';
+
   if (typeof window !== 'undefined') {
-    if (import.meta.env.DEV) {
-      const local = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
-      if (local) return local;
-    }
+    if (import.meta.env.DEV && fromEnv) return fromEnv;
     return `${window.location.origin}/bot-service`;
   }
-  const fromEnv = import.meta.env.VITE_BOT_API_URL?.replace(/\/$/, '') ?? '';
   if (fromEnv) return fromEnv;
-  return import.meta.env.DEV
-    ? 'http://localhost:3001'
-    : 'https://hypergain-bot-production.up.railway.app';
+  return import.meta.env.DEV ? 'http://localhost:3001' : LIVE_BOT_API_URL;
 }
 
 function sleep(ms: number): Promise<void> {

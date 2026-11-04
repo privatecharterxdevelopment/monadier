@@ -3,10 +3,22 @@
  * Secret stays on the server. No paste, no Railway CLI.
  */
 const ADMIN_EMAILS = ['ipsunlorem@gmail.com', 'lorenzo.vanza@hotmail.com'];
+const LIVE_BOT = 'https://hypergain-bot-production.up.railway.app';
+const LIVE_SUPABASE = 'https://hathjgtvmgyxahqfhjka.supabase.co';
+const LIVE_ANON =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdGhqZ3R2bWd5eGFocWZoamthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NDQ3OTcsImV4cCI6MjEwOTEyMDc5N30.xx4S9U-TpFoGBhmVeZ46B6I6yC_nhZGRwXWLYJOK184';
+
+function isDeadHost(value) {
+  const v = String(value || '').toLowerCase();
+  return !v || v.includes('monadier-production') || v.includes('gbgafseabgqinnvlfslc');
+}
+
 const BOT_API = (
-  process.env.BOT_API_URL ||
-  process.env.VITE_BOT_API_URL ||
-  'https://hypergain-bot-production.up.railway.app'
+  isDeadHost(process.env.BOT_API_URL)
+    ? isDeadHost(process.env.VITE_BOT_API_URL)
+      ? LIVE_BOT
+      : process.env.VITE_BOT_API_URL
+    : process.env.BOT_API_URL
 ).replace(/\/$/, '');
 
 function json(res, status, body) {
@@ -14,11 +26,13 @@ function json(res, status, body) {
 }
 
 async function adminEmailFromBearer(token) {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const anon =
+  const urlRaw = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const url = isDeadHost(urlRaw) ? LIVE_SUPABASE : String(urlRaw).replace(/\/$/, '');
+  const anonRaw =
     process.env.SUPABASE_ANON_KEY ||
     process.env.VITE_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anon = isDeadHost(anonRaw) ? LIVE_ANON : anonRaw;
   if (!url || !anon || !token) return null;
   const r = await fetch(`${url.replace(/\/$/, '')}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${token}`, apikey: anon },

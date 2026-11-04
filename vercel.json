@@ -3,6 +3,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "env": {
+    "VITE_SUPABASE_URL": "https://hathjgtvmgyxahqfhjka.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhdGhqZ3R2bWd5eGFocWZoamthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NDQ3OTcsImV4cCI6MjEwOTEyMDc5N30.xx4S9U-TpFoGBhmVeZ46B6I6yC_nhZGRwXWLYJOK184",
+    "VITE_BOT_API_URL": "https://hypergain-bot-production.up.railway.app"
+  },
   "redirects": [
     {
       "source": "/:path*",
