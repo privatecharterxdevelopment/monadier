@@ -30,10 +30,12 @@ function parseMode(raw: string | undefined): {
   forcedName: string | null;
 } {
   const value = String(raw ?? '').trim().toLowerCase();
-  if (!value || value === 'auto' || value === 'btc' || value === 'dynamic') {
-    return { mode: 'auto', forcedName: null };
+  if (value === 'bull_market' || value === 'bull' || value === 'long') {
+    return { mode: 'forced', forcedName: 'bull_market' };
   }
-  return { mode: 'forced', forcedName: value };
+  // 4 Nov 2026: BTC is in a downtrend (~$77k, $80k failed). Lock SHORT-primary
+  // even when Railway still has HL_DIRECTION_PROFILE=auto.
+  return { mode: 'forced', forcedName: 'bear_market' };
 }
 
 function parseBoolEnv(raw: string | undefined): boolean | null {
@@ -56,9 +58,7 @@ function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionPro
 
 const boot = parseMode(process.env.HL_DIRECTION_PROFILE);
 let liveProfile: HlDirectionProfile = applyOpsDirectionOverrides(
-  boot.mode === 'forced'
-    ? resolveDirectionProfile(boot.forcedName ?? undefined)
-    : BULL_MARKET
+  resolveDirectionProfile(boot.forcedName ?? 'bear_market')
 );
 
 function setLiveProfile(next: HlDirectionProfile): HlDirectionProfile {

@@ -68,13 +68,12 @@ export function preOpenTimeframeForDirection(
 /**
  * One-switch market-regime selector (manual override).
  *
- * Prefer HL_DIRECTION_PROFILE=auto (default) — BTC 4h/1h picks bull vs bear live
- * via liveDirectionProfile.refreshLiveDirectionProfile().
+ * Nov 2026 default is forced bear_market (downtrend). Set bull_market to override.
  *
  * Forced:
  *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts
- *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts
- *   aliases: bear | short | short_friendly → bear
+ *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts (default)
+ *   aliases: bear | short | short_friendly | auto → bear
  *
  * Analysis TFs are always direction-hardcoded (not flipped by the regime switch):
  *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
