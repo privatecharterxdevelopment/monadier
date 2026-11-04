@@ -49,9 +49,14 @@ function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionPro
   const allowShort = parseBoolEnv(process.env.HL_ALLOW_SHORT_OPENS);
   const allowLong = parseBoolEnv(process.env.HL_ALLOW_LONG_OPENS);
   if (allowShort === null && allowLong === null) return profile;
+  // Stale HL_ALLOW_SHORT_OPENS=false from the Aug LONG book must not kill bear.
+  const short =
+    profile.name === 'bear_market' && allowShort === false
+      ? true
+      : (allowShort ?? profile.allowShortOpens);
   return {
     ...profile,
-    allowShortOpens: allowShort ?? profile.allowShortOpens,
+    allowShortOpens: short,
     allowLongOpens: allowLong ?? profile.allowLongOpens,
   };
 }
