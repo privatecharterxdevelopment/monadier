@@ -30,12 +30,16 @@ function parseMode(raw: string | undefined): {
   forcedName: string | null;
 } {
   const value = String(raw ?? '').trim().toLowerCase();
-  if (value === 'bull_market' || value === 'bull' || value === 'long') {
-    return { mode: 'forced', forcedName: 'bull_market' };
+  if (
+    value === 'bear_market' ||
+    value === 'bear' ||
+    value === 'short' ||
+    value === 'short_friendly'
+  ) {
+    return { mode: 'forced', forcedName: 'bear_market' };
   }
-  // 4 Nov 2026: BTC is in a downtrend (~$77k, $80k failed). Lock SHORT-primary
-  // even when Railway still has HL_DIRECTION_PROFILE=auto.
-  return { mode: 'forced', forcedName: 'bear_market' };
+  // LONG-only bull (21 Aug book). Railway auto/empty still locks here.
+  return { mode: 'forced', forcedName: 'bull_market' };
 }
 
 function parseBoolEnv(raw: string | undefined): boolean | null {
@@ -48,22 +52,24 @@ function parseBoolEnv(raw: string | undefined): boolean | null {
 function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionProfile {
   const allowShort = parseBoolEnv(process.env.HL_ALLOW_SHORT_OPENS);
   const allowLong = parseBoolEnv(process.env.HL_ALLOW_LONG_OPENS);
+  if (profile.name === 'bull_market') {
+    return {
+      ...profile,
+      allowShortOpens: false,
+      allowLongOpens: allowLong ?? true,
+    };
+  }
   if (allowShort === null && allowLong === null) return profile;
-  // Stale HL_ALLOW_SHORT_OPENS=false from the Aug LONG book must not kill bear.
-  const short =
-    profile.name === 'bear_market' && allowShort === false
-      ? true
-      : (allowShort ?? profile.allowShortOpens);
   return {
     ...profile,
-    allowShortOpens: short,
+    allowShortOpens: allowShort ?? profile.allowShortOpens,
     allowLongOpens: allowLong ?? profile.allowLongOpens,
   };
 }
 
 const boot = parseMode(process.env.HL_DIRECTION_PROFILE);
 let liveProfile: HlDirectionProfile = applyOpsDirectionOverrides(
-  resolveDirectionProfile(boot.forcedName ?? 'bear_market')
+  resolveDirectionProfile(boot.forcedName ?? 'bull_market')
 );
 
 function setLiveProfile(next: HlDirectionProfile): HlDirectionProfile {

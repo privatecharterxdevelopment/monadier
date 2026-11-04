@@ -68,12 +68,12 @@ export function preOpenTimeframeForDirection(
 /**
  * One-switch market-regime selector (manual override).
  *
- * Nov 2026 default is forced bear_market (downtrend). Set bull_market to override.
+ * Default is forced bull_market (LONG-only). Set bear_market to override.
  *
  * Forced:
- *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts
- *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts (default)
- *   aliases: bear | short | short_friendly | auto → bear
+ *   HL_DIRECTION_PROFILE=bull_market  → profiles/bullMarketLong.ts (default)
+ *   HL_DIRECTION_PROFILE=bear_market  → profiles/bearMarketShort.ts
+ *   aliases: auto / empty / long / bull → bull; bear | short | short_friendly → bear
  *
  * Analysis TFs are always direction-hardcoded (not flipped by the regime switch):
  *   SHORT → 1m/5m/15m/1h · LONG → 15m/1h/(4h)
