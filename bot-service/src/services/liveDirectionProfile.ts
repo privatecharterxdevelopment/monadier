@@ -30,16 +30,11 @@ function parseMode(raw: string | undefined): {
   forcedName: string | null;
 } {
   const value = String(raw ?? '').trim().toLowerCase();
-  if (
-    value === 'bear_market' ||
-    value === 'bear' ||
-    value === 'short' ||
-    value === 'short_friendly'
-  ) {
-    return { mode: 'forced', forcedName: 'bear_market' };
+  if (value === 'bull_market' || value === 'bull' || value === 'long') {
+    return { mode: 'forced', forcedName: 'bull_market' };
   }
-  // LONG-only bull (21 Aug book). Railway auto/empty still locks here.
-  return { mode: 'forced', forcedName: 'bull_market' };
+  // SHORT-primary bear. Railway auto/empty still locks here.
+  return { mode: 'forced', forcedName: 'bear_market' };
 }
 
 function parseBoolEnv(raw: string | undefined): boolean | null {
@@ -52,11 +47,11 @@ function parseBoolEnv(raw: string | undefined): boolean | null {
 function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionProfile {
   const allowShort = parseBoolEnv(process.env.HL_ALLOW_SHORT_OPENS);
   const allowLong = parseBoolEnv(process.env.HL_ALLOW_LONG_OPENS);
-  if (profile.name === 'bull_market') {
+  if (profile.name === 'bear_market') {
     return {
       ...profile,
-      allowShortOpens: false,
-      allowLongOpens: allowLong ?? true,
+      allowShortOpens: true,
+      allowLongOpens: allowLong ?? profile.allowLongOpens,
     };
   }
   if (allowShort === null && allowLong === null) return profile;
@@ -69,7 +64,7 @@ function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionPro
 
 const boot = parseMode(process.env.HL_DIRECTION_PROFILE);
 let liveProfile: HlDirectionProfile = applyOpsDirectionOverrides(
-  resolveDirectionProfile(boot.forcedName ?? 'bull_market')
+  resolveDirectionProfile(boot.forcedName ?? 'bear_market')
 );
 
 function setLiveProfile(next: HlDirectionProfile): HlDirectionProfile {
