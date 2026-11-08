@@ -100,6 +100,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { address, isConnected } = useMonadierWallet();
   const { open: openWallet } = useMonadierAppKit();
   const { wallet: hlActiveWallet, walletMismatch } = useHlActiveWallet();
+  const walletReady = isConnected || Boolean(hlActiveWallet);
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
     if (initialSection === 'bot' || initialSection === 'community') return 'bot';
@@ -849,7 +850,7 @@ const Dashboard2ProPageContent: React.FC = () => {
                 fetchAttempts={perpMarket.fetchAttempts}
               />
               <ProTradeBotAnalysis
-                walletConnected={isConnected}
+                walletConnected={walletReady}
                 perpCoin={perpCoin}
                 scanCoin={botScanCoin}
                 openPositionCoins={botOpenPositionCoins}
@@ -881,7 +882,7 @@ const Dashboard2ProPageContent: React.FC = () => {
         />
       </div>
 
-      <ProTradeBotStatusBar walletConnected={isConnected} wsLive={perpMarket.wsConnected} />
+      <ProTradeBotStatusBar walletConnected={walletReady} wsLive={perpMarket.wsConnected} />
     </div>
   );
 
@@ -902,8 +903,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         onOpenRegister={switchToRegister}
         onViewNotificationHistory={openNotificationHistory}
         onOpenBuyUsdc={() => setBuyUsdcOpen(true)}
-        walletAddress={address ?? hlActiveWallet ?? undefined}
-        walletConnected={isConnected || Boolean(hlActiveWallet)}
+        walletAddress={hlActiveWallet ?? address ?? undefined}
+        walletConnected={walletReady}
       />
 
       {section === 'perps' || section === 'bot' ? (

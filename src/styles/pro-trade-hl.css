@@ -13022,9 +13022,18 @@ html[dir='rtl'] .hl-book {
     font-size: 10px;
   }
 
-  .hl-terminal--bot .hl-bot-analyzer-subline,
+  .hl-terminal--bot .hl-bot-analyzer-subline:not(.hl-bot-analyzer-subline--block),
   .hl-terminal--bot .hl-bot-analyzer-pill--tf-cycle {
     display: none;
+  }
+
+  .hl-terminal--bot .hl-bot-analyzer-subline--block {
+    display: block;
+    margin-top: 6px;
+    padding-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--hl-text);
   }
 
   .hl-bot-analysis .hl-bot-analyzer-bar {

@@ -50,7 +50,7 @@ export function useTerminalBotSettings(refreshKey = 0) {
       return;
     }
     let cancelled = false;
-    void fetchUserWalletAddresses(monadierAddress, false).then((list) => {
+    void fetchUserWalletAddresses(monadierAddress, false, user?.id).then((list) => {
       if (!cancelled) setLinkedWallets(list);
     });
     return () => {

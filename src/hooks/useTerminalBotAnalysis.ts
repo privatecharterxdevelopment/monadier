@@ -26,6 +26,11 @@ import {
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerStatusCopy, isMarginEntryBlocked } from '../lib/botAnalyzerActive';
+import {
+  formatOpenBlockReason,
+  pickFreshOpenBlock,
+  type HlOpenBlockLike,
+} from '../lib/hlOpenBlockDisplay';
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
@@ -136,6 +141,7 @@ export function useTerminalBotAnalysis({
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [serverCanTrade, setServerCanTrade] = useState<boolean | null>(null);
   const [lastOpenErrorText, setLastOpenErrorText] = useState<string | null>(null);
+  const [recentOpenBlocks, setRecentOpenBlocks] = useState<HlOpenBlockLike[]>([]);
   const [step, setStep] = useState(0);
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
@@ -382,6 +388,7 @@ export function useTerminalBotAnalysis({
       setPumpSweepLines([]);
       setServerCanTrade(null);
       setLastOpenErrorText(null);
+      setRecentOpenBlocks([]);
       return;
     }
     let cancelled = false;
@@ -420,6 +427,7 @@ export function useTerminalBotAnalysis({
           };
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
+          recentOpenBlocks?: HlOpenBlockLike[];
         };
         if (typeof data.canTrade === 'boolean') {
           setServerCanTrade(data.canTrade);
@@ -522,6 +530,9 @@ export function useTerminalBotAnalysis({
         if (typeof data.globalScan?.rawCandidateCount === 'number') {
           setRawScanCandidateCount(data.globalScan.rawCandidateCount);
         }
+        setRecentOpenBlocks(
+          Array.isArray(data.recentOpenBlocks) ? data.recentOpenBlocks : []
+        );
       } catch {
         ok = false;
       } finally {
@@ -666,5 +677,20 @@ export function useTerminalBotAnalysis({
     currentlyScanningCoin,
     scanRotationCoins,
     pumpSweepLines,
+    entryWaitReason: (() => {
+      const coin =
+        scanCandidate?.coin ?? globalBest?.coin ?? currentlyScanningCoin ?? undefined;
+      const block = pickFreshOpenBlock(recentOpenBlocks, coin);
+      if (block) return formatOpenBlockReason(block);
+      if (lastOpenErrorText) {
+        return formatOpenBlockReason({
+          coin,
+          reason: lastOpenErrorText,
+          gate: 'other',
+          confidence: scanCandidate?.confidence ?? globalBest?.confidence,
+        });
+      }
+      return null;
+    })(),
   };
 }

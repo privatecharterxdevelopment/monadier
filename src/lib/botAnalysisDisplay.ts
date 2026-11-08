@@ -18,6 +18,7 @@ type WhyLineInput = {
   pumpSweepLines?: string[];
   signal?: UnifiedSignal | null;
   scanningCoin?: string;
+  entryWaitReason?: string | null;
 };
 
 function formatTfSummary(signal: UnifiedSignal | null | undefined): string | null {
@@ -36,7 +37,9 @@ export function resolveBotAnalysisWhyLine({
   maxConcurrentPositions,
   signal,
   scanningCoin,
+  entryWaitReason,
 }: WhyLineInput): string | null {
+  if (entryWaitReason?.trim()) return entryWaitReason.trim();
   if (globalBest?.reason?.trim()) {
     const conf = Math.round(globalBest.confidence);
     const slot =

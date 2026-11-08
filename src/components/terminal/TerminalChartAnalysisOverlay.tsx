@@ -37,6 +37,7 @@ type Props = {
   maxConcurrentPositions?: number;
   placement?: 'chart' | 'dock';
   pumpSweepLines?: string[];
+  entryWaitReason?: string | null;
 };
 
 const CYCLE_MS = 2400;
@@ -119,6 +120,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   maxConcurrentPositions = 2,
   placement = 'chart',
   pumpSweepLines,
+  entryWaitReason,
 }) => {
   const [cycleIndex, setCycleIndex] = useState(0);
   const [slidePhase, setSlidePhase] = useState<'in' | 'out'>('in');
@@ -127,8 +129,14 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   const action = signal?.direction ?? dbAnalysis?.signal ?? 'HOLD';
   const conf = Math.round(signal?.confidence ?? dbAnalysis?.confidence ?? 0);
   const hasTfConflict = Boolean(signal?.warnings?.some((w) => /conflict/i.test(w)));
-  const signalClass =
-    action === 'LONG' ? 'term-pnl-pos' : action === 'SHORT' ? 'term-pnl-neg' : '';
+  const waitOpen = Boolean(entryWaitReason) && action !== 'HOLD' && conf >= 52;
+  const signalClass = waitOpen
+    ? 'term-hint--warn'
+    : action === 'LONG'
+      ? 'term-pnl-pos'
+      : action === 'SHORT'
+        ? 'term-pnl-neg'
+        : '';
 
   const hasData = Boolean(signal || dbAnalysis);
   const activeLabel = activeSymbol ? pairLabel(activeSymbol) : null;
@@ -233,6 +241,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
         pumpSweepLines,
         signal,
         scanningCoin: activeSymbol,
+        entryWaitReason,
       }),
     [
       globalBest,
@@ -243,6 +252,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
       pumpSweepLines,
       signal,
       activeSymbol,
+      entryWaitReason,
     ]
   );
 
@@ -268,9 +278,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             </div>
             {hasData || !isLoading ? (
               <div className="hl-bot-analyzer-pill">
-                <span className="hl-bot-analyzer-pill__label">Signal</span>
+                <span className="hl-bot-analyzer-pill__label">{waitOpen ? 'Wait' : 'Signal'}</span>
                 <span className={`hl-bot-analyzer-pill__value ${signalClass}`}>
-                  {action} {conf}%
+                  {waitOpen ? `${action} ${conf}% · blocked` : `${action} ${conf}%`}
                   {hasTfConflict ? (
                     <span className="hl-bot-analyzer-pill__meta term-hint--warn"> mixed</span>
                   ) : null}
@@ -310,7 +320,13 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             <p className="hl-bot-analyzer-wait">{waitLine}</p>
           ) : null}
           {whyLine ? (
-            <p className="hl-bot-analyzer-subline term-analysis-subline--why">{whyLine}</p>
+            <p
+              className={`hl-bot-analyzer-subline term-analysis-subline--why${
+                waitOpen ? ' hl-bot-analyzer-subline--block' : ''
+              }`}
+            >
+              {whyLine}
+            </p>
           ) : null}
         </div>
       </div>
