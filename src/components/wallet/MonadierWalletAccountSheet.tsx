@@ -21,8 +21,7 @@ function fmtUsd(n: number) {
 const MonadierWalletAccountSheet: React.FC = () => {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
-  const { address, isConnected, isLiveConnected, liveAddress, signerMismatch } =
-    useMonadierWallet();
+  const { address, isConnected, isLiveConnected } = useMonadierWallet();
   const { open: openWallet } = useMonadierAppKit();
   const accountEmail = user?.email?.trim() || null;
   const metamaskHref = getMetaMaskDappLink();
@@ -78,15 +77,8 @@ const MonadierWalletAccountSheet: React.FC = () => {
         <p className="monadier-wallet-account__addr">{short}</p>
         {!isLiveConnected ? (
           <p className="mobile-wallet-sheet__hint">
-            Same HyperGain login as on your phone. This wallet is linked to this account — MetaMask
-            is only needed to sign (deposit / approve).
-          </p>
-        ) : null}
-        {signerMismatch && liveAddress && address ? (
-          <p className="mobile-wallet-sheet__hint">
-            Bot uses {address.slice(0, 6)}…{address.slice(-4)} (phone). Chrome MetaMask is{' '}
-            {liveAddress.slice(0, 6)}…{liveAddress.slice(-4)}. Switch MetaMask to the phone wallet
-            to deposit or approve.
+            Same HyperGain login as desktop. This wallet is linked to this account — MetaMask is only
+            needed to sign (deposit / approve).
           </p>
         ) : null}
 

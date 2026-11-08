@@ -80,12 +80,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const { publicClient, walletClient } = useWeb3();
   const { isDemoUser, isAuthenticated } = useAuth();
   const { planTier } = useSubscription();
-  const {
-    wallet: hlWallet,
-    walletMismatch,
-    connectedWallet,
-    settingsWallet,
-  } = useHlActiveWallet(walletAddress);
+  const { wallet: hlWallet } = useHlActiveWallet(walletAddress);
   const { settings: botSettingsSnapshot, reload: reloadBotSettings } =
     useTerminalBotSettings();
   const botEff = effectiveHlBotSettings(botSettingsSnapshot);
@@ -240,13 +235,6 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       {closeNotice ? (
         <p className="hl-dock-notice" role="status">
           {closeNotice}
-        </p>
-      ) : null}
-      {walletMismatch ? (
-        <p className="hl-dock-notice hl-dock-notice--warn" role="alert">
-          Chrome MetaMask is {connectedWallet?.slice(0, 10)}… — bot wallet is{' '}
-          {settingsWallet?.slice(0, 10)}… (same as phone). Switch MetaMask to that wallet to
-          deposit or approve. The bot still uses the phone wallet.
         </p>
       ) : null}
       <ProTradeDock

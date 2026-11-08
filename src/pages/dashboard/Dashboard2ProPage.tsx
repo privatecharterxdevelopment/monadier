@@ -99,7 +99,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { user, sessionReady } = useAuth();
   const { address, isConnected } = useMonadierWallet();
   const { open: openWallet } = useMonadierAppKit();
-  const { wallet: hlActiveWallet, walletMismatch } = useHlActiveWallet();
+  const { wallet: hlActiveWallet } = useHlActiveWallet();
   const walletReady = isConnected || Boolean(hlActiveWallet);
   const initialSection = searchParams.get('section');
   const [section, setSection] = useState<ProTradeSection>(() => {
