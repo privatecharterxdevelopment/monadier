@@ -25,7 +25,10 @@ export function humanizeSignInError(error: unknown, fallback: string): string {
   if (lower.includes('too many requests') || lower.includes('rate limit')) {
     return 'Too many attempts. Wait a minute and try again.';
   }
-  if (lower.includes('user banned') || lower.includes('disabled')) {
+  if (lower.includes('provider is not enabled') || lower.includes('unsupported provider')) {
+    return 'Google sign-in is not enabled yet. Use email and password.';
+  }
+  if (lower.includes('user banned')) {
     return 'This account is disabled. Contact administration@hypergain.io.';
   }
 
@@ -51,6 +54,9 @@ export function humanizeSignUpError(error: unknown, fallback: string): string {
   }
   if (lower.includes('signup is disabled') || lower.includes('signups not allowed')) {
     return 'Registration is temporarily unavailable. Try again later or contact support.';
+  }
+  if (lower.includes('provider is not enabled') || lower.includes('unsupported provider')) {
+    return 'Google sign-up is not enabled yet. Create an account with email and password.';
   }
 
   return raw || fallback;

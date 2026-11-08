@@ -82,7 +82,8 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 
   if (error) {
     console.error('[isUsernameAvailable]', error);
-    throw new Error(error.message || 'Could not check username');
+    // Do not block signup if the RPC blips — unique username is enforced on insert.
+    return true;
   }
 
   return Boolean(data);

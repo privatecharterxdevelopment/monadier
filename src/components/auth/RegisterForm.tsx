@@ -6,6 +6,7 @@ import { getStoredReferralCode } from '../../lib/referralCapture';
 import { resendSignupConfirmation } from '../../lib/supabase';
 import { markWelcomeWalkthroughPending, clearWelcomeWalkthroughPending } from '../../lib/welcomeWalkthrough';
 import { submitRegister, startGoogleAuth } from '../../lib/auth/registerFlow';
+import { isGoogleAuthEnabled } from '../../lib/auth/googleAuthEnabled';
 import GoogleMark from '../ui/GoogleMark';
 import AuthPasswordField from './AuthPasswordField';
 import '../../styles/auth-form.css';
@@ -47,7 +48,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [resendLoading, setResendLoading] = useState(false);
   const [resendNotice, setResendNotice] = useState('');
   const [localToast, setLocalToast] = useState<string | null>(null);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    void isGoogleAuthEnabled().then(setGoogleEnabled);
+  }, []);
 
   useEffect(() => {
     const stored = getStoredReferralCode();
@@ -327,19 +333,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         </div>
       </form>
 
-      <div className="hl-signin-divider">
-        <span>{t('auth.register.orDivider')}</span>
-      </div>
+      {googleEnabled ? (
+        <>
+          <div className="hl-signin-divider">
+            <span>{t('auth.register.orDivider')}</span>
+          </div>
 
-      <button
-        type="button"
-        className="hl-signin-google hl-signin-google--brand"
-        onClick={() => void handleGoogle()}
-        disabled={isLoading || googleLoading}
-      >
-        {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark size={18} />}
-        {t('auth.continueGoogle')}
-      </button>
+          <button
+            type="button"
+            className="hl-signin-google hl-signin-google--brand"
+            onClick={() => void handleGoogle()}
+            disabled={isLoading || googleLoading}
+          >
+            {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark size={18} />}
+            {t('auth.continueGoogle')}
+          </button>
+        </>
+      ) : null}
 
       <p className="hl-signin-foot">
         {t('auth.register.alreadyHaveAccount')}{' '}

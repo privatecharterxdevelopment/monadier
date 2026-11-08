@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { submitSignIn, startGoogleSignIn } from '../../lib/auth/signInFlow';
+import { isGoogleAuthEnabled } from '../../lib/auth/googleAuthEnabled';
 import GoogleMark from '../ui/GoogleMark';
 import AuthPasswordField from './AuthPasswordField';
 import { enableDemoMode, isDemoModeAllowed } from '../../lib/demoMode';
@@ -38,6 +39,11 @@ const SignInForm: React.FC<SignInFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    void isGoogleAuthEnabled().then(setGoogleEnabled);
+  }, []);
 
   const messages = {
     signInFailed: t('auth.signInFailed'),
@@ -76,19 +82,23 @@ const SignInForm: React.FC<SignInFormProps> = ({
       {successMessage ? <p className="mb-3 text-sm text-green-700">{successMessage}</p> : null}
       {error ? <p className="hl-signin-error">{error}</p> : null}
 
-      <button
-        type="button"
-        className="hl-signin-google hl-signin-google--brand"
-        onClick={() => void handleGoogle()}
-        disabled={googleLoading || isLoading}
-      >
-        {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark size={18} />}
-        {t('auth.signInModal.continueGoogle')}
-      </button>
+      {googleEnabled ? (
+        <>
+          <button
+            type="button"
+            className="hl-signin-google hl-signin-google--brand"
+            onClick={() => void handleGoogle()}
+            disabled={googleLoading || isLoading}
+          >
+            {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleMark size={18} />}
+            {t('auth.signInModal.continueGoogle')}
+          </button>
 
-      <div className="hl-signin-divider">
-        <span>{t('auth.signInModal.orEmail')}</span>
-      </div>
+          <div className="hl-signin-divider">
+            <span>{t('auth.signInModal.orEmail')}</span>
+          </div>
+        </>
+      ) : null}
 
       <form className="hl-signin-form" onSubmit={(e) => void handleSubmit(e)}>
         <label className="term-profile-label" htmlFor={`${idPrefix}-email`}>
