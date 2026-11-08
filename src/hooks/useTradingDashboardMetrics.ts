@@ -101,9 +101,8 @@ export function useTradingDashboardMetrics() {
     if (isDemoUser) return DEMO_WALLET_ADDRESS.toLowerCase() as `0x${string}`;
     // Fatal: never resolve HL wallet / history without HyperGain login.
     if (!user) return undefined;
-    const connected = monadierAddress?.toLowerCase();
+    if (monadierAddress) return monadierAddress.toLowerCase() as `0x${string}`;
     const resolved = resolveHlTradingWallet({
-      connectedAddress: connected,
       linkedWallets,
     });
     return resolved ? (resolved as `0x${string}`) : undefined;
@@ -184,6 +183,7 @@ export function useTradingDashboardMetrics() {
       }
 
       const primaryWallet = resolveHlTradingWallet({
+        preferredWallet: queryWallet,
         connectedAddress: connectedAddress,
         linkedWallets: walletArray,
       });

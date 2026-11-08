@@ -204,6 +204,21 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
+        const { data: existing } = await supabase
+          .from('user_wallets')
+          .select('wallet_address')
+          .eq('user_id', user.id);
+        const alreadyHasOther = (existing ?? []).some(
+          (row) => row.wallet_address?.toLowerCase() !== address.toLowerCase()
+        );
+        const alreadyThis = (existing ?? []).some(
+          (row) => row.wallet_address?.toLowerCase() === address.toLowerCase()
+        );
+        if (alreadyHasOther && !alreadyThis) {
+          // Desktop MetaMask must not silently attach a second empty wallet.
+          return;
+        }
+
         const { isLinked, error } = await isWalletLinked(user.id, address);
         if (error) {
           devError('Error checking wallet link:', error);

@@ -3,7 +3,8 @@ import { useAppKitAccount } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
 import { DEMO_WALLET_ADDRESS, useAuth } from '../contexts/AuthContext';
 import { isMetaMaskInAppBrowser } from '../lib/mobileWalletConnect';
-import { fetchUserWalletAddresses } from '../lib/userWallets';
+import { fetchPreferredTradingWallet, fetchUserWalletAddresses } from '../lib/userWallets';
+import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import {
   extendWalletSessionOnActivity,
   readWalletSession,
@@ -25,6 +26,8 @@ export function useMonadierWallet() {
   const wagmi = useAccount();
   const [sessionTick, setSessionTick] = useState(0);
   const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
+  const [preferredWallet, setPreferredWallet] = useState<string | undefined>();
+  const [linkedReady, setLinkedReady] = useState(false);
   const [restoreUntil, setRestoreUntil] = useState(0);
 
   const liveConnected = wagmi.isConnected || appKit.isConnected;
@@ -32,24 +35,46 @@ export function useMonadierWallet() {
   const authOk = sessionReady && isAuthenticated;
 
   useEffect(() => {
-    if (!authOk || !liveConnected || !liveAddress) return;
-    touchWalletSession(liveAddress);
-    setSessionTick((n) => n + 1);
-  }, [authOk, liveConnected, liveAddress]);
-
-  useEffect(() => {
     if (!authOk || isDemoUser) {
       setLinkedWallets(isDemoUser ? [DEMO_WALLET_ADDRESS] : []);
+      setPreferredWallet(isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
+      setLinkedReady(true);
       return;
     }
     let cancelled = false;
-    void fetchUserWalletAddresses(liveAddress, false, user?.id).then((list) => {
-      if (!cancelled) setLinkedWallets(list);
-    });
+    void (async () => {
+      const list = await fetchUserWalletAddresses(undefined, false, user?.id);
+      if (cancelled) return;
+      setLinkedWallets(list);
+      const preferred = await fetchPreferredTradingWallet(list, liveAddress);
+      if (cancelled) return;
+      setPreferredWallet(preferred);
+      setLinkedReady(true);
+    })();
     return () => {
       cancelled = true;
     };
   }, [authOk, isDemoUser, liveAddress, user?.id]);
+
+  const tradingAddress = resolveHlTradingWallet({
+    connectedAddress: liveAddress,
+    linkedWallets,
+    preferredWallet,
+  });
+
+  useEffect(() => {
+    if (!authOk || !linkedReady || !tradingAddress) return;
+    const live = liveAddress?.toLowerCase();
+    const trading = tradingAddress.toLowerCase();
+    // Never let a stray Chrome MetaMask overwrite the account trading wallet.
+    if (live && live !== trading && linkedWallets.length > 0) return;
+    if (liveConnected && live) {
+      touchWalletSession(live);
+    } else {
+      writeWalletSession(trading);
+    }
+    setSessionTick((n) => n + 1);
+  }, [authOk, linkedReady, liveConnected, liveAddress, linkedWallets, tradingAddress]);
 
   useEffect(() => {
     const bump = () => {
@@ -72,87 +97,78 @@ export function useMonadierWallet() {
       rememberUiWallet(undefined);
       return;
     }
-    const session = readWalletSession();
-    const linked = linkedWallets[0];
-    if (!liveConnected && linked && !session) {
-      writeWalletSession(linked);
-    }
-    const addr =
-      liveAddress ?? session?.address ?? linked ?? (isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
-    rememberUiWallet(addr);
-  }, [authOk, isDemoUser, linkedWallets, liveAddress, liveConnected]);
+    rememberUiWallet(tradingAddress);
+  }, [authOk, tradingAddress]);
 
   useEffect(() => {
     if (!authOk || liveConnected) {
       setRestoreUntil(0);
       return;
     }
-    if (!readWalletSession()) return;
+    if (!readWalletSession() && linkedWallets.length === 0) return;
     setRestoreUntil(Date.now() + RESTORE_LABEL_MS);
     const t = window.setTimeout(() => setSessionTick((n) => n + 1), RESTORE_LABEL_MS + 50);
     return () => window.clearTimeout(t);
-  }, [authOk, liveConnected]);
+  }, [authOk, liveConnected, linkedWallets.length]);
 
   return useMemo(() => {
     if (!authOk) {
       return {
         address: undefined,
+        liveAddress: undefined as `0x${string}` | undefined,
         isConnected: false,
         isRestoring: false,
         isLiveConnected: false,
+        signerMismatch: false,
         status: 'disconnected' as const,
       };
     }
 
-    const session = readWalletSession();
-    const sessionAddress =
-      session?.address ? (session.address as `0x${string}`) : undefined;
-    const linkedAddress = linkedWallets[0]
-      ? (linkedWallets[0] as `0x${string}`)
-      : undefined;
     const inMetaMaskBrowser = isMetaMaskInAppBrowser();
+    const address = linkedReady
+      ? ((tradingAddress ?? (isDemoUser ? DEMO_WALLET_ADDRESS : undefined)) as
+          | `0x${string}`
+          | undefined)
+      : undefined;
 
-    const address = liveAddress ?? sessionAddress ?? linkedAddress;
-
-    const addressesMatch =
-      !liveAddress ||
-      !sessionAddress ||
-      liveAddress.toLowerCase() === sessionAddress.toLowerCase();
-
-    const isConnected =
-      liveConnected ||
-      (Boolean(sessionAddress) && addressesMatch) ||
-      Boolean(linkedAddress) ||
-      isDemoUser;
+    const isConnected = Boolean(address) || isDemoUser;
+    const signerMismatch = Boolean(
+      liveConnected &&
+        liveAddress &&
+        address &&
+        liveAddress.toLowerCase() !== address.toLowerCase()
+    );
 
     const restoring =
-      !inMetaMaskBrowser &&
-      !liveConnected &&
-      Boolean(sessionAddress) &&
-      restoreUntil > Date.now();
+      (!linkedReady && !inMetaMaskBrowser) ||
+      (!inMetaMaskBrowser &&
+        !liveConnected &&
+        !address &&
+        restoreUntil > Date.now());
 
     return {
       address,
+      liveAddress: liveAddress as `0x${string}` | undefined,
       isConnected,
       isRestoring: restoring,
       isLiveConnected: liveConnected,
-      status: liveConnected
-        ? ('connected' as const)
-        : restoring
-          ? ('reconnecting' as const)
-          : isConnected
-            ? ('connected' as const)
-            : ('disconnected' as const),
+      signerMismatch,
+      status: restoring
+        ? ('reconnecting' as const)
+        : isConnected
+          ? ('connected' as const)
+          : ('disconnected' as const),
     };
   }, [
     authOk,
     appKit.isConnected,
     isDemoUser,
-    linkedWallets,
+    linkedReady,
     liveAddress,
     liveConnected,
     restoreUntil,
     sessionTick,
+    tradingAddress,
     wagmi.isConnected,
     wagmi.isReconnecting,
     wagmi.status,

@@ -232,13 +232,65 @@ export async function fetchUserWalletAddresses(
       .order('created_at', { ascending: true });
     wallets?.forEach((w) => push(w.wallet_address));
 
-    push(connected);
+    // Do not treat an injected browser wallet as this account unless it is
+    // already on the profile / user_wallets. Desktop MetaMask is often empty.
   } catch (err) {
     devError('[userWallets]', err);
-    push(connected);
   }
 
+  if (ordered.length === 0) push(connected);
+
   return ordered;
+}
+
+const BOT_SETTINGS_CHAIN_ID = 42161;
+
+/**
+ * Wallet the bot actually trades: auto-trade row on this account, else the
+ * first linked address. Ignores a random MetaMask that is not the live bot.
+ */
+export async function fetchPreferredTradingWallet(
+  linkedWallets: string[],
+  connectedAddress?: string
+): Promise<string | undefined> {
+  const linked = normalizeWalletAddresses(linkedWallets);
+  const connected = connectedAddress?.trim().toLowerCase();
+  if (linked.length === 0) return connected || undefined;
+
+  try {
+    const { data } = await supabase
+      .from('vault_settings')
+      .select('wallet_address, auto_trade_enabled, updated_at')
+      .in('wallet_address', linked)
+      .eq('chain_id', BOT_SETTINGS_CHAIN_ID);
+
+    const rows = (data ?? []) as Array<{
+      wallet_address?: string | null;
+      auto_trade_enabled?: boolean | null;
+      updated_at?: string | null;
+    }>;
+
+    const newest = (
+      list: typeof rows
+    ): string | undefined => {
+      const sorted = [...list].sort((a, b) => {
+        const ta = a.updated_at ? Date.parse(a.updated_at) : 0;
+        const tb = b.updated_at ? Date.parse(b.updated_at) : 0;
+        return tb - ta;
+      });
+      const w = sorted[0]?.wallet_address?.toLowerCase();
+      return w && linked.includes(w) ? w : undefined;
+    };
+
+    const running = newest(rows.filter((r) => r.auto_trade_enabled));
+    if (running) return running;
+    const anySettings = newest(rows);
+    if (anySettings) return anySettings;
+  } catch (err) {
+    devError('[userWallets] preferred trading wallet', err);
+  }
+
+  return linked[0];
 }
 
 /**

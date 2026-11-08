@@ -63,7 +63,7 @@ const ProTradeDepositModal: React.FC<Props> = ({
   } = useWithdrawFeeGate();
   const platformFees = usePlatformFeeGate();
   const bettingFees = useBettingFeeGate();
-  const { address, isConnected } = useMonadierWallet();
+  const { address, isConnected, liveAddress, signerMismatch } = useMonadierWallet();
   const { publicClient, walletClient } = useWeb3();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -315,6 +315,12 @@ const ProTradeDepositModal: React.FC<Props> = ({
       await handleSwitchNetwork();
       return;
     }
+    if (signerMismatch && liveAddress && address) {
+      setLocalMsg(
+        `Chrome MetaMask is ${liveAddress.slice(0, 6)}…${liveAddress.slice(-4)} — switch it to ${address.slice(0, 6)}…${address.slice(-4)} (the phone bot wallet) before depositing.`
+      );
+      return;
+    }
     if (!walletClient || !walletReady) {
       setLocalMsg('Wallet not ready — unlock your wallet and try again.');
       return;
@@ -549,6 +555,13 @@ const ProTradeDepositModal: React.FC<Props> = ({
             {usdceNum > 0 && usdcNum <= 0 && tab === 'deposit' ? (
               <p className="term-profile-err hl-funds-inline-err">
                 {usdceNum.toFixed(2)} USDC.e — swap to native USDC first.
+              </p>
+            ) : null}
+
+            {tab === 'deposit' && signerMismatch && liveAddress && address ? (
+              <p className="term-profile-err hl-funds-inline-err" role="alert">
+                Switch Chrome MetaMask to {address.slice(0, 6)}…{address.slice(-4)} (phone bot
+                wallet). Right now MetaMask is {liveAddress.slice(0, 6)}…{liveAddress.slice(-4)}.
               </p>
             ) : null}
 

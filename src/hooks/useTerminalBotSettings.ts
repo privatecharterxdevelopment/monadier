@@ -61,9 +61,9 @@ export function useTerminalBotSettings(refreshKey = 0) {
   const wallet = useMemo(() => {
     if (isDemoUser) return DEMO_WALLET_ADDRESS as `0x${string}`;
     if (!user) return undefined;
+    if (monadierAddress) return monadierAddress as `0x${string}`;
     const resolved = resolveHlTradingWallet({
-      connectedAddress: monadierAddress,
-      linkedWallets: linkedWallets,
+      linkedWallets,
     });
     return resolved ? (resolved as `0x${string}`) : undefined;
   }, [isDemoUser, user, monadierAddress, linkedWallets]);

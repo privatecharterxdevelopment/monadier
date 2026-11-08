@@ -244,8 +244,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       ) : null}
       {walletMismatch ? (
         <p className="hl-dock-notice hl-dock-notice--warn" role="alert">
-          Wallet mismatch — connected {connectedWallet?.slice(0, 10)}… but bot settings use{' '}
-          {settingsWallet?.slice(0, 10)}…. Reconnect the wallet you funded on Hyperliquid.
+          Chrome MetaMask is {connectedWallet?.slice(0, 10)}… — bot wallet is{' '}
+          {settingsWallet?.slice(0, 10)}… (same as phone). Switch MetaMask to that wallet to
+          deposit or approve. The bot still uses the phone wallet.
         </p>
       ) : null}
       <ProTradeDock

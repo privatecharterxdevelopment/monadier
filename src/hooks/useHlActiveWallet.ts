@@ -6,7 +6,7 @@ import { useTerminalBotSettings } from './useTerminalBotSettings';
 /** One HL wallet for balances, fills, bot settings, and agent closes. */
 export function useHlActiveWallet(propWallet?: string | null) {
   const { isAuthenticated, sessionReady } = useAuth();
-  const { address, isConnected } = useMonadierWallet();
+  const { address, isConnected, liveAddress, signerMismatch } = useMonadierWallet();
   const { wallet: settingsWallet } = useTerminalBotSettings();
 
   return useMemo(() => {
@@ -27,17 +27,27 @@ export function useHlActiveWallet(propWallet?: string | null) {
     const wallet = prop ?? connected ?? settings;
 
     const walletMismatch =
+      signerMismatch ||
       Boolean(connected && settings && connected !== settings) ||
       Boolean(prop && settings && prop !== settings);
 
     return {
       wallet: wallet as `0x${string}` | undefined,
-      connectedWallet: connected as `0x${string}` | undefined,
+      connectedWallet: (liveAddress ?? connected) as `0x${string}` | undefined,
       settingsWallet: settings as `0x${string}` | undefined,
       isConnected,
       walletMismatch,
     };
-  }, [sessionReady, isAuthenticated, address, isConnected, propWallet, settingsWallet]);
+  }, [
+    sessionReady,
+    isAuthenticated,
+    address,
+    liveAddress,
+    isConnected,
+    signerMismatch,
+    propWallet,
+    settingsWallet,
+  ]);
 }
 
 export function fmtHlWalletShort(wallet: string): string {

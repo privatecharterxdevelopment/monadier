@@ -61,6 +61,7 @@ import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
+import { fmtHlWalletShort } from '../../hooks/useHlActiveWallet';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { hlWalletExplorerUrl } from '../../lib/hyperliquid/hlApp';
 import {
@@ -111,7 +112,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { t } = useTranslation();
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
-  const { address: monadierAddress } = useMonadierWallet();
+  const { address: monadierAddress, liveAddress, signerMismatch } = useMonadierWallet();
   const { transferUsdClass } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
@@ -134,7 +135,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const accountSignedIn = isDemoUser || isAuthenticated;
   // Login first — never load HL balances / history without HyperGain account.
   const hlBalanceWallet = accountSignedIn
-    ? monadierAddress ?? botWallet ?? undefined
+    ? botWallet ?? monadierAddress ?? undefined
     : undefined;
   const hlSetup = useHlBotSetup(hlBalanceWallet);
   const builderConfig = getHlBuilderConfig();
@@ -736,6 +737,13 @@ const TerminalTradePanel: React.FC<Props> = ({
                   </strong>
                   {sidebarStatus.detail && !isBotScanNoiseDetail(sidebarStatus.detail) ? (
                     <p className="hl-bot-status-detail">{sidebarStatus.detail}</p>
+                  ) : null}
+                  {signerMismatch && liveAddress && hlBalanceWallet ? (
+                    <p className="hl-bot-status-detail" role="status">
+                      Bot wallet is {fmtHlWalletShort(hlBalanceWallet)} (same as phone). Chrome
+                      MetaMask is {fmtHlWalletShort(liveAddress)} — switch MetaMask to the phone
+                      wallet only if you need to deposit or approve.
+                    </p>
                   ) : null}
                 </div>
               </>

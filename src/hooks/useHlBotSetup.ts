@@ -51,6 +51,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
   const [agentExpiresAt, setAgentExpiresAt] = useState<string | null>(null);
   const [hlLoaded, setHlLoaded] = useState(false);
   const [agentLoaded, setAgentLoaded] = useState(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const [builderPlatformReady, setBuilderPlatformReady] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -217,7 +218,28 @@ export function useHlBotSetup(walletAddress: string | undefined) {
     builderFeeApprovedStickyRef.current = false;
     setHlLoaded(false);
     setAgentLoaded(false);
+    setLoadTimedOut(false);
   }, [walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress || hlLoaded) return undefined;
+    const id = window.setTimeout(() => {
+      setLoadTimedOut(true);
+      setHlLoaded(true);
+      setAgentLoaded(true);
+      setPhase(
+        computePhase(
+          tradableUsdRef.current,
+          metaRef.current.agentApproved,
+          metaRef.current.builderFeeEnabled,
+          metaRef.current.builderPlatformReady,
+          metaRef.current.builderFeeApproved,
+          true
+        )
+      );
+    }, 8_000);
+    return () => window.clearTimeout(id);
+  }, [walletAddress, hlLoaded]);
 
   useEffect(() => {
     if (!walletAddress) return undefined;
@@ -234,7 +256,7 @@ export function useHlBotSetup(walletAddress: string | undefined) {
 
   return {
     phase,
-    loading: Boolean(walletAddress) && !hlSnap,
+    loading: Boolean(walletAddress) && !hlSnap && !loadTimedOut,
     setupSettled,
     error,
     accountUsd,
