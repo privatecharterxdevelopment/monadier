@@ -72,8 +72,8 @@ let btcLeadInFlight: Promise<MacroMomentum> | null = null;
 
 export type BtcTapePhase = 'inflow' | 'post_peak' | 'quiet';
 
-let lastBtcPhase: BtcTapePhase = 'inflow';
-let lastBtcPhaseReason = 'BTC tape pending — no SHORT until classified';
+let lastBtcPhase: BtcTapePhase = 'quiet';
+let lastBtcPhaseReason = 'BTC tape not classified yet';
 
 export function emptyMacroMomentum(): MacroMomentum {
   return {
@@ -179,8 +179,8 @@ async function fetchMomentum(symbol: string): Promise<MacroMomentum> {
   ]);
   if (c15m.length < 6) {
     if (symbol === 'BTCUSDT') {
-      lastBtcPhase = 'inflow';
-      lastBtcPhaseReason = 'BTC tape unavailable — no SHORT until classified';
+      lastBtcPhase = 'quiet';
+      lastBtcPhaseReason = 'BTC tape unavailable — SHORT scan still runs';
     }
     return emptyMacroMomentum();
   }
@@ -217,10 +217,10 @@ function isLargeGreenPush(c: Candle | undefined, prior: Candle[], bodyMin: numbe
 }
 
 function classifyBtcTape(c15m: Candle[], c1h: Candle[], c5m: Candle[]): { phase: BtcTapePhase; reason: string } {
-  const bodyMin15 = 0.2;
-  const bodyMin1h = 0.35;
-  const bodyMin5 = 0.12;
-  const volMin = 1.15;
+  const bodyMin15 = 0.7;
+  const bodyMin1h = 0.9;
+  const bodyMin5 = 0.35;
+  const volMin = 1.25;
 
   let largeGreenClosed = 0;
   for (let i = c15m.length - 2; i >= 0 && largeGreenClosed < 6; i -= 1) {
@@ -365,17 +365,14 @@ export function btcLeadIsPumping(): boolean {
   return lastBtcPhase === 'inflow';
 }
 
-/** Live BTC still green — any meaningful green 5m/15m/1h. R-shorts are banned. */
+/** Live BTC still pushing — a 0.05% bounce is not a pump. */
 export function btcTapeIsGreen(): boolean {
   if (lastBtcPhase === 'inflow') return true;
   const m = btcLeadMom;
-  if (!m) return true;
+  if (!m) return false;
   return (
-    m.live1hBarPct >= 0.08 ||
-    m.live5mBarPct >= 0.05 ||
-    m.closed15mBarPct >= 0.08 ||
-    m.change15mPct >= 0.08 ||
-    (m.consecutiveGreen15m >= 2 && m.live1hBarPct >= 0)
+    m.live1hBarPct >= 0.45 &&
+    (m.change15mPct >= 0.2 || m.consecutiveGreen15m >= 3)
   );
 }
 
@@ -393,13 +390,13 @@ export function btcLeadAllowsCautiousShort(): { ok: boolean; reason: string } {
     return {
       ok: false,
       reason:
-        `BTC still green — no SHORT (live 1h ${(m?.live1hBarPct ?? 0) >= 0 ? '+' : ''}${(m?.live1hBarPct ?? 0).toFixed(2)}%` +
+        `BTC still pushing — no SHORT (live 1h ${(m?.live1hBarPct ?? 0) >= 0 ? '+' : ''}${(m?.live1hBarPct ?? 0).toFixed(2)}%` +
         ` · 15m ${(m?.change15mPct ?? 0) >= 0 ? '+' : ''}${(m?.change15mPct ?? 0).toFixed(2)}%)`,
     };
   }
   const m = btcLeadMom;
   if (!m) {
-    return { ok: false, reason: 'BTC tape pending — no SHORT until classified' };
+    return { ok: true, reason: 'BTC tape pending — SHORT scan allowed' };
   }
   const dumpHits = isDumping(m, 'BTC', true);
   const h1Down =
