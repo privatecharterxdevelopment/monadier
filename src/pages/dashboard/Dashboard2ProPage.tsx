@@ -413,12 +413,16 @@ const Dashboard2ProPageContent: React.FC = () => {
     return () => window.removeEventListener('monadier:require-sign-in', onRequireSignIn);
   }, [promptSignIn]);
 
+  const ignoreAuthBackdropUntilRef = useRef(0);
+
   const switchToRegister = useCallback(() => {
+    ignoreAuthBackdropUntilRef.current = Date.now() + 600;
     setSignInReason(undefined);
-    setAuthModal('signin');
+    setAuthModal('register');
   }, []);
 
   const switchToSignIn = useCallback(() => {
+    ignoreAuthBackdropUntilRef.current = Date.now() + 600;
     setAuthModal('signin');
   }, []);
 
@@ -441,7 +445,11 @@ const Dashboard2ProPageContent: React.FC = () => {
     setSearchParams(params, { replace: true });
 
     if (user) return;
-    if (auth === 'register' || auth === 'signin' || auth === 'login') {
+    if (auth === 'register') {
+      setAuthModal('register');
+      return;
+    }
+    if (auth === 'signin' || auth === 'login') {
       setAuthModal('signin');
     }
   }, [sessionReady, user, searchParams, setSearchParams]);
@@ -1007,7 +1015,11 @@ const Dashboard2ProPageContent: React.FC = () => {
             <div
               className="hl-modal-backdrop hl-modal-backdrop--auth"
               role="presentation"
-              onClick={closeAuthModal}
+              onClick={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (Date.now() < ignoreAuthBackdropUntilRef.current) return;
+                closeAuthModal();
+              }}
             >
               {authModal === 'signin' ? (
                 <ProTradeSignInModal

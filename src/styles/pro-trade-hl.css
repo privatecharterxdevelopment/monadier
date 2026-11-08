@@ -10994,6 +10994,10 @@ html[dir='rtl'] .hl-book {
   font-size: 12px;
   cursor: pointer;
   text-decoration: none;
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  vertical-align: middle;
 }
 
 .hl-signin-link-btn:hover {
