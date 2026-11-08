@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "BOT_PRIVATE_KEY=0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa SUPABASE_URL=https://example.supabase.co SUPABASE_SERVICE_KEY=test ./node_modules/.bin/tsx --test src/services/*.test.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.2",

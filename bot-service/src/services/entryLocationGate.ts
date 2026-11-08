@@ -4,7 +4,8 @@
  * Floor detection: swing-low clusters → support level/zone; nearSupport when
  * price is in the lower half of the S–R box or hugging the S band.
  *
- * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
+ * SHORT: confirmed breakdown through *prior* support, or dump continuation
+ * (still printing lower 15m closes). Unconfirmed support bounces stay blocked.
  * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
  * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
  * At resistance: never SHORT (no R-fade, no LONG→SHORT flip).
@@ -21,6 +22,10 @@ import {
   zoneReversalConfirmed,
   type PriceZone,
 } from './resistanceZone';
+import {
+  confirmedBreakdownThroughPriorSupport,
+  isShortDumpContinuation,
+} from './shortDumpStructure';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -33,6 +38,8 @@ export type SrZoneAnalysis = {
   supportRejections: number;
   confirmedBreakoutUp: boolean;
   confirmedBreakdown: boolean;
+  /** 15m still making lower closes — August SHORT continuation. */
+  dumpContinuation: boolean;
   nearResistance: boolean;
   nearSupport: boolean;
   resistanceZone?: PriceZone | null;
@@ -154,12 +161,6 @@ function confirmedBreakoutUp(candles: Candle[], level: number, buffer: number, b
   return recent.every((c) => c.close > level * (1 + buffer));
 }
 
-function confirmedBreakdown(candles: Candle[], level: number, buffer: number, bars: number): boolean {
-  const recent = candles.slice(-bars);
-  if (recent.length < bars) return false;
-  return recent.every((c) => c.close < level * (1 - buffer));
-}
-
 export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candle[]): SrZoneAnalysis {
   const cfg = config.hyperliquid.entryLocation;
   const price = candlesPrimary[candlesPrimary.length - 1]?.close ?? 0;
@@ -248,12 +249,16 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
-    confirmedBreakdown: confirmedBreakdown(
-      candlesPrimary,
-      support,
-      cfg.breakoutBufferPct,
-      cfg.breakoutConfirmBars
-    ),
+    confirmedBreakdown:
+      confirmedBreakdownThroughPriorSupport(candlesPrimary, {
+        bufferPct: cfg.breakoutBufferPct,
+        confirmBars: cfg.breakoutConfirmBars,
+      }) ||
+      confirmedBreakdownThroughPriorSupport(candlesSecondary, {
+        bufferPct: cfg.breakoutBufferPct,
+        confirmBars: cfg.breakoutConfirmBars,
+      }),
+    dumpContinuation: isShortDumpContinuation({ candles15m: candlesSecondary }),
     nearResistance,
     nearSupport,
     resistanceZone,
@@ -317,12 +322,19 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through the floor is the only valid way to short the lows.
+  // Breakdown through *prior* support, or dump still printing lower closes.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
       analysis,
-      reason: `Breakdown below support ${fmtLevel(analysis.support)} confirmed`,
+      reason: `Breakdown below prior support ${fmtLevel(analysis.support)} confirmed`,
+    };
+  }
+  if (analysis.dumpContinuation) {
+    return {
+      ok: true,
+      analysis,
+      reason: `SHORT dump continuation — 15m still making lower closes`,
     };
   }
 
@@ -387,6 +399,7 @@ export async function validateEntryLocation(opts: {
         supportRejections: 0,
         confirmedBreakoutUp: false,
         confirmedBreakdown: false,
+        dumpContinuation: false,
         nearResistance: false,
         nearSupport: false,
         resistanceZone: null,
@@ -396,8 +409,16 @@ export async function validateEntryLocation(opts: {
   }
 
   const sr = analyzeSrZones(candles1h, candles15);
+  sr.dumpContinuation = isShortDumpContinuation({
+    candles15m: candles15,
+    candles5m: candles5,
+  });
+  const shortDumpOk =
+    opts.direction === 'SHORT' && (sr.confirmedBreakdown || sr.dumpContinuation);
 
   // In-house zone bands: no blind opens inside resistance/support — require reversal first.
+  // Dump continuation / prior-support breakdown is the August SHORT path — do not
+  // treat the sliding floor as a bounce zone.
   const zoneGate = evaluateZoneReversalGate(
     opts.direction,
     sr.price,
@@ -410,7 +431,7 @@ export async function validateEntryLocation(opts: {
       lookbackBars: 4,
     }
   );
-  if (!zoneGate.ok) {
+  if (!zoneGate.ok && !shortDumpOk) {
     return {
       ok: false,
       reason: zoneGate.reason,
@@ -471,6 +492,7 @@ export async function validateEntryLocation(opts: {
     !classic.ok &&
     sr.nearSupport &&
     !sr.confirmedBreakdown &&
+    !sr.dumpContinuation &&
     sr.supportZone != null &&
     zoneReversalConfirmed(revCandles, sr.supportZone, 4)
   ) {

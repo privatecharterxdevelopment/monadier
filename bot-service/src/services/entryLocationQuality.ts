@@ -16,6 +16,7 @@ import {
   isBearishLongUpperWick,
   isBullishLongLowerWick,
 } from './candleWickGate';
+import { isShortDumpContinuation } from './shortDumpStructure';
 
 export type LocationDecision = 'ALLOW' | 'BLOCK';
 
@@ -206,7 +207,11 @@ export function scoreEntryLocationQuality(opts: {
   const notes: string[] = [];
 
   const longBreakoutOk = side === 'LONG' && sr.confirmedBreakoutUp;
-  const shortBreakdownOk = side === 'SHORT' && sr.confirmedBreakdown;
+  const shortContinuation =
+    sr.dumpContinuation === true ||
+    isShortDumpContinuation({ candles15m, candles5m });
+  const shortBreakdownOk =
+    side === 'SHORT' && (sr.confirmedBreakdown || shortContinuation);
 
   if (side === 'LONG' && !longBreakoutOk) {
     const extendedUp =
@@ -313,7 +318,11 @@ export function scoreEntryLocationQuality(opts: {
       ? `${side} blocked — ${notes.join('; ') || blockedBy.join(',')}`
       : `${side} location OK — 1h ${(rangePosition1h * 100).toFixed(0)}% / 4h ${(rangePosition4h * 100).toFixed(0)}%` +
         (longBreakoutOk ? ' (confirmed breakout hold)' : '') +
-        (shortBreakdownOk ? ' (confirmed breakdown hold)' : '');
+        (shortBreakdownOk
+          ? shortContinuation
+            ? ' (dump continuation)'
+            : ' (confirmed breakdown hold)'
+          : '');
 
   return {
     coin,
