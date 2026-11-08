@@ -537,35 +537,12 @@ export async function confirmTradeWithLlm(
   };
   const visionTfs = visionTimeframesForDirection(enriched.direction);
 
-  if (!cfg.enabled) {
-    if (cfg.mode === 'shadow') {
-      return shadowPass(
-        enriched,
-        'LLM/vision gate disabled — shadow pass (21 Aug)',
-        { visionTimeframes: visionTfs, failureReason: 'gate_disabled' }
-      );
-    }
-    return {
-      ok: false,
-      verdict: 'block',
-      decision: 'BLOCK',
-      direction: enriched.direction,
-      chosenDirection: null,
-      enforce: true,
-      shadow: false,
-      confidence: 0,
-      reason: 'LLM/vision gate disabled — fail-closed (no open without chart review)',
-      latencyMs: 0,
-      provider: cfg.provider,
-      model: cfg.model,
-      hardRuleApplied: false,
-      timedOut: false,
-      visionTimeframes: visionTfs,
-      location: null,
-      extension: null,
-      nearestStructure: null,
-      failureReason: 'gate_disabled',
-    };
+  if (!cfg.enabled || !config.hyperliquid.directionProfile.enableLlmConfirm) {
+    return shadowPass(
+      enriched,
+      'LLM/vision gate off for this profile — June SHORT path (no chart veto)',
+      { visionTimeframes: visionTfs, failureReason: 'gate_disabled' }
+    );
   }
 
   const openai = cfg.provider !== 'gemini';

@@ -1384,12 +1384,20 @@ export class HyperliquidTradingService {
       const safety = createOpenSafetyCard(originalSide);
       safetyMarkPass(safety, 'vision', opts.direction);
 
+      const trustedEarly = trustsDirectionProfile(opts.pick);
       let locationQuality = await evaluateEntryLocationQuality({
         coin,
         direction: opts.direction,
         markPx,
       });
-      if (locationQuality.deterministicLocationDecision === 'BLOCK') {
+      const skipLocQuality =
+        opts.direction === 'SHORT' &&
+        trustedEarly &&
+        directionProfile.short.bypassEntryLocationWhenTrusted;
+      if (
+        locationQuality.deterministicLocationDecision === 'BLOCK' &&
+        !skipLocQuality
+      ) {
         logEntryLocationRecord({
           record: locationQuality,
           finalDecision: 'NO_OPEN',
@@ -1717,14 +1725,12 @@ export class HyperliquidTradingService {
       // SHORT never skips macro beta — shorting into BTC/ETH/coin pumps is the "up market, open shorts" bug.
       const macroGate =
         visualPickedSide ||
-        (opts.direction === 'LONG' &&
-          trustedDirection &&
-          directionRules.bypassMacroBetaWhenTrusted)
+        (trustedDirection && directionRules.bypassMacroBetaWhenTrusted)
           ? {
               ok: true as const,
               reason: visualPickedSide
                 ? 'OpenAI visual side — skip macro beta veto'
-                : `${directionProfile.name}: trusted MTF LONG skips duplicate macro re-check`,
+                : `${directionProfile.name}: trusted MTF ${opts.direction} skips duplicate macro re-check`,
               snapshot: {
                 coin,
                 anchor: MAJOR_COINS.has(coin) ? ('SELF' as const) : ('BTC' as const),
@@ -1806,21 +1812,53 @@ export class HyperliquidTradingService {
         return rejectOpen('perp_context', perpCtxGate.reason, 'perp context (funding/24h/range)');
       }
 
-      const pumpSweepGate = await validatePumpSweepGate({
-        coin,
-        direction: opts.direction,
-      });
+      const pumpSweepGate =
+        opts.direction === 'SHORT' &&
+        trustedEarly &&
+        directionRules.bypassEntryLocationWhenTrusted
+          ? {
+              ok: true as const,
+              reason: `${directionProfile.name}: trusted SHORT — pump-sweep wait off`,
+              analysis: null,
+            }
+          : await validatePumpSweepGate({
+              coin,
+              direction: opts.direction,
+            });
       if (!pumpSweepGate.ok) {
         return rejectOpen('pump_sweep', pumpSweepGate.reason, 'pump apex / sweep gate', {
           phase: pumpSweepGate.analysis?.phase,
         });
       }
 
-      let locationGate: EntryLocationResult = await validateEntryLocation({
-        symbol,
-        coin,
-        direction: opts.direction,
-      });
+      let locationGate: EntryLocationResult =
+        opts.direction === 'SHORT' &&
+        trustedEarly &&
+        directionProfile.short.bypassEntryLocationWhenTrusted
+          ? {
+              ok: true,
+              reason: `${directionProfile.name}: trusted SHORT — location gate off`,
+              analysis: {
+                support: 0,
+                resistance: 0,
+                price: markPx,
+                pricePosition: 0.5,
+                resistanceTouches: 0,
+                resistanceRejections: 0,
+                supportTouches: 0,
+                supportRejections: 0,
+                confirmedBreakoutUp: false,
+                confirmedBreakdown: true,
+                dumpContinuation: true,
+                nearResistance: false,
+                nearSupport: false,
+              },
+            }
+          : await validateEntryLocation({
+              symbol,
+              coin,
+              direction: opts.direction,
+            });
       if (!locationGate.ok) {
         logEntryLocationRecord({
           record: locationQuality,
@@ -2105,11 +2143,8 @@ export class HyperliquidTradingService {
       }
       safetyMarkPass(safety, 'htfSr', opts.direction);
 
-      // NEVER skip entry-momentum on SHORT — sell high / no flush-bottom chase.
-      // Regression: 23bd6b8 (2026-08-12) “allow SHORT continuation” + relaxSecondaryGates
-      // skipped this gate and dropped shortMinRange to 0.12 → FIL bottom shorts. Do not repeat.
       const momentumGate =
-        visualPickedSide || (relaxSecondaryGates && opts.direction === 'LONG')
+        visualPickedSide || relaxSecondaryGates
           ? {
               ok: true as const,
               reason: visualPickedSide

@@ -46,7 +46,14 @@ export const BEAR_MARKET: HlDirectionProfile = {
   allowLongOpens: true,
   /** SHORT is primary in bear — opens allowed. */
   allowShortOpens: true,
-  short: { ...PRIMARY_RULES },
+  short: {
+    ...PRIMARY_RULES,
+    minConfidence: 48,
+    minTrendAlignment: 40,
+    bypassMacroBetaWhenTrusted: true,
+    bypassPumpShortWhenTrusted: true,
+    bypassEntryLocationWhenTrusted: true,
+  },
   long: {
     ...COUNTER_TREND_RULES('UP'),
     minConfidence: 80,
