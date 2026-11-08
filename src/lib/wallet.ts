@@ -36,7 +36,8 @@ const metadata = {
 };
 
 /** MetaMask — featured first on mobile WalletConnect list. */
-const METAMASK_WALLET_ID = 'c57ca95c075bbc3f4656fe7880bb88e88080e207664';
+const METAMASK_WALLET_ID =
+  'c57ca95c075bbc24333f305d736d4bf7f9bd3b7f2c97496a5eda1232e9761c03';
 /** Phantom — poor Arbitrum/HL UX; hide from Connect list (WalletConnect Explorer id). */
 const PHANTOM_WALLET_ID = 'a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393';
 

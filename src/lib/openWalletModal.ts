@@ -15,7 +15,7 @@ export type AppKitOpenFn = (options?: { view?: 'Connect' | 'Account' }) => void;
 /** Close app overlays so Reown AppKit is not hidden underneath. */
 export function openMonadierWalletModal(
   open: AppKitOpenFn,
-  options?: { connected?: boolean }
+  options?: { connected?: boolean; forceLiveConnect?: boolean }
 ): void {
   if (typeof window === 'undefined') {
     open({ view: 'Connect' });
@@ -39,7 +39,7 @@ export function openMonadierWalletModal(
         return account.isConnected && Boolean(account.address);
       })());
 
-  if (connected || peekUiWallet()) {
+  if (!options?.forceLiveConnect && (connected || peekUiWallet())) {
     window.dispatchEvent(new CustomEvent('monadier:open-wallet-account'));
     return;
   }

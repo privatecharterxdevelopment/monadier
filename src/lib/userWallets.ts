@@ -196,40 +196,49 @@ export async function linkWalletToUserSafe(
  */
 export async function fetchUserWalletAddresses(
   connectedAddress: string | undefined,
-  isDemoUser: boolean
+  isDemoUser: boolean,
+  knownUserId?: string
 ): Promise<string[]> {
   if (isDemoUser) return [DEMO_WALLET_ADDRESS];
 
-  const found = new Set<string>();
   const connected = connectedAddress?.toLowerCase();
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw?: string | null) => {
+    const w = raw?.trim().toLowerCase();
+    if (!w || seen.has(w)) return;
+    seen.add(w);
+    ordered.push(w);
+  };
 
   try {
-    const userId = await getAuthUserId();
-    if (!userId) return connected ? [connected] : [];
-
-    const { data: wallets } = await supabase
-      .from('user_wallets')
-      .select('wallet_address')
-      .eq('user_id', userId);
-    wallets?.forEach((w) => found.add(w.wallet_address.toLowerCase()));
+    const userId = knownUserId ?? (await getAuthUserId());
+    if (!userId) {
+      push(connected);
+      return ordered;
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('wallet_address')
       .eq('id', userId)
       .maybeSingle();
-    if (profile?.wallet_address?.trim()) {
-      found.add(profile.wallet_address.toLowerCase());
-    }
+    push(profile?.wallet_address);
 
-    if (connected) {
-      found.add(connected);
-    }
+    const { data: wallets } = await supabase
+      .from('user_wallets')
+      .select('wallet_address, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    wallets?.forEach((w) => push(w.wallet_address));
+
+    push(connected);
   } catch (err) {
     devError('[userWallets]', err);
+    push(connected);
   }
 
-  return Array.from(found);
+  return ordered;
 }
 
 /**

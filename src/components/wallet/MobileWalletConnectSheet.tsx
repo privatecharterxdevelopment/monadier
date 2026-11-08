@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { BRAND_NAME } from '../../lib/brand';
 import { getMetaMaskDappLink } from '../../lib/mobileWalletConnect';
+import { useAuth } from '../../contexts/AuthContext';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import {
   detectWalletExtensionConflict,
@@ -20,7 +21,9 @@ type OpenDetail = { appKitOpen?: () => void };
 const MobileWalletConnectSheet: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [appKitOpen, setAppKitOpen] = useState<(() => void) | null>(null);
+  const { user } = useAuth();
   const { isConnected, isLiveConnected, address } = useMonadierWallet();
+  const accountEmail = user?.email?.trim() || null;
   const metamaskHref = getMetaMaskDappLink();
   const walletHint = useMemo(() => {
     return detectWalletExtensionConflict() ?? phantomEvmHint() ?? null;
@@ -70,15 +73,19 @@ const MobileWalletConnectSheet: React.FC = () => {
           </button>
         </div>
         <WalletUsdcArbitrumHint compact />
+        {accountEmail ? (
+          <p className="monadier-wallet-account__email">{accountEmail}</p>
+        ) : null}
         {linkedOnly ? (
           <p className="mobile-wallet-sheet__hint">
-            {short} is already linked to this {BRAND_NAME} account. Login, balances and trades stay in
-            Safari. Reconnect with WalletConnect only when you need to sign (deposit, approve, start bot).
+            {short} is linked to this {BRAND_NAME} login
+            {accountEmail ? ` (${accountEmail})` : ''}. Same account on desktop uses the same wallet.
+            Open MetaMask only to sign (deposit, approve).
           </p>
         ) : (
           <p className="mobile-wallet-sheet__hint">
-            Stay in Safari — tap WalletConnect, then approve in MetaMask, Rainbow, or any wallet app.
-            Opening {BRAND_NAME} inside the MetaMask browser is optional, not required.
+            Sign in with the same email as on desktop, then open MetaMask. Different logins do not
+            share wallets.
           </p>
         )}
         {walletHint ? (
@@ -89,20 +96,20 @@ const MobileWalletConnectSheet: React.FC = () => {
         <p className="mobile-wallet-sheet__foot mobile-wallet-sheet__foot--muted">
           {walletConnectRetryHint()}
         </p>
-        <button
-          type="button"
-          className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary"
-          onClick={openWalletConnect}
-        >
-          WalletConnect
-        </button>
         <a
-          className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--secondary"
+          className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary"
           href={metamaskHref}
           rel="noopener noreferrer"
         >
           Open in MetaMask app
         </a>
+        <button
+          type="button"
+          className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--secondary"
+          onClick={openWalletConnect}
+        >
+          WalletConnect
+        </button>
         <p className="mobile-wallet-sheet__foot">
           Already in the MetaMask in-app browser? Close this and tap Connect again.
         </p>

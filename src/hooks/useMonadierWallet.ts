@@ -9,6 +9,7 @@ import {
   readWalletSession,
   rememberUiWallet,
   touchWalletSession,
+  writeWalletSession,
 } from '../lib/walletSession';
 
 const RESTORE_LABEL_MS = 8_000;
@@ -42,7 +43,7 @@ export function useMonadierWallet() {
       return;
     }
     let cancelled = false;
-    void fetchUserWalletAddresses(liveAddress, false).then((list) => {
+    void fetchUserWalletAddresses(liveAddress, false, user?.id).then((list) => {
       if (!cancelled) setLinkedWallets(list);
     });
     return () => {
@@ -72,10 +73,14 @@ export function useMonadierWallet() {
       return;
     }
     const session = readWalletSession();
+    const linked = linkedWallets[0];
+    if (!liveConnected && linked && !session) {
+      writeWalletSession(linked);
+    }
     const addr =
-      liveAddress ?? session?.address ?? linkedWallets[0] ?? (isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
+      liveAddress ?? session?.address ?? linked ?? (isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
     rememberUiWallet(addr);
-  }, [authOk, isDemoUser, linkedWallets, liveAddress]);
+  }, [authOk, isDemoUser, linkedWallets, liveAddress, liveConnected]);
 
   useEffect(() => {
     if (!authOk || liveConnected) {

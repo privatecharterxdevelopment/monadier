@@ -12,9 +12,12 @@ export function isDesktopBrowser(): boolean {
   return !isMobileBrowser();
 }
 
-/** MetaMask in-app browser exposes injected ethereum. */
+/** MetaMask in-app browser (injected provider or MetaMask iOS/Android UA). */
 export function isMetaMaskInAppBrowser(): boolean {
   if (typeof window === 'undefined') return false;
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  if (/MetaMaskMobile/i.test(ua)) return true;
+  if (!isMobileBrowser()) return false;
   const eth = (window as Window & { ethereum?: { isMetaMask?: boolean } }).ethereum;
   return Boolean(eth?.isMetaMask);
 }

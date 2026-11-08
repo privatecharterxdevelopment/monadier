@@ -1047,6 +1047,15 @@ wui-overlay {
   color: #fff;
 }
 
+.monadier-wallet-account__email {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #171717;
+  text-align: center;
+  word-break: break-all;
+}
+
 .monadier-wallet-account__addr {
   margin: 0 0 16px;
   font-size: 13px;
