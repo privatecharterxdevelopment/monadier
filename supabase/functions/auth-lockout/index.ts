@@ -2,16 +2,8 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 
-const MAX_FAILS = 2;
-const BLOCK_HOURS = 24;
-
-const ADMIN_EMAILS = (
-  Deno.env.get('ADMIN_EMAILS') ||
-  'ipsunlorem@gmail.com,lorenzo.vanza@hotmail.com'
-)
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
+const MAX_FAILS = 25;
+const BLOCK_HOURS = 1;
 
 function clientIp(req: Request): string {
   const cf = req.headers.get('cf-connecting-ip');
@@ -88,10 +80,9 @@ serve(async (req: Request) => {
     return json({ blocked: false, blockedUntil: null });
   }
 
-  // Count toward lockout: admin-email password fails, or secret-path probes
+  // Only secret-path probes count. Password fails must never lock login.
   const email = (body.email || '').trim().toLowerCase();
-  const counts =
-    action === 'probe' || (action === 'fail' && email && ADMIN_EMAILS.includes(email));
+  const counts = action === 'probe';
 
   if (!counts) {
     return json({ blocked: false, counted: false });
