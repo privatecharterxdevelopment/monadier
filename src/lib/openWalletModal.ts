@@ -2,6 +2,7 @@ import { getAccount } from '@wagmi/core';
 import { isMetaMaskInAppBrowser, shouldUseMobileWalletSheet } from './mobileWalletConnect';
 import { config } from './wallet';
 import { markWalletConnectAttempt } from './walletReconnect';
+import { peekUiWallet } from './walletSession';
 import { detectWalletExtensionConflict, walletConnectRetryHint } from './walletTroubleshoot';
 import {
   emitRequireSignIn,
@@ -38,7 +39,7 @@ export function openMonadierWalletModal(
         return account.isConnected && Boolean(account.address);
       })());
 
-  if (connected) {
+  if (connected || peekUiWallet()) {
     window.dispatchEvent(new CustomEvent('monadier:open-wallet-account'));
     return;
   }

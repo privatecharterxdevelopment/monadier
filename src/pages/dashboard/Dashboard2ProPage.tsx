@@ -902,8 +902,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         onOpenRegister={switchToRegister}
         onViewNotificationHistory={openNotificationHistory}
         onOpenBuyUsdc={() => setBuyUsdcOpen(true)}
-        walletAddress={address ?? undefined}
-        walletConnected={isConnected}
+        walletAddress={address ?? hlActiveWallet ?? undefined}
+        walletConnected={isConnected || Boolean(hlActiveWallet)}
       />
 
       {section === 'perps' || section === 'bot' ? (

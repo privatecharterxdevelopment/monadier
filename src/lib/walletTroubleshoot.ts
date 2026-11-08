@@ -26,5 +26,5 @@ export function phantomEvmHint(): string | null {
 }
 
 export function walletConnectRetryHint(): string {
-  return 'MetaMask “Try again later” usually means too many connect attempts or WalletConnect relay busy. Wait 1–2 minutes, refresh, then Connect once. On mobile, use “Open in MetaMask app”.';
+  return 'MetaMask “Try again later” usually means too many connect attempts or WalletConnect relay busy. Wait 1–2 minutes, refresh, then Connect once. On mobile Safari, use WalletConnect — MetaMask in-app is optional.';
 }

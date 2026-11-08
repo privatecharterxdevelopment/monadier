@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowDownLeft, LogOut, X } from 'lucide-react';
 import { useDisconnect } from 'wagmi';
+import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useArbitrumWalletUsdc } from '../../hooks/useArbitrumWalletUsdc';
 import { useBettingUi } from '../../contexts/BettingUiContext';
@@ -14,7 +15,8 @@ function fmtUsd(n: number) {
 /** Connected wallet panel — USDC on Arbitrum (not AppKit ETH account view). */
 const MonadierWalletAccountSheet: React.FC = () => {
   const [open, setOpen] = useState(false);
-  const { address, isConnected } = useMonadierWallet();
+  const { address, isConnected, isLiveConnected } = useMonadierWallet();
+  const { open: openWallet } = useMonadierAppKit();
   const { usdcBalance, usdcLoading } = useArbitrumWalletUsdc(isConnected ? address : undefined);
   const { openFunds } = useBettingUi();
   const { disconnect } = useDisconnect();
@@ -74,19 +76,34 @@ const MonadierWalletAccountSheet: React.FC = () => {
 
         <WalletUsdcArbitrumHint compact />
 
-        <button type="button" className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary" onClick={onDeposit}>
-          <ArrowDownLeft size={16} aria-hidden />
-          Deposit to Hyperliquid
-        </button>
+        {!isLiveConnected ? (
+          <button
+            type="button"
+            className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary"
+            onClick={() => {
+              close();
+              openWallet({ view: 'Connect' });
+            }}
+          >
+            Reconnect to sign
+          </button>
+        ) : (
+          <button type="button" className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--primary" onClick={onDeposit}>
+            <ArrowDownLeft size={16} aria-hidden />
+            Deposit to Hyperliquid
+          </button>
+        )}
 
-        <button
-          type="button"
-          className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--secondary monadier-wallet-account__disconnect"
-          onClick={onDisconnect}
-        >
-          <LogOut size={16} aria-hidden />
-          Disconnect
-        </button>
+        {isLiveConnected ? (
+          <button
+            type="button"
+            className="mobile-wallet-sheet__btn mobile-wallet-sheet__btn--secondary monadier-wallet-account__disconnect"
+            onClick={onDisconnect}
+          >
+            <LogOut size={16} aria-hidden />
+            Disconnect
+          </button>
+        ) : null}
       </div>
     </div>
   );

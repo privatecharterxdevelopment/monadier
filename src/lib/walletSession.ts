@@ -138,3 +138,14 @@ export function clearWalletSession(): void {
 export function isWalletSessionActive(): boolean {
   return readWalletSession() != null;
 }
+
+/** Last wallet shown in UI (live, session, or DB-linked). Used so Safari can open the account sheet without a live connector. */
+let uiWalletAddress: string | undefined;
+
+export function rememberUiWallet(address?: string): void {
+  uiWalletAddress = address?.toLowerCase() || undefined;
+}
+
+export function peekUiWallet(): string | undefined {
+  return uiWalletAddress;
+}

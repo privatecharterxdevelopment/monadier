@@ -1,24 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppKitAccount } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
-import { useAuth } from '../contexts/AuthContext';
+import { DEMO_WALLET_ADDRESS, useAuth } from '../contexts/AuthContext';
 import { isMetaMaskInAppBrowser } from '../lib/mobileWalletConnect';
+import { fetchUserWalletAddresses } from '../lib/userWallets';
 import {
   extendWalletSessionOnActivity,
   readWalletSession,
+  rememberUiWallet,
   touchWalletSession,
 } from '../lib/walletSession';
 
+const RESTORE_LABEL_MS = 8_000;
+
 /**
- * Unified wallet connection — AppKit + wagmi + 24h local session.
- * HyperGain login required — no address / history / balances without auth.
- * Reconnect is handled by WalletSessionBridge (silent reconnect only).
+ * Unified wallet connection — AppKit + wagmi + 24h local session + linked DB wallet.
+ * HyperGain login required. Live connector is only needed to sign (deposit / approve).
+ * Safari can show balances and trades from the wallet already linked to the account.
  */
 export function useMonadierWallet() {
-  const { isAuthenticated, sessionReady } = useAuth();
+  const { isAuthenticated, sessionReady, isDemoUser, user } = useAuth();
   const appKit = useAppKitAccount();
   const wagmi = useAccount();
   const [sessionTick, setSessionTick] = useState(0);
+  const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
+  const [restoreUntil, setRestoreUntil] = useState(0);
 
   const liveConnected = wagmi.isConnected || appKit.isConnected;
   const liveAddress = wagmi.address ?? appKit.address ?? undefined;
@@ -29,6 +35,20 @@ export function useMonadierWallet() {
     touchWalletSession(liveAddress);
     setSessionTick((n) => n + 1);
   }, [authOk, liveConnected, liveAddress]);
+
+  useEffect(() => {
+    if (!authOk || isDemoUser) {
+      setLinkedWallets(isDemoUser ? [DEMO_WALLET_ADDRESS] : []);
+      return;
+    }
+    let cancelled = false;
+    void fetchUserWalletAddresses(liveAddress, false).then((list) => {
+      if (!cancelled) setLinkedWallets(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authOk, isDemoUser, liveAddress, user?.id]);
 
   useEffect(() => {
     const bump = () => {
@@ -46,8 +66,29 @@ export function useMonadierWallet() {
     };
   }, [authOk]);
 
+  useEffect(() => {
+    if (!authOk) {
+      rememberUiWallet(undefined);
+      return;
+    }
+    const session = readWalletSession();
+    const addr =
+      liveAddress ?? session?.address ?? linkedWallets[0] ?? (isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
+    rememberUiWallet(addr);
+  }, [authOk, isDemoUser, linkedWallets, liveAddress]);
+
+  useEffect(() => {
+    if (!authOk || liveConnected) {
+      setRestoreUntil(0);
+      return;
+    }
+    if (!readWalletSession()) return;
+    setRestoreUntil(Date.now() + RESTORE_LABEL_MS);
+    const t = window.setTimeout(() => setSessionTick((n) => n + 1), RESTORE_LABEL_MS + 50);
+    return () => window.clearTimeout(t);
+  }, [authOk, liveConnected]);
+
   return useMemo(() => {
-    // Not logged in → treat as fully disconnected (no HL history / balances leak).
     if (!authOk) {
       return {
         address: undefined,
@@ -59,17 +100,14 @@ export function useMonadierWallet() {
     }
 
     const session = readWalletSession();
-    const sessionActive = session != null;
+    const sessionAddress =
+      session?.address ? (session.address as `0x${string}`) : undefined;
+    const linkedAddress = linkedWallets[0]
+      ? (linkedWallets[0] as `0x${string}`)
+      : undefined;
     const inMetaMaskBrowser = isMetaMaskInAppBrowser();
 
-    const restoring = !inMetaMaskBrowser && sessionActive && !liveConnected;
-
-    const sessionAddress =
-      sessionActive && session?.address
-        ? (session.address as `0x${string}`)
-        : undefined;
-
-    const address = liveAddress ?? sessionAddress;
+    const address = liveAddress ?? sessionAddress ?? linkedAddress;
 
     const addressesMatch =
       !liveAddress ||
@@ -77,7 +115,16 @@ export function useMonadierWallet() {
       liveAddress.toLowerCase() === sessionAddress.toLowerCase();
 
     const isConnected =
-      liveConnected || (sessionActive && Boolean(address) && addressesMatch);
+      liveConnected ||
+      (Boolean(sessionAddress) && addressesMatch) ||
+      Boolean(linkedAddress) ||
+      isDemoUser;
+
+    const restoring =
+      !inMetaMaskBrowser &&
+      !liveConnected &&
+      Boolean(sessionAddress) &&
+      restoreUntil > Date.now();
 
     return {
       address,
@@ -88,13 +135,18 @@ export function useMonadierWallet() {
         ? ('connected' as const)
         : restoring
           ? ('reconnecting' as const)
-          : ('disconnected' as const),
+          : isConnected
+            ? ('connected' as const)
+            : ('disconnected' as const),
     };
   }, [
     authOk,
     appKit.isConnected,
+    isDemoUser,
+    linkedWallets,
     liveAddress,
     liveConnected,
+    restoreUntil,
     sessionTick,
     wagmi.isConnected,
     wagmi.isReconnecting,

@@ -3,6 +3,7 @@ import { useAppKit } from '@reown/appkit/react';
 import { getAccount } from '@wagmi/core';
 import { openMonadierWalletModal, type AppKitOpenFn } from '../lib/openWalletModal';
 import { config } from '../lib/wallet';
+import { peekUiWallet } from '../lib/walletSession';
 import {
   emitRequireSignIn,
   isWalletAuthAllowed,
@@ -19,12 +20,15 @@ export function wrapMonadierAppKitOpen(rawOpen: AppKitOpenFn): AppKitOpenFn {
     }
 
     if (options?.view === 'Connect') {
-      openMonadierWalletModal(rawOpen, { connected: false });
+      const live = getAccount(config);
+      openMonadierWalletModal(rawOpen, {
+        connected: Boolean(live.isConnected && live.address),
+      });
       return;
     }
 
     const account = getAccount(config);
-    if (account.isConnected && account.address) {
+    if ((account.isConnected && account.address) || peekUiWallet()) {
       window.dispatchEvent(new CustomEvent('monadier:close-overlays'));
       window.dispatchEvent(new CustomEvent('monadier:open-wallet-account'));
       return;
