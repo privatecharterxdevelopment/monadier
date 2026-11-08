@@ -64,6 +64,7 @@ import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { validateCandleWickGate } from './candleWickGate';
 import { validateLongDumpTapeGate } from './longDumpTapeGate';
+import { detectMonsterDumpBounceSchema } from './monsterDumpBounce';
 import { classifyCoinTier, isMajorFillCoin, MAJOR_COINS, needsCautionPath, volumeRankForCoin } from './coinTier';
 import { validateCoinNews, type CoinNewsResult } from './coinNewsGate';
 import type { NewsTradeMode } from './newsTradeMode';
@@ -1298,6 +1299,8 @@ export class HyperliquidTradingService {
       }
 
       const symbol = hlCoinToBinanceSymbol(coin);
+      const dumpBounce = await detectMonsterDumpBounceSchema(coin);
+      const bounceLongSchema = dumpBounce.phase === 'bounce_long';
       let htfSrGate: HtfSrResult | null = null;
       const directionProfile = config.hyperliquid.directionProfile;
       const peakAnalysis = await fetchPumpSweepAnalysis(coin);
@@ -1394,7 +1397,8 @@ export class HyperliquidTradingService {
       const skipLocQuality =
         opts.direction === 'SHORT' &&
         trustedEarly &&
-        directionProfile.short.bypassEntryLocationWhenTrusted;
+        directionProfile.short.bypassEntryLocationWhenTrusted &&
+        !bounceLongSchema;
       if (
         locationQuality.deterministicLocationDecision === 'BLOCK' &&
         !skipLocQuality
@@ -1783,8 +1787,9 @@ export class HyperliquidTradingService {
       }
       safetyMarkPass(safety, 'wick', opts.direction);
 
-      // Dump tape — never LONG into red 15m/1h (user: last candles red → SHORT only).
-      if (opts.direction === 'LONG') {
+      // Dump tape — never LONG into red 15m/1h. Monster-dump bounce is the exception
+      // (the dump *is* the setup; the reclaim candle is the long).
+      if (opts.direction === 'LONG' && !bounceLongSchema) {
         const dumpTape = await validateLongDumpTapeGate({ coin });
         if (!dumpTape.ok) {
           return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG into red dump');
@@ -1816,7 +1821,8 @@ export class HyperliquidTradingService {
       const pumpSweepGate =
         opts.direction === 'SHORT' &&
         trustedEarly &&
-        directionRules.bypassEntryLocationWhenTrusted
+        directionRules.bypassEntryLocationWhenTrusted &&
+        !bounceLongSchema
           ? {
               ok: true as const,
               reason: `${directionProfile.name}: trusted SHORT — pump-sweep wait off`,
@@ -1833,33 +1839,54 @@ export class HyperliquidTradingService {
       }
 
       let locationGate: EntryLocationResult =
-        opts.direction === 'SHORT' &&
-        trustedEarly &&
-        directionProfile.short.bypassEntryLocationWhenTrusted
+        bounceLongSchema && opts.direction === 'SHORT'
           ? {
               ok: true,
-              reason: `${directionProfile.name}: trusted SHORT — location gate off`,
+              reason: dumpBounce.reason,
               analysis: {
                 support: 0,
                 resistance: 0,
                 price: markPx,
-                pricePosition: 0.5,
+                pricePosition: 0.2,
                 resistanceTouches: 0,
                 resistanceRejections: 0,
                 supportTouches: 0,
                 supportRejections: 0,
                 confirmedBreakoutUp: false,
-                confirmedBreakdown: true,
-                dumpContinuation: true,
+                confirmedBreakdown: false,
+                dumpContinuation: false,
                 nearResistance: false,
-                nearSupport: false,
+                nearSupport: true,
               },
+              flipTo: 'LONG',
             }
-          : await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
+          : opts.direction === 'SHORT' &&
+              trustedEarly &&
+              directionProfile.short.bypassEntryLocationWhenTrusted
+            ? {
+                ok: true,
+                reason: `${directionProfile.name}: trusted SHORT — location gate off`,
+                analysis: {
+                  support: 0,
+                  resistance: 0,
+                  price: markPx,
+                  pricePosition: 0.5,
+                  resistanceTouches: 0,
+                  resistanceRejections: 0,
+                  supportTouches: 0,
+                  supportRejections: 0,
+                  confirmedBreakoutUp: false,
+                  confirmedBreakdown: true,
+                  dumpContinuation: true,
+                  nearResistance: false,
+                  nearSupport: false,
+                },
+              }
+            : await validateEntryLocation({
+                symbol,
+                coin,
+                direction: opts.direction,
+              });
       if (!locationGate.ok) {
         logEntryLocationRecord({
           record: locationQuality,
@@ -1887,7 +1914,10 @@ export class HyperliquidTradingService {
         const floorReverseLong =
           flipped === 'LONG' &&
           zoneFlipFrom === 'SHORT' &&
-          /support-zone bounce|floor reverse|flip SHORT→LONG/i.test(locationGate.reason);
+          (bounceLongSchema ||
+            /support-zone bounce|floor reverse|flip SHORT→LONG|monster .*dump/i.test(
+              locationGate.reason
+            ));
 
         // Floor reverse LONG: any coin (not majors-only). Dump tape always required.
         // Non-floor SHORT→LONG on SHORT-only alts: keep SHORT (no random mid-range LONGs).
@@ -1926,10 +1956,13 @@ export class HyperliquidTradingService {
               'LONG majors only'
             );
           }
-          // Always dump-tape (coin + BTC) — no knife into red dump.
-          const dumpTape = await validateLongDumpTapeGate({ coin });
-          if (!dumpTape.ok) {
-            return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
+          // Always dump-tape (coin + BTC) — except monster-dump bounce, where
+          // the red tape is the setup and the reclaim is the long.
+          if (!bounceLongSchema) {
+            const dumpTape = await validateLongDumpTapeGate({ coin });
+            if (!dumpTape.ok) {
+              return rejectOpen('long_dump_tape', dumpTape.reason, 'no LONG flip into red dump');
+            }
           }
         }
         if (flipped === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
