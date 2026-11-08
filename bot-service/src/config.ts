@@ -230,18 +230,18 @@ export const config = {
     dynamicTrail: {
       /** Min continuous ms in profit before arming the profit SL. */
       armMinProfitHoldMs: Math.min(
-        8_000,
-        Math.max(3_000, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 5_000))
+        3_000,
+        Math.max(0, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 1_000))
       ),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
-       * Legacy stage-1 ROE (unused for arm). Stage 1 now: 2m continuous green
-       * → in-profit peak floor. Kept so status/UI can still show the old number.
+       * Legacy stage-1 ROE (unused for arm). Stage 1 now: first green ticks
+       * → in-profit peak floor that ratchets with the peak.
        */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
-      /** Min ROE before full ATR/% trail ratchet (stage 2). */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 15),
+      /** Min ROE before full ATR/% trail ratchet (stage 2). SHORT default 5. */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
       /**
        * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
        * 0.5 → lock ~50% of peak uPnL. Stop stays on the profit side of entry.

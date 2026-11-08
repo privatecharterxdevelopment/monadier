@@ -1,7 +1,7 @@
 /**
  * Price-based dynamic trailing stop:
- * 1 idle → 2 armed after 2m continuous green (in-profit peak floor, never through entry)
- * 3 trailing (ATR/% ratchet from 15% ROE SHORT / 22% LONG).
+ * 1 idle → 2 armed after ~1s green (in-profit peak floor, never through entry)
+ * 3 trailing (ATR/% ratchet from 5% ROE SHORT / 15% LONG).
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -165,7 +165,7 @@ export function shouldArmBreakevenProtection(
 ): boolean {
   if (pnlUsd <= 0) return false;
   const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  const armMs = Math.min(8_000, Math.max(3_000, Number.isFinite(cfgMs) ? cfgMs : 5_000));
+  const armMs = Math.min(3_000, Math.max(0, Number.isFinite(cfgMs) ? cfgMs : 1_000));
   return timeInProfitMs >= armMs;
 }
 
@@ -286,9 +286,9 @@ function stagedProfitLock(
     keepFrac =
       phase === 'trailing' ? (direction === 'LONG' ? 0.4 : 0.42) : 0.5;
   }
-  // Majors: lock a small chunk of the peak (default drop 0.78 → keep ~22%).
-  // 82% keep on a $14 SOL print sniped the runner that went to ~$70.
-  if (isMajorFillCoin(coin)) {
+  // LONGs on majors: leave runner air (drop 0.78 → keep ~22%).
+  // SHORTs must ratchet with the peak — the loose major floor left SL parked.
+  if (direction === 'LONG' && isMajorFillCoin(coin)) {
     const drop = config.hyperliquid.dynamicTrail.longProfitFloorPeakDropFrac || 0.78;
     keepFrac = Math.max(0.18, Math.min(0.4, 1 - drop));
     if (ratio >= 8) level = 'runner';
@@ -536,7 +536,7 @@ async function evaluateDynamicTrailInner(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: after 2m continuous green, arm an in-profit peak floor.
+  // Phase 1 — idle: after ~1s green, arm an in-profit peak floor and ratchet.
   // Loss SL% still arms after max-hold while red (if the user set an SL).
   if (rec.phase === 'idle') {
     const maxSlDue = input.totalHoldMs >= cfg.maxHoldBeforeSlTrailMs;
@@ -694,9 +694,12 @@ async function evaluateDynamicTrailInner(
         rec.highestPnlSinceEntry,
         input.collateralUsd
       );
-      // Always park the floor under the peak. Skipping when already through
-      // mark left a $19 fee-lock on a $11 BTC winner (never snapped).
-      rec.currentTrailStop = candidate;
+      // Ratchet only — never loosen a profit SL that already followed the peak.
+      rec.currentTrailStop = ratchetStop(
+        input.direction,
+        rec.currentTrailStop,
+        candidate
+      );
       const activeFloor = rec.currentTrailStop ?? candidate;
       if (
         closeSafe &&

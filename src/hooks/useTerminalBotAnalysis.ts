@@ -59,6 +59,7 @@ type GlobalScanCandidate = {
   direction: string;
   confidence: number;
   reason?: string;
+  queueable?: boolean;
 };
 
 function mergeGlobalScanCandidates(
@@ -132,6 +133,7 @@ export function useTerminalBotAnalysis({
   // a few seconds after save and was overwriting a just-saved 3 back to 2.
   const [globalBest, setGlobalBest] = useState<GlobalScanCandidate | null>(null);
   const [globalCandidates, setGlobalCandidates] = useState<GlobalScanCandidate[]>([]);
+  const [boardCandidates, setBoardCandidates] = useState<GlobalScanCandidate[]>([]);
   const [serverOpenCoins, setServerOpenCoins] = useState<string[]>([]);
   const [globalScanCount, setGlobalScanCount] = useState(0);
   const [globalCoinsScanned, setGlobalCoinsScanned] = useState(0);
@@ -308,6 +310,7 @@ export function useTerminalBotAnalysis({
     if (!walletConnected || !analyzerActive) {
       setGlobalBest(null);
       setGlobalCandidates([]);
+      setBoardCandidates([]);
       setGlobalScanCount(0);
       setGlobalCoinsScanned(0);
       setScanUniverseCoins([]);
@@ -346,13 +349,15 @@ export function useTerminalBotAnalysis({
           openUniverse?: { summary?: string };
         };
         const liveUniverse = data.botUniverse ?? data.scanUniverseCoins ?? null;
-        const rawList =
+        const boardList = mergeGlobalScanCandidates(data, botMode);
+        const tradeableRaw =
           Array.isArray(data.tradeableCandidates) && data.tradeableCandidates.length > 0
             ? data.tradeableCandidates
-            : mergeGlobalScanCandidates(data, botMode);
-        const list = [...rawList]
+            : boardList.filter((c) => c.queueable !== false);
+        const list = [...tradeableRaw]
           .filter((c) => c?.coin && isBotTradeableHlCoin(c.coin, liveUniverse))
           .sort((a, b) => b.confidence - a.confidence);
+        setBoardCandidates(boardList);
         setGlobalCandidates(list);
         const next = pickNextScanCandidate(list, list[0] ?? null, effectiveOpenCoins, liveUniverse);
         setGlobalBest(next);
@@ -422,6 +427,7 @@ export function useTerminalBotAnalysis({
             candidateCount?: number;
             rawCandidateCount?: number;
             candidates?: GlobalScanCandidate[];
+            boardCandidates?: GlobalScanCandidate[];
             openUniverse?: { summary?: string };
             filterReasons?: string[];
           };
@@ -464,6 +470,16 @@ export function useTerminalBotAnalysis({
           if (reason && !blockers.includes(reason)) blockers.push(reason);
         }
         setGlobalCandidates(candidates);
+        if (Array.isArray(data.globalScan?.boardCandidates) && data.globalScan.boardCandidates.length > 0) {
+          setBoardCandidates(
+            data.globalScan.boardCandidates.filter(
+              (c) =>
+                c?.coin &&
+                !isHiddenFromBotUi(c.coin) &&
+                isBotTradeableHlCoin(c.coin, liveUniverse)
+            )
+          );
+        }
         const nextCandidate = pickNextScanCandidate(
           candidates,
           data.globalScan?.best ?? null,
@@ -668,7 +684,7 @@ export function useTerminalBotAnalysis({
     globalBest: scanning ? globalBest : null,
     bestLong:
       scanning
-        ? globalCandidates
+        ? [...boardCandidates, ...globalCandidates]
             .filter((c) => String(c.direction).toUpperCase() === 'LONG')
             .sort((a, b) => b.confidence - a.confidence)[0] ?? null
         : null,

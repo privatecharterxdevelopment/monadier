@@ -44,6 +44,11 @@ export type GlobalSignalCandidate = {
   indicators?: string[];
   /** Forced SHORT at pump apex — liquidity grab override. */
   peakLiquidityGrab?: boolean;
+  /**
+   * false = SCAN/UI only. Must not enter the open queue (counter-trend LONG
+   * under SHORT-primary, unless it beat a real SHORT or is a strong lone bounce).
+   */
+  queueable?: boolean;
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
@@ -53,9 +58,8 @@ const STANDARD_STRATEGY: TradingStrategy = 'normal';
  * the other side is clearly stronger. SHORT-primary stays preferred (edge 18) —
  * LONGs only steal the slot when meaningfully competitive (was 30 = starved).
  *
- * Under SHORT-primary, a lone LONG (no SHORT printed for that coin) is rejected
- * unless confidence is exceptional (≥85). That stops "rate" BTC LONGs that open
- * just because SHORT failed gates while a soft 70% LONG scraped through.
+ * SCAN still keeps both sides for badges. Opens use `queueable` so a display
+ * LONG cannot occupy the slot / wait-loop while SHORTs are available.
  */
 function pickPreferredCandidate(
   longC: GlobalSignalCandidate | null,
@@ -101,7 +105,7 @@ function pickPreferredCandidate(
   }
 
   if (longC && !shortC && primary === 'SHORT') {
-    // Keep a real LONG print on the board — 85% hid every bounce/long from SCAN.
+    // Board print — queueable is decided separately (75%+ / h1 UP).
     if (!btcInflow && longC.confidence < 58) return null;
     return longC;
   }
@@ -117,6 +121,37 @@ function pickPreferredCandidate(
   }
 
   return longC ?? shortC;
+}
+
+/** Opens only. Display LONGs stay on the board with queueable=false. */
+export function isScanQueueable(
+  candidate: GlobalSignalCandidate,
+  preferred: GlobalSignalCandidate | null,
+  shortC: GlobalSignalCandidate | null
+): boolean {
+  const profile = config.hyperliquid.directionProfile;
+  const primary = profile.primaryDirection;
+  if (candidate.direction === primary) return true;
+  if (!preferred || preferred.direction !== candidate.direction) return false;
+  if (primary === 'SHORT' && candidate.direction === 'LONG') {
+    if (shortC) return true;
+    return (
+      candidate.confidence >= 75 &&
+      h1TrendMatchesRequired(candidate.h1Trend ?? undefined, 'UP')
+    );
+  }
+  return true;
+}
+
+function withQueueFlag(
+  candidate: GlobalSignalCandidate,
+  preferred: GlobalSignalCandidate | null,
+  shortC: GlobalSignalCandidate | null
+): GlobalSignalCandidate {
+  return {
+    ...candidate,
+    queueable: isScanQueueable(candidate, preferred, shortC),
+  };
 }
 
 /**
@@ -247,8 +282,9 @@ async function scanMajorChartFallback(
   if (!pick) return null;
   if (pick.confidence < 48) return null;
   if ((pick.directionalTfCount ?? 0) < 2) return null;
+  const tagged = withQueueFlag(pick, pick, shortC);
   return {
-    ...pick,
+    ...tagged,
     reason: pick.peakLiquidityGrab
       ? pick.reason
       : `${pick.reason.replace(/ · major .+$/, '')} · major ${pick.direction} fallback (${pick.confidence}% / ${pick.directionalTfCount ?? 0} TFs)`,
@@ -266,11 +302,17 @@ async function scanStandardCoin(
     scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'SHORT'),
   ]);
   const both = [longC, shortC].filter((c): c is GlobalSignalCandidate => c !== null);
-  if (both.length <= 1) return both;
-  // Keep both sides on the SCAN board. Preferred still ranks first for opens.
   const preferred = pickPreferredCandidate(longC, shortC);
-  if (!preferred) return both;
-  return [preferred, ...both.filter((c) => c !== preferred)];
+  const tagged = both.map((c) => withQueueFlag(c, preferred, shortC));
+  if (tagged.length <= 1) return tagged;
+  const prefTagged = tagged.find(
+    (c) =>
+      preferred &&
+      c.coin === preferred.coin &&
+      c.direction === preferred.direction
+  );
+  if (!prefTagged) return tagged;
+  return [prefTagged, ...tagged.filter((c) => c !== prefTagged)];
 }
 
 /**
@@ -745,9 +787,17 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
-  // Both sides stay — counter-trend setups already cleared profile thresholds in scan.
-  const standard = scan.standard;
-  const aggressive = scan.aggressive;
+  const primary = config.hyperliquid.directionProfile.primaryDirection;
+  // Display-only LONGs stay on SCAN; they must not fill the open queue.
+  const standard = scan.standard
+    .filter((c) => c.queueable !== false)
+    .sort((a, b) => {
+      if (a.direction !== b.direction) {
+        return a.direction === primary ? -1 : 1;
+      }
+      return b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd;
+    });
+  const aggressive = scan.aggressive.filter((c) => c.queueable !== false);
 
   // Aggressive 1m/5m scalps are SHORT-stack only. Do not leak into Standard
   // while the active profile disables aggressive scalp signals.
@@ -766,7 +816,25 @@ export function globalSignalsForBotMode(
   });
   if (borrowed.length === 0) return standard;
 
-  return [...standard, ...borrowed].sort(
-    (a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence
-  );
+  return [...standard, ...borrowed].sort((a, b) => {
+    if (a.direction !== b.direction) return a.direction === primary ? -1 : 1;
+    return b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence;
+  });
+}
+
+/** SCAN badges — keep a few LONGs even when SHORTs dominate the top ranks. */
+export function boardScanCandidates(
+  scan: GlobalScanResult,
+  limit = 16
+): GlobalSignalCandidate[] {
+  const list = scan.standard;
+  const top = list.slice(0, limit);
+  const seen = new Set(top.map((c) => `${c.coin.toUpperCase()}:${c.direction}`));
+  for (const row of list.filter((c) => c.direction === 'LONG').slice(0, 4)) {
+    const key = `${row.coin.toUpperCase()}:${row.direction}`;
+    if (seen.has(key)) continue;
+    top.push(row);
+    seen.add(key);
+  }
+  return top;
 }

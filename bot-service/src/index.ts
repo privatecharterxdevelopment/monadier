@@ -22,6 +22,7 @@ import {
   lastGlobalScanResult,
   scanGlobalHlSignals,
   globalSignalsForBotMode,
+  boardScanCandidates,
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
@@ -1083,6 +1084,14 @@ const healthServer = http.createServer(async (req, res) => {
             confidence: s.confidence,
             reason: s.reason,
             mode: s.botMode,
+            queueable: s.queueable !== false,
+          })),
+          boardCandidates: boardScanCandidates(globalScan).slice(0, 16).map((s) => ({
+            coin: s.coin,
+            direction: s.direction,
+            confidence: s.confidence,
+            reason: s.reason,
+            queueable: s.queueable !== false,
           })),
           best: bestAvailable
             ? {
@@ -1467,7 +1476,8 @@ const healthServer = http.createServer(async (req, res) => {
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
           count: scan.standard.length + scan.aggressive.length,
-          standardCandidates: scan.standard.slice(0, 8),
+          standardCandidates: boardScanCandidates(scan),
+          tradeableCandidates: globalSignalsForBotMode(scan, 'standard').slice(0, 8),
           aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
