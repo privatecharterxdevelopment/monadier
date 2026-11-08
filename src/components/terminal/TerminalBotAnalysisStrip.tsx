@@ -171,6 +171,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
       maxConcurrentPositions={analysis.maxConcurrentPositions}
       pumpSweepLines={analysis.pumpSweepLines}
       entryWaitReason={analysis.entryWaitReason}
+      bestLong={analysis.bestLong}
     />
   );
 };

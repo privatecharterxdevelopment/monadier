@@ -101,8 +101,8 @@ function pickPreferredCandidate(
   }
 
   if (longC && !shortC && primary === 'SHORT') {
-    // Inflow is LONG-only — don't starve longs behind the 85% SHORT-primary floor.
-    if (!btcInflow && longC.confidence < 85) return null;
+    // Keep a real LONG print on the board — 85% hid every bounce/long from SCAN.
+    if (!btcInflow && longC.confidence < 58) return null;
     return longC;
   }
 
@@ -260,12 +260,17 @@ async function scanStandardCoin(
   liq: { dayVolumeUsd: number; openInterestUsd: number },
   preloadedUniverse?: HlLiquidUniverse,
   relaxed = false
-): Promise<GlobalSignalCandidate | null> {
+): Promise<GlobalSignalCandidate[]> {
   const [longC, shortC] = await Promise.all([
     scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'LONG'),
     scanStandardCoinDirection(coin, liq, preloadedUniverse, relaxed, 'SHORT'),
   ]);
-  return pickPreferredCandidate(longC, shortC);
+  const both = [longC, shortC].filter((c): c is GlobalSignalCandidate => c !== null);
+  if (both.length <= 1) return both;
+  // Keep both sides on the SCAN board. Preferred still ranks first for opens.
+  const preferred = pickPreferredCandidate(longC, shortC);
+  if (!preferred) return both;
+  return [preferred, ...both.filter((c) => c !== preferred)];
 }
 
 /**
@@ -645,7 +650,7 @@ export async function scanGlobalHlSignals(
   const [standardRaw, aggressiveRaw] = await Promise.all([
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
-      if (!liq) return null;
+      if (!liq) return [] as GlobalSignalCandidate[];
       return scanStandardCoin(coin, liq, universe);
     }),
     mapPool(coins, concurrency, async (coin) => {
@@ -656,8 +661,9 @@ export async function scanGlobalHlSignals(
   ]);
 
   const standard = standardRaw
-    .filter((c): c is GlobalSignalCandidate => c !== null)
-    .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
+    .flat()
+    .filter((c): c is GlobalSignalCandidate => c != null && Boolean(c.coin))
+    .sort((a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd);
 
   const aggressive = aggressiveRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
@@ -675,12 +681,15 @@ export async function scanGlobalHlSignals(
       return scanMajorChartFallback(coin, liq, universe);
     });
     const majors = majorRaw.filter((c): c is GlobalSignalCandidate => c !== null);
-    const seen = new Set(finalStandard.map((c) => c.coin.toUpperCase()));
+    const seen = new Set(
+      finalStandard.map((c) => `${c.coin.toUpperCase()}:${c.direction}`)
+    );
     const injected: GlobalSignalCandidate[] = [];
     for (const row of majors) {
-      if (seen.has(row.coin.toUpperCase())) continue;
+      const key = `${row.coin.toUpperCase()}:${row.direction}`;
+      if (seen.has(key)) continue;
       injected.push(row);
-      seen.add(row.coin.toUpperCase());
+      seen.add(key);
     }
     if (injected.length > 0) {
       finalStandard = [...injected, ...finalStandard];

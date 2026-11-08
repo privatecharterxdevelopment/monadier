@@ -666,6 +666,12 @@ export function useTerminalBotAnalysis({
     scanSymbol: scanning ? scanSymbol : null,
     scanCandidate: scanning ? scanCandidate : null,
     globalBest: scanning ? globalBest : null,
+    bestLong:
+      scanning
+        ? globalCandidates
+            .filter((c) => String(c.direction).toUpperCase() === 'LONG')
+            .sort((a, b) => b.confidence - a.confidence)[0] ?? null
+        : null,
     globalScanCount: scanning ? globalScanCount : 0,
     globalCoinsScanned: scanning ? globalCoinsScanned : 0,
     scanCoinIndex: scanning ? scanCoinIndex : 0,

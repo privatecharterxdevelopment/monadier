@@ -56,7 +56,7 @@ export const BEAR_MARKET: HlDirectionProfile = {
   },
   long: {
     ...COUNTER_TREND_RULES('UP'),
-    minConfidence: 80,
+    minConfidence: 62,
     requiredH1Trend: 'UP',
     required5mTrend: 'UP',
     required15mTrend: 'UP',

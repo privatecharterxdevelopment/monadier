@@ -27,6 +27,7 @@ type Props = {
   dbAnalysis: DbAnalysis;
   activeSymbol?: string;
   globalBest?: { coin: string; direction: string; confidence: number; reason?: string } | null;
+  bestLong?: { coin: string; direction: string; confidence: number; reason?: string } | null;
   globalScanCount?: number;
   globalCoinsScanned?: number;
   currentlyScanningCoin?: string;
@@ -111,6 +112,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   dbAnalysis,
   activeSymbol,
   globalBest,
+  bestLong,
   globalCoinsScanned = 0,
   currentlyScanningCoin,
   scanCoinIndex = 0,
@@ -284,6 +286,19 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                   {hasTfConflict ? (
                     <span className="hl-bot-analyzer-pill__meta term-hint--warn"> mixed</span>
                   ) : null}
+                </span>
+              </div>
+            ) : null}
+            {bestLong &&
+            String(bestLong.direction).toUpperCase() === 'LONG' &&
+            !(
+              String(action).toUpperCase() === 'LONG' &&
+              bestLong.coin.toUpperCase() === (currentlyScanningCoin ?? '').toUpperCase()
+            ) ? (
+              <div className="hl-bot-analyzer-pill">
+                <span className="hl-bot-analyzer-pill__label">Long</span>
+                <span className="hl-bot-analyzer-pill__value term-pnl-pos">
+                  {bestLong.coin.toUpperCase()} {Math.round(bestLong.confidence)}%
                 </span>
               </div>
             ) : null}
