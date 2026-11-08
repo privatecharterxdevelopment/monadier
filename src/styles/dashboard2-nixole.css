@@ -77,6 +77,14 @@
   animation: term-auth-toast-in 0.28s ease;
 }
 
+.hl-root--dark .term-auth-toast,
+.nix-app .term-auth-toast {
+  color: #f4f4f5;
+  background: rgba(24, 24, 27, 0.94);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 .term-auth-toast-spinner {
   flex-shrink: 0;
   color: var(--term-text-faint);
@@ -3266,6 +3274,13 @@
 }
 
 .term-lvrg-locked-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.term-lvrg-setting-lock-wrap {
   position: relative;
   display: flex;
   flex-direction: column;

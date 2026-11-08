@@ -56,6 +56,7 @@ import TerminalBotSettingsModal from './TerminalBotSettingsModal';
 import TerminalLvrgPanel from './TerminalLvrgPanel';
 import TerminalBotSettingsStrip from './TerminalBotSettingsStrip';
 import BotSettingsStopFirstModal from './BotSettingsStopFirstModal';
+import { useTermAuthToast } from './TermAuthToast';
 import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { sanitizeUserFacingError } from '../../lib/hyperliquid/builderPlatform';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
@@ -149,6 +150,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [stopNotice, setStopNotice] = useState<string | null>(null);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [showStopFirstModal, setShowStopFirstModal] = useState(false);
+  const { showToast } = useTermAuthToast();
+  const lastLockToastAt = useRef(0);
 
   const { ensureAccepted } = useLegalAcceptance();
   const { openFunds: openGlobalFunds } = useBettingUi();
@@ -355,7 +358,19 @@ const TerminalTradePanel: React.FC<Props> = ({
 
   const openLvrgTab = () => setPanelTab('lvrg');
 
+  const notifySettingsLocked = (opts?: { modal?: boolean }) => {
+    if (opts?.modal !== false) setShowStopFirstModal(true);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+      const now = Date.now();
+      if (now - lastLockToastAt.current > 1800) {
+        lastLockToastAt.current = now;
+        showToast(t('tradePanel.stopToAdjustSettings'), 3200);
+      }
+    }
+  };
+
   const requestLvrgAccess = () => {
+    if (botRunning) notifySettingsLocked({ modal: false });
     openLvrgTab();
   };
 
@@ -897,7 +912,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               hlBalanceUsd={hlFundingUsd}
               disabled={walletReady && hlSetup.loading}
               botRunning={botRunning}
-              onBlockedSave={() => setShowStopFirstModal(true)}
+              onBlockedSave={() => notifySettingsLocked()}
               onSaved={refreshAll}
             />
           </div>

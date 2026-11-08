@@ -1327,6 +1327,7 @@
     "hyperliquidAccount": "Hyperliquid-Konto",
     "stopFirstTitle": "Zuerst Agent stoppen",
     "stopFirstSubtitle": "Hebel und Risiko sind gesperrt, solange der Agent läuft",
+    "stopToAdjustSettings": "Stop bot to adjust settings.",
     "keepRunning": "Weiterlaufen lassen",
     "stopFirstHint": "1. Agent stoppen · 2. Einstellungen ändern · 3. Erneut Agent starten.",
     "stopFirstNote": "Gilt für Hebel und Risiko — nicht während der Agent aktiv ist."

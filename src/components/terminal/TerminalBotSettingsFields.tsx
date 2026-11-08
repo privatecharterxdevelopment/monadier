@@ -48,7 +48,33 @@ export type BotSettingsFieldsProps = {
   notice?: string | null;
   error?: string | null;
   hlBalanceUsd?: number;
+  /** Fired when the user taps locked risk/leverage/SL while the bot is running. */
+  onLockedInteract?: () => void;
 };
+
+function SettingLock({
+  locked,
+  onLocked,
+  children,
+}: {
+  locked?: boolean;
+  onLocked?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="term-lvrg-setting-lock-wrap">
+      {children}
+      {locked && onLocked ? (
+        <button
+          type="button"
+          className="term-lvrg-section-blocker"
+          onClick={onLocked}
+          aria-label="Stop bot to adjust settings"
+        />
+      ) : null}
+    </div>
+  );
+}
 
 const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   planTier,
@@ -81,6 +107,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   notice,
   error,
   hlBalanceUsd = 0,
+  onLockedInteract,
 }) => {
   const { t } = useTranslation();
   const maxLevLabel = getMaxLeverageLabel(planTier, hlSliderMax);
@@ -100,9 +127,12 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
   const winRateGateOn = minWinRate > 0;
   const slotsControlDisabled = slotsDisabled ?? disabled;
 
+  const lockFields = Boolean(disabled && onLockedInteract);
+
   if (isLvrg) {
     return (
       <>
+        <SettingLock locked={lockFields} onLocked={onLockedInteract}>
         <div className="term-lvrg-setting-card">
           <div className="term-lvrg-setting-head">
             <p className="term-lvrg-setting-title">{t('bot.leverageShort')}</p>
@@ -163,6 +193,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
             </p>
           ) : null}
         </div>
+        </SettingLock>
 
         {setMaxConcurrentPositions ? (
           <div className="term-lvrg-setting-card">
@@ -192,6 +223,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
           </div>
         ) : null}
 
+        <SettingLock locked={lockFields} onLocked={onLockedInteract}>
         <div className="term-lvrg-setting-card">
           <div className="term-lvrg-setting-head">
             <p className="term-lvrg-setting-title">{t('bot.stopLossTitle')}</p>
@@ -331,6 +363,7 @@ const TerminalBotSettingsFields: React.FC<BotSettingsFieldsProps> = ({
             <p className="term-lvrg-setting-foot">{t('bot.winRateOffHint')}</p>
           )}
         </div>
+        </SettingLock>
 
         {notice && (
           <div className="term-panel-alert">

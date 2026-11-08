@@ -72,6 +72,7 @@ const TerminalLvrgPanel: React.FC<Props> = ({
           notice={editor.notice}
           error={editor.error}
           showAutoTrade={false}
+          onLockedInteract={settingsLocked ? onBlockedSave : undefined}
         />
 
         <p className="term-hint term-lvrg-save-hint">

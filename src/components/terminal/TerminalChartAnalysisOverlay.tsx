@@ -6,6 +6,7 @@ import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
 import type { BotReadiness } from '../../lib/botReadiness';
 import type { UnifiedSignal } from '../../lib/signalService';
 import { fiveMinTooltip } from '../../lib/mtfTimeframeWeight';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 
 type DbAnalysis = {
   signal: string;
@@ -199,6 +200,28 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return null;
   }, [scanning, globalCoinsScanned, scanCoinTotal]);
 
+  const waitLine = useMemo(() => {
+    const detail = readiness?.detail?.trim();
+    if (
+      detail &&
+      !isBotScanNoiseDetail(detail) &&
+      /wait|block|margin|fee|approve|last open|skip|volume|notional|insufficient/i.test(
+        detail
+      )
+    ) {
+      return detail;
+    }
+    const tf5 = signal?.timeframes?.find((tf) => tf.timeframe === '5m');
+    if (
+      tf5 &&
+      (action === 'LONG' || action === 'SHORT') &&
+      String(tf5.direction).toUpperCase() !== action
+    ) {
+      return `Waiting for 5m ${action} — now ${tf5.direction} ${Math.round(tf5.confidence)}%`;
+    }
+    return null;
+  }, [readiness?.detail, signal, action]);
+
   const whyLine = useMemo(
     () =>
       resolveBotAnalysisWhyLine({
@@ -283,6 +306,9 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               </div>
             ) : null}
           </div>
+          {waitLine && waitLine !== whyLine ? (
+            <p className="hl-bot-analyzer-wait">{waitLine}</p>
+          ) : null}
           {whyLine ? (
             <p className="hl-bot-analyzer-subline term-analysis-subline--why">{whyLine}</p>
           ) : null}

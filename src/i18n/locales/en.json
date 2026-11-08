@@ -1371,6 +1371,7 @@
     "hyperliquidAccount": "Hyperliquid account",
     "stopFirstTitle": "Stop agent first",
     "stopFirstSubtitle": "Leverage and risk are locked while the agent is running",
+    "stopToAdjustSettings": "Stop bot to adjust settings.",
     "keepRunning": "Keep running",
     "stopFirstHint": "1. Stop the agent · 2. Change settings · 3. Press Start agent again.",
     "stopFirstNote": "Applies to leverage and risk — not while the agent is active."
