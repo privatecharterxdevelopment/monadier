@@ -270,7 +270,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               </div>
             ) : null}
             {currentTf ? (
-              <div className="hl-bot-analyzer-pill">
+              <div className="hl-bot-analyzer-pill hl-bot-analyzer-pill--tf-cycle">
                 <span className="hl-bot-analyzer-pill__label">TF</span>
                 <span
                   className={`hl-bot-analyzer-pill__value hl-bot-analyzer-pill__value--muted ${

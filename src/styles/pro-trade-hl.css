@@ -13014,9 +13014,37 @@ html[dir='rtl'] .hl-book {
     font-size: 10px;
   }
 
-  .hl-terminal--bot .hl-bot-analyzer-subline {
-    font-size: 12px;
-    line-height: 1.4;
+  .hl-terminal--bot .hl-bot-analyzer-subline,
+  .hl-terminal--bot .hl-bot-analyzer-pill--tf-cycle {
+    display: none;
+  }
+
+  .hl-bot-analysis .hl-bot-analyzer-bar {
+    padding: 6px 8px 8px;
+  }
+
+  .hl-terminal--bot .hl-bot-dock {
+    max-height: none;
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner,
+  .hl-terminal--bot .hl-bot-dock:not(.hl-bot-dock--history-tab) .hl-bot-dock-inner {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: none;
+    height: auto;
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock-body,
+  .hl-terminal--bot .hl-bot-dock .term-dock-body {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .hl-bot-dock-inner {
+    min-height: 0;
   }
 
   .hl-terminal--bot .hl-chart-toolbar--engines {
