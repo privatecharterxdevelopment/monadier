@@ -112,6 +112,7 @@ import {
   setDynamicTrailRecord,
 } from './profitTrailState';
 import { resolvePositionLetRun } from './hlPositionLetRun';
+import { syncHlProfitStopOrder } from './hlProfitStopSync';
 import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
   isSameCoinOpenBlocked,
@@ -2980,27 +2981,29 @@ export class HyperliquidTradingService {
 
       if (shouldCloseTrail && pnl > 0) {
         const trailCfg = config.hyperliquid.dynamicTrail;
-        // Same in-profit breathe for LONG and SHORT — do not use `|| fallback`.
-        const greenHoldMs = trailCfg.longMinGreenHoldMs ?? 0;
-        const minPeakRoe = trailCfg.longMinPeakRoePctBeforeTrailClose ?? 0;
+        const isLong = positionDirection === 'LONG';
+        const greenHoldMs = isLong ? trailCfg.longMinGreenHoldMs ?? 0 : 0;
+        const minPeakRoe = isLong ? trailCfg.longMinPeakRoePctBeforeTrailClose ?? 0 : 0;
         const peakRoe =
           collateralEst > 0
             ? (trailRecord.highestPnlSinceEntry / collateralEst) * 100
             : 0;
         const beSniper =
+          isLong &&
           trailCfg.longSkipBreakevenLockClose &&
           trailExitReason === 'profit_lock' &&
           /BREAKEVEN LOCK/i.test(trailCloseDetail || '');
         const tooYoung = greenHoldMs > 0 && (trailRecord.timeInProfitMs ?? 0) < greenHoldMs;
         const majorNoiseExit =
+          isLong &&
           isMajorFillCoin(pos.coin) &&
           peakRoe < Math.max(15, minPeakRoe) &&
           (trailExitReason === 'profit_lock' ||
             trailExitReason === 'trailing_stop' ||
             trailExitReason === 'profit_grab_peak');
         const peakTooSmall =
-          majorNoiseExit ||
-          (minPeakRoe > 0 && peakRoe < minPeakRoe);
+          isLong &&
+          (majorNoiseExit || (minPeakRoe > 0 && peakRoe < minPeakRoe));
         if (beSniper || tooYoung || peakTooSmall) {
           shouldCloseTrail = false;
           logger.info('HL profit exit blocked — let winner run', {
@@ -3057,6 +3060,18 @@ export class HyperliquidTradingService {
       }
 
       saveTrailRecord(lockKey, trailRecord);
+      if (pnl > 0 && trailRecord.phase !== 'idle' && trailRecord.currentTrailStop != null) {
+        void syncHlProfitStopOrder({
+          userAddress,
+          coin: pos.coin,
+          direction: positionDirection,
+          absSize,
+          markPrice,
+          entryPrice: entry,
+          stopPx: trailRecord.currentTrailStop,
+          armed: true,
+        });
+      }
 
       const closeCtx = {
         entryPx: entry,
@@ -3128,12 +3143,14 @@ export class HyperliquidTradingService {
       const roePct = collateralEst > 0 ? (pnl / collateralEst) * 100 : 0;
       const longGreenHoldMs = config.hyperliquid.dynamicTrail.longMinGreenHoldMs ?? 0;
       const stillBreathing =
+        positionDirection === 'LONG' &&
         longGreenHoldMs > 0 &&
         pnl > 0 &&
         (trailRecord.timeInProfitMs ?? 0) < longGreenHoldMs;
       if (
         !stillBreathing &&
         !(
+          positionDirection === 'LONG' &&
           isMajorFillCoin(pos.coin) &&
           (trailRecord.highestPnlSinceEntry / Math.max(collateralEst, 1)) * 100 <
             Math.max(15, config.hyperliquid.dynamicTrail.longMinPeakRoePctBeforeTrailClose || 0)

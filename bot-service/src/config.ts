@@ -228,10 +228,10 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.75),
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
-      /** Min continuous ms in profit before arming. Cap 15s — Railway leftover 120s starved snaps. */
+      /** Min continuous ms in profit before arming the profit SL. */
       armMinProfitHoldMs: Math.min(
-        15_000,
-        Math.max(5_000, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 15_000))
+        8_000,
+        Math.max(3_000, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 5_000))
       ),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),

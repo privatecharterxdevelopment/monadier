@@ -363,7 +363,7 @@ export function trailStopForOpenPosition(opts: {
       armed: false,
       kind: 'arming',
       label: lossPx != null ? fmtStopPx(lossPx) : '—',
-      title: `Profit SL arms after 2m green — floor stays in plus (now ${roe.toFixed(2)}% ROE).`,
+      title: `Profit SL arms after a few seconds in plus (now ${roe.toFixed(2)}% ROE).`,
     };
   }
 

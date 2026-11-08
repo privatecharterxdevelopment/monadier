@@ -165,7 +165,7 @@ export function shouldArmBreakevenProtection(
 ): boolean {
   if (pnlUsd <= 0) return false;
   const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  const armMs = Math.min(15_000, Math.max(5_000, Number.isFinite(cfgMs) ? cfgMs : 15_000));
+  const armMs = Math.min(8_000, Math.max(3_000, Number.isFinite(cfgMs) ? cfgMs : 5_000));
   return timeInProfitMs >= armMs;
 }
 
@@ -293,13 +293,14 @@ function stagedProfitLock(
     keepFrac = Math.max(0.18, Math.min(0.4, 1 - drop));
     if (ratio >= 8) level = 'runner';
   }
-  // Floor must sit under the print or it never snaps (lock $19 on a $11 peak).
-  const raw = Math.max(need, peakPnlUsd * keepFrac);
-  const lockUsd = Math.min(peakPnlUsd * 0.85, raw);
+  // Floor must sit under the print — never lock more USD than the peak (that
+  // parks the stop on the wrong side of mark so it never "sets" in profit).
+  const raw = Math.max(peakPnlUsd * keepFrac, Math.min(need, peakPnlUsd * 0.55));
+  const lockUsd = Math.min(peakPnlUsd * 0.85, Math.max(0, raw));
   return {
     level,
     keepFrac,
-    lockUsd: Math.max(0.75, lockUsd),
+    lockUsd,
   };
 }
 
@@ -546,12 +547,6 @@ async function evaluateDynamicTrailInner(
         input.collateralUsd,
         rec.timeInProfitMs,
         input.totalHoldMs
-      ) &&
-      !longPeakTooSmallToTrailClose(
-        input.direction,
-        rec.highestPnlSinceEntry,
-        input.collateralUsd,
-        input.coin
       )
     ) {
       const initialStop = peakProfitFloorStopPx(
