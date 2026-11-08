@@ -39,6 +39,7 @@ const floorSr = (over: Partial<SrZoneAnalysis> = {}): SrZoneAnalysis => ({
   supportRejections: 1,
   confirmedBreakoutUp: false,
   confirmedBreakdown: false,
+  dumpContinuation: false,
   nearResistance: false,
   nearSupport: true,
   ...over,
@@ -74,6 +75,21 @@ describe('scoreEntryLocationQuality SHORT', () => {
       candles1h: series(30, 108, -0.4),
       candles4h: series(20, 112, -0.5),
       sr: floorSr({ confirmedBreakdown: true, dumpContinuation: false }),
+    });
+    assert.equal(record.deterministicLocationDecision, 'ALLOW');
+  });
+
+  it('allows a dump at range lows when floor filter is off', () => {
+    const candles15m = series(12, 102, -0.7);
+    const record = scoreEntryLocationQuality({
+      coin: 'ETH',
+      side: 'SHORT',
+      price: 93,
+      candles5m: series(10, 96, -0.25),
+      candles15m,
+      candles1h: series(30, 108, -0.4),
+      candles4h: series(20, 112, -0.5),
+      sr: floorSr({ confirmedBreakdown: false, dumpContinuation: false, nearSupport: true }),
     });
     assert.equal(record.deterministicLocationDecision, 'ALLOW');
   });

@@ -263,51 +263,11 @@ export function scoreEntryLocationQuality(opts: {
   }
 
   if (side === 'SHORT' && !shortBreakdownOk) {
-    const extendedDown =
-      (impulse15mATR != null && impulse15mATR <= -1.15) || consecutiveDirectionCandles >= 4;
-    const chasingCompletedMove =
-      rangePosition1h <= 0.2 && extendedDown && !sr.confirmedBreakdown;
-    if (chasingCompletedMove) {
-      blockedBy.push('CHASING_COMPLETED_MOVE');
-      notes.push(
-        `1h range ${(rangePosition1h * 100).toFixed(0)}% after ${consecutiveDirectionCandles} reds / 15m impulse ${impulse15mATR?.toFixed(2) ?? '?'}×ATR`
-      );
-    }
-    if (rangePosition1h <= 0.15) {
-      blockedBy.push('EXTREME_LOCATION');
-      notes.push(`1h range pos ${rangePosition1h.toFixed(2)} ≤ 0.15`);
-    } else if (rangePosition1h <= 0.2 && extendedDown) {
-      blockedBy.push('EXTREME_LOCATION');
-      notes.push(`1h range pos ${rangePosition1h.toFixed(2)} ≤ 0.20 with extension`);
-    }
-    if (rangePosition4h <= 0.12 && rangePosition1h <= 0.28) {
-      blockedBy.push('HTF_RANGE_EXTREME');
-      notes.push(`4h range pos ${rangePosition4h.toFixed(2)} with 1h still low`);
-    }
-    if (sr.nearSupport) {
-      blockedBy.push('INTO_SUPPORT');
-      notes.push('at/near support without confirmed close-hold breakdown');
-    }
-    if (
-      downsideRoomATR != null &&
-      upsideRoomATR != null &&
-      downsideRoomATR <= 0.4 &&
-      upsideRoomATR >= 1.6
-    ) {
-      blockedBy.push('POOR_DOWNSIDE_ROOM');
-      notes.push(`downside ${downsideRoomATR.toFixed(2)}×ATR vs upside ${upsideRoomATR.toFixed(2)}×ATR`);
-    }
+    // Floor / range-low codes disabled — they classified every dump as a bounce.
+    // Keep hammer/absorption only.
     if (lowerWickRejection && rangePosition1h <= 0.38) {
       blockedBy.push('LOWER_WICK_REJECTION');
       notes.push('15m lower-wick rejection in lower range');
-    }
-    if (
-      distanceSwingLowATR != null &&
-      distanceSwingLowATR <= 0.35 &&
-      rangePosition1h <= 0.3
-    ) {
-      blockedBy.push('AT_SWING_LOW');
-      notes.push(`within ${distanceSwingLowATR.toFixed(2)}×ATR of 1h swing low`);
     }
   }
 

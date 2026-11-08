@@ -228,9 +228,7 @@ export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candl
     (supportZone != null &&
       price <= supportZone.zoneHigh * (1 + Math.max(cfg.nearLevelPct, 0.008)) &&
       price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
-    // Entire lower half = floor risk (chart S / dump shelf). Narrow 0.35 band
-    // let TRUMP-style Open S sit on consolidation low while pos looked "mid".
-    pos <= Math.max(cfg.rangeBottomBlock, 0.5) ||
+    pos <= cfg.rangeBottomBlock ||
     distToSupPct <= Math.max(cfg.nearLevelPct, 0.008) ||
     price <= support * (1 + Math.max(cfg.nearLevelPct, 0.008));
 
@@ -322,7 +320,8 @@ export function evaluateEntryLocation(
   }
 
   // ── SHORT ──────────────────────────────────────────────────────────────
-  // Breakdown through *prior* support, or dump still printing lower closes.
+  // Floor filter off: lower-range / sliding-support was starving every dump.
+  // Wick / pump-short still run later. Bounce hammers stay in location quality.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
@@ -338,37 +337,10 @@ export function evaluateEntryLocation(
     };
   }
 
-  // Hard: never short the floor / lower half without breakdown (user: dump shelf Open S).
-  const floorReject = Math.max(cfg.rangeBottomBlock, 0.5);
-  if (analysis.nearSupport || analysis.pricePosition <= floorReject) {
-    const zone =
-      analysis.supportZone != null
-        ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
-        : fmtLevel(analysis.support);
-    return {
-      ok: false,
-      analysis,
-      reason: `SHORT blocked — at/near range floor ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤${(floorReject * 100).toFixed(0)}%); need breakdown or R-fade`,
-    };
-  }
-
-  // No resistance shorts — R-fade / tagging the high is not a SHORT.
-  if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
-    const zone =
-      analysis.resistanceZone != null
-        ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
-        : fmtLevel(analysis.resistance);
-    return {
-      ok: false,
-      analysis,
-      reason: `SHORT blocked — no resistance shorts (R ${zone}); need confirmed breakdown`,
-    };
-  }
-
   return {
-    ok: false,
+    ok: true,
     analysis,
-    reason: `SHORT blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need R ≥${(cfg.rangeTopBlock * 100).toFixed(0)}% or confirmed breakdown)`,
+    reason: `SHORT location OK — floor filter off (pos ${(analysis.pricePosition * 100).toFixed(0)}%)`,
   };
 }
 
@@ -413,12 +385,9 @@ export async function validateEntryLocation(opts: {
     candles15m: candles15,
     candles5m: candles5,
   });
-  const shortDumpOk =
-    opts.direction === 'SHORT' && (sr.confirmedBreakdown || sr.dumpContinuation);
+  const shortDumpOk = opts.direction === 'SHORT';
 
-  // In-house zone bands: no blind opens inside resistance/support — require reversal first.
-  // Dump continuation / prior-support breakdown is the August SHORT path — do not
-  // treat the sliding floor as a bounce zone.
+  // SHORT floor / support-zone wait is off — it starved dump continuation.
   const zoneGate = evaluateZoneReversalGate(
     opts.direction,
     sr.price,

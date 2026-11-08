@@ -139,21 +139,23 @@ export async function validateEntryMomentum(opts: {
           `SHORT blocked — ${coin} already extended down ` +
           `(15m ${Math.min(change15mPct, live15mPct).toFixed(2)}%, 1h ${Math.min(change1hPct, live1hPct).toFixed(2)}%) ` +
           `— wait for bounce, sell high`;
-      } else if (rangePos < cfg.shortMinRangePosition) {
+      } else if (
+        cfg.shortMinRangePosition > 0 &&
+        rangePos < cfg.shortMinRangePosition
+      ) {
         reason =
           `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;
       } else if (!fade15m) {
-        const inUpperRange = rangePos >= Math.max(cfg.shortMinRangePosition, 0.5);
         const smallRally = change15mPct >= 0 && change15mPct < 0.6;
-        // Only R-fade / upper-half — never "dump continuation" in lower/mid range
-        // (that reopened TRUMP Open S on the dump shelf).
-        if (inUpperRange && smallRally) {
+        const dumping = change15mPct < 0;
+        if (smallRally || dumping) {
           momentumAligned = true;
-          reason =
-            `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m bounce +${change15mPct.toFixed(2)}% to fade`;
+          reason = dumping
+            ? `Dump continuation OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct.toFixed(2)}%`
+            : `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m bounce +${change15mPct.toFixed(2)}% to fade`;
         } else {
           reason =
-            `SHORT blocked — ${coin} needs upper-range fade (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}% <50% = floor)`;
+            `SHORT blocked — ${coin} needs 15m fade or dump (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
         }
       } else if (change1hPct > cfg.maxCounter1hPct) {
         reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;

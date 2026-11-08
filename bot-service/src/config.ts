@@ -451,14 +451,8 @@ export const config = {
       maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.9),
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
-      /**
-       * SHORT range floor — sell high / R-fade only. Lower half = dump shelf (TRUMP floor).
-       * Env can raise further; floor hard-capped at ≥0.5 so mid-range dump shorts stay dead.
-       */
-      shortMinRangePosition: Math.max(
-        0.5,
-        Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.5)
-      ),
+      /** 0 = dump shorts allowed anywhere in the 1h range (floor filter off). */
+      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0),
     },
     /**
      * Range-regime exit profile.
