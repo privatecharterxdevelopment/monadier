@@ -90,6 +90,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const stopLossMarginPct = stopLossOverride ?? configuredStopLoss;
   const { botRunning } = useHlBotRunning({
     metricsAutoTrade: botAnalysisMetrics?.autoTradeEnabled,
+    metricsHasSnapshot: botAnalysisMetrics?.hasHlSnapshot,
   });
 
   const {

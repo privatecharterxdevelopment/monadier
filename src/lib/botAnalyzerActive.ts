@@ -44,7 +44,7 @@ export function botAnalyzerStatusCopy(opts: {
   maxSlots?: number;
 }): { title: string; detail: string } {
   if (!opts.botRunning) {
-    return { title: 'Bot off', detail: 'Press Start bot to scan markets.' };
+    return { title: 'Agent stopped', detail: 'Start bot to scan again. This does not close open trades.' };
   }
 
   if (opts.slotsFull) {

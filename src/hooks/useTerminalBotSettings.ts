@@ -76,7 +76,7 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
   const load = useCallback(async () => {
     if (!wallet) {
-      setData({ settings: defaultSettings, isLoading: false, error: null });
+      setData({ settings: defaultSettings, isLoading: true, error: null });
       return;
     }
 

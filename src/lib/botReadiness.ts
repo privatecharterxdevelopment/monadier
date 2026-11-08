@@ -209,8 +209,8 @@ export function evaluateBotReadiness(
   if (!opts.autoTradeEnabled) {
     return {
       canEnter: false,
-      headline: 'Bot off',
-      detail: 'Complete deposit and agent approval, then press Start bot.',
+      headline: 'Agent stopped',
+      detail: 'Start bot to scan again. Stopping the agent does not close open trades.',
     };
   }
 

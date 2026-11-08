@@ -83,7 +83,10 @@ const Dashboard2Page: React.FC = () => {
 
   const walletReady = isConnected || isDemoUser;
 
-  const { botRunning } = useHlBotRunning({ metricsAutoTrade: metrics.autoTradeEnabled });
+  const { botRunning } = useHlBotRunning({
+    metricsAutoTrade: metrics.autoTradeEnabled,
+    metricsHasSnapshot: metrics.hasHlSnapshot,
+  });
 
   const { coins: botManagedCoins, loading: botManagedCoinsLoading } = useHlBotManagedCoins(
     (address ?? botSettings.wallet)?.toLowerCase(),

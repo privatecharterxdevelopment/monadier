@@ -32,6 +32,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   // Optimistic Stop/Start wins — never OR with stale metrics (that kept scanning after pause).
   const { botRunning: resolvedRunning, wallet: tradingWallet } = useHlBotRunning({
     metricsAutoTrade: metrics.autoTradeEnabled,
+    metricsHasSnapshot: metrics.hasHlSnapshot,
   });
   const effectiveVaultWallet = tradingWallet ?? vaultWallet ?? null;
   const botRunning = resolvedRunning;
@@ -60,7 +61,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
           detail: 'Deposit again to auto-move to Perps on standard HL accounts.',
         }
     : !botRunning
-      ? { headline: 'Bot off', detail: 'Press Start bot to scan markets' }
+      ? { headline: 'Agent stopped', detail: 'Start bot to scan again. Open trades are not closed by this screen.' }
       : null;
 
   const analysis = useTerminalBotAnalysis({

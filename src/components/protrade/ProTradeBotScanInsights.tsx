@@ -34,6 +34,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   const { settings: botSettings } = useTerminalBotSettings();
   const { botRunning: resolvedRunning } = useHlBotRunning({
     metricsAutoTrade: metrics.autoTradeEnabled,
+    metricsHasSnapshot: metrics.hasHlSnapshot,
   });
   const hasWallet = walletConnected || Boolean(vaultWallet);
   const botRunning = resolvedRunning;
@@ -67,7 +68,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   });
 
   const primaryLine = useMemo(() => {
-    if (!botRunning) return 'Press Start bot to scan markets';
+    if (!botRunning) return 'Agent stopped — Start bot to scan again.';
 
     const detail = analysis.readiness?.detail?.trim();
     if (detail && !isBotScanNoiseDetail(detail)) return detail;

@@ -551,10 +551,10 @@ export function useTerminalBotAnalysis({
     if (!botRunning) {
       return {
         canEnter: false,
-        headline: 'Bot off',
+        headline: 'Agent stopped',
         detail:
           vaultUsd >= MIN_HL_BOT_USD
-            ? 'Press Start bot to trade on these signals.'
+            ? 'Start bot to scan again. Open trades stay open until an exit or you close them.'
             : `At least $${MIN_HL_BOT_USD} USDC on Hyperliquid to trade.`,
       };
     }
