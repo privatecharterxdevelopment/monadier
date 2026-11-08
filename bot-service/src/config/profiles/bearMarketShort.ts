@@ -46,7 +46,15 @@ export const BEAR_MARKET: HlDirectionProfile = {
   allowLongOpens: true,
   /** SHORT is primary in bear — opens allowed. */
   allowShortOpens: true,
-  short: { ...PRIMARY_RULES },
+  short: {
+    ...PRIMARY_RULES,
+    /**
+     * June dump shorts. Sliding 1h "support" tracks the lows, so a waterfall
+     * always looks like a floor and starve every 100% SHORT stack. Trusted MTF
+     * SHORT (2+ TFs) *is* the breakdown — wick / pump-short still apply.
+     */
+    bypassEntryLocationWhenTrusted: true,
+  },
   long: {
     ...COUNTER_TREND_RULES('UP'),
     minConfidence: 80,

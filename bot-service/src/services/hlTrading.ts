@@ -1384,12 +1384,21 @@ export class HyperliquidTradingService {
       const safety = createOpenSafetyCard(originalSide);
       safetyMarkPass(safety, 'vision', opts.direction);
 
+      const trustedMtfEarly = trustsDirectionProfile(opts.pick);
+      const skipSlidingFloorSr =
+        opts.direction === 'SHORT' &&
+        directionProfile.short.bypassEntryLocationWhenTrusted &&
+        trustedMtfEarly;
+
       let locationQuality = await evaluateEntryLocationQuality({
         coin,
         direction: opts.direction,
         markPx,
       });
-      if (locationQuality.deterministicLocationDecision === 'BLOCK') {
+      if (
+        locationQuality.deterministicLocationDecision === 'BLOCK' &&
+        !skipSlidingFloorSr
+      ) {
         logEntryLocationRecord({
           record: locationQuality,
           finalDecision: 'NO_OPEN',
@@ -1404,6 +1413,15 @@ export class HyperliquidTradingService {
             blockedBy: locationQuality.blockedBy,
           }
         );
+      }
+      if (skipSlidingFloorSr && locationQuality.deterministicLocationDecision === 'BLOCK') {
+        logger.info('HL open — trusted SHORT skips sliding-floor location quality', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          reason: locationQuality.reason.slice(0, 180),
+          tfs: opts.pick.directionalTfCount,
+          confidence: opts.pick.confidence,
+        });
       }
       safetyMarkPass(safety, 'entryLocationQuality', opts.direction);
 
@@ -1816,12 +1834,35 @@ export class HyperliquidTradingService {
         });
       }
 
-      // LONG and SHORT never skip S/R — majors + relax used to skip SHORT into support.
-      let locationGate: EntryLocationResult = await validateEntryLocation({
-              symbol,
-              coin,
-              direction: opts.direction,
-            });
+      // Trusted bear SHORT: skip sliding-floor S/R (support tracks the dump lows).
+      // Wick / pump-short / apex still run. Untrusted or LONG still use full S/R.
+      let locationGate: EntryLocationResult;
+      if (skipSlidingFloorSr) {
+        locationGate = {
+          ok: true,
+          reason: `${directionProfile.name}: trusted MTF SHORT — dump continuation (skip sliding-floor S/R)`,
+          analysis: {
+            support: 0,
+            resistance: 0,
+            price: markPx,
+            pricePosition: 0.5,
+            resistanceTouches: 0,
+            resistanceRejections: 0,
+            supportTouches: 0,
+            supportRejections: 0,
+            confirmedBreakoutUp: false,
+            confirmedBreakdown: true,
+            nearResistance: false,
+            nearSupport: false,
+          },
+        };
+      } else {
+        locationGate = await validateEntryLocation({
+          symbol,
+          coin,
+          direction: opts.direction,
+        });
+      }
       if (!locationGate.ok) {
         logEntryLocationRecord({
           record: locationQuality,
