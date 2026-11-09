@@ -69,6 +69,16 @@ const STANDARD_STRATEGY: TradingStrategy = 'normal';
  * SCAN still keeps both sides for badges. Opens use `queueable` so a display
  * LONG cannot occupy the slot / wait-loop while SHORTs are available.
  */
+/**
+ * Bear LONG may occupy the open queue only as TREND_LONG or confirmed REVERSAL_LONG.
+ * Relief bounces / dump waits must not steal the SHORT slot then die at the open gate.
+ */
+export function isOpenableLongCandidate(c: GlobalSignalCandidate | null): boolean {
+  if (!c || c.direction !== 'LONG') return false;
+  if (config.hyperliquid.directionProfile.name !== 'bear_market') return true;
+  return c.longClass === 'TREND_LONG' || c.longClass === 'REVERSAL_LONG';
+}
+
 function pickPreferredCandidate(
   longC: GlobalSignalCandidate | null,
   shortC: GlobalSignalCandidate | null
@@ -81,6 +91,10 @@ function pickPreferredCandidate(
   // ROOT: bull_market (allowShortOpens=false) never returns a SHORT pick.
   if (!profile.allowShortOpens) {
     return longC;
+  }
+
+  if (longC && !isOpenableLongCandidate(longC)) {
+    longC = null;
   }
 
   const btcInflow = btcLeadIsPumping();
@@ -140,6 +154,9 @@ export function isScanQueueable(
     preferred.coin === candidate.coin &&
     preferred.direction === candidate.direction
   ) {
+    if (candidate.direction === 'LONG' && !isOpenableLongCandidate(candidate)) {
+      return false;
+    }
     return true;
   }
   if (candidate.direction === primary && (!preferred || preferred.coin !== candidate.coin)) {
@@ -278,7 +295,7 @@ async function scanMajorChartFallback(
   let pick = pickPreferredCandidate(longC, shortC);
   if (
     !pick &&
-    longC &&
+    isOpenableLongCandidate(longC) &&
     !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN')
   ) {
     pick = longC;
@@ -454,7 +471,9 @@ async function scanStandardCoinDirection(
       if (
         reversal.class === 'NONE' &&
         (reversal.code === 'LONG_DUMP_CONTINUATION' ||
-          reversal.code === 'REVERSAL_STRUCTURE_UNCONFIRMED')
+          reversal.code === 'REVERSAL_STRUCTURE_UNCONFIRMED' ||
+          reversal.code === 'REVERSAL_WAITING_RECLAIM' ||
+          reversal.code === 'LONG_CONFIDENCE_BELOW_THRESHOLD')
       ) {
         logger.debug('HL scan skip: dump/false reclaim', { coin, reason: reversal.reason });
         return null;
