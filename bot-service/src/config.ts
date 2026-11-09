@@ -240,8 +240,8 @@ export const config = {
        * → in-profit peak floor that ratchets with the peak.
        */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
-      /** Min ROE before full ATR/% trail ratchet (stage 2). SHORT default 5. */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 5),
+      /** Min ROE before full ATR/% trail ratchet (stage 2). SHORT hugs earlier. */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 2),
       /**
        * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
        * 0.5 → lock ~50% of peak uPnL. Stop stays on the profit side of entry.
@@ -275,14 +275,14 @@ export const config = {
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 4.2),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 1.55),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
-      /** Stage-2 ATR/% trail distance — wider so winners can breathe before stop catches. */
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.09),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.08),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.1),
+      /** Stage-2 ATR/% trail distance from the favorable extreme (hug the peak). */
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.012),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.016),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.02),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
        * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
@@ -332,8 +332,8 @@ export const config = {
     profitLockTrailBufferUsd: Number(process.env.HL_PROFIT_LOCK_TRAIL_BUFFER_USD || 0.045),
     /** Min trail distance as fraction of peak uPnL (0.28 = need 28% retrace from peak). */
     profitTrailMinPeakFraction: Number(process.env.HL_PROFIT_TRAIL_MIN_PEAK_FRAC || 0.28),
-    /** Widen trail buffer when MTF/volume say strong run. */
-    profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.65),
+    /** Widen trail buffer when MTF/volume say strong run (capped — SL still follows). */
+    profitTrailStrongRunMult: Number(process.env.HL_PROFIT_TRAIL_STRONG_MULT || 1.12),
     /** uPnL must stay at/below trail floor this long before profit_lock (ms). */
     profitTrailFloorBreachMs: Number(process.env.HL_PROFIT_TRAIL_BREACH_MS || 2_500),
     /** After trail armed: defer floor close this long if sweep+volume confirm rebound (still in profit only). */

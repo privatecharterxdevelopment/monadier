@@ -8,42 +8,42 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Profit SL arms after ~1s green and ratchets with the peak.',
+    'Standard: MTF trend-only. Profit SL hugs the peak (locks ~84–95% as it runs).',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same instant profit SL — stop follows while green.',
+    'Aggressive: 1m scalp entries. Same profit SL — stop follows the print.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
   armMinProfitHoldMs: 1_000,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 8_000,
+  trailMinActiveBeforeCloseMs: 0,
   longMinGreenHoldMs: 15_000,
   longTrailMinActiveMult: 1,
   breakevenArmRoePct: 8,
   armMinProfitUsd: 0,
-  armMinRoePct: 5,
-  trailGapRoePct: 3,
-  fullTrailArmRoePct: 5,
+  armMinRoePct: 2,
+  trailGapRoePct: 1,
+  fullTrailArmRoePct: 2,
   longTrailArmRoePct: 15,
   armFeesMultiplier: 4,
   estimatedFeeBpsPerSide: 3.5,
-  majorTrailPct: 0.068,
-  midTrailPct: 0.058,
-  cautiousTrailPct: 0.072,
+  majorTrailPct: 0.012,
+  midTrailPct: 0.016,
+  cautiousTrailPct: 0.02,
   breakevenBufferPct: 0.02,
 } as const;
 
 /** High-leverage ROE gates only — hold times stay the same as the bot. */
 export const HL_DYNAMIC_TRAIL_40X = {
   breakevenArmRoePct: 8,
-  armMinRoePct: 5,
-  fullTrailArmRoePct: 5,
-  trailGapRoePct: 3,
+  armMinRoePct: 2,
+  fullTrailArmRoePct: 2,
+  trailGapRoePct: 1,
   longTrailArmRoePct: 15,
-  majorTrailPct: 0.068,
-  midTrailPct: 0.058,
-  cautiousTrailPct: 0.072,
+  majorTrailPct: 0.012,
+  midTrailPct: 0.016,
+  cautiousTrailPct: 0.02,
 } as const;
 
 export function trailProfileForLeverage(leverage: number) {

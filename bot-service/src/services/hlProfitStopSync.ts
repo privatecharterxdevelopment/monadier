@@ -61,7 +61,7 @@ export async function syncHlProfitStopOrder(opts: {
   const prev = lastPosted.get(key);
   const movedPct =
     prev && prev.px > 0 ? Math.abs(opts.stopPx - prev.px) / prev.px : 1;
-  if (prev && movedPct < 0.0008 && Date.now() - prev.at < 12_000) return;
+  if (prev && movedPct < 0.00015 && Date.now() - prev.at < 2_000) return;
 
   try {
     const meta = await fetchHlMeta();

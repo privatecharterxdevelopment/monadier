@@ -260,9 +260,20 @@ function stagedProfitLock(
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
   if (direction === 'SHORT') {
-    // Tight trail — lock ~80% of peak so a small bounce actually hits the SL.
-    keepFrac = 0.8;
-    level = ratio >= 8 ? 'runner' : ratio >= 4 ? 'core' : ratio >= 2 ? 'partial' : 'fee';
+    // Hug the peak harder as the run grows — 18% giveback → 6%.
+    if (ratio < 2) {
+      level = 'fee';
+      keepFrac = 0.84;
+    } else if (ratio < 4) {
+      level = 'partial';
+      keepFrac = 0.89;
+    } else if (ratio < 8) {
+      level = 'core';
+      keepFrac = 0.93;
+    } else {
+      level = 'runner';
+      keepFrac = 0.95;
+    }
   } else if (ratio < 2) {
     level = 'fee';
     keepFrac = 0.82;
@@ -286,7 +297,7 @@ function stagedProfitLock(
   // Floor must sit under the print — never lock more USD than the peak (that
   // parks the stop on the wrong side of mark so it never "sets" in profit).
   const raw = Math.max(peakPnlUsd * keepFrac, Math.min(need, peakPnlUsd * 0.55));
-  const capFrac = direction === 'SHORT' ? 0.92 : 0.85;
+  const capFrac = direction === 'SHORT' ? 0.97 : 0.85;
   const lockUsd = Math.min(peakPnlUsd * capFrac, Math.max(0, raw));
   return {
     level,
@@ -469,10 +480,41 @@ function longGreenTooYoungToClose(
 
 function directionTrailDistanceMult(direction: 'LONG' | 'SHORT', biasMult: number): number {
   const cfg = config.hyperliquid.dynamicTrail;
-  const longRoom =
-    direction === 'LONG' ? Math.max(1, cfg.longTrailDistanceMult || 1) : 1;
-  // Cap leaves room for LONG dist mult ~2.15 × mild bias widen.
-  return Math.max(0.75, Math.min(2.8, biasMult * longRoom));
+  if (direction === 'SHORT') {
+    // Strong-run widen used to park the SL 9% behind the print. Cap it.
+    return Math.max(0.7, Math.min(1.08, biasMult || 1));
+  }
+  const longRoom = Math.max(1, cfg.longTrailDistanceMult || 1);
+  return Math.max(0.75, Math.min(2.8, (biasMult || 1) * longRoom));
+}
+
+/**
+ * Stop that follows the favorable extreme by a fraction of the run
+ * (entry → peak). This is what actually "zieht nach" — ATR % of mark
+ * was 8–9% and never caught a $10 winner on BTC.
+ */
+function runRetraceStopPx(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  extremePx: number,
+  givebackFrac: number
+): number | null {
+  if (!(entryPrice > 0) || !(extremePx > 0) || !(givebackFrac > 0)) return null;
+  const run = Math.abs(extremePx - entryPrice);
+  if (!(run > 0)) return null;
+  const dist = run * givebackFrac;
+  const px = direction === 'LONG' ? extremePx - dist : extremePx + dist;
+  if (direction === 'LONG') return Math.max(px, entryPrice);
+  return Math.min(px, entryPrice);
+}
+
+function shortRunGivebackFrac(peakPnlUsd: number, feesUsd: number, collateralUsd: number): number {
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
+  const ratio = need > 0 ? peakPnlUsd / need : 1;
+  if (ratio >= 8) return 0.06;
+  if (ratio >= 4) return 0.08;
+  if (ratio >= 2) return 0.1;
+  return 0.14;
 }
 
 export async function evaluateDynamicTrail(
@@ -565,6 +607,25 @@ async function evaluateDynamicTrailInner(
       rec.phase = 'armed';
       rec.trailArmedAt = input.nowMs;
       rec.currentTrailStop = initialStop.px;
+      if (input.direction === 'SHORT') {
+        const hug = runRetraceStopPx(
+          input.direction,
+          input.entryPrice,
+          rec.highestPriceSinceEntry,
+          shortRunGivebackFrac(
+            rec.highestPnlSinceEntry,
+            feesUsd,
+            input.collateralUsd
+          )
+        );
+        if (hug != null) {
+          rec.currentTrailStop = ratchetStop(
+            input.direction,
+            rec.currentTrailStop,
+            hug
+          );
+        }
+      }
       rec.estimatedFeesUsd = feesUsd;
       logger.info('HL in-profit floor armed (stage 1)', {
         coin: input.coin,
@@ -669,7 +730,7 @@ async function evaluateDynamicTrailInner(
     };
   }
 
-  // Staged in-profit floors — L1 covers fees; L4 still leaves runner air.
+  // Staged in-profit floors + hug-the-peak trail (armed AND trailing).
   if (rec.phase === 'armed' || rec.phase === 'trailing') {
     const floorStop = peakProfitFloorStopPx(
       input.direction,
@@ -682,20 +743,53 @@ async function evaluateDynamicTrailInner(
       input.coin
     );
     if (floorStop != null) {
-      const candidate = floorStop.px;
+      rec.currentTrailStop = ratchetStop(
+        input.direction,
+        rec.currentTrailStop,
+        floorStop.px
+      );
+    }
+
+    if (input.direction === 'SHORT') {
+      const hug = runRetraceStopPx(
+        input.direction,
+        input.entryPrice,
+        rec.highestPriceSinceEntry,
+        shortRunGivebackFrac(
+          rec.highestPnlSinceEntry,
+          feesUsd,
+          input.collateralUsd
+        )
+      );
+      if (hug != null) {
+        rec.currentTrailStop = ratchetStop(
+          input.direction,
+          rec.currentTrailStop,
+          hug
+        );
+      }
+      const trailMult = directionTrailDistanceMult(
+        input.direction,
+        input.trailDistanceMult ?? 1
+      );
+      const trailDist =
+        (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
+      rec.lastTrailDistancePx = trailDist;
+      rec.currentTrailStop = ratchetStop(
+        input.direction,
+        rec.currentTrailStop,
+        rec.highestPriceSinceEntry + trailDist
+      );
+    }
+
+    if (floorStop != null && rec.currentTrailStop != null) {
       const closeSafe = profitClearsFeeGate(
         input.pnlUsd,
         feesUsd,
         rec.highestPnlSinceEntry,
         input.collateralUsd
       );
-      // Ratchet only — never loosen a profit SL that already followed the peak.
-      rec.currentTrailStop = ratchetStop(
-        input.direction,
-        rec.currentTrailStop,
-        candidate
-      );
-      const activeFloor = rec.currentTrailStop ?? candidate;
+      const activeFloor = rec.currentTrailStop;
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
@@ -758,25 +852,8 @@ async function evaluateDynamicTrailInner(
     }
   }
 
-  // Phase 3 — ratchet trail (only moves in profit direction).
+  // Phase 3 — peak-grab + trail-cross (stop already ratcheted in the hug block).
   if (rec.phase === 'trailing' && rec.currentTrailStop != null) {
-    const trailMult = directionTrailDistanceMult(
-      input.direction,
-      input.trailDistanceMult ?? 1
-    );
-    const trailDist =
-      (await resolveTrailDistancePx(input.coin, input.markPrice)) * trailMult;
-    rec.lastTrailDistancePx = trailDist;
-    const trailCandidate =
-      input.direction === 'LONG'
-        ? rec.highestPriceSinceEntry - trailDist
-        : rec.highestPriceSinceEntry + trailDist;
-    rec.currentTrailStop = ratchetStop(
-      input.direction,
-      rec.currentTrailStop,
-      trailCandidate
-    );
-
     if (input.trailCloseDeferred) {
       return {
         record: rec,
@@ -794,8 +871,8 @@ async function evaluateDynamicTrailInner(
         ? Math.min(0.82, peakFracBase * 1.2)
         : peakFracBase;
     const peakMinFees = config.hyperliquid.profitPeakMinFeesMult;
-    const runWiden =
-      trailMult >= 1.12 ? (trailMult >= 1.5 ? 1.45 : 1.2) : 1;
+    const bias = input.trailDistanceMult ?? 1;
+    const runWiden = bias >= 1.12 ? (bias >= 1.5 ? 1.45 : 1.2) : 1;
     if (
       rec.highestPnlSinceEntry >= feesUsd * peakMinFees &&
       rec.highestPnlSinceEntry >= Math.max(input.collateralUsd * 0.02, feesUsd * 15) &&

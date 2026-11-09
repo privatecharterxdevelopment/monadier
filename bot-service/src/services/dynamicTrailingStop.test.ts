@@ -45,6 +45,19 @@ describe('in-profit SL ratchet', () => {
       (ran.record.currentTrailStop as number) <= firstStop,
       'SHORT profit SL only ratchets down with the peak'
     );
+
+    const exploded = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 8_000,
+        pnlUsd: 10,
+        markPrice: 90,
+        record: ran.record,
+        totalHoldMs: 8_000,
+      })
+    );
+    const hugStop = exploded.record.currentTrailStop as number;
+    assert.ok(hugStop <= 91.2, `profit SL must hug the peak, got ${hugStop}`);
+    assert.ok(hugStop > 90, 'stop stays above mark on a SHORT');
   });
 
   it('closes on stop cross even if leftover is a small slice of peak', async () => {
