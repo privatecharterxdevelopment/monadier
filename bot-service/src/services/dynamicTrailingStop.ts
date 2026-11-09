@@ -116,14 +116,14 @@ export function profitClearsFeeGate(
 function blockIfFeesNotCleared(
   result: TrailTickResult,
   pnlUsd: number,
-  _feesUsd: number,
+  feesUsd: number,
   coin: string,
-  _peakPnlUsd: number,
-  _collateralUsd = 0
+  peakPnlUsd: number,
+  collateralUsd = 0
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
-  if (pnlUsd > 0) return result;
+  if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd, collateralUsd)) return result;
   logger.info('HL profit close blocked — not green', {
     coin,
     reason: result.exitReason,

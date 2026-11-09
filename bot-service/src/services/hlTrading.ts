@@ -2865,18 +2865,16 @@ export class HyperliquidTradingService {
         });
         // Keep trail state for UI — never act on shouldClose.
         saveTrailRecord(lockKey, trailResult.record);
-        if (pnl > 0 && trailResult.record.phase !== 'idle' && trailResult.record.currentTrailStop != null) {
-          void syncHlProfitStopOrder({
-            userAddress,
-            coin: pos.coin,
-            direction: positionDirection,
-            absSize,
-            markPrice,
-            entryPrice: entry,
-            stopPx: trailResult.record.currentTrailStop,
-            armed: true,
-          });
-        }
+        void syncHlProfitStopOrder({
+          userAddress,
+          coin: pos.coin,
+          direction: positionDirection,
+          absSize,
+          markPrice,
+          entryPrice: entry,
+          stopPx: trailResult.record.currentTrailStop,
+          armed: false,
+        });
         logger.debug('HL let-run — skip auto exits', {
           user: userAddress.slice(0, 10),
           coin: pos.coin,
@@ -3092,18 +3090,16 @@ export class HyperliquidTradingService {
       }
 
       saveTrailRecord(lockKey, trailRecord);
-      if (pnl > 0 && trailRecord.phase !== 'idle' && trailRecord.currentTrailStop != null) {
-        void syncHlProfitStopOrder({
-          userAddress,
-          coin: pos.coin,
-          direction: positionDirection,
-          absSize,
-          markPrice,
-          entryPrice: entry,
-          stopPx: trailRecord.currentTrailStop,
-          armed: true,
-        });
-      }
+      void syncHlProfitStopOrder({
+        userAddress,
+        coin: pos.coin,
+        direction: positionDirection,
+        absSize,
+        markPrice,
+        entryPrice: entry,
+        stopPx: trailRecord.currentTrailStop,
+        armed: false,
+      });
 
       const closeCtx = {
         entryPx: entry,
@@ -3661,7 +3657,8 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Could not read mark price — try again' };
       }
       const isLong = size > 0;
-      const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
+      // Tight band — 5% FrontendMarket let a scratch close fill through entry.
+      const limitPx = isLong ? markPx * 0.9975 : markPx * 1.0025;
 
       const client = createAgentClient(userAddress);
       const notionalUsd = absSize * markPx;

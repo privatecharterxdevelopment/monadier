@@ -1,17 +1,21 @@
+/**
+ * Profit stops on Hyperliquid.
+ *
+ * FATAL: a reduce-only MARKET tpsl fires on the exchange with no live PnL check.
+ * SOL SHORT filled through entry (−$0.56 after fees). We never post those again.
+ * This module only CANCELS leftover position TP/SL from older deploys.
+ * The bot trails in software and closes only while still green after fees.
+ */
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
+import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
-import {
-  coinToAssetIndex,
-  fetchHlMeta,
-  formatHlCloseSize,
-  formatHlPrice,
-} from './hlInfo';
+import { coinToAssetIndex, fetchHlMeta } from './hlInfo';
 
 const transport = new HttpTransport();
 
-type PostedStop = { px: number; at: number };
-const lastPosted = new Map<string, PostedStop>();
+const lastCancelAt = new Map<string, number>();
+const CANCEL_EVERY_MS = 8_000;
 
 function clientFor(userAddress: string): ExchangeClient {
   return new ExchangeClient({
@@ -30,14 +34,11 @@ export function protectiveSideOk(
   if (!(stopPx > 0) || !(markPx > 0) || !(entryPx > 0)) return false;
   const minAway = markPx * 0.0012;
   if (direction === 'LONG') {
-    // SL below mark, strictly above entry (never a red trigger).
     return stopPx < markPx - minAway && stopPx > entryPx;
   }
-  // SHORT: strictly below entry, above mark — 1.005× entry used to allow a red SL.
   return stopPx > markPx + minAway && stopPx < entryPx;
 }
 
-/** Market SL slippage can eat a 10–20¢ leftover. Need real lock before posting. */
 export function profitStopSafeToPost(opts: {
   direction: 'LONG' | 'SHORT';
   stopPx: number;
@@ -46,20 +47,81 @@ export function profitStopSafeToPost(opts: {
   absSize: number;
   minLockUsd: number;
 }): boolean {
-  if (!protectiveSideOk(opts.direction, opts.stopPx, opts.markPx, opts.entryPx)) {
-    return false;
+  // Market TPSL is never safe — kept so callers/tests refuse the old path.
+  void opts;
+  return false;
+}
+
+type FrontendOrder = {
+  coin?: string;
+  oid?: number;
+  reduceOnly?: boolean;
+  isTrigger?: boolean;
+  isPositionTpsl?: boolean;
+  orderType?: string;
+  triggerPx?: string;
+  limitPx?: string;
+};
+
+async function fetchFrontendOpenOrders(userAddress: string): Promise<FrontendOrder[]> {
+  try {
+    const res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'frontendOpenOrders',
+        user: userAddress.toLowerCase(),
+      }),
+    });
+    if (!res.ok) return [];
+    const rows = (await res.json()) as FrontendOrder[];
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
   }
-  if (!(opts.absSize > 0)) return false;
-  const lockUsd =
-    opts.direction === 'LONG'
-      ? (opts.stopPx - opts.entryPx) * opts.absSize
-      : (opts.entryPx - opts.stopPx) * opts.absSize;
-  return lockUsd >= Math.max(1.25, opts.minLockUsd);
+}
+
+function isPositionStop(order: FrontendOrder, coin: string): boolean {
+  if (String(order.coin ?? '').toUpperCase() !== coin.toUpperCase()) return false;
+  if (order.isPositionTpsl) return true;
+  if (order.isTrigger && order.reduceOnly) return true;
+  const type = String(order.orderType ?? '').toLowerCase();
+  return (
+    Boolean(order.reduceOnly) &&
+    (type.includes('stop') || type.includes('tp') || type.includes('sl') || type.includes('take'))
+  );
+}
+
+async function cancelPositionProfitStops(
+  userAddress: `0x${string}`,
+  coin: string
+): Promise<number> {
+  const key = `${userAddress.toLowerCase()}:${coin.toUpperCase()}`;
+  const prev = lastCancelAt.get(key) ?? 0;
+  if (Date.now() - prev < CANCEL_EVERY_MS) return 0;
+  lastCancelAt.set(key, Date.now());
+
+  const orders = await fetchFrontendOpenOrders(userAddress);
+  const hits = orders.filter((o) => isPositionStop(o, coin) && Number(o.oid) > 0);
+  if (hits.length === 0) return 0;
+
+  const meta = await fetchHlMeta();
+  const assetIndex = coinToAssetIndex(meta, coin);
+  const client = clientFor(userAddress);
+  await client.cancel({
+    cancels: hits.map((o) => ({ a: assetIndex, o: Number(o.oid) })),
+  });
+  logger.warn('HL market profit SL cancelled — never leave exchange TPSL on the book', {
+    user: userAddress.slice(0, 10),
+    coin,
+    oids: hits.map((o) => o.oid),
+    types: hits.map((o) => o.orderType ?? 'tpsl'),
+  });
+  return hits.length;
 }
 
 /**
- * Push the in-profit software trail onto Hyperliquid as a reduce-only SL
- * so the book actually shows a stop instead of a naked position.
+ * Pulls leftover Hyperliquid position TP/SL. Does not post a replacement.
  */
 export async function syncHlProfitStopOrder(opts: {
   userAddress: `0x${string}`;
@@ -71,70 +133,10 @@ export async function syncHlProfitStopOrder(opts: {
   stopPx: number | null;
   armed: boolean;
 }): Promise<void> {
-  // Off only if ops set HL_POST_PROFIT_SL=false. Protective-side check
-  // below refuses a trigger that would fire through the market.
-  if (process.env.HL_POST_PROFIT_SL === 'false') return;
-  if (!opts.armed || opts.stopPx == null || opts.absSize <= 0) return;
-  const notional = opts.absSize * opts.entryPrice;
-  const minLockUsd = Math.max(1.25, notional * 0.0025);
-  if (
-    !profitStopSafeToPost({
-      direction: opts.direction,
-      stopPx: opts.stopPx,
-      markPx: opts.markPrice,
-      entryPx: opts.entryPrice,
-      absSize: opts.absSize,
-      minLockUsd,
-    })
-  ) {
-    return;
-  }
-
-  const key = `${opts.userAddress.toLowerCase()}:${opts.coin.toUpperCase()}`;
-  const prev = lastPosted.get(key);
-  const movedPct =
-    prev && prev.px > 0 ? Math.abs(opts.stopPx - prev.px) / prev.px : 1;
-  if (prev && movedPct < 0.00015 && Date.now() - prev.at < 2_000) return;
-
   try {
-    const meta = await fetchHlMeta();
-    const assetIndex = coinToAssetIndex(meta, opts.coin);
-    const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-    const isLong = opts.direction === 'LONG';
-    const trigger = formatHlPrice(opts.stopPx, szDecimals);
-    const client = clientFor(opts.userAddress);
-
-    await client.order({
-      orders: [
-        {
-          a: assetIndex,
-          // Close LONG = sell; close SHORT = buy.
-          b: !isLong,
-          p: trigger,
-          s: formatHlCloseSize(opts.absSize, szDecimals),
-          r: true,
-          t: {
-            trigger: {
-              isMarket: true,
-              triggerPx: trigger,
-              tpsl: 'sl',
-            },
-          },
-        },
-      ],
-      grouping: 'positionTpsl',
-    });
-
-    lastPosted.set(key, { px: opts.stopPx, at: Date.now() });
-    logger.info('HL profit SL posted', {
-      user: opts.userAddress.slice(0, 10),
-      coin: opts.coin,
-      direction: opts.direction,
-      stopPx: trigger,
-      mark: opts.markPrice.toFixed(6),
-    });
+    await cancelPositionProfitStops(opts.userAddress, opts.coin);
   } catch (err) {
-    logger.warn('HL profit SL post failed', {
+    logger.warn('HL profit SL cancel failed', {
       user: opts.userAddress.slice(0, 10),
       coin: opts.coin,
       error: err instanceof Error ? err.message : String(err),
