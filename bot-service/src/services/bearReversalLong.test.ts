@@ -319,12 +319,15 @@ describe('bear reversal LONG classifier', () => {
     assert.equal(px, 75_000 - (150 * 0.05) / 0.01);
   });
 
-  it('12 Opening trade only for submitted/confirmed execution states', () => {
+  it('12 Opening trade only for in-flight entry/SL states', () => {
     assert.equal(isOpeningTradeState('CANDIDATE'), false);
     assert.equal(isOpeningTradeState('WAITING_CONFIRMATION'), false);
     assert.equal(isOpeningTradeState('BLOCKED'), false);
     assert.equal(isOpeningTradeState('ORDER_SUBMITTED'), true);
-    assert.equal(isOpeningTradeState('ORDER_CONFIRMED'), true);
+    assert.equal(isOpeningTradeState('ENTRY_SUBMITTED'), true);
+    assert.equal(isOpeningTradeState('SL_PENDING'), true);
+    assert.equal(isOpeningTradeState('SL_CONFIRMED'), false);
+    assert.equal(isOpeningTradeState('ORDER_CONFIRMED'), false);
     assert.equal(isOpeningTradeState('ORDER_FAILED'), false);
   });
 });

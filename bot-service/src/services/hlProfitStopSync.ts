@@ -236,7 +236,9 @@ export function buildEmergencyStopMarketLeg(opts: {
   };
 }
 
-async function fetchFrontendOpenOrders(userAddress: string): Promise<FrontendOrder[]> {
+export async function fetchFrontendOpenOrders(
+  userAddress: string
+): Promise<FrontendOrder[] | null> {
   try {
     const res = await fetch(config.hyperliquid.infoUrl, {
       method: 'POST',
@@ -246,7 +248,7 @@ async function fetchFrontendOpenOrders(userAddress: string): Promise<FrontendOrd
         user: userAddress.toLowerCase(),
       }),
     });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const rows = (await res.json()) as FrontendOrder[];
     return Array.isArray(rows) ? rows : [];
   } catch (err) {
@@ -254,7 +256,7 @@ async function fetchFrontendOpenOrders(userAddress: string): Promise<FrontendOrd
       user: userAddress.slice(0, 10),
       error: err instanceof Error ? err.message : String(err),
     });
-    return [];
+    return null;
   }
 }
 
@@ -375,6 +377,13 @@ export async function syncHlProfitStopOrder(opts: {
     );
 
     const orders = await fetchFrontendOpenOrders(opts.userAddress);
+    if (orders == null) {
+      logger.warn('HL profit/emergency stop sync skipped — open orders unreachable', {
+        user: opts.userAddress.slice(0, 10),
+        coin: opts.coin,
+      });
+      return;
+    }
     const classified = orders
       .filter((o) => Number(o.oid) > 0)
       .map((o) => ({

@@ -295,6 +295,7 @@ async function scanMajorChartFallback(
   let pick = pickPreferredCandidate(longC, shortC);
   if (
     !pick &&
+    longC &&
     isOpenableLongCandidate(longC) &&
     !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'DOWN')
   ) {

@@ -123,7 +123,21 @@ import {
   setDynamicTrailRecord,
 } from './profitTrailState';
 import { resolvePositionLetRun } from './hlPositionLetRun';
-import { confirmUserEmergencyStop, syncHlProfitStopOrder } from './hlProfitStopSync';
+import {
+  syncHlProfitStopOrder,
+  fetchFrontendOpenOrders,
+  buildEmergencyStopMarketLeg,
+} from './hlProfitStopSync';
+import {
+  runEntryStopFailSafe,
+  recoverPositionUserStop,
+  isWalletSlCritical,
+  SL_FAIL_SAFE_FLATTEN_REASON,
+  type EntrySlExchange,
+  type ExchangePosition,
+  type FlattenResult,
+  type HlOrderStatusBlob,
+} from './hlEntrySlFailSafe';
 import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
   isOpenCooldownBlocked,
@@ -194,10 +208,12 @@ function isUserInitiatedClose(reason: string): boolean {
 function mayAutoCloseInRed(reason: string, _holdMs = 0): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'dust_flatten') return true;
+  if (reason === SL_FAIL_SAFE_FLATTEN_REASON) return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
   // User order: no bot red closes — margin/SL/invalidation/trail do NOT cut losers.
+  // Fail-safe flatten is the exception: an unconfirmed user SL cannot stay naked.
   return false;
 }
 
@@ -580,6 +596,84 @@ function createAgentClient(userAddress: string): ExchangeClient {
   });
 }
 
+function exchangePositionFromState(
+  state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
+  coin: string
+): ExchangePosition | null {
+  const row = state?.assetPositions?.find(
+    (p) => p.position?.coin?.toUpperCase() === coin.toUpperCase()
+  )?.position;
+  const szi = Number(row?.szi ?? 0);
+  const entryPx = Number(row?.entryPx ?? 0);
+  if (!hlIsMeaningfulPerpPosition(szi, entryPx) && Math.abs(szi) <= 1e-12) return null;
+  if (!Number.isFinite(szi) || Math.abs(szi) <= 1e-12) return null;
+  return {
+    coin: coin.toUpperCase(),
+    szi,
+    entryPx: entryPx > 0 ? entryPx : 0,
+    leverage: Math.max(1, Number(row?.leverage?.value ?? 10)),
+  };
+}
+
+function makeEntrySlExchange(opts: {
+  userAddress: `0x${string}`;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  szDecimals: number;
+  flatten: (absSize: number) => Promise<FlattenResult>;
+}): EntrySlExchange {
+  const coin = opts.coin.toUpperCase();
+  return {
+    fetchPosition: async () => {
+      const state = await fetchHlClearinghouseState(opts.userAddress, { critical: true });
+      if (!state) return 'unreachable';
+      return exchangePositionFromState(state, coin);
+    },
+    fetchOpenOrders: async () => {
+      const rows = await fetchFrontendOpenOrders(opts.userAddress);
+      if (rows == null) return 'unreachable';
+      return rows;
+    },
+    postEmergencySl: async ({ absSize, stopPx, direction }) => {
+      try {
+        const meta = await fetchHlMeta();
+        const assetIndex = coinToAssetIndex(meta, coin);
+        const leg = buildEmergencyStopMarketLeg({
+          assetIndex,
+          direction,
+          size: absSize,
+          stopPx,
+          szDecimals: opts.szDecimals,
+        });
+        const client = createAgentClient(opts.userAddress);
+        const result = await client.order({ orders: [leg], grouping: 'na' });
+        const status = result.response?.data?.statuses?.[0] as
+          | { error?: string }
+          | undefined;
+        if (status && 'error' in status && status.error) {
+          return { accepted: false, error: String(status.error) };
+        }
+        return { accepted: true };
+      } catch (err) {
+        return {
+          accepted: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+    cancelOids: async (oids) => {
+      if (oids.length === 0) return;
+      const meta = await fetchHlMeta();
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const client = createAgentClient(opts.userAddress);
+      await client.cancel({
+        cancels: oids.map((o) => ({ a: assetIndex, o })),
+      });
+    },
+    flattenReduceOnly: (absSize) => opts.flatten(absSize),
+  };
+}
+
 function isBuilderOrderError(message: string): boolean {
   return /builder|fee.*approv|approv.*fee/i.test(message);
 }
@@ -659,6 +753,7 @@ export class HyperliquidTradingService {
     // is off or new-open gates (fees/balance) failed.
     if (openCoins.length > 0) {
       rememberOpenPositionMonitor(userAddress);
+      await this.recoverUserStopLosses(userAddress, stateAfterDust, settings);
       await this.monitorOpenPositions(userAddress, stateAfterDust, settings, { fast: false });
     } else {
       forgetOpenPositionMonitor(userAddress);
@@ -707,6 +802,15 @@ export class HyperliquidTradingService {
         logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
       }
       return openCoins.length > 0 ? 'ok' : 'skip';
+    }
+
+    if (isWalletSlCritical(userAddress)) {
+      const crit = isWalletSlCritical(userAddress);
+      logger.error('HL skip new opens — critical unprotected position', {
+        user: userAddress.slice(0, 10),
+        critical: crit,
+      });
+      return 'ok';
     }
 
     if (openCoins.length >= maxPositions) {
@@ -1010,6 +1114,10 @@ export class HyperliquidTradingService {
         strategy,
       });
       return 'skip';
+    }
+
+    if (isWalletSlCritical(userAddress)) {
+      return 'ok';
     }
 
     await warmCoinCloseCacheForWallet(userAddress);
@@ -2371,7 +2479,7 @@ export class HyperliquidTradingService {
       const limitPx = isLong ? execMark * 1.05 : markPx * 0.95;
 
       setHlExecutionState(opts.userAddress, {
-        state: 'ORDER_SUBMITTED',
+        state: 'ENTRY_SUBMITTED',
         longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
         code: null,
         reason: `Submitting ${tradeDirection} ${coin}`,
@@ -2379,26 +2487,63 @@ export class HyperliquidTradingService {
         direction: tradeDirection,
       });
 
-      const result = await client.order({
-        orders: [
-          {
-            a: assetIndex,
-            b: isLong,
-            p: formatHlPrice(limitPx, szDecimals),
-            s: formatHlSize(size, szDecimals),
-            r: false,
-            t: { limit: { tif: 'FrontendMarket' } },
-          },
-        ],
-        grouping: 'na',
-        ...(builder ? { builder } : {}),
+      let entryTimedOut = false;
+      let orderStatus: HlOrderStatusBlob | null = null;
+      try {
+        const result = await client.order({
+          orders: [
+            {
+              a: assetIndex,
+              b: isLong,
+              p: formatHlPrice(limitPx, szDecimals),
+              s: formatHlSize(size, szDecimals),
+              r: false,
+              t: { limit: { tif: 'FrontendMarket' } },
+            },
+          ],
+          grouping: 'na',
+          ...(builder ? { builder } : {}),
+        });
+        const rawStatus = result.response?.data?.statuses?.[0];
+        orderStatus = (rawStatus as HlOrderStatusBlob | undefined) ?? null;
+      } catch (orderErr: unknown) {
+        entryTimedOut = true;
+        logger.warn('HL entry submit timed out / network — polling fill, no second order', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          error: orderErr instanceof Error ? orderErr.message : String(orderErr),
+        });
+      }
+
+      if (orderStatus && 'error' in orderStatus && orderStatus.error) {
+        return rejectOpen('order_error', String(orderStatus.error), 'order error');
+      }
+
+      const userSlPct = Math.max(0, Number(opts.stopLossPercent ?? 0));
+      const collat = effectiveLeverage > 0 ? opts.notionalUsd / effectiveLeverage : opts.notionalUsd;
+      const protection = await runEntryStopFailSafe({
+        wallet: opts.userAddress,
+        coin,
+        direction: tradeDirection,
+        requestedSize: size,
+        requestedEntryPx: execMark,
+        collateralUsd: collat,
+        stopLossPercent: userSlPct,
+        szDecimals,
+        longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
+        orderStatus,
+        entryTimedOut,
+        exchange: makeEntrySlExchange({
+          userAddress: opts.userAddress,
+          coin,
+          direction: tradeDirection,
+          szDecimals,
+          flatten: async (absSize) => this.flattenUnprotectedPosition(opts.userAddress, coin, absSize),
+        }),
       });
 
-      const status = result.response?.data?.statuses?.[0] as
-        | { filled?: unknown; error?: string }
-        | undefined;
-      if (status && 'error' in status && status.error) {
-        return rejectOpen('order_error', String(status.error), 'order error');
+      if (!protection.openKept) {
+        return { success: false, error: protection.reason };
       }
 
       logger.info('HL position opened', {
@@ -2412,58 +2557,19 @@ export class HyperliquidTradingService {
         openSlot: 'multi',
         visionDecision: llmConfirm.decision,
         visionLocation: llmConfirm.location,
+        sl: protection.reason,
+        fillSize: protection.filledSize,
       });
 
       await recordHlBotOpenMarker({
         walletAddress: opts.userAddress,
         coin,
         direction: tradeDirection,
-        entryPx: markPx,
+        entryPx: protection.avgPx ?? markPx,
         reason: openReasonFull,
       });
 
       hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());
-      const userSlPct = Math.max(0, Number(opts.stopLossPercent ?? 0));
-      let slNote = 'user SL off';
-      if (userSlPct > 0) {
-        const collat = effectiveLeverage > 0 ? opts.notionalUsd / effectiveLeverage : opts.notionalUsd;
-        const slPx = lossStopPricePx(tradeDirection, markPx, size, collat, userSlPct);
-        const slPost = await confirmUserEmergencyStop({
-          userAddress: opts.userAddress,
-          coin,
-          direction: tradeDirection,
-          absSize: size,
-          stopPx: slPx,
-          szDecimals,
-        });
-        if (!slPost.ok) {
-          setHlExecutionState(opts.userAddress, {
-            state: 'ORDER_CONFIRMED',
-            longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
-            code: 'LONG_SL_VALIDATION_FAILED',
-            reason: slPost.reason,
-            coin,
-            direction: tradeDirection,
-          });
-          logger.warn('HL user SL not confirmed after open — monitor will retry', {
-            user: opts.userAddress.slice(0, 10),
-            coin,
-            slPct: userSlPct,
-            error: slPost.reason,
-          });
-        } else {
-          slNote = `user SL ${userSlPct}% confirmed @ ${slPx}`;
-        }
-      }
-      setHlExecutionState(opts.userAddress, {
-        state: 'ORDER_CONFIRMED',
-        longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
-        code: null,
-        reason: `Opened ${tradeDirection} ${coin} — ${slNote}`,
-        coin,
-        direction: tradeDirection,
-      });
-
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2907,6 +3013,78 @@ export class HyperliquidTradingService {
     }
   }
 
+  private async flattenUnprotectedPosition(
+    userAddress: `0x${string}`,
+    coin: string,
+    absSize: number
+  ): Promise<FlattenResult> {
+    const closed = await this.closeMarketPosition(
+      userAddress,
+      coin,
+      SL_FAIL_SAFE_FLATTEN_REASON,
+      { entryPx: 0, unrealizedPnlUsd: 0, size: absSize, leverage: 1 },
+      `SL FAIL-SAFE FLATTEN — ${coin} user stop unconfirmed`
+    );
+    const state = await fetchHlClearinghouseState(userAddress, { critical: true });
+    if (!state && (closed.error ?? '').toLowerCase().includes('unreachable')) {
+      return { attempted: true, remainingAbs: absSize, exchangeUnreachable: true };
+    }
+    if (!state) {
+      return {
+        attempted: true,
+        remainingAbs: closed.success ? 0 : absSize,
+        exchangeUnreachable: !closed.success,
+      };
+    }
+    const live = exchangePositionFromState(state, coin);
+    const remainingAbs = live ? Math.abs(live.szi) : 0;
+    return {
+      attempted: true,
+      remainingAbs,
+      exchangeUnreachable: false,
+    };
+  }
+
+  private async recoverUserStopLosses(
+    userAddress: `0x${string}`,
+    state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
+    settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>
+  ): Promise<void> {
+    const slPct = Math.max(0, Number(settings.stopLossPercent ?? 0));
+    const meta = await fetchHlMeta();
+    for (const row of state.assetPositions ?? []) {
+      const pos = row.position;
+      if (!pos?.coin) continue;
+      const szi = Number(pos.szi ?? 0);
+      const entry = Number(pos.entryPx ?? 0);
+      if (!hlIsMeaningfulPerpPosition(szi, entry)) continue;
+      const direction: 'LONG' | 'SHORT' = szi > 0 ? 'LONG' : 'SHORT';
+      const coin = pos.coin.toUpperCase();
+      const absSize = Math.abs(szi);
+      const lev = Math.max(1, Number(pos.leverage?.value ?? 10));
+      const assetIndex = coinToAssetIndex(meta, coin);
+      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      await recoverPositionUserStop({
+        wallet: userAddress,
+        coin,
+        direction,
+        stopLossPercent: slPct,
+        longClass: 'NONE',
+        collateralUsd: (absSize * entry) / lev,
+        requestedEntryPx: entry,
+        requestedSize: absSize,
+        szDecimals,
+        exchange: makeEntrySlExchange({
+          userAddress,
+          coin,
+          direction,
+          szDecimals,
+          flatten: async (sz) => this.flattenUnprotectedPosition(userAddress, coin, sz),
+        }),
+      });
+    }
+  }
+
   private async monitorOpenPositions(
     userAddress: `0x${string}`,
     state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
@@ -2977,9 +3155,8 @@ export class HyperliquidTradingService {
           )?.szDecimals ?? 0
         : 0;
       const tickSize = hlTickSize(markPrice, szDecimals);
-      const emergencyStopPx = config.hyperliquid.profitOnlyExits
-        ? null
-        : settings.stopLossPercent > 0
+      const emergencyStopPx =
+        settings.stopLossPercent > 0
           ? lossStopPricePx(
               positionDirection,
               entry,
@@ -2987,11 +3164,13 @@ export class HyperliquidTradingService {
               collateralEst,
               settings.stopLossPercent
             )
-          : config.hyperliquid.thesisEmergencyMaxLossUsd > 0 && absSize > 0
-            ? positionDirection === 'LONG'
-              ? entry - config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
-              : entry + config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
-            : null;
+          : config.hyperliquid.profitOnlyExits
+            ? null
+            : config.hyperliquid.thesisEmergencyMaxLossUsd > 0 && absSize > 0
+              ? positionDirection === 'LONG'
+                ? entry - config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
+                : entry + config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
+              : null;
       const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
