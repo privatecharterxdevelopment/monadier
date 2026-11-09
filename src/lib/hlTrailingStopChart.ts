@@ -320,18 +320,6 @@ export function trailStopForOpenPosition(opts: {
     };
   }
 
-  // A successful server snapshot with no stop means the bot truly has no active
-  // trail yet. Do not replace that truth with the legacy frontend estimator.
-  if (server) {
-    return {
-      stopPx: null,
-      armed: false,
-      kind: 'arming',
-      label: 'Arming',
-      title: `Bot trail phase: ${server.phase ?? 'idle'} — no active server stop yet.`,
-    };
-  }
-
   const trail = computeDynamicTrailStopPx({
     entryPx: opts.entryPx,
     szi: opts.szi,
@@ -363,7 +351,7 @@ export function trailStopForOpenPosition(opts: {
       armed: false,
       kind: 'arming',
       label: lossPx != null ? fmtStopPx(lossPx) : '—',
-      title: `Profit SL arms after a few seconds in plus (now ${roe.toFixed(2)}% ROE).`,
+      title: `Profit SL should be live now (${roe.toFixed(2)}% ROE).`,
     };
   }
 

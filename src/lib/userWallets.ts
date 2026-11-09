@@ -282,8 +282,14 @@ export async function fetchPreferredTradingWallet(
       return w && linked.includes(w) ? w : undefined;
     };
 
-    const running = newest(rows.filter((r) => r.auto_trade_enabled));
-    if (running) return running;
+    const runningWallets = rows
+      .filter((r) => r.auto_trade_enabled)
+      .map((r) => r.wallet_address?.toLowerCase())
+      .filter((w): w is string => Boolean(w && linked.includes(w)));
+    // Oldest linked wallet with auto-trade (phone) beats a later empty MetaMask
+    // that inherited an auto_trade row on desktop.
+    const oldestRunning = linked.find((w) => runningWallets.includes(w));
+    if (oldestRunning) return oldestRunning;
     const anySettings = newest(rows);
     if (anySettings) return anySettings;
   } catch (err) {

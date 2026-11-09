@@ -48,9 +48,9 @@ export async function syncHlProfitStopOrder(opts: {
   stopPx: number | null;
   armed: boolean;
 }): Promise<void> {
-  // Off unless ops set HL_POST_PROFIT_SL=true — posting an HL trigger
-  // through the market closed live shorts.
-  if (process.env.HL_POST_PROFIT_SL !== 'true') return;
+  // Off only if ops set HL_POST_PROFIT_SL=false. Protective-side check
+  // below refuses a trigger that would fire through the market.
+  if (process.env.HL_POST_PROFIT_SL === 'false') return;
   if (!opts.armed || opts.stopPx == null || opts.absSize <= 0) return;
   if (!protectiveSideOk(opts.direction, opts.stopPx, opts.markPrice, opts.entryPrice)) {
     return;

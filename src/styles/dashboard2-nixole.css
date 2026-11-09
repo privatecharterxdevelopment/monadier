@@ -1487,18 +1487,26 @@
   }
 
   .term-center {
-    grid-template-rows: minmax(240px, 1fr) minmax(100px, min(32vh, 200px));
+    grid-template-rows: minmax(160px, 1fr) minmax(240px, 48vh);
+  }
+
+  .term-center:has(.hl-dock--has-positions) {
+    grid-template-rows: minmax(120px, 0.65fr) minmax(280px, 58vh);
   }
 }
 
 .term-center {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(120px, min(28vh, 260px));
+  grid-template-rows: minmax(0, 1fr) minmax(160px, min(36vh, 340px));
   min-width: 0;
   min-height: 0;
   flex: 1;
   gap: 8px;
   overflow: hidden;
+}
+
+.term-center:has(.hl-dock--has-positions) {
+  grid-template-rows: minmax(0, 1fr) minmax(220px, min(46vh, 420px));
 }
 
 .term-chart-area {

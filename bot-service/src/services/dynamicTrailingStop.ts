@@ -163,10 +163,7 @@ export function shouldArmBreakevenProtection(
   timeInProfitMs: number,
   _totalHoldMs: number
 ): boolean {
-  if (pnlUsd <= 0) return false;
-  const cfgMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-  const armMs = Math.min(3_000, Math.max(0, Number.isFinite(cfgMs) ? cfgMs : 1_000));
-  return timeInProfitMs >= armMs;
+  return pnlUsd > 0;
 }
 
 export function lossStopPricePx(

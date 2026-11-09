@@ -2860,6 +2860,18 @@ export class HyperliquidTradingService {
         });
         // Keep trail state for UI — never act on shouldClose.
         saveTrailRecord(lockKey, trailResult.record);
+        if (pnl > 0 && trailResult.record.phase !== 'idle' && trailResult.record.currentTrailStop != null) {
+          void syncHlProfitStopOrder({
+            userAddress,
+            coin: pos.coin,
+            direction: positionDirection,
+            absSize,
+            markPrice,
+            entryPrice: entry,
+            stopPx: trailResult.record.currentTrailStop,
+            armed: true,
+          });
+        }
         logger.debug('HL let-run — skip auto exits', {
           user: userAddress.slice(0, 10),
           coin: pos.coin,

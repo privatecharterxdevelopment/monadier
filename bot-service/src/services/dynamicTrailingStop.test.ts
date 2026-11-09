@@ -20,21 +20,10 @@ function shortTick(
 }
 
 describe('in-profit SL ratchet', () => {
-  it('arms after ~1s green and tightens as the peak runs', async () => {
+  it('arms on first green tick and tightens as the peak runs', async () => {
     const t0 = 1_000_000;
-    const idle = await evaluateDynamicTrail(
-      shortTick({ nowMs: t0, pnlUsd: 1.2, markPrice: 98.8, record: null })
-    );
-    assert.equal(idle.record.phase, 'idle');
-
     const armed = await evaluateDynamicTrail(
-      shortTick({
-        nowMs: t0 + 1_200,
-        pnlUsd: 1.4,
-        markPrice: 98.6,
-        record: idle.record,
-        totalHoldMs: 1_200,
-      })
+      shortTick({ nowMs: t0, pnlUsd: 1.4, markPrice: 98.6, record: null })
     );
     assert.equal(armed.record.phase, 'armed');
     assert.ok(armed.record.currentTrailStop != null);

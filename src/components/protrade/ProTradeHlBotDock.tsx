@@ -13,7 +13,7 @@ import { persistVaultSettings } from '../../lib/syncVaultSettings';
 import { snapLeverageToStep } from '../../lib/leverageLimits';
 import { registerBotStopSaver } from '../../lib/botStopSaver';
 import { toNum } from '../../lib/hyperliquid/parse';
-import type { HlPosition } from '../../lib/hyperliquid/user';
+import { fetchHlAccountState, type HlPosition } from '../../lib/hyperliquid/user';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -81,8 +81,11 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const { isDemoUser, isAuthenticated } = useAuth();
   const { planTier } = useSubscription();
   const { wallet: hlWallet } = useHlActiveWallet(walletAddress);
-  const { settings: botSettingsSnapshot, reload: reloadBotSettings } =
-    useTerminalBotSettings();
+  const {
+    settings: botSettingsSnapshot,
+    wallet: settingsWallet,
+    reload: reloadBotSettings,
+  } = useTerminalBotSettings();
   const botEff = effectiveHlBotSettings(botSettingsSnapshot);
   const configuredLeverage = botEff.leverage;
   const configuredStopLoss = botEff.stopLoss;
@@ -103,8 +106,38 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     fillsLoading,
     refresh: refreshAccount,
   } = useHyperliquidAccount(hlWallet);
+  const [fallbackAccount, setFallbackAccount] = useState<typeof account>(null);
+  const fallbackWallet =
+    settingsWallet &&
+    hlWallet &&
+    settingsWallet.toLowerCase() !== hlWallet.toLowerCase()
+      ? settingsWallet
+      : undefined;
 
-  const positions = account?.positions ?? [];
+  useEffect(() => {
+    if ((account?.positions?.length ?? 0) > 0 || !fallbackWallet) {
+      setFallbackAccount(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchHlAccountState(fallbackWallet).then((acct) => {
+      if (cancelled) return;
+      if ((acct.positions?.length ?? 0) > 0) setFallbackAccount(acct);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account?.positions?.length, fallbackWallet]);
+
+  const dockAccount =
+    (account?.positions?.length ?? 0) > 0 ? account : fallbackAccount ?? account;
+  const positionsWallet =
+    (account?.positions?.length ?? 0) > 0
+      ? hlWallet
+      : fallbackAccount
+        ? fallbackWallet ?? hlWallet
+        : hlWallet;
+  const positions = dockAccount?.positions ?? [];
   const positionCoins = useMemo(() => positions.map((p) => p.coin), [positions]);
   const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins, 5000);
   const { closePosition, busy: closeBusy, error: closeError } =
@@ -181,7 +214,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
 
   const handleClosePosition = useCallback(
     async (position: HlPosition) => {
-      if (!hlWallet) {
+      const closeWallet = positionsWallet ?? hlWallet;
+      if (!closeWallet) {
         setCloseNotice('Connect wallet to close this position.');
         return;
       }
@@ -201,7 +235,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           isLong,
           markPx,
           profitUsd,
-          walletAddress: hlWallet,
+          walletAddress: closeWallet,
         });
         setCloseNotice(null);
         await refreshAccount({ forceHeavy: true });
@@ -211,7 +245,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         setCloseNotice(msg);
       }
     },
-    [closePosition, hlWallet, markPrices, refreshAccount, onPositionChange]
+    [closePosition, hlWallet, positionsWallet, markPrices, refreshAccount, onPositionChange]
   );
 
   const handleDockTabChange = useCallback(
@@ -223,7 +257,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   );
 
   // Login + wallet — never show positions/history from settings wallet alone.
-  const connected = isAuthenticated && Boolean(hlWallet) && (walletConnected || isDemoUser);
+  const connected =
+    isAuthenticated &&
+    Boolean(hlWallet || positionsWallet) &&
+    (walletConnected || isDemoUser);
 
   return (
     <div
@@ -241,7 +278,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       <ProTradeDock
         mode="bot"
         historyOnly={historyOnly}
-        account={account}
+        account={dockAccount}
         spotBalances={spotBalances}
         openOrders={[]}
         fills={fills}
@@ -259,8 +296,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         configuredLeverage={configuredLeverage}
         stopLossMarginPct={stopLossMarginPct}
         onSaveStopLoss={handleSaveStopLoss}
-        hlActiveWallet={hlWallet}
-        walletAddress={hlWallet}
+        hlActiveWallet={positionsWallet}
+        walletAddress={positionsWallet}
         reasonRefreshKey={refreshKey}
         botRunning={botRunning}
         botScanSymbol={botAnalysisSymbol}

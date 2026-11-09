@@ -31,7 +31,7 @@ type State = {
 };
 
 const BALANCE_POLL_MS = 20_000;
-const POSITION_POLL_MS = 12_000;
+const POSITION_POLL_MS = 4_000;
 /** Background fills poll — closes still force an immediate heavy refresh. */
 const HEAVY_REFRESH_MS = 60_000;
 const FILLS_LIMIT = 2000;
@@ -190,7 +190,7 @@ export function useHyperliquidAccount(address: string | undefined) {
       }
     };
 
-    const id = setInterval(() => void pollBalances(), BALANCE_POLL_MS);
+    const id = setInterval(() => void pollBalances(), 5_000);
     return () => clearInterval(id);
   }, [address, refreshCore]);
 
@@ -217,8 +217,6 @@ export function useHyperliquidAccount(address: string | undefined) {
 
   useEffect(() => {
     if (!address) return undefined;
-    const hasOpen = (state.account?.positions?.length ?? 0) > 0;
-    if (!hasOpen) return undefined;
 
     const pollAccount = async () => {
       if (!isTabVisible()) return;
@@ -232,7 +230,7 @@ export function useHyperliquidAccount(address: string | undefined) {
 
     const id = setInterval(() => void pollAccount(), POSITION_POLL_MS);
     return () => clearInterval(id);
-  }, [address, state.account?.positions?.length]);
+  }, [address]);
 
   return { ...state, refresh };
 }

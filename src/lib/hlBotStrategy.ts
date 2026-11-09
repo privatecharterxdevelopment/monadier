@@ -86,8 +86,6 @@ export function shouldArmDynamicTrail(
   if (HL_DYNAMIC_TRAIL.armMinProfitUsd > 0 && peak < HL_DYNAMIC_TRAIL.armMinProfitUsd) {
     return false;
   }
-  const timeInProfitMs = opts?.timeInProfitMs ?? 0;
-  if (timeInProfitMs < HL_DYNAMIC_TRAIL.armMinProfitHoldMs) return false;
   return true;
 }
 

@@ -267,9 +267,15 @@ const ProTradeDock: React.FC<Props> = ({
     if (activeTab == null) setInternalTab(next);
   };
 
+  const liveAccountPositions = useMemo(() => {
+    const fromAccount = account?.positions ?? [];
+    if (fromAccount.length > 0) return fromAccount;
+    return hlSnap?.positions ?? [];
+  }, [account?.positions, hlSnap?.positions]);
+
   const scopedPositions = useMemo(
-    () => filterHlPositions(account?.positions, managedCoins, scope),
-    [account?.positions, managedCoins, scope]
+    () => filterHlPositions(liveAccountPositions, managedCoins, scope),
+    [liveAccountPositions, managedCoins, scope]
   );
 
   const dustPositions = useMemo(
@@ -279,9 +285,9 @@ const ProTradeDock: React.FC<Props> = ({
 
   const hlOpenPositionCount = useMemo(
     () =>
-      (account?.positions ?? []).filter((p) => isMeaningfulHlPosition(p.szi, p.entryPx))
+      liveAccountPositions.filter((p) => isMeaningfulHlPosition(p.szi, p.entryPx))
         .length,
-    [account?.positions]
+    [liveAccountPositions]
   );
 
   const positionCount = scopedPositions.length;
@@ -471,7 +477,11 @@ const ProTradeDock: React.FC<Props> = ({
   }, [closeFills, search]);
 
   return (
-    <section className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}`}>
+    <section
+      className={`hl-dock${isBotMode ? ' hl-bot-dock-inner' : ''}${
+        positionCount > 0 ? ' hl-dock--has-positions' : ''
+      }`}
+    >
       <div className={`hl-dock-head${historyOnly ? ' hl-dock-head--history-only' : ''}`}>
         {!historyOnly ? (
           <nav className="hl-dock-tabs" aria-label={t('dock.ariaPanels')}>
