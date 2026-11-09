@@ -32,9 +32,9 @@ describe('scan queueable vs board LONG', () => {
     assert.equal(isScanQueueable(long, short, short), false);
   });
 
-  it('does not queue a lone display LONG under 75%', () => {
+  it('queues a lone LONG that the MTF pick already chose', () => {
     const long = cand('BTC', 'LONG', 64);
-    assert.equal(isScanQueueable(long, long, null), false);
+    assert.equal(isScanQueueable(long, long, null), true);
   });
 
   it('queues a strong lone LONG with 1h UP', () => {

@@ -103,13 +103,14 @@ export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number 
 
 export function profitClearsFeeGate(
   pnlUsd: number,
-  _feesUsd: number,
+  feesUsd: number,
   _peakPnlUsd = 0,
-  _collateralUsd = 0
+  collateralUsd = 0
 ): boolean {
-  // Stop was crossed in profit — close. The old 15%-of-peak leftover gate
-  // blocked the fill after a fast retrace and the winner ran back to red.
-  return pnlUsd > 0;
+  // Must stay green AFTER the close fill (fees + a bit of market-SL slippage).
+  // pnl > 0 alone let SOL scratch −$0.56 when the trigger slipped through entry.
+  const need = Math.max(profitCloseNeedUsd(feesUsd, collateralUsd), feesUsd * 2);
+  return pnlUsd >= need;
 }
 
 function blockIfFeesNotCleared(

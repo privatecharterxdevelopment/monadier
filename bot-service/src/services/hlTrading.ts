@@ -969,10 +969,6 @@ export class HyperliquidTradingService {
 
     const picks = passing
       .sort((a, b) => {
-        const primary = config.hyperliquid.directionProfile.primaryDirection;
-        if (a.signal.direction !== b.signal.direction) {
-          return a.signal.direction === primary ? -1 : 1;
-        }
         const aMaj = isMajorFillCoin(a.signal.coin) ? 1 : 0;
         const bMaj = isMajorFillCoin(b.signal.coin) ? 1 : 0;
         if (aMaj !== bMaj) return bMaj - aMaj;

@@ -20,19 +20,41 @@ function clientFor(userAddress: string): ExchangeClient {
   });
 }
 
-function protectiveSideOk(
+/** True if the trigger is on the profit side of entry and not glued to mark. */
+export function protectiveSideOk(
   direction: 'LONG' | 'SHORT',
   stopPx: number,
   markPx: number,
   entryPx: number
 ): boolean {
   if (!(stopPx > 0) || !(markPx > 0) || !(entryPx > 0)) return false;
+  const minAway = markPx * 0.0012;
   if (direction === 'LONG') {
-    // SL below mark, on the profit side of entry (or a hair through for tick size).
-    return stopPx < markPx && stopPx >= entryPx * 0.995;
+    // SL below mark, strictly above entry (never a red trigger).
+    return stopPx < markPx - minAway && stopPx > entryPx;
   }
-  // SHORT profit SL sits below entry and above mark.
-  return stopPx > markPx && stopPx <= entryPx * 1.005;
+  // SHORT: strictly below entry, above mark — 1.005× entry used to allow a red SL.
+  return stopPx > markPx + minAway && stopPx < entryPx;
+}
+
+/** Market SL slippage can eat a 10–20¢ leftover. Need real lock before posting. */
+export function profitStopSafeToPost(opts: {
+  direction: 'LONG' | 'SHORT';
+  stopPx: number;
+  markPx: number;
+  entryPx: number;
+  absSize: number;
+  minLockUsd: number;
+}): boolean {
+  if (!protectiveSideOk(opts.direction, opts.stopPx, opts.markPx, opts.entryPx)) {
+    return false;
+  }
+  if (!(opts.absSize > 0)) return false;
+  const lockUsd =
+    opts.direction === 'LONG'
+      ? (opts.stopPx - opts.entryPx) * opts.absSize
+      : (opts.entryPx - opts.stopPx) * opts.absSize;
+  return lockUsd >= Math.max(1.25, opts.minLockUsd);
 }
 
 /**
@@ -53,7 +75,18 @@ export async function syncHlProfitStopOrder(opts: {
   // below refuses a trigger that would fire through the market.
   if (process.env.HL_POST_PROFIT_SL === 'false') return;
   if (!opts.armed || opts.stopPx == null || opts.absSize <= 0) return;
-  if (!protectiveSideOk(opts.direction, opts.stopPx, opts.markPrice, opts.entryPrice)) {
+  const notional = opts.absSize * opts.entryPrice;
+  const minLockUsd = Math.max(1.25, notional * 0.0025);
+  if (
+    !profitStopSafeToPost({
+      direction: opts.direction,
+      stopPx: opts.stopPx,
+      markPx: opts.markPrice,
+      entryPx: opts.entryPrice,
+      absSize: opts.absSize,
+      minLockUsd,
+    })
+  ) {
     return;
   }
 

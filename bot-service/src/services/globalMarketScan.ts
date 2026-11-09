@@ -75,8 +75,6 @@ function pickPreferredCandidate(
     return longC;
   }
 
-  const primary = profile.primaryDirection;
-  const edge = primary === 'SHORT' ? 18 : 8;
   const btcInflow = btcLeadIsPumping();
   const btcShort = btcLeadAllowsCautiousShort();
   if (!btcShort.ok) {
@@ -84,34 +82,30 @@ function pickPreferredCandidate(
   }
 
   if (longC && shortC) {
-    // BTC still pushing = LONG only.
-    if (btcInflow) return longC;
-    // Dump tape: if SHORT has h1 DOWN and is competitive, never prefer LONG
-    // just because bull_market is LONG-primary (that opens longs into dumps).
     const shortH1Down = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-    if (
-      shortH1Down &&
-      shortC.confidence >= Math.max(60, (longC.confidence ?? 0) - 12)
-    ) {
-      return shortC;
+    const longH1Up = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP');
+    // Per-coin analysis — not a global SHORT-or-LONG lock.
+    if (btcInflow && longH1Up && !shortH1Down) return longC;
+    if (longH1Up && !shortH1Down) return longC;
+    if (shortH1Down && !longH1Up) return shortC;
+    if (Math.abs((longC.confidence ?? 0) - (shortC.confidence ?? 0)) >= 5) {
+      return (longC.confidence ?? 0) >= (shortC.confidence ?? 0) ? longC : shortC;
     }
-    if (primary === 'LONG' && longC.confidence >= shortC.confidence - edge) {
-      // Still require LONG h1 UP when both sides print under bull.
-      if (!h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')) return shortC;
-      return longC;
-    }
-    if (primary === 'SHORT' && shortC.confidence >= longC.confidence - edge) return shortC;
-    return longC.confidence >= shortC.confidence ? longC : shortC;
+    return (shortC.confidence ?? 0) >= (longC.confidence ?? 0) ? shortC : longC;
   }
 
-  if (longC && !shortC && primary === 'SHORT') {
-    // Board print — queueable is decided separately (75%+ / h1 UP).
-    if (!btcInflow && longC.confidence < 58) return null;
+  if (longC && !shortC && profile.primaryDirection === 'SHORT') {
+    if (
+      !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP') &&
+      longC.confidence < 62
+    ) {
+      return null;
+    }
     return longC;
   }
 
   // Lone LONG under bull still needs UP 1h — unless BTC is still inflowing.
-  if (longC && !shortC && primary === 'LONG') {
+  if (longC && !shortC && profile.primaryDirection === 'LONG') {
     if (
       !btcInflow &&
       !h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP')
@@ -131,16 +125,19 @@ export function isScanQueueable(
 ): boolean {
   const profile = config.hyperliquid.directionProfile;
   const primary = profile.primaryDirection;
-  if (candidate.direction === primary) return true;
-  if (!preferred || preferred.direction !== candidate.direction) return false;
-  if (primary === 'SHORT' && candidate.direction === 'LONG') {
-    if (shortC) return true;
-    return (
-      candidate.confidence >= 75 &&
-      h1TrendMatchesRequired(candidate.h1Trend ?? undefined, 'UP')
-    );
+  // One side per coin — the side pickPreferredCandidate chose from MTF.
+  // Mixed books come from different coins, not LONG+SHORT on the same pair.
+  if (
+    preferred &&
+    preferred.coin === candidate.coin &&
+    preferred.direction === candidate.direction
+  ) {
+    return true;
   }
-  return true;
+  if (candidate.direction === primary && (!preferred || preferred.coin !== candidate.coin)) {
+    return true;
+  }
+  return false;
 }
 
 function withQueueFlag(
@@ -791,14 +788,9 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
-  const primary = config.hyperliquid.directionProfile.primaryDirection;
-  // Display-only LONGs stay on SCAN; they must not fill the open queue.
   const standard = scan.standard
     .filter((c) => c.queueable !== false)
     .sort((a, b) => {
-      if (a.direction !== b.direction) {
-        return a.direction === primary ? -1 : 1;
-      }
       return b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd;
     });
   const aggressive = scan.aggressive.filter((c) => c.queueable !== false);
@@ -820,10 +812,9 @@ export function globalSignalsForBotMode(
   });
   if (borrowed.length === 0) return standard;
 
-  return [...standard, ...borrowed].sort((a, b) => {
-    if (a.direction !== b.direction) return a.direction === primary ? -1 : 1;
-    return b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence;
-  });
+  return [...standard, ...borrowed].sort(
+    (a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd
+  );
 }
 
 /** SCAN badges — keep a few LONGs even when SHORTs dominate the top ranks. */
