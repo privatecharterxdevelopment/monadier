@@ -145,6 +145,20 @@ describe('profit SL must stay green on the BE side', () => {
     assert.equal(emergencySideOk('SHORT', be, 86.2, entry), false);
   });
 
+  it('user emergency SL for LONG uses the same market trigger as SHORT', () => {
+    const longSl = buildEmergencyStopMarketLeg({
+      assetIndex: 0,
+      direction: 'LONG',
+      size: 0.01,
+      stopPx: 74_250,
+      szDecimals: 1,
+    });
+    assert.equal(longSl.t.trigger.isMarket, true);
+    assert.equal(longSl.t.trigger.tpsl, 'sl');
+    assert.equal(longSl.r, true);
+    assert.equal(longSl.b, false);
+  });
+
   it('still flags a glue-to-mark SHORT as unsafe', () => {
     assert.equal(protectiveSideOk('SHORT', 86.44, 86.43, entry, be, 0.001), false);
   });

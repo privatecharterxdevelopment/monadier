@@ -31,6 +31,9 @@ export type DumpPhase =
   | 'FALSE_RECLAIM'
   | 'OVEREXTENDED';
 
+/** Relief = mid reclaim only. Structure = close back through dump open. Retest optional. */
+export type ReclaimKind = 'none' | 'relief' | 'structure_break' | 'retest';
+
 export type BearLongClassification = {
   class: LongOpportunityClass;
   dumpPhase: DumpPhase;
@@ -39,6 +42,7 @@ export type BearLongClassification = {
   reason: string;
   reclaimPx: number | null;
   dumpPx: number | null;
+  reclaimKind: ReclaimKind;
   atr15m: number;
   extensionAtr: number;
   htfBearish: boolean;
@@ -54,6 +58,7 @@ const EMPTY: BearLongClassification = {
   reason: 'No bear-LONG classification',
   reclaimPx: null,
   dumpPx: null,
+  reclaimKind: 'none',
   atr15m: 0,
   extensionAtr: 0,
   htfBearish: false,
@@ -168,69 +173,130 @@ function tapeStillDumping(candles: Candle[], lookback = 5): boolean {
   return (red >= 4 || (red >= 3 && netPct < -0.08) || netPct <= -0.25) && lowerLow;
 }
 
-function isValidReclaim(dump: Candle, later: Candle, atr: number, rules: BearReversalLongRules): boolean {
+function reclaimCandleOk(later: Candle, rules: BearReversalLongRules): boolean {
   if (later.close <= later.open) return false;
   if (bodyRatio(later) < rules.minReclaimBodyRatio) return false;
+  return later.close >= later.low + (later.high - later.low) * 0.55;
+}
+
+function isReliefReclaim(dump: Candle, later: Candle, atr: number, rules: BearReversalLongRules): boolean {
+  if (!reclaimCandleOk(later, rules)) return false;
   const mid = (dump.high + dump.low) / 2;
   const buffer = (atr || 0) * rules.reclaimMidBufferAtr;
   const aboveMid = later.close >= mid + buffer;
   const aboveOpen = later.close >= dump.open * 0.998;
-  const notWick = later.close >= later.low + (later.high - later.low) * 0.55;
-  return (aboveMid || aboveOpen) && notWick;
+  return aboveMid && !aboveOpen;
+}
+
+function isStructureBreak(dump: Candle, later: Candle, atr: number, rules: BearReversalLongRules): boolean {
+  if (!reclaimCandleOk(later, rules)) return false;
+  const buffer = (atr || 0) * rules.reclaimMidBufferAtr;
+  return later.close >= dump.open + buffer;
+}
+
+function isRetestHold(dump: Candle, later: Candle): boolean {
+  if (later.close <= later.open) return false;
+  const origin = dump.open;
+  const tagged = later.low <= origin * 1.002;
+  return tagged && later.close >= origin * 0.998;
 }
 
 export function classifyDumpPhase(
   candles15m: Candle[],
   candles5m: Candle[],
   rules: BearReversalLongRules = BEAR_REVERSAL_LONG
-): { phase: DumpPhase; dump: DumpLoc | null; reclaimPx: number | null } {
+): {
+  phase: DumpPhase;
+  dump: DumpLoc | null;
+  reclaimPx: number | null;
+  reclaimKind: ReclaimKind;
+} {
   const dump = findDumpImpulse(candles15m, rules);
   const closed15 = closedBars(candles15m);
   const atr = dump?.atr || candleAtr(candles15m);
+  const empty = {
+    phase: 'CLEAR' as const,
+    dump: null,
+    reclaimPx: null,
+    reclaimKind: 'none' as const,
+  };
 
   if (!dump) {
     if (tapeStillDumping(candles5m) || tapeStillDumping(candles15m)) {
-      return { phase: 'ACTIVE_DUMP', dump: null, reclaimPx: null };
+      return { ...empty, phase: 'ACTIVE_DUMP' };
     }
-    return { phase: 'CLEAR', dump: null, reclaimPx: null };
+    return empty;
   }
 
   const after = closed15.slice(dump.index + 1);
-  const reclaimBar = after.find((c) => isValidReclaim(dump.candle, c, atr, rules)) ?? null;
+  const structureBar =
+    after.find((c) => isStructureBreak(dump.candle, c, atr, rules)) ?? null;
+  const reliefBar = after.find((c) => isReliefReclaim(dump.candle, c, atr, rules)) ?? null;
 
-  if (!reclaimBar) {
-    const last = closed15[closed15.length - 1]!;
-    const lifted = last.close > dump.candle.low * 1.001 && last.close < dump.mid;
+  if (!structureBar) {
     if (tapeStillDumping(candles15m) || tapeStillDumping(candles5m)) {
-      return { phase: 'ACTIVE_DUMP', dump, reclaimPx: null };
+      return { phase: 'ACTIVE_DUMP', dump, reclaimPx: null, reclaimKind: 'none' };
     }
-    return { phase: lifted ? 'FLUSH_WAIT' : 'FLUSH_WAIT', dump, reclaimPx: null };
+    return {
+      phase: 'FLUSH_WAIT',
+      dump,
+      reclaimPx: reliefBar?.close ?? null,
+      reclaimKind: reliefBar ? 'relief' : 'none',
+    };
   }
 
-  const afterReclaim = after.slice(after.indexOf(reclaimBar) + 1);
-  const broke = afterReclaim.some((c) => c.close < dump.mid && c.close < c.open);
+  const afterBreak = after.slice(after.indexOf(structureBar) + 1);
+  const broke = afterBreak.some((c) => c.close < dump.mid && c.close < c.open);
   if (broke) {
-    return { phase: 'FALSE_RECLAIM', dump, reclaimPx: reclaimBar.close };
+    return {
+      phase: 'FALSE_RECLAIM',
+      dump,
+      reclaimPx: structureBar.close,
+      reclaimKind: 'structure_break',
+    };
   }
+
+  const retestBar = afterBreak.find((c) => isRetestHold(dump.candle, c));
+  const reclaimKind: ReclaimKind = retestBar ? 'retest' : 'structure_break';
+  const reclaimPx = (retestBar ?? structureBar).close;
 
   const last = closed15[closed15.length - 1]!;
-  const ref = reclaimBar.close;
-  const extension = atr > 0 ? (last.close - ref) / atr : 0;
-  const afterReclaimBars = after.slice(after.indexOf(reclaimBar) + 1);
-  const dispWindow = afterReclaimBars.length > 0 ? afterReclaimBars : [];
-  const disp =
-    atr > 0 && dispWindow.length >= 2
-      ? (dispWindow[dispWindow.length - 1]!.close - dispWindow[0]!.open) / atr
-      : 0;
-  if (extension >= rules.overextensionAtr || disp >= rules.pumpDisplacementAtr) {
+  if (
+    executablePriceOverextended({
+      markPx: last.close,
+      reclaimPx,
+      atr,
+      rules,
+    })
+  ) {
     const consolidating =
       last.close < last.open || bodyRatio(last) < 0.25 || last.high - last.low < atr * 0.7;
     if (!consolidating) {
-      return { phase: 'OVEREXTENDED', dump, reclaimPx: reclaimBar.close };
+      return { phase: 'OVEREXTENDED', dump, reclaimPx, reclaimKind };
     }
   }
 
-  return { phase: 'RECLAIMED', dump, reclaimPx: reclaimBar.close };
+  return { phase: 'RECLAIMED', dump, reclaimPx, reclaimKind };
+}
+
+/** Live mark + small slippage buffer vs reclaim. Used again immediately before the order. */
+export function executablePriceOverextended(opts: {
+  markPx: number;
+  reclaimPx: number | null;
+  atr: number;
+  rules?: BearReversalLongRules;
+  slipAtr?: number;
+  slipPct?: number;
+}): boolean {
+  const rules = opts.rules ?? BEAR_REVERSAL_LONG;
+  const reclaim = opts.reclaimPx;
+  const atr = opts.atr;
+  if (!(opts.markPx > 0) || !(reclaim != null && reclaim > 0) || !(atr > 0)) return false;
+  const slipAtr = opts.slipAtr ?? 0.15;
+  const slipPct = opts.slipPct ?? 0.0008;
+  const execPx = opts.markPx * (1 + slipPct) + atr * slipAtr;
+  const extension = (execPx - reclaim) / atr;
+  return extension >= rules.overextensionAtr;
 }
 
 export function classifyBearLongFromCandles(opts: {
@@ -250,7 +316,7 @@ export function classifyBearLongFromCandles(opts: {
   const dump = classifyDumpPhase(opts.candles15m, opts.candles5m, rules);
   const last15 = closedBars(opts.candles15m).at(-1);
   const extensionAtr =
-    dump.dump && atr15m > 0 && last15 ? (last15.close - dump.dump.mid) / atr15m : 0;
+    dump.reclaimPx && atr15m > 0 && last15 ? (last15.close - dump.reclaimPx) / atr15m : 0;
 
   const base = {
     atr15m,
@@ -258,6 +324,7 @@ export function classifyBearLongFromCandles(opts: {
     htfBearish,
     reclaimPx: dump.reclaimPx,
     dumpPx: dump.dump?.candle.close ?? null,
+    reclaimKind: dump.reclaimKind,
     manageOpenPosition: Boolean(opts.positionOpen),
   };
 
@@ -299,13 +366,17 @@ export function classifyBearLongFromCandles(opts: {
   }
 
   if (dump.phase === 'FLUSH_WAIT') {
+    const relief =
+      dump.reclaimKind === 'relief'
+        ? 'relief bounce above dump midpoint is not a structure break'
+        : 'flush without confirmed closed-candle structure break';
     return {
       ...EMPTY,
       ...base,
       dumpPhase: 'FLUSH_WAIT',
       executionState: 'WAITING_CONFIRMATION',
       code: 'REVERSAL_WAITING_RECLAIM',
-      reason: 'REVERSAL_WAITING_RECLAIM — flush without confirmed closed-candle reclaim',
+      reason: `REVERSAL_WAITING_RECLAIM — ${relief}`,
     };
   }
 
@@ -332,16 +403,24 @@ export function classifyBearLongFromCandles(opts: {
       };
     }
     if (opts.confidence < rules.minConfidence) {
+      const shadow =
+        opts.confidence >= rules.shadowMinConfidence
+          ? ` · SHADOW would pass at ${rules.shadowMinConfidence}% (not opened)`
+          : '';
       return {
         ...EMPTY,
         ...base,
         dumpPhase: 'RECLAIMED',
         executionState: 'BLOCKED',
         code: 'LONG_CONFIDENCE_BELOW_THRESHOLD',
-        reason: `LONG_CONFIDENCE_BELOW_THRESHOLD — ${opts.confidence}% < ${rules.minConfidence}% reversal`,
+        reason: `LONG_CONFIDENCE_BELOW_THRESHOLD — ${opts.confidence}% < ${rules.minConfidence}% reversal (same MTF score as TREND_LONG)${shadow}`,
       };
     }
     const htfNote = htfBearish ? ' · 4h still bearish (risk, not veto)' : '';
+    const kindNote =
+      dump.reclaimKind === 'retest'
+        ? 'structure break + retest'
+        : 'structure break (retest not required)';
     return {
       ...EMPTY,
       ...base,
@@ -349,7 +428,7 @@ export function classifyBearLongFromCandles(opts: {
       dumpPhase: 'RECLAIMED',
       executionState: 'CANDIDATE',
       code: null,
-      reason: `REVERSAL_LONG — 15m/1h LONG after confirmed reclaim${htfNote}`,
+      reason: `REVERSAL_LONG — 15m/1h LONG after ${kindNote}${htfNote}`,
     };
   }
 

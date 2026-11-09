@@ -3,12 +3,14 @@ import { describe, it } from 'node:test';
 import type { Candle } from './signalEngine';
 import {
   classifyBearLongFromCandles,
+  executablePriceOverextended,
   primaryReversalContext,
 } from './bearReversalLong';
 import { isOpeningTradeState } from './hlExecutionState';
 import { BEAR_MARKET } from '../config/profiles/bearMarketShort';
 import {
   estimateRoundTripFeesUsd,
+  lossStopPricePx,
   shouldArmBreakevenProtection,
 } from './dynamicTrailingStop';
 
@@ -32,9 +34,8 @@ function flushReclaim(px = 75_000): { m15: Candle[]; m5: Candle[]; h1: Candle[];
   const dumpOpen = m15[m15.length - 1]!.close;
   m15.push(c(dumpOpen, dumpOpen + 30, dumpOpen - 1800, dumpOpen - 1600, m15.length));
   const dump = m15[m15.length - 1]!;
-  const mid = (dump.high + dump.low) / 2;
-  m15.push(c(dump.close, mid + 400, dump.close - 20, mid + 280, m15.length));
-  const live = dump.close + 200;
+  m15.push(c(dump.close, dumpOpen + 80, dump.close - 20, dumpOpen + 40, m15.length));
+  const live = dumpOpen + 30;
   m15.push(c(live, live + 40, live - 40, live + 10, m15.length));
 
   const m5 = quiet(20, px, -2, 15);
@@ -64,9 +65,8 @@ function falseReclaim(px = 75_000) {
   const dumpOpen = m15[m15.length - 1]!.close;
   m15.push(c(dumpOpen, dumpOpen + 30, dumpOpen - 1800, dumpOpen - 1600, m15.length));
   const dump = m15[m15.length - 1]!;
-  const mid = (dump.high + dump.low) / 2;
-  m15.push(c(dump.close, mid + 400, dump.close - 20, mid + 280, m15.length));
-  m15.push(c(mid + 40, mid + 80, dump.low + 20, dump.low + 80, m15.length));
+  m15.push(c(dump.close, dumpOpen + 80, dump.close - 20, dumpOpen + 40, m15.length));
+  m15.push(c(dumpOpen + 40, dumpOpen + 50, dump.low + 20, dump.low + 80, m15.length));
   m15.push(c(dump.low + 80, dump.low + 100, dump.low + 40, dump.low + 90, m15.length));
   return { m15, m5, h1, h4 };
 }
@@ -76,10 +76,10 @@ function verticalPump(px = 140): { m15: Candle[]; m5: Candle[]; h1: Candle[]; h4
   const dumpOpen = m15[m15.length - 1]!.close;
   m15.push(c(dumpOpen, dumpOpen + 0.3, dumpOpen - 8, dumpOpen - 7, m15.length));
   const dump = m15[m15.length - 1]!;
-  m15.push(c(dump.close, dump.close + 4, dump.close, dump.close + 3.5, m15.length));
-  m15.push(c(dump.close + 3.5, dump.close + 12, dump.close + 3.4, dump.close + 11.5, m15.length));
-  m15.push(c(dump.close + 11.5, dump.close + 20, dump.close + 11, dump.close + 19, m15.length));
-  m15.push(c(dump.close + 19, dump.close + 20, dump.close + 18.5, dump.close + 19.2, m15.length));
+  m15.push(c(dump.close, dumpOpen + 0.6, dump.close - 0.05, dumpOpen + 0.35, m15.length));
+  m15.push(c(dumpOpen + 0.35, dumpOpen + 12, dumpOpen + 0.3, dumpOpen + 11.5, m15.length));
+  m15.push(c(dumpOpen + 11.5, dumpOpen + 20, dumpOpen + 11, dumpOpen + 19, m15.length));
+  m15.push(c(dumpOpen + 19, dumpOpen + 20, dumpOpen + 18.5, dumpOpen + 19.2, m15.length));
   const m5 = quiet(16, px, 0.4, 0.5);
   m5.push(c(px, px + 12, px, px + 11, m5.length));
   const h1 = quiet(16, px, 0.3, 1);
@@ -107,6 +107,27 @@ describe('bear reversal LONG classifier', () => {
     assert.equal(primaryReversalContext(reversalVotes), true);
   });
 
+  it('relief bounce above dump mid is not a structure break', () => {
+    const m15 = quiet(16, 75_000, 1, 40);
+    const dumpOpen = m15[m15.length - 1]!.close;
+    m15.push(c(dumpOpen, dumpOpen + 30, dumpOpen - 1800, dumpOpen - 1600, m15.length));
+    const dump = m15[m15.length - 1]!;
+    const mid = (dump.high + dump.low) / 2;
+    m15.push(c(dump.close, mid + 200, dump.close - 20, mid + 80, m15.length));
+    m15.push(c(mid + 80, mid + 100, mid + 60, mid + 70, m15.length));
+    const r = classifyBearLongFromCandles({
+      candles5m: m15,
+      candles15m: m15,
+      candles1h: m15,
+      candles4h: m15,
+      votes: reversalVotes,
+      confidence: 70,
+    });
+    assert.notEqual(r.class, 'REVERSAL_LONG');
+    assert.equal(r.reclaimKind, 'relief');
+    assert.equal(r.code, 'REVERSAL_WAITING_RECLAIM');
+  });
+
   it('1 BTC flush → 15m/1h bullish → 5m bearish → confirmed reclaim = REVERSAL_LONG', () => {
     const { m15, m5, h1, h4 } = flushReclaim();
     const r = classifyBearLongFromCandles({
@@ -121,6 +142,7 @@ describe('bear reversal LONG classifier', () => {
     assert.equal(r.dumpPhase, 'RECLAIMED');
     assert.equal(r.executionState, 'CANDIDATE');
     assert.equal(r.htfBearish, true);
+    assert.ok(r.reclaimKind === 'structure_break' || r.reclaimKind === 'retest');
   });
 
   it('2 ETH flush → bullish 15m/1h → bearish 4h → valid reversal (4h is not a veto)', () => {
@@ -131,7 +153,7 @@ describe('bear reversal LONG classifier', () => {
       candles1h: h1,
       candles4h: h4,
       votes: reversalVotes,
-      confidence: 61,
+      confidence: 62,
     });
     assert.equal(r.class, 'REVERSAL_LONG');
     assert.equal(r.htfBearish, true);
@@ -255,6 +277,46 @@ describe('bear reversal LONG classifier', () => {
       }),
       false
     );
+  });
+
+  it('shadow 58% does not open; productive bar is 62%', () => {
+    const { m15, m5, h1, h4 } = flushReclaim();
+    const shadow = classifyBearLongFromCandles({
+      candles5m: m5,
+      candles15m: m15,
+      candles1h: h1,
+      candles4h: h4,
+      votes: reversalVotes,
+      confidence: 58,
+    });
+    assert.equal(shadow.class, 'NONE');
+    assert.equal(shadow.code, 'LONG_CONFIDENCE_BELOW_THRESHOLD');
+    assert.match(shadow.reason, /SHADOW/);
+    const live = classifyBearLongFromCandles({
+      candles5m: m5,
+      candles15m: m15,
+      candles1h: h1,
+      candles4h: h4,
+      votes: reversalVotes,
+      confidence: 62,
+    });
+    assert.equal(live.class, 'REVERSAL_LONG');
+  });
+
+  it('pre-order executable price rejects chase past reclaim', () => {
+    assert.equal(
+      executablePriceOverextended({ markPx: 100, reclaimPx: 100, atr: 1 }),
+      false
+    );
+    assert.equal(
+      executablePriceOverextended({ markPx: 102.5, reclaimPx: 100, atr: 1 }),
+      true
+    );
+  });
+
+  it('user SL percent maps to the same emergency price for any LONG class', () => {
+    const px = lossStopPricePx('LONG', 75_000, 0.01, 150, 5);
+    assert.equal(px, 75_000 - (150 * 0.05) / 0.01);
   });
 
   it('12 Opening trade only for submitted/confirmed execution states', () => {

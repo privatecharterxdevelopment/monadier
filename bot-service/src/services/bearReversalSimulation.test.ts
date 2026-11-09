@@ -43,9 +43,8 @@ function flushReclaim(): Candle[] {
   const m15 = quiet(16, 100);
   m15.push(c(100, 101, 92, 93, 16));
   const dump = m15[m15.length - 1]!;
-  const mid = (dump.high + dump.low) / 2;
-  m15.push(c(93, mid + 1.5, 92.8, mid + 1.2, 17));
-  m15.push(c(mid + 1.2, mid + 1.4, mid + 1.0, mid + 1.25, 18));
+  m15.push(c(93, dump.open + 2, 92.8, dump.open + 1.2, 17));
+  m15.push(c(dump.open + 1.2, dump.open + 1.4, dump.open + 1.0, dump.open + 1.25, 18));
   return m15;
 }
 

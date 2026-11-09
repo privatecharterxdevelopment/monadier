@@ -27,6 +27,7 @@ describe('bear_market thorough pre-open', () => {
     assert.equal(BEAR_MARKET.long.required5mTrend, 'UP');
     assert.ok(BEAR_MARKET.reversalLong);
     assert.equal(BEAR_MARKET.reversalLong?.minPrimaryTfs, 2);
-    assert.ok((BEAR_MARKET.reversalLong?.minConfidence ?? 0) < BEAR_MARKET.long.minConfidence);
+    assert.equal(BEAR_MARKET.reversalLong?.minConfidence, BEAR_MARKET.long.minConfidence);
+    assert.equal(BEAR_MARKET.reversalLong?.shadowMinConfidence, 58);
   });
 });

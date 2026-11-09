@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { config } from '../config';
 import {
   evaluateWalletReentry,
+  isOpenCooldownBlocked,
   isSameCoinOpenBlockedSync,
   rememberCoinClose,
 } from './hlCoinCloseGuard';
@@ -60,6 +61,41 @@ describe('post-close cooldown (min 10 minutes)', () => {
       reversalLong: true,
     });
     assert.equal(reversal.blocked, false);
+  });
+
+  it('wallet-wide 10m still blocks SHORT and TREND_LONG after any close', () => {
+    const wallet = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+    rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 3 * 60_000);
+    const shortBtc = isOpenCooldownBlocked(wallet, 'BTC', 'SHORT');
+    assert.equal(shortBtc.blocked, true);
+    assert.equal(shortBtc.guard, 'wallet');
+    const trendLong = isOpenCooldownBlocked(wallet, 'BTC', 'LONG');
+    assert.equal(trendLong.blocked, true);
+    assert.equal(trendLong.guard, 'wallet');
+  });
+
+  it('REVERSAL_LONG after this coin SHORT skips stacked wallet 10m once 2m passed', () => {
+    const wallet = '0xffffffffffffffffffffffffffffffffffffffff';
+    rememberCoinClose(wallet, 'BTC', 'SHORT', Date.now() - 3 * 60_000);
+    const r = isOpenCooldownBlocked(wallet, 'BTC', 'LONG', { reversalLong: true });
+    assert.equal(r.blocked, false);
+  });
+
+  it('REVERSAL_LONG on BTC still waits wallet 10m if last close was another coin', () => {
+    const wallet = '0x1111111111111111111111111111111111111111';
+    rememberCoinClose(wallet, 'BTC', 'SHORT', Date.now() - 8 * 60_000);
+    rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 60_000);
+    const r = isOpenCooldownBlocked(wallet, 'BTC', 'LONG', { reversalLong: true });
+    assert.equal(r.blocked, true);
+    assert.equal(r.guard, 'wallet');
+  });
+
+  it('REVERSAL_LONG 90s after same-coin SHORT still hits 2m floor', () => {
+    const wallet = '0x4444444444444444444444444444444444444444';
+    rememberCoinClose(wallet, 'BTC', 'SHORT', Date.now() - 90_000);
+    const r = isOpenCooldownBlocked(wallet, 'BTC', 'LONG', { reversalLong: true });
+    assert.equal(r.blocked, true);
+    assert.equal(r.guard, 'same-coin');
   });
 
   it('immediate reverse after SHORT is still blocked (rate limit)', () => {

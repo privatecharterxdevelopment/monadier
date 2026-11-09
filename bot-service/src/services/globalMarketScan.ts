@@ -474,7 +474,7 @@ async function scanStandardCoinDirection(
       peakLiquidityGrab
     );
     if (reversalOpen) {
-      const revMin = config.hyperliquid.directionProfile.reversalLong?.minConfidence ?? 58;
+      const revMin = config.hyperliquid.directionProfile.reversalLong?.minConfidence ?? 62;
       if (analysis.confidence < revMin) return null;
     } else if (majorFill) {
       // Empty-slot majors: trade the MTF print. Do not require 1h UP / 52%.

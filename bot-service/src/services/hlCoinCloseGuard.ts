@@ -104,6 +104,43 @@ export function isSameCoinOpenBlockedSync(
   return evaluateBlock(mem, coin, direction, opts);
 }
 
+/**
+ * Wallet-wide 10m still applies to SHORT / TREND_LONG / other coins.
+ * REVERSAL_LONG may skip stacking that 10m only when the wallet's last close
+ * *is* this coin's SHORT (2m opposite floor already applied).
+ */
+export function isOpenCooldownBlocked(
+  wallet: string,
+  coin: string,
+  direction: 'LONG' | 'SHORT',
+  opts?: SameCoinBlockOpts
+): { blocked: boolean; reason?: string; guard: 'none' | 'same-coin' | 'wallet' } {
+  const coinGate = isSameCoinOpenBlockedSync(wallet, coin, direction, opts);
+  if (coinGate.blocked) {
+    return { blocked: true, reason: coinGate.reason, guard: 'same-coin' };
+  }
+  const walletTs = hlLastCloseByWallet.get(wallet.toLowerCase()) ?? 0;
+  const walletGate = evaluateWalletReentry(walletTs);
+  if (!walletGate.blocked) {
+    return { blocked: false, guard: 'none' };
+  }
+  const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
+  const reversalVsThisShort =
+    Boolean(opts?.reversalLong) &&
+    direction === 'LONG' &&
+    mem?.direction === 'SHORT' &&
+    walletTs > 0 &&
+    Math.abs(walletTs - mem.at) <= 1_000;
+  if (reversalVsThisShort) {
+    return { blocked: false, guard: 'none' };
+  }
+  return {
+    blocked: true,
+    reason: walletGate.reason,
+    guard: 'wallet',
+  };
+}
+
 export async function isSameCoinOpenBlocked(
   wallet: string,
   coin: string,

@@ -83,6 +83,7 @@ import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import {
   evaluateBearLongOpportunity,
+  executablePriceOverextended,
   votesFromTfMap,
 } from './bearReversalLong';
 import { setHlExecutionState } from './hlExecutionState';
@@ -122,14 +123,11 @@ import {
   setDynamicTrailRecord,
 } from './profitTrailState';
 import { resolvePositionLetRun } from './hlPositionLetRun';
-import { syncHlProfitStopOrder } from './hlProfitStopSync';
+import { confirmUserEmergencyStop, syncHlProfitStopOrder } from './hlProfitStopSync';
 import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
-  evaluateWalletReentry,
-  isSameCoinOpenBlocked,
-  isSameCoinOpenBlockedSync,
+  isOpenCooldownBlocked,
   rememberCoinClose,
-  resolveWalletLastCloseMs,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
 
@@ -893,7 +891,7 @@ export class HyperliquidTradingService {
         continue;
       }
 
-      const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction, {
+      const flipGate = isOpenCooldownBlocked(userAddress, signal.coin, signal.direction, {
         reversalLong: signal.direction === 'LONG' && signal.longClass === 'REVERSAL_LONG',
       });
       if (flipGate.blocked) {
@@ -1015,25 +1013,6 @@ export class HyperliquidTradingService {
     }
 
     await warmCoinCloseCacheForWallet(userAddress);
-    const lastClose = await resolveWalletLastCloseMs(userAddress);
-    const reentry = evaluateWalletReentry(lastClose);
-    if (reentry.blocked) {
-      logger.info('HL open skip: post-close cooldown', {
-        user: userAddress.slice(0, 10),
-        waitMin: Math.ceil((reentry.waitMs || 0) / 60_000),
-        openSlots: openCoins.length,
-      });
-      void recordHlOpenBlock({
-        walletAddress: userAddress,
-        coin: signals[0]?.coin ?? 'N/A',
-        direction: signals[0]?.direction ?? 'LONG',
-        gate: 'cooldown',
-        reason: reentry.reason ?? 'post-close cooldown',
-        confidence: signals[0]?.confidence,
-        h1Trend: signals[0]?.h1Trend,
-      });
-      return 'skip';
-    }
 
     let stateRef = state;
     let coinsOpen = [...openCoins];
@@ -1191,6 +1170,7 @@ export class HyperliquidTradingService {
           botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
           newsTradeMode: settings.newsTradeMode,
+          stopLossPercent: settings.stopLossPercent,
         });
 
         if (opened.success) {
@@ -1258,6 +1238,8 @@ export class HyperliquidTradingService {
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
     newsTradeMode?: NewsTradeMode;
+    /** User vault stop-loss % — attached after fill, never overridden. */
+    stopLossPercent?: number;
     /** Admin force — skip soft direction/momentum gates. Location/wick/apex/Vision still apply. HL_ADMIN_FORCE_UNSAFE is ignored when NODE_ENV=production. */
     force?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
@@ -1418,15 +1400,11 @@ export class HyperliquidTradingService {
         return rejectOpen('llm_confirm', llmConfirm.reason, 'OpenAI visual side');
       }
       if (visualSide && visualSide !== opts.direction) {
-        logger.info('OpenAI visual flipped side', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          from: opts.direction,
-          to: visualSide,
-          reason: llmConfirm.reason.slice(0, 160),
-        });
-        (opts as { direction: 'LONG' | 'SHORT' }).direction = visualSide;
-        opts.pick.direction = visualSide;
+        return rejectOpen(
+          'llm_disagreement',
+          `${opts.direction} not flipped to ${visualSide} — visual disagree must re-validate as a fresh ${visualSide} setup (no silent direction flip)`,
+          'no silent LLM direction flip'
+        );
       }
 
       if (opts.direction === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
@@ -1446,7 +1424,7 @@ export class HyperliquidTradingService {
       if (!force && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return rejectOpen('long_allowlist', longAllowlistReason(coin), 'LONG majors only');
       }
-      const visualFlipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction, {
+      const visualFlipGate = isOpenCooldownBlocked(opts.userAddress, coin, opts.direction, {
         reversalLong:
           opts.direction === 'LONG' && liveReversal?.class === 'REVERSAL_LONG',
       });
@@ -1686,9 +1664,9 @@ export class HyperliquidTradingService {
         ? Math.min(2, directionRules.minDirectionalTfs)
         : directionRules.minDirectionalTfs;
       const minConfOpen = reversalOpen
-        ? Math.min(
+        ? Math.max(
             directionRules.minConfidence,
-            directionProfile.reversalLong?.minConfidence ?? 58
+            directionProfile.reversalLong?.minConfidence ?? 62
           )
         : directionRules.minConfidence;
       const minAlignOpen = reversalOpen
@@ -2367,12 +2345,30 @@ export class HyperliquidTradingService {
       });
 
       const isLong = tradeDirection === 'LONG';
-      const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
-
       const builder = await resolveHlOrderBuilderIfCharged(opts.userAddress, {
         notionalUsd: opts.notionalUsd,
         isClose: false,
       });
+
+      let execMark = markPx;
+      if (tradeDirection === 'LONG' && liveReversal?.class === 'REVERSAL_LONG') {
+        const freshMids = await fetchHlAllMids();
+        execMark = Number(freshMids[coin] ?? freshMids[`${coin}-PERP`] ?? markPx);
+        if (
+          executablePriceOverextended({
+            markPx: execMark,
+            reclaimPx: liveReversal.reclaimPx,
+            atr: liveReversal.atr15m,
+          })
+        ) {
+          return rejectOpen(
+            'long_dump_tape',
+            `LONG_OVEREXTENDED — live mark ${execMark.toFixed(4)} past reclaim (stale reversal, no chase)`,
+            'pre-order mark overextension'
+          );
+        }
+      }
+      const limitPx = isLong ? execMark * 1.05 : markPx * 0.95;
 
       setHlExecutionState(opts.userAddress, {
         state: 'ORDER_SUBMITTED',
@@ -2427,11 +2423,43 @@ export class HyperliquidTradingService {
       });
 
       hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());
+      const userSlPct = Math.max(0, Number(opts.stopLossPercent ?? 0));
+      let slNote = 'user SL off';
+      if (userSlPct > 0) {
+        const collat = effectiveLeverage > 0 ? opts.notionalUsd / effectiveLeverage : opts.notionalUsd;
+        const slPx = lossStopPricePx(tradeDirection, markPx, size, collat, userSlPct);
+        const slPost = await confirmUserEmergencyStop({
+          userAddress: opts.userAddress,
+          coin,
+          direction: tradeDirection,
+          absSize: size,
+          stopPx: slPx,
+          szDecimals,
+        });
+        if (!slPost.ok) {
+          setHlExecutionState(opts.userAddress, {
+            state: 'ORDER_CONFIRMED',
+            longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
+            code: 'LONG_SL_VALIDATION_FAILED',
+            reason: slPost.reason,
+            coin,
+            direction: tradeDirection,
+          });
+          logger.warn('HL user SL not confirmed after open — monitor will retry', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            slPct: userSlPct,
+            error: slPost.reason,
+          });
+        } else {
+          slNote = `user SL ${userSlPct}% confirmed @ ${slPx}`;
+        }
+      }
       setHlExecutionState(opts.userAddress, {
         state: 'ORDER_CONFIRMED',
         longClass: liveReversal?.class ?? opts.pick.longClass ?? 'NONE',
         code: null,
-        reason: `Opened ${tradeDirection} ${coin} — user-configured SL unchanged`,
+        reason: `Opened ${tradeDirection} ${coin} — ${slNote}`,
         coin,
         direction: tradeDirection,
       });

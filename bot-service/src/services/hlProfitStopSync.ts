@@ -282,6 +282,56 @@ function samePx(a: number, b: number, tick: number): boolean {
  * (the SOL-incident class). Never cancels emergency market SLs or unrelated
  * reduce-only orders.
  */
+/** Post the user-configured emergency SL immediately after entry. Same leg as the monitor. */
+export async function confirmUserEmergencyStop(opts: {
+  userAddress: `0x${string}`;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  absSize: number;
+  stopPx: number;
+  szDecimals: number;
+}): Promise<{ ok: boolean; reason: string; stopPx: number }> {
+  if (!(opts.stopPx > 0) || !(opts.absSize > 0)) {
+    return { ok: false, reason: 'LONG_SL_VALIDATION_FAILED — invalid SL px/size', stopPx: opts.stopPx };
+  }
+  try {
+    const meta = await fetchHlMeta();
+    const assetIndex = coinToAssetIndex(meta, opts.coin);
+    const leg = buildEmergencyStopMarketLeg({
+      assetIndex,
+      direction: opts.direction,
+      size: opts.absSize,
+      stopPx: opts.stopPx,
+      szDecimals: opts.szDecimals,
+    });
+    const client = clientFor(opts.userAddress);
+    const result = await client.order({ orders: [leg], grouping: 'na' });
+    const status = result.response?.data?.statuses?.[0] as
+      | { error?: string; resting?: unknown; filled?: unknown }
+      | undefined;
+    if (status && 'error' in status && status.error) {
+      return {
+        ok: false,
+        reason: `LONG_SL_VALIDATION_FAILED — ${String(status.error)}`,
+        stopPx: opts.stopPx,
+      };
+    }
+    logger.info('HL user emergency SL confirmed on open', {
+      user: opts.userAddress.slice(0, 10),
+      coin: opts.coin,
+      stopPx: opts.stopPx,
+      direction: opts.direction,
+    });
+    return { ok: true, reason: 'user SL posted', stopPx: opts.stopPx };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `LONG_SL_VALIDATION_FAILED — ${err instanceof Error ? err.message : String(err)}`,
+      stopPx: opts.stopPx,
+    };
+  }
+}
+
 export async function syncHlProfitStopOrder(opts: {
   userAddress: `0x${string}`;
   coin: string;

@@ -4,7 +4,10 @@
  */
 export type BearReversalLongRules = {
   enabled: boolean;
+  /** Productive bar — same MTF score family as TREND_LONG (62). */
   minConfidence: number;
+  /** Log-only: setups in [shadow, min) are not opened. */
+  shadowMinConfidence: number;
   minPrimaryTfs: number;
   minTrendAlignment: number;
   dumpLookbackBars: number;
@@ -19,7 +22,8 @@ export type BearReversalLongRules = {
 
 export const BEAR_REVERSAL_LONG: BearReversalLongRules = {
   enabled: process.env.HL_BEAR_REVERSAL_LONG !== 'false',
-  minConfidence: Number(process.env.HL_REVERSAL_MIN_CONFIDENCE || 58),
+  minConfidence: Number(process.env.HL_REVERSAL_MIN_CONFIDENCE || 62),
+  shadowMinConfidence: Number(process.env.HL_REVERSAL_SHADOW_MIN_CONFIDENCE || 58),
   minPrimaryTfs: 2,
   minTrendAlignment: Number(process.env.HL_REVERSAL_MIN_ALIGN || 55),
   dumpLookbackBars: Number(process.env.HL_REVERSAL_DUMP_LOOKBACK || 8),
