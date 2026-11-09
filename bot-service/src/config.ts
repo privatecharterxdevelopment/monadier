@@ -252,10 +252,10 @@ export const config = {
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
-      /** After trail arms — min ms before floor can close. Cap 8s (env had 120–180s). */
+      /** After trail arms — min ms before floor can close. 0 = snap on first cross. */
       trailMinActiveBeforeCloseMs: Math.min(
-        8_000,
-        Math.max(0, Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 8_000))
+        2_000,
+        Math.max(0, Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 0))
       ),
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.

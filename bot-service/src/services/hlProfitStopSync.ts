@@ -28,10 +28,11 @@ function protectiveSideOk(
 ): boolean {
   if (!(stopPx > 0) || !(markPx > 0) || !(entryPx > 0)) return false;
   if (direction === 'LONG') {
-    // SL below mark, not through entry into a hard loss.
-    return stopPx < markPx && stopPx >= entryPx * 0.997;
+    // SL below mark, on the profit side of entry (or a hair through for tick size).
+    return stopPx < markPx && stopPx >= entryPx * 0.995;
   }
-  return stopPx > markPx && stopPx <= entryPx * 1.003;
+  // SHORT profit SL sits below entry and above mark.
+  return stopPx > markPx && stopPx <= entryPx * 1.005;
 }
 
 /**

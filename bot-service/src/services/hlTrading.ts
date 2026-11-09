@@ -3071,8 +3071,6 @@ export class HyperliquidTradingService {
       }
 
       if (shouldCloseTrail && pnl > 0) {
-        const deferMax = config.hyperliquid.trailSweepDeferMax;
-        const deferMs = config.hyperliquid.trailSweepDeferMs;
         const strongRun =
           runAnalysis?.bias === 'strong_run' || runAnalysis?.bias === 'run';
 
@@ -3085,26 +3083,6 @@ export class HyperliquidTradingService {
             pnlUsd: pnl.toFixed(4),
             peakUsd: trailRecord.highestPnlSinceEntry.toFixed(4),
           });
-        } else if (trailExitReason === 'trailing_stop') {
-          const verdict = await evaluateTrailPullbackAnalysis({
-            coin: pos.coin,
-            direction: positionDirection,
-            pnlUsd: pnl,
-            floorUsd: pnl,
-            peakUsd: trailRecord.highestPnlSinceEntry,
-          });
-          const canDefer =
-            verdict.deferClose &&
-            (trailRecord.trailCloseDeferCount ?? 0) < deferMax;
-          logTrailPullbackAnalysis(userAddress, pos.coin, verdict, canDefer);
-          if (canDefer) {
-            shouldCloseTrail = false;
-            trailRecord = {
-              ...trailRecord,
-              trailCloseDeferUntil: nowMs + deferMs,
-              trailCloseDeferCount: (trailRecord.trailCloseDeferCount ?? 0) + 1,
-            };
-          }
         }
       }
 

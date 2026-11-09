@@ -103,40 +103,30 @@ export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number 
 
 export function profitClearsFeeGate(
   pnlUsd: number,
-  feesUsd: number,
-  peakPnlUsd = 0,
-  collateralUsd = 0
+  _feesUsd: number,
+  _peakPnlUsd = 0,
+  _collateralUsd = 0
 ): boolean {
-  if (!(pnlUsd > 0)) return false;
-  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
-  if (pnlUsd < need) return false;
-  const peak = Math.max(0, peakPnlUsd);
-  const remainFrac = config.hyperliquid.dynamicTrail.minPeakRemainFracBeforeClose ?? 0.15;
-  if (peak >= need * 4 && remainFrac > 0) {
-    const remainNeed = Math.max(need, peak * remainFrac);
-    if (pnlUsd < remainNeed) return false;
-  }
-  return true;
+  // Stop was crossed in profit — close. The old 15%-of-peak leftover gate
+  // blocked the fill after a fast retrace and the winner ran back to red.
+  return pnlUsd > 0;
 }
 
 function blockIfFeesNotCleared(
   result: TrailTickResult,
   pnlUsd: number,
-  feesUsd: number,
+  _feesUsd: number,
   coin: string,
-  peakPnlUsd: number,
-  collateralUsd = 0
+  _peakPnlUsd: number,
+  _collateralUsd = 0
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
-  if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd, collateralUsd)) return result;
-  logger.info('HL profit close blocked — leftover too small vs fees/peak', {
+  if (pnlUsd > 0) return result;
+  logger.info('HL profit close blocked — not green', {
     coin,
     reason: result.exitReason,
-    pnlUsd: pnlUsd.toFixed(4),
-    feesUsd: feesUsd.toFixed(4),
-    needUsd: profitCloseNeedUsd(feesUsd, collateralUsd).toFixed(4),
-    peakPnlUsd: peakPnlUsd.toFixed(4),
+    pnlUsd: Number.isFinite(pnlUsd) ? pnlUsd.toFixed(4) : String(pnlUsd),
   });
   return {
     record: result.record,
@@ -269,7 +259,11 @@ function stagedProfitLock(
   const ratio = need > 0 ? peakPnlUsd / need : 99;
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
-  if (ratio < 2) {
+  if (direction === 'SHORT') {
+    // Tight trail — lock ~80% of peak so a small bounce actually hits the SL.
+    keepFrac = 0.8;
+    level = ratio >= 8 ? 'runner' : ratio >= 4 ? 'core' : ratio >= 2 ? 'partial' : 'fee';
+  } else if (ratio < 2) {
     level = 'fee';
     keepFrac = 0.82;
   } else if (ratio < 4) {
@@ -280,8 +274,7 @@ function stagedProfitLock(
     keepFrac = 0.55;
   } else {
     level = 'runner';
-    keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.4 : 0.42) : 0.5;
+    keepFrac = phase === 'trailing' ? 0.4 : 0.5;
   }
   // LONGs on majors: leave runner air (drop 0.78 → keep ~22%).
   // SHORTs must ratchet with the peak — the loose major floor left SL parked.
@@ -293,7 +286,8 @@ function stagedProfitLock(
   // Floor must sit under the print — never lock more USD than the peak (that
   // parks the stop on the wrong side of mark so it never "sets" in profit).
   const raw = Math.max(peakPnlUsd * keepFrac, Math.min(need, peakPnlUsd * 0.55));
-  const lockUsd = Math.min(peakPnlUsd * 0.85, Math.max(0, raw));
+  const capFrac = direction === 'SHORT' ? 0.92 : 0.85;
+  const lockUsd = Math.min(peakPnlUsd * capFrac, Math.max(0, raw));
   return {
     level,
     keepFrac,
@@ -459,9 +453,13 @@ function trailTooYoungToClose(
   return nowMs - rec.trailArmedAt < minMs;
 }
 
-/** Once green, breathe before any profit exit — LONG and SHORT. */
-function longGreenTooYoungToClose(rec: DynamicTrailRecord, pnlUsd: number): boolean {
-  if (pnlUsd <= 0) return false;
+/** LONG only — SHORTs must snap the profit SL as soon as it is crossed. */
+function longGreenTooYoungToClose(
+  rec: DynamicTrailRecord,
+  pnlUsd: number,
+  direction: 'LONG' | 'SHORT'
+): boolean {
+  if (direction !== 'LONG' || pnlUsd <= 0) return false;
   const minMs = Math.min(
     240_000,
     Math.max(0, config.hyperliquid.dynamicTrail.longMinGreenHoldMs || 0)
@@ -701,8 +699,7 @@ async function evaluateDynamicTrailInner(
       if (
         closeSafe &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
-        !longGreenTooYoungToClose(rec, input.pnlUsd) &&
-        !trailTooYoungToClose(rec, input.nowMs, 1) &&
+        !longGreenTooYoungToClose(rec, input.pnlUsd, input.direction) &&
         !longPeakTooSmallToTrailClose(
           input.direction,
           rec.highestPnlSinceEntry,
@@ -805,8 +802,7 @@ async function evaluateDynamicTrailInner(
       input.pnlUsd > 0 &&
       peakFrac > 0 &&
       rec.timeInProfitMs >= cfg.armMinProfitHoldMs &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longGreenTooYoungToClose(rec, input.pnlUsd, input.direction) &&
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,
@@ -829,9 +825,8 @@ async function evaluateDynamicTrailInner(
 
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
       input.pnlUsd > 0 &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd) &&
+      !longGreenTooYoungToClose(rec, input.pnlUsd, input.direction) &&
       !longPeakTooSmallToTrailClose(
         input.direction,
         rec.highestPnlSinceEntry,

@@ -46,4 +46,26 @@ describe('in-profit SL ratchet', () => {
       'SHORT profit SL only ratchets down with the peak'
     );
   });
+
+  it('closes on stop cross even if leftover is a small slice of peak', async () => {
+    const t0 = 2_000_000;
+    const armed = await evaluateDynamicTrail(
+      shortTick({ nowMs: t0, pnlUsd: 10, markPrice: 90, record: null })
+    );
+    assert.equal(armed.record.phase, 'armed');
+    const stop = armed.record.currentTrailStop as number;
+    assert.ok(stop < 100 && stop > 90);
+
+    const hit = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 400,
+        pnlUsd: 1.2,
+        markPrice: 98.8,
+        record: armed.record,
+        totalHoldMs: 400,
+      })
+    );
+    assert.equal(hit.shouldClose, true);
+    assert.equal(hit.exitReason, 'profit_lock');
+  });
 });
