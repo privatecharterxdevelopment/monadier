@@ -15,6 +15,7 @@ export type HlClearinghouseState = {
       unrealizedPnl?: string;
       positionValue?: string;
       leverage?: { value?: number; type?: 'cross' | 'isolated' };
+      cumFunding?: { allTime?: string; sinceOpen?: string; sinceChange?: string };
     };
   }>;
 };
@@ -611,6 +612,28 @@ export function formatHlCloseSize(size: number, szDecimals: number): string {
 }
 
 /** HL perp prices: max 5 sig figs, max (6 - szDecimals) decimal places. */
+export function hlTickSize(price: number, szDecimals = 0, isSpot = false): number {
+  if (!(price > 0) || !Number.isFinite(price)) return 1e-6;
+  const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
+  const decTick = 10 ** -maxDecimals;
+  if (price > 100_000) return 1;
+  const mag = Math.floor(Math.log10(price));
+  const sigTick = 10 ** (mag - 4);
+  return Math.max(decTick, sigTick);
+}
+
+export function roundHlPrice(
+  price: number,
+  szDecimals: number,
+  mode: 'nearest' | 'long_stop' | 'short_stop' = 'nearest'
+): number {
+  const tick = hlTickSize(price, szDecimals);
+  if (!(tick > 0) || !Number.isFinite(price)) return price;
+  if (mode === 'long_stop') return Math.ceil(price / tick - 1e-12) * tick;
+  if (mode === 'short_stop') return Math.floor(price / tick + 1e-12) * tick;
+  return Math.round(price / tick) * tick;
+}
+
 export function formatHlPrice(price: number, szDecimals = 0, isSpot = false): string {
   const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
   if (price > 100_000) return String(Math.round(price));

@@ -8,9 +8,9 @@ export const HL_BOT_STRATEGY_LABELS: Record<HlBotStrategy, string> = {
 
 export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
-    'Standard: MTF trend-only. Profit SL hugs the peak (locks ~84–95% as it runs).',
+    'Standard: MTF trend-only. Profit SL arms at fee-adjusted break-even, then trails only toward profit.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same profit SL — stop follows the print.',
+    'Aggressive: 1m scalp entries. Same profit SL — fee-adjusted BE, then ratchet toward profit.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */

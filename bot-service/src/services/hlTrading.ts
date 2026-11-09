@@ -23,6 +23,7 @@ import {
   formatHlPrice,
   formatHlSize,
   formatHlCloseSize,
+  hlTickSize,
   hlAccountValueUsd,
   hlTradableFreeMarginUsd,
   hlFreeMarginUsd,
@@ -102,9 +103,12 @@ import {
   evaluateDynamicTrail,
   estimateRoundTripFeesUsd,
   isTrailStopCrossed,
+  lossStopPricePx,
   markFromPosition,
   profitClearsFeeGate,
   profitCloseNeedUsd,
+  profitProtectionStage,
+  ratchetStop,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -391,7 +395,11 @@ function saveTrailRecord(lockKey: string, rec: DynamicTrailRecord): void {
       ),
       phase: rec.phase === 'idle' && prev.phase !== 'idle' ? prev.phase : rec.phase,
       currentTrailStop:
-        rec.currentTrailStop ?? prev.currentTrailStop,
+        prev.currentTrailStop == null
+          ? rec.currentTrailStop
+          : rec.currentTrailStop == null
+            ? prev.currentTrailStop
+            : ratchetStop(rec.direction, rec.currentTrailStop, prev.currentTrailStop),
       trailArmedAt: rec.trailArmedAt ?? prev.trailArmedAt,
     };
   }
@@ -2817,6 +2825,30 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
+      const fundingUsd = Number(
+        (pos as { cumFunding?: { sinceOpen?: string } }).cumFunding?.sinceOpen ?? 0
+      );
+      const szDecimals = meta
+        ? meta.universe.find(
+            (u) => u.name.toUpperCase() === String(pos.coin).toUpperCase()
+          )?.szDecimals ?? 0
+        : 0;
+      const tickSize = hlTickSize(markPrice, szDecimals);
+      const emergencyStopPx = config.hyperliquid.profitOnlyExits
+        ? null
+        : settings.stopLossPercent > 0
+          ? lossStopPricePx(
+              positionDirection,
+              entry,
+              absSize,
+              collateralEst,
+              settings.stopLossPercent
+            )
+          : config.hyperliquid.thesisEmergencyMaxLossUsd > 0 && absSize > 0
+            ? positionDirection === 'LONG'
+              ? entry - config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
+              : entry + config.hyperliquid.thesisEmergencyMaxLossUsd / absSize
+            : null;
       const coinUpper = pos.coin.toUpperCase();
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
@@ -2862,6 +2894,9 @@ export class HyperliquidTradingService {
           record: trailRecord,
           trailDistanceMult: 1,
           trailCloseDeferred,
+          fundingUsd,
+          tickSize,
+          szDecimals,
         });
         // Keep trail state for UI — never act on shouldClose.
         saveTrailRecord(lockKey, trailResult.record);
@@ -2874,6 +2909,11 @@ export class HyperliquidTradingService {
           entryPrice: entry,
           stopPx: trailResult.record.currentTrailStop,
           armed: false,
+          feesUsd: estimateRoundTripFeesUsd(notionalUsd),
+          fundingUsd,
+          tickSize,
+          szDecimals,
+          emergencyStopPx,
         });
         logger.debug('HL let-run — skip auto exits', {
           user: userAddress.slice(0, 10),
@@ -3024,6 +3064,9 @@ export class HyperliquidTradingService {
         record: trailRecord,
         trailDistanceMult,
         trailCloseDeferred,
+        fundingUsd,
+        tickSize,
+        szDecimals,
       });
 
       trailRecord = trailResult.record;
@@ -3050,11 +3093,12 @@ export class HyperliquidTradingService {
           isLong &&
           isMajorFillCoin(pos.coin) &&
           peakRoe < Math.max(15, minPeakRoe) &&
-          (trailExitReason === 'profit_lock' ||
-            trailExitReason === 'trailing_stop' ||
+          (trailExitReason === 'trailing_stop' ||
             trailExitReason === 'profit_grab_peak');
         const peakTooSmall =
           isLong &&
+          (trailExitReason === 'trailing_stop' ||
+            trailExitReason === 'profit_grab_peak') &&
           (majorNoiseExit || (minPeakRoe > 0 && peakRoe < minPeakRoe));
         if (beSniper || tooYoung || peakTooSmall) {
           shouldCloseTrail = false;
@@ -3098,7 +3142,14 @@ export class HyperliquidTradingService {
         markPrice,
         entryPrice: entry,
         stopPx: trailRecord.currentTrailStop,
-        armed: false,
+        armed:
+          profitProtectionStage(trailRecord) >= 1 &&
+          trailRecord.currentTrailStop != null,
+        feesUsd: estimateRoundTripFeesUsd(notionalUsd),
+        fundingUsd,
+        tickSize,
+        szDecimals,
+        emergencyStopPx,
       });
 
       const closeCtx = {
@@ -3657,8 +3708,22 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Could not read mark price — try again' };
       }
       const isLong = size > 0;
-      // Tight band — 5% FrontendMarket let a scratch close fill through entry.
-      const limitPx = isLong ? markPx * 0.9975 : markPx * 1.0025;
+      const profitExit = profitExitReasons.has(reason);
+      const trailStop = getDynamicTrailRecord(
+        `${userAddress.toLowerCase()}:${coinUpper}`
+      )?.currentTrailStop;
+      // Profit exits: reduce-only limit at the protected stop (never market).
+      // Loss/manual: aggressive IOC/market-style limit so the cut actually fills.
+      const limitPx = profitExit
+        ? trailStop && trailStop > 0
+          ? trailStop
+          : isLong
+            ? markPx
+            : markPx
+        : isLong
+          ? markPx * 0.9975
+          : markPx * 1.0025;
+      const tif = profitExit ? ('Ioc' as const) : ('FrontendMarket' as const);
 
       const client = createAgentClient(userAddress);
       const notionalUsd = absSize * markPx;
@@ -3670,7 +3735,7 @@ export class HyperliquidTradingService {
             p: formatHlPrice(limitPx, szDecimals),
             s: formatHlCloseSize(absSize, szDecimals),
             r: true,
-            t: { limit: { tif: 'FrontendMarket' as const } },
+            t: { limit: { tif } },
           },
         ],
         grouping: 'na' as const,

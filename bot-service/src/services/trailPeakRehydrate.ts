@@ -11,10 +11,10 @@ import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import {
+  breakevenPlusFeesStopPx,
   estimateRoundTripFeesUsd,
   isTrailStopCrossed,
-  longPeakTooSmallToTrailClose,
-  peakProfitFloorStopPx,
+  shouldArmBreakevenProtection,
 } from './dynamicTrailingStop';
 
 async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
@@ -189,33 +189,37 @@ export async function rehydrateTrailPeakFromCandles(opts: {
           : opts.notionalUsd > 0
             ? opts.notionalUsd / 20
             : 0;
-      if (
-        longPeakTooSmallToTrailClose(
-          opts.direction,
-          bestPnl,
-          collateralUsd,
-          opts.coin
-        )
-      ) {
-        rec.phase = 'idle';
-        rec.currentTrailStop = null;
-        rec.trailArmedAt = null;
-        rec.estimatedFeesUsd = feesUsd;
-      } else {
-      const floor = peakProfitFloorStopPx(
+      const arm = shouldArmBreakevenProtection({
+        direction: opts.direction,
+        pnlUsd: Math.max(
+          0,
+          opts.direction === 'LONG'
+            ? (opts.markPrice - opts.entryPrice) * opts.absSize
+            : (opts.entryPrice - opts.markPrice) * opts.absSize
+        ),
+        markPrice: opts.markPrice,
+        entryPrice: opts.entryPrice,
+        absSize: opts.absSize,
+        feesUsd,
+        notionalUsd: opts.notionalUsd,
+        collateralUsd,
+        timeInProfitMs: 60_000,
+      });
+      const stop = breakevenPlusFeesStopPx(
         opts.direction,
         opts.entryPrice,
         opts.absSize,
-        bestPnl,
         feesUsd,
-        'armed',
-        collateralUsd,
-        opts.coin
+        0,
+        opts.notionalUsd
       );
-      const stop = floor?.px ?? null;
 
-      if (stop == null || isTrailStopCrossed(opts.direction, opts.markPrice, stop)) {
-        logger.info('HL trail peak rehydrate — peak kept, stop not armed (already crossed)', {
+      if (
+        !arm ||
+        stop == null ||
+        isTrailStopCrossed(opts.direction, opts.markPrice, stop)
+      ) {
+        logger.info('HL trail peak rehydrate — peak kept, stage 0 (BE not cleared)', {
           coin: opts.coin,
           direction: opts.direction,
           stop: stop?.toFixed(6) ?? '—',
@@ -231,7 +235,6 @@ export async function rehydrateTrailPeakFromCandles(opts: {
         rec.trailArmedAt = nowMs;
         rec.currentTrailStop = stop;
         rec.estimatedFeesUsd = feesUsd;
-      }
       }
     }
 

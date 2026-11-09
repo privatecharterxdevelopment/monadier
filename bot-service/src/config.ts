@@ -236,11 +236,10 @@ export const config = {
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
-       * Legacy stage-1 ROE (unused for arm). Stage 1 now: first green ticks
-       * → in-profit peak floor that ratchets with the peak.
+       * Legacy display ROE. Stage 1 arms on fee-adjusted BE + trail gap, not ROE.
        */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
-      /** Min ROE before full ATR/% trail ratchet (stage 2). SHORT hugs earlier. */
+      /** Min ROE before Stage-2 ATR/% trail. Stage 1 BE lock is independent. */
       armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 2),
       /**
        * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
@@ -273,6 +272,23 @@ export const config = {
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
       breakevenBufferFeesMult: Number(process.env.HL_TRAIL_BE_BUFFER_FEES_MULT || 0.5),
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
+      /**
+       * Extra close-side slippage (bps of notional) baked into the BE stop.
+       * Limit TPSL does not slip through the limit, but uPnL is mark-based.
+       */
+      slippageBufferBps: Number(process.env.HL_TRAIL_SLIPPAGE_BPS || 8),
+      /**
+       * Min gap between mark and the first profit stop (bps of mark).
+       * Without this the BE stop would glue to the print and noise-stop.
+       */
+      minProfitTrailGapBps: Number(process.env.HL_TRAIL_MIN_GAP_BPS || 8),
+      /**
+       * Stage-1 peak lock fraction. Must stay well below 1 so the stop is BE
+       * (or a modest lock), never a 84% hug of a $0.01 tick.
+       */
+      stage1PeakKeepFrac: Number(process.env.HL_TRAIL_STAGE1_KEEP_FRAC || 0.32),
+      /** Stage-2 additional peak lock once ATR trailing is on. */
+      stage2PeakKeepFrac: Number(process.env.HL_TRAIL_STAGE2_KEEP_FRAC || 0.45),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
       atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 1.55),
