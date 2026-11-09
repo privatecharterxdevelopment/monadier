@@ -3,7 +3,6 @@ import { Loader2 } from 'lucide-react';
 import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
-import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
@@ -27,17 +26,15 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   vaultWallet,
   symbol = 'BTCUSDT',
   openPositionCoins = [],
-  botRunning: _botRunningProp,
+  botRunning: botRunningProp = true,
 }) => {
   const platformFees = usePlatformFeeGate();
   const hlSetup = useHlBotSetup(vaultWallet ?? undefined);
   const { settings: botSettings } = useTerminalBotSettings();
-  const { botRunning: resolvedRunning } = useHlBotRunning({
-    metricsAutoTrade: metrics.autoTradeEnabled,
-    metricsHasSnapshot: metrics.hasHlSnapshot,
-  });
   const hasWallet = walletConnected || Boolean(vaultWallet);
-  const botRunning = resolvedRunning;
+  // Parent only mounts this while the agent is on. Do not re-resolve
+  // auto_trade here — a loading settings snapshot would flash "Bot off".
+  const botRunning = botRunningProp;
   const feeGateActive = platformFees.botTradingBlocked;
 
   const hlBalanceUsd =

@@ -76,11 +76,21 @@ export function useTerminalBotSettings(refreshKey = 0) {
 
   const load = useCallback(async () => {
     if (!wallet) {
-      setData({ settings: defaultSettings, isLoading: true, error: null });
+      setData((d) => ({
+        settings: d.settings,
+        isLoading: d.settings === defaultSettings,
+        error: null,
+      }));
       return;
     }
 
-    setData((d) => ({ ...d, isLoading: true, error: null }));
+    setData((d) => ({
+      ...d,
+      // Keep the last snapshot while refetching — flipping to the default
+      // autoTrade=false is what painted "Bot off" during a settings reload.
+      isLoading: d.settings === defaultSettings,
+      error: null,
+    }));
 
     try {
       let row = null;
@@ -141,11 +151,11 @@ export function useTerminalBotSettings(refreshKey = 0) {
         error: null,
       });
     } catch (e) {
-      setData({
-        settings: defaultSettings,
+      setData((d) => ({
+        settings: d.settings,
         isLoading: false,
         error: e instanceof Error ? e.message : 'Failed to load bot settings',
-      });
+      }));
     }
   }, [wallet]);
 

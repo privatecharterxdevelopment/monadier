@@ -47,11 +47,14 @@ export function resolveHlBotRunning(opts: {
   if (!opts.settingsLoading) {
     return opts.settingsAutoTrade;
   }
-  if (opts.metricsHasSnapshot) {
-    return Boolean(opts.metricsAutoTrade);
-  }
+  // Settings refetch starts with isLoading=true. A stale metrics snapshot
+  // (autoTrade false) used to win here and paint "Bot off" while the agent
+  // panel was still Running. Last known / optimistic stay authoritative.
   if (opts.lastKnownAutoTrade !== null && opts.lastKnownAutoTrade !== undefined) {
     return opts.lastKnownAutoTrade;
+  }
+  if (opts.metricsHasSnapshot) {
+    return Boolean(opts.metricsAutoTrade);
   }
   return Boolean(opts.metricsAutoTrade);
 }

@@ -43,9 +43,10 @@ export function useHlBotRunning(opts: Options = {}) {
     // Never stamp "off" from the empty default snapshot (no wallet yet) —
     // that made SCAN say "Bot off" while the agent panel was still Running.
     if (!isLoading && wallet) {
+      if (optimistic === true && !settings.autoTradeEnabled) return;
       setLastKnownHlBotAutoTrade(settings.autoTradeEnabled);
     }
-  }, [settings.autoTradeEnabled, isLoading, wallet]);
+  }, [settings.autoTradeEnabled, isLoading, wallet, optimistic]);
 
   useEffect(() => {
     if (optimistic === null || isLoading) return;
