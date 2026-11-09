@@ -395,6 +395,14 @@ export const config = {
       10 * 60 * 1000,
       Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 10 * 60 * 1000)
     ),
+    /**
+     * Validated REVERSAL_LONG after a SHORT close on the same coin.
+     * Does not lower same-direction anti-churn or wallet-wide reentry.
+     */
+    reversalOppositeMinMs: Math.max(
+      60_000,
+      Number(process.env.HL_REVERSAL_OPPOSITE_MIN_MS || 2 * 60_000)
+    ),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {
       /** Price in top X of range = near resistance. */

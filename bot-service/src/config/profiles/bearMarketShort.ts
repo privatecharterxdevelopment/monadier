@@ -5,6 +5,7 @@ import {
   SHORT_ANALYSIS_TIMEFRAMES,
   type HlDirectionProfile,
 } from './types';
+import { BEAR_REVERSAL_LONG } from './bearReversalLong';
 
 /**
  * JUNE 26 – JUL 13 SHORT ENGINE (bombastic window)
@@ -69,4 +70,5 @@ export const BEAR_MARKET: HlDirectionProfile = {
     required15mTrend: 'UP',
     minConfirm15mCandles: 3,
   },
+  reversalLong: BEAR_REVERSAL_LONG,
 };

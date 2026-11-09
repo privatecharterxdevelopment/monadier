@@ -21,8 +21,12 @@ describe('bear_market thorough pre-open', () => {
     assert.ok(s.minDirectionalTfs >= 3);
   });
 
-  it('requires 3 closed 15m greens for LONGs', () => {
+  it('requires 3 closed 15m greens for TREND LONGs; reversal is a separate path', () => {
     assert.equal(BEAR_MARKET.long.minConfirm15mCandles, 3);
     assert.equal(BEAR_MARKET.long.required15mTrend, 'UP');
+    assert.equal(BEAR_MARKET.long.required5mTrend, 'UP');
+    assert.ok(BEAR_MARKET.reversalLong);
+    assert.equal(BEAR_MARKET.reversalLong?.minPrimaryTfs, 2);
+    assert.ok((BEAR_MARKET.reversalLong?.minConfidence ?? 0) < BEAR_MARKET.long.minConfidence);
   });
 });

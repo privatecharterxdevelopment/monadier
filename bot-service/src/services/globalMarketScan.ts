@@ -16,6 +16,11 @@ import { classifyCoinTier, isMajorFillCoin, MAJOR_FILL_COINS, needsCautionPath }
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { resolvePeakAwareDirection } from './peakShortLiquidity';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
+import {
+  evaluateBearLongOpportunity,
+  votesFromTfMap,
+  type BearLongClassification,
+} from './bearReversalLong';
 import { isLongAllowedCoin } from './longAllowlist';
 import { isBotTradeCoin } from './botTradeUniverse';
 import type { Timeframe } from './signalEngine';
@@ -44,6 +49,9 @@ export type GlobalSignalCandidate = {
   indicators?: string[];
   /** Forced SHORT at pump apex — liquidity grab override. */
   peakLiquidityGrab?: boolean;
+  longClass?: BearLongClassification['class'];
+  reversalCode?: string | null;
+  tfVotes?: Partial<Record<string, string>>;
   /**
    * false = SCAN/UI only. Must not enter the open queue (counter-trend LONG
    * under SHORT-primary, unless it beat a real SHORT or is a strong lone bounce).
@@ -278,7 +286,9 @@ async function scanMajorChartFallback(
   if (!pick) pick = shortC;
   if (!pick) return null;
   if (pick.confidence < 58) return null;
-  if ((pick.directionalTfCount ?? 0) < 3) return null;
+  const majorTfFloor =
+    pick.direction === 'LONG' && pick.longClass === 'REVERSAL_LONG' ? 2 : 3;
+  if ((pick.directionalTfCount ?? 0) < majorTfFloor) return null;
   const tagged = withQueueFlag(pick, pick, shortC);
   return {
     ...tagged,
@@ -348,8 +358,10 @@ async function scanStandardCoinDirection(
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = (
-      majorFill && wantedDirection === 'LONG'
-        ? (['5m', '15m', '1h'] as Timeframe[])
+      wantedDirection === 'LONG'
+        ? (majorFill
+            ? (['15m', '1h'] as Timeframe[])
+            : analysisTimeframesForDirection('LONG'))
         : analysisTimeframesForDirection(wantedDirection)
     ) as Timeframe[];
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
@@ -385,7 +397,9 @@ async function scanStandardCoinDirection(
           : profileMin;
     if (analysis.confidence < minConf) return null;
     const minTfs = majorFill
-      ? Math.max(3, rulesFor(wantedDirection).minDirectionalTfs)
+      ? wantedDirection === 'LONG'
+        ? 2
+        : Math.max(3, rulesFor(wantedDirection).minDirectionalTfs)
       : relaxed
       ? 2
       : cautious
@@ -417,16 +431,52 @@ async function scanStandardCoinDirection(
         return null;
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
     const directionalTfCount = analysis.metrics?.directionalTfCount ?? 0;
+    const longVotes = votesFromTfMap(analysis.metrics?.tfVotes);
+    const bearReversalCtx =
+      direction === 'LONG' &&
+      config.hyperliquid.directionProfile.name === 'bear_market' &&
+      Boolean(config.hyperliquid.directionProfile.reversalLong?.enabled) &&
+      Boolean(longVotes.tf15m) &&
+      Boolean(longVotes.tf1h);
+
+    let reversal: BearLongClassification | null = null;
+    if (bearReversalCtx) {
+      reversal = await evaluateBearLongOpportunity({
+        coin,
+        votes: longVotes,
+        confidence: analysis.confidence,
+      });
+      if (reversal.class === 'OVEREXTENDED_LONG') {
+        logger.info('HL scan skip: LONG_OVEREXTENDED', { coin, reason: reversal.reason });
+        return null;
+      }
+      if (
+        reversal.class === 'NONE' &&
+        (reversal.code === 'LONG_DUMP_CONTINUATION' ||
+          reversal.code === 'REVERSAL_STRUCTURE_UNCONFIRMED')
+      ) {
+        logger.debug('HL scan skip: dump/false reclaim', { coin, reason: reversal.reason });
+        return null;
+      }
+    }
+
+    const reversalOpen = reversal?.class === 'REVERSAL_LONG';
+    const tfFloor = reversalOpen ? 2 : minTfs;
+    if (directionalTfCount < tfFloor) return null;
+    if ((analysis.metrics?.trendAlignment ?? 0) < (reversalOpen ? Math.min(minAlign, 55) : minAlign)) {
+      return null;
+    }
     const trustedDirection = isTrustedProfileCandidate(
       direction,
       analysis.confidence,
       directionalTfCount,
       peakLiquidityGrab
     );
-    if (majorFill) {
+    if (reversalOpen) {
+      const revMin = config.hyperliquid.directionProfile.reversalLong?.minConfidence ?? 58;
+      if (analysis.confidence < revMin) return null;
+    } else if (majorFill) {
       // Empty-slot majors: trade the MTF print. Do not require 1h UP / 52%.
       // Still refuse LONG into a 1h dump.
       if (
@@ -447,7 +497,11 @@ async function scanStandardCoinDirection(
       return null;
     }
     if (!majorFill) {
-      const entryTrend = await validateProfileEntryTrend({ coin, direction });
+      const entryTrend = await validateProfileEntryTrend({
+        coin,
+        direction,
+        longClass: reversal?.class,
+      });
       if (!entryTrend.ok) {
         logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
         return null;
@@ -500,6 +554,9 @@ async function scanStandardCoinDirection(
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
       peakLiquidityGrab,
+      longClass: reversal?.class,
+      reversalCode: reversal?.code ?? null,
+      tfVotes: analysis.metrics?.tfVotes,
     };
   } catch {
     return null;

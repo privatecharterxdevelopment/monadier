@@ -273,7 +273,8 @@ const Dashboard2ProPageContent: React.FC = () => {
 
   useEffect(() => {
     if (botSettingsLoading) return;
-    setLastKnownHlBotAutoTrade(botVaultSettings.autoTradeEnabled);
+    if (!botVaultSettings.autoTradeEnabled) return;
+    setLastKnownHlBotAutoTrade(true);
   }, [botVaultSettings.autoTradeEnabled, botSettingsLoading]);
   const { snapshot: botHlSnapshot } = useHlAccountSnapshot(
     (botTradingWallet ?? address)?.toLowerCase() ?? undefined

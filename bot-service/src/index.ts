@@ -38,6 +38,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
+import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
@@ -1179,6 +1180,7 @@ const healthServer = http.createServer(async (req, res) => {
           lastVerdict: getLastLlmTradeConfirmVerdict(),
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
+        execution: getHlExecutionState(userAddress),
         recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {

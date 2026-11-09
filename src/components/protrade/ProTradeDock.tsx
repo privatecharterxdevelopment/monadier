@@ -904,7 +904,7 @@ const ProTradeDock: React.FC<Props> = ({
               {hlOpenPositionCount} open on Hyperliquid — not tagged as bot yet (syncing markers). Check
               Perps → Positions, or refresh in a few seconds.
             </p>
-          ) : isBotMode && botRunning && !botNeedsDeposit ? (
+          ) : isBotMode && (botRunning || Boolean(botScanMetrics?.autoTradeEnabled)) && !botNeedsDeposit ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               {botScanMetrics ? (
                 <ProTradeBotScanInsights
@@ -913,7 +913,7 @@ const ProTradeDock: React.FC<Props> = ({
                   vaultWallet={botScanWallet ?? walletAddress ?? null}
                   symbol={botScanSymbol}
                   openPositionCoins={botOpenPositionCoins}
-                  botRunning={botRunning}
+                  botRunning={botRunning || Boolean(botScanMetrics?.autoTradeEnabled)}
                 />
               ) : (
                 <>

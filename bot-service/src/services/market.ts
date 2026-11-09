@@ -60,6 +60,7 @@ interface MarketAnalysis {
     trendAlignment?: number;
     directionalTfCount?: number;
     h1Trend?: string;
+    tfVotes?: Partial<Record<string, string>>;
   };
 }
 
@@ -1262,6 +1263,9 @@ export async function analyzeMarketMTFBySymbol(
             trendAlignment: Math.round(signal.trendAlignment),
             directionalTfCount: 0,
             h1Trend: trend,
+            tfVotes: Object.fromEntries(
+              (signal.timeframes ?? []).map((tf) => [tf.timeframe, tf.direction])
+            ),
             riskReward: '0',
             trend:
               trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',
@@ -1349,6 +1353,9 @@ export async function analyzeMarketMTFBySymbol(
         trendAlignment: Math.round(signal.trendAlignment),
         directionalTfCount,
         h1Trend: trend,
+        tfVotes: Object.fromEntries(
+          signal.timeframes.map((tf) => [tf.timeframe, tf.direction])
+        ),
         riskReward: (suggestedTP / suggestedSL).toFixed(2),
         trend:
           trend === 'UP' ? 'STRONG_UPTREND' : trend === 'DOWN' ? 'STRONG_DOWNTREND' : 'NEUTRAL',

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
 import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
+import type { BotExecutionSnapshot } from '../lib/hlExecutionDisplay';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isFeeExemptUser } from '../lib/admin';
 import { useAuth } from '../contexts/AuthContext';
@@ -143,6 +144,7 @@ export function useTerminalBotAnalysis({
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [serverCanTrade, setServerCanTrade] = useState<boolean | null>(null);
   const [lastOpenErrorText, setLastOpenErrorText] = useState<string | null>(null);
+  const [execution, setExecution] = useState<BotExecutionSnapshot | null>(null);
   const [recentOpenBlocks, setRecentOpenBlocks] = useState<HlOpenBlockLike[]>([]);
   const [step, setStep] = useState(0);
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
@@ -433,11 +435,13 @@ export function useTerminalBotAnalysis({
           };
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
+          execution?: BotExecutionSnapshot | null;
           recentOpenBlocks?: HlOpenBlockLike[];
         };
         if (typeof data.canTrade === 'boolean') {
           setServerCanTrade(data.canTrade);
         }
+        setExecution(data.execution ?? null);
         const apiUserBlockers = Array.isArray(data.userBlockers) ? data.userBlockers : [];
         const apiMarketBlockers = Array.isArray(data.marketBlockers) ? data.marketBlockers : [];
         const blockers =
@@ -607,6 +611,7 @@ export function useTerminalBotAnalysis({
       maxConcurrentPositions: serverMaxSlots,
       vaultUsd,
       nextSetup: scanCandidate,
+      execution,
     });
 
     if (serverBlockers.length === 0) {
@@ -628,6 +633,9 @@ export function useTerminalBotAnalysis({
     }
 
     const server = readinessFromServerBlockers(serverBlockers);
+    if (local.headline === 'Opening trade') {
+      return local;
+    }
     if (local.canEnter && server.detail) {
       return {
         canEnter: false,
@@ -657,6 +665,7 @@ export function useTerminalBotAnalysis({
     vaultUsd,
     serverBlockers,
     scanCandidate,
+    execution,
     globalScanCount,
     globalCoinsScanned,
     rawScanCandidateCount,

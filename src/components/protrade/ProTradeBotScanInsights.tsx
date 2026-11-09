@@ -65,7 +65,9 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
   });
 
   const primaryLine = useMemo(() => {
-    if (!botRunning) return 'Agent stopped — Start bot to scan again.';
+    if (!botRunning && !metrics.autoTradeEnabled) {
+      return 'Agent stopped — Start bot to scan again.';
+    }
 
     const detail = analysis.readiness?.detail?.trim();
     if (detail && !isBotScanNoiseDetail(detail)) return detail;
@@ -110,7 +112,7 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     analysis.maxConcurrentPositions,
   ]);
 
-  if (!botRunning) {
+  if (!botRunning && !metrics.autoTradeEnabled) {
     return (
       <>
         <div className="hl-dock-bot-scan-row">

@@ -88,24 +88,31 @@ async function resolveCoinCloseMem(
   return null;
 }
 
+export type SameCoinBlockOpts = {
+  /** Validated REVERSAL_LONG may flip vs a recent SHORT sooner than 10m. */
+  reversalLong?: boolean;
+};
+
 export function isSameCoinOpenBlockedSync(
   wallet: string,
   coin: string,
-  direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT',
+  opts?: SameCoinBlockOpts
 ): { blocked: boolean; reason?: string } {
   const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
   if (!mem) return { blocked: false };
-  return evaluateBlock(mem, coin, direction);
+  return evaluateBlock(mem, coin, direction, opts);
 }
 
 export async function isSameCoinOpenBlocked(
   wallet: string,
   coin: string,
-  direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT',
+  opts?: SameCoinBlockOpts
 ): Promise<{ blocked: boolean; reason?: string }> {
   const mem = await resolveCoinCloseMem(wallet, coin);
   if (!mem) return { blocked: false };
-  return evaluateBlock(mem, coin, direction);
+  return evaluateBlock(mem, coin, direction, opts);
 }
 
 export function evaluateWalletReentry(lastCloseAt: number, now = Date.now()): {
@@ -143,13 +150,22 @@ export async function resolveWalletLastCloseMs(wallet: string): Promise<number> 
 function evaluateBlock(
   mem: CoinCloseMem,
   coin: string,
-  direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT',
+  opts?: SameCoinBlockOpts
 ): { blocked: boolean; reason?: string } {
   const elapsed = Date.now() - mem.at;
   const minReentry = config.hyperliquid.sameCoinReentryMinMs;
-  const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
+  const sameDirection = mem.direction === direction;
+  const reversalFlip =
+    Boolean(opts?.reversalLong) &&
+    direction === 'LONG' &&
+    mem.direction === 'SHORT';
+  const blockOpposite = reversalFlip
+    ? config.hyperliquid.reversalOppositeMinMs
+    : config.hyperliquid.blockOppositeSameCoinMs;
 
-  if (minReentry > 0 && elapsed < minReentry) {
+  // Same-direction anti-churn stays 10m. Opposite REVERSAL_LONG uses the shorter floor.
+  if (sameDirection && minReentry > 0 && elapsed < minReentry) {
     const waitMin = Math.max(1, Math.ceil((minReentry - elapsed) / 60_000));
     return {
       blocked: true,
@@ -161,12 +177,13 @@ function evaluateBlock(
     mem.direction !== direction &&
     elapsed < blockOpposite
   ) {
-    const waitMin = Math.ceil((blockOpposite - elapsed) / 60_000);
+    const waitMin = Math.max(1, Math.ceil((blockOpposite - elapsed) / 60_000));
+    const code = reversalFlip ? 'LONG_COOLDOWN_ACTIVE' : 'anti-flip';
     return {
       blocked: true,
       reason:
         `${coin} — no ${direction} for ~${waitMin}m after ${mem.direction} close ` +
-        `(anti-flip; other pairs OK)`,
+        `(${code}; other pairs OK)`,
     };
   }
   return { blocked: false };

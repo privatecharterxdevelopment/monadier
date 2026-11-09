@@ -7,6 +7,7 @@ import {
   HL_MAX_CONCURRENT_POSITIONS,
   HL_MIN_SIGNAL_CONFIDENCE,
 } from './hlBotConstants';
+import { isOpeningTradeState, type BotExecutionSnapshot } from './hlExecutionDisplay';
 
 export type BotReadiness = {
   canEnter: boolean;
@@ -196,6 +197,8 @@ export function evaluateBotReadiness(
     minVaultUsd?: number;
     /** Global scan target for the next free slot (independent pair). */
     nextSetup?: BotScanSetup | null;
+    /** Server execution snapshot — Opening trade only when an order is in flight. */
+    execution?: BotExecutionSnapshot | null;
     /** @deprecated use openPositionsCount */
     hasOpenPosition?: boolean;
   }
@@ -255,14 +258,32 @@ export function evaluateBotReadiness(
   const cycleHint =
     HL_BOT_CYCLE_SEC <= 1 ? 'next cycle (~1s)' : `next cycle (~${HL_BOT_CYCLE_SEC}s)`;
 
-  if (strong && label) {
+  if (isOpeningTradeState(opts.execution?.state) && label) {
     return {
       canEnter: true,
-      headline: openCount > 0 ? `Slot ${openCount + 1}: ${next?.coin ?? 'signal'}` : 'Opening trade',
+      headline: 'Opening trade',
+      detail: `${label} — ${opts.execution?.reason ?? `order ${opts.execution?.state}`}`,
+    };
+  }
+
+  if (strong && label) {
+    const execLine = opts.execution?.reason;
+    return {
+      canEnter: false,
+      headline:
+        opts.execution?.state === 'WAITING_CONFIRMATION'
+          ? 'Waiting confirmation'
+          : opts.execution?.state === 'BLOCKED'
+            ? 'Setup blocked'
+            : openCount > 0
+              ? `Slot ${openCount + 1}: ${next?.coin ?? 'signal'}`
+              : 'Candidate',
       detail:
-        openCount > 0
-          ? `${label} — independent pair, ${cycleHint}`
-          : `${label} — bot tries to open on ${cycleHint}`,
+        execLine && !isBotScanNoiseDetail(execLine)
+          ? execLine
+          : openCount > 0
+            ? `${label} — independent pair, ${cycleHint}`
+            : `${label} — below execution until the engine submits an order`,
     };
   }
 

@@ -121,6 +121,8 @@ export type HlDirectionProfile = {
   allowShortOpens: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
+  /** Bear-only REVERSAL_LONG path. Absent on bull_market. */
+  reversalLong?: import('./bearReversalLong').BearReversalLongRules;
 };
 
 /** Aggressive rules for the direction the profile is built to trade. */

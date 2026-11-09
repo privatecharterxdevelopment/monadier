@@ -54,15 +54,27 @@ function againstRequired(raw: string | undefined, required: 'UP' | 'DOWN'): bool
 export async function validateProfileEntryTrend(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
+  /** REVERSAL_LONG: 5m is timing-only; do not require 3 green 15m candles. */
+  longClass?: 'TREND_LONG' | 'REVERSAL_LONG' | 'OVEREXTENDED_LONG' | 'NONE';
 }): Promise<ProfileEntryTrendResult> {
   const rules =
     opts.direction === 'LONG'
       ? config.hyperliquid.directionProfile.long
       : config.hyperliquid.directionProfile.short;
 
-  const required5 = rules.required5mTrend ?? null;
+  const reversalLong =
+    opts.direction === 'LONG' && opts.longClass === 'REVERSAL_LONG';
+  if (opts.longClass === 'OVEREXTENDED_LONG') {
+    return {
+      ok: false,
+      reason: 'LONG blocked — LONG_OVEREXTENDED (do not chase)',
+    };
+  }
+  const required5 = reversalLong ? null : (rules.required5mTrend ?? null);
   const required15 = rules.required15mTrend ?? null;
-  const minCandles = Math.max(0, Math.floor(rules.minConfirm15mCandles ?? 0));
+  const minCandles = reversalLong
+    ? 0
+    : Math.max(0, Math.floor(rules.minConfirm15mCandles ?? 0));
   if (!required5 && !required15 && minCandles <= 0) {
     return { ok: true, reason: 'Profile entry-trend — not configured for this side' };
   }
