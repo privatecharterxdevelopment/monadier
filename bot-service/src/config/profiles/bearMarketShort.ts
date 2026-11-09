@@ -11,8 +11,8 @@ import {
  * ================================================
  * Switch via `HL_DIRECTION_PROFILE=bear_market`.
  *
- * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
- *         but NEVER skips entry_location / pump_sweep (no shorting lows).
+ * SHORT = PRIMARY plus thorough pre-open: 1h+15m DOWN, 3 closed 15m reds,
+ *         no trusted-MTF bypass of location / pump / macro. Quality over churn.
  * LONG  = allowlist BTC/ETH/SOL via longAllowlist (allowLongOpens=true).
  *         PUMP/VVV/WLD hard-excluded. Other memes SHORT-only if not excluded.
  *         Entry: LONG at support / lower range, not at R.
@@ -48,11 +48,18 @@ export const BEAR_MARKET: HlDirectionProfile = {
   allowShortOpens: true,
   short: {
     ...PRIMARY_RULES,
-    minConfidence: 48,
-    minTrendAlignment: 40,
-    bypassMacroBetaWhenTrusted: true,
-    bypassPumpShortWhenTrusted: true,
-    bypassEntryLocationWhenTrusted: true,
+    minConfidence: 58,
+    minDirectionalTfs: 3,
+    minTrendAlignment: 55,
+    requiredH1Trend: 'DOWN',
+    required15mTrend: 'DOWN',
+    minConfirm15mCandles: 3,
+    trustMtfScan: true,
+    relaxSecondaryGates: false,
+    bypassFreshPumpWhenTrusted: false,
+    bypassMacroBetaWhenTrusted: false,
+    bypassPumpShortWhenTrusted: false,
+    bypassEntryLocationWhenTrusted: false,
   },
   long: {
     ...COUNTER_TREND_RULES('UP'),
@@ -60,6 +67,6 @@ export const BEAR_MARKET: HlDirectionProfile = {
     requiredH1Trend: 'UP',
     required5mTrend: 'UP',
     required15mTrend: 'UP',
-    minConfirm15mCandles: 2,
+    minConfirm15mCandles: 3,
   },
 };

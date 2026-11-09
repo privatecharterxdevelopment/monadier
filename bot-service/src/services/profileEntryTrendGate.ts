@@ -1,9 +1,8 @@
 /**
- * Optional per-direction entry-trend gate from HlDirectionRules.
+ * Per-direction entry-trend gate from HlDirectionRules.
  *
- * Only runs when `required5mTrend` / `required15mTrend` / `minConfirm15mCandles`
- * are set on that side's rules (bear_market LONG: 5m + 15m UP).
- * SHORT / unset rules → always pass (unchanged).
+ * Runs when `required5mTrend` / `required15mTrend` / `minConfirm15mCandles`
+ * are set (bear SHORT: 15m+1h DOWN + N red 15m candles; LONG: 5m/15m UP).
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
@@ -40,14 +39,16 @@ function trendMatches(raw: string | undefined, required: 'UP' | 'DOWN'): boolean
 
 /** Finger weg: any DOWN / bearish label when UP is required. */
 function isGoingDown(raw: string | undefined): boolean {
-  const t = String(raw ?? '').toUpperCase();
-  if (!t) return false;
-  return (
-    t === 'DOWN' ||
-    t.includes('DOWN') ||
-    t.includes('SHORT') ||
-    t === 'STRONG_DOWNTREND'
-  );
+  return trendMatches(raw, 'DOWN');
+}
+
+/** Finger weg: any UP / bullish label when DOWN is required. */
+function isGoingUp(raw: string | undefined): boolean {
+  return trendMatches(raw, 'UP');
+}
+
+function againstRequired(raw: string | undefined, required: 'UP' | 'DOWN'): boolean {
+  return required === 'UP' ? isGoingDown(raw) : isGoingUp(raw);
 }
 
 export async function validateProfileEntryTrend(opts: {
@@ -74,7 +75,7 @@ export async function validateProfileEntryTrend(opts: {
       required15 || minCandles > 0
         ? signalEngine.analyzeTimeframe(symbol, '15m')
         : Promise.resolve(null),
-      minCandles > 0 && required15
+      minCandles > 0
         ? signalEngine.fetchCandles(symbol, '15m', need)
         : Promise.resolve([] as Candle[]),
     ]);
@@ -83,10 +84,10 @@ export async function validateProfileEntryTrend(opts: {
     const trend15m = tf15?.trend;
 
     if (required5) {
-      if (isGoingDown(trend5m) || !trendMatches(trend5m, required5)) {
+      if (againstRequired(trend5m, required5) || !trendMatches(trend5m, required5)) {
         return {
           ok: false,
-          reason: `${opts.direction} blocked — 5m trend ${trend5m ?? 'n/a'} (need ${required5}; finger weg if 5m down)`,
+          reason: `${opts.direction} blocked — 5m trend ${trend5m ?? 'n/a'} (need ${required5})`,
           trend5m,
           trend15m,
         };
@@ -94,21 +95,22 @@ export async function validateProfileEntryTrend(opts: {
     }
 
     if (required15) {
-      if (isGoingDown(trend15m) || !trendMatches(trend15m, required15)) {
+      if (againstRequired(trend15m, required15) || !trendMatches(trend15m, required15)) {
         return {
           ok: false,
-          reason: `${opts.direction} blocked — 15m trend ${trend15m ?? 'n/a'} (need ${required15}; finger weg if 15m down)`,
+          reason: `${opts.direction} blocked — 15m trend ${trend15m ?? 'n/a'} (need ${required15})`,
           trend5m,
           trend15m,
         };
       }
     }
 
-    if (minCandles > 0 && required15) {
-      if (!lastNClosedConfirm(candles15, minCandles, required15)) {
+    const confirmSide = required15 ?? (opts.direction === 'LONG' ? 'UP' : 'DOWN');
+    if (minCandles > 0) {
+      if (!lastNClosedConfirm(candles15, minCandles, confirmSide)) {
         return {
           ok: false,
-          reason: `${opts.direction} blocked — need ${minCandles} closed 15m ${required15 === 'UP' ? 'green' : 'red'} candles`,
+          reason: `${opts.direction} blocked — need ${minCandles} closed 15m ${confirmSide === 'UP' ? 'green' : 'red'} candles`,
           trend5m,
           trend15m,
         };

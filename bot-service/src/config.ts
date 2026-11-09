@@ -128,7 +128,7 @@ export const config = {
     /** Global scan — min combined MTF confidence to qualify. */
     minSignalConfidence: 52,
     /** Global scan — min profile timeframes pointing in the same direction. */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
     /** Live BTC regime (or forced env). Always read via getter — never freeze at boot.
@@ -356,21 +356,28 @@ export const config = {
     minNoSweepVolumeRatio: Number(process.env.HL_MIN_NO_SWEEP_VOLUME_RATIO || 1.0),
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
-    reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
     /**
-     * Same-coin reentry after close. Cap at 5m — Railway once had 30m and starved
-     * throughput (“bot waits forever”). Ops can go lower via env; not higher.
+     * After any bot close, wait before the next open — even if other slots
+     * are still filled. Floor 10 minutes (never lower via env).
      */
-    sameCoinReentryMinMs: Math.min(
-      30_000,
-      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 15_000))
+    reentryCooldownMs: Math.max(
+      10 * 60 * 1000,
+      Number(process.env.HL_REENTRY_COOLDOWN_MS || 10 * 60 * 1000)
     ),
     /**
-     * Opposite-direction same-coin block. Cap at 10m for the same reason.
+     * Same-coin reentry after close. Floor 10 minutes so the pair is
+     * re-analyzed instead of instantly re-opened.
      */
-    blockOppositeSameCoinMs: Math.min(
-      600_000,
-      Math.max(0, Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 300_000))
+    sameCoinReentryMinMs: Math.max(
+      10 * 60 * 1000,
+      Number(process.env.HL_SAME_COIN_REENTRY_MS || 10 * 60 * 1000)
+    ),
+    /**
+     * Opposite-direction same-coin block. Floor 10 minutes (anti-flip).
+     */
+    blockOppositeSameCoinMs: Math.max(
+      10 * 60 * 1000,
+      Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 10 * 60 * 1000)
     ),
     /** Resistance/support gate before opens (Standard + Aggressive scan + final open check). */
     entryLocation: {

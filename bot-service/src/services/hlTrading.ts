@@ -116,9 +116,11 @@ import { resolvePositionLetRun } from './hlPositionLetRun';
 import { syncHlProfitStopOrder } from './hlProfitStopSync';
 import { rehydrateTrailPeakFromCandles } from './trailPeakRehydrate';
 import {
+  evaluateWalletReentry,
   isSameCoinOpenBlocked,
   isSameCoinOpenBlockedSync,
   rememberCoinClose,
+  resolveWalletLastCloseMs,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
 
@@ -126,9 +128,6 @@ const transport = new HttpTransport();
 
 /** First time we saw an open position — min-hold before thesis loss close. */
 const hlPositionOpenedAt = new Map<string, number>();
-
-/** Last close timestamp per wallet — anti-churn cooldown before next open. */
-const hlLastCloseAt = new Map<string, number>();
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
@@ -236,8 +235,8 @@ function shouldRelaxSecondaryGates(
   _coin: string,
   direction: 'LONG' | 'SHORT'
 ): boolean {
-  // Profile side rules only — bear SHORT uses PRIMARY_RULES (relax+bypass)
-  // so Jun 26–Jul 13 open rate returns. Peak→SHORT must not swap sides.
+  // Profile side rules only. Bear SHORT no longer relaxes secondaries —
+  // every open must pass location / pump / macro / candles.
   const rules =
     direction === 'LONG'
       ? config.hyperliquid.directionProfile.long
@@ -1004,12 +1003,23 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    const cooldownMs = config.hyperliquid.reentryCooldownMs;
-    const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
-    if (openCoins.length === 0 && cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
-      logger.debug('HL open skip: reentry cooldown', {
+    await warmCoinCloseCacheForWallet(userAddress);
+    const lastClose = await resolveWalletLastCloseMs(userAddress);
+    const reentry = evaluateWalletReentry(lastClose);
+    if (reentry.blocked) {
+      logger.info('HL open skip: post-close cooldown', {
         user: userAddress.slice(0, 10),
-        waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
+        waitMin: Math.ceil((reentry.waitMs || 0) / 60_000),
+        openSlots: openCoins.length,
+      });
+      void recordHlOpenBlock({
+        walletAddress: userAddress,
+        coin: signals[0]?.coin ?? 'N/A',
+        direction: signals[0]?.direction ?? 'LONG',
+        gate: 'cooldown',
+        reason: reentry.reason ?? 'post-close cooldown',
+        confidence: signals[0]?.confidence,
+        h1Trend: signals[0]?.h1Trend,
       });
       return 'skip';
     }
@@ -1070,7 +1080,6 @@ export class HyperliquidTradingService {
       }
 
       const pickLimit = Math.max(slotsLeft, 8);
-      await warmCoinCloseCacheForWallet(userAddress);
       const { picks, skips } = await this.pickBestSignalsPassingLiquidityGate(
         userAddress,
         signalsForBook,
@@ -3752,7 +3761,6 @@ export class HyperliquidTradingService {
         });
       }
 
-      hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
 
       // Manual Close: ACK the fill immediately. Fee ledger / fill PnL / dust

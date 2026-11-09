@@ -26,4 +26,6 @@ npm run dev -- --host 0.0.0.0 --port 43127
 
 Optional emails need `RESEND_API_KEY` on Railway + Supabase function secrets.
 
+After every bot close the engine waits **at least 10 minutes** (wallet-wide, even if other slots are still open) and re-analyzes 15m/1h structure before the next open. Same-coin re-entry and anti-flip use the same 10-minute floor.
+
 See `docs/SUPABASE_RESTORE_INVENTORY.md`, `docs/RAILWAY.md`, `DEPLOY_NOW.md`.

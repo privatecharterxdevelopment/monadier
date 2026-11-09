@@ -1,5 +1,6 @@
 /**
- * Same-coin anti-flip — in-memory + trade_history fallback (survives Railway restarts).
+ * Same-coin anti-flip + wallet-wide post-close cooldown.
+ * In-memory + trade_history fallback (survives Railway restarts).
  */
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config';
@@ -9,9 +10,16 @@ const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 export type CoinCloseMem = { direction: 'LONG' | 'SHORT'; at: number };
 
 const hlLastCloseByCoin = new Map<string, CoinCloseMem>();
+const hlLastCloseByWallet = new Map<string, number>();
 
 function coinCloseKey(wallet: string, coin: string): string {
   return `${wallet.toLowerCase()}:${coin.toUpperCase()}`;
+}
+
+function rememberWalletClose(wallet: string, atMs: number): void {
+  const key = wallet.toLowerCase();
+  const prev = hlLastCloseByWallet.get(key) ?? 0;
+  if (atMs > prev) hlLastCloseByWallet.set(key, atMs);
 }
 
 export function rememberCoinClose(
@@ -21,6 +29,7 @@ export function rememberCoinClose(
   atMs = Date.now()
 ): void {
   hlLastCloseByCoin.set(coinCloseKey(wallet, coin), { direction, at: atMs });
+  rememberWalletClose(wallet, atMs);
 }
 
 async function lastCoinCloseFromDb(
@@ -46,6 +55,22 @@ async function lastCoinCloseFromDb(
   return { direction: dir, at };
 }
 
+async function lastWalletCloseFromDb(wallet: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('trade_history')
+    .select('closed_at')
+    .eq('wallet_address', wallet.toLowerCase())
+    .eq('execution_venue', 'hyperliquid')
+    .not('closed_at', 'is', null)
+    .order('closed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.closed_at) return 0;
+  const at = new Date(data.closed_at).getTime();
+  return Number.isFinite(at) ? at : 0;
+}
+
 async function resolveCoinCloseMem(
   wallet: string,
   coin: string
@@ -57,6 +82,7 @@ async function resolveCoinCloseMem(
   const fromDb = await lastCoinCloseFromDb(wallet, coin);
   if (fromDb) {
     hlLastCloseByCoin.set(key, fromDb);
+    rememberWalletClose(wallet, fromDb.at);
     return fromDb;
   }
   return null;
@@ -82,6 +108,38 @@ export async function isSameCoinOpenBlocked(
   return evaluateBlock(mem, coin, direction);
 }
 
+export function evaluateWalletReentry(lastCloseAt: number, now = Date.now()): {
+  blocked: boolean;
+  reason?: string;
+  waitMs: number;
+} {
+  const cooldownMs = config.hyperliquid.reentryCooldownMs;
+  if (!(cooldownMs > 0) || !(lastCloseAt > 0)) {
+    return { blocked: false, waitMs: 0 };
+  }
+  const elapsed = now - lastCloseAt;
+  if (elapsed >= cooldownMs) return { blocked: false, waitMs: 0 };
+  const waitMs = cooldownMs - elapsed;
+  const waitMin = Math.max(1, Math.ceil(waitMs / 60_000));
+  return {
+    blocked: true,
+    waitMs,
+    reason: `wait ${waitMin}m after last close (min 10m — re-analyze before next open)`,
+  };
+}
+
+export async function resolveWalletLastCloseMs(wallet: string): Promise<number> {
+  const key = wallet.toLowerCase();
+  const mem = hlLastCloseByWallet.get(key) ?? 0;
+  if (mem > 0) return mem;
+  const fromDb = await lastWalletCloseFromDb(wallet);
+  if (fromDb > 0) {
+    hlLastCloseByWallet.set(key, fromDb);
+    return fromDb;
+  }
+  return 0;
+}
+
 function evaluateBlock(
   mem: CoinCloseMem,
   coin: string,
@@ -92,10 +150,10 @@ function evaluateBlock(
   const blockOpposite = config.hyperliquid.blockOppositeSameCoinMs;
 
   if (minReentry > 0 && elapsed < minReentry) {
-    const waitSec = Math.ceil((minReentry - elapsed) / 1000);
+    const waitMin = Math.max(1, Math.ceil((minReentry - elapsed) / 60_000));
     return {
       blocked: true,
-      reason: `${coin} — re-entry blocked ${waitSec}s after close (anti-churn)`,
+      reason: `${coin} — re-entry blocked ${waitMin}m after close (min 10m, anti-churn)`,
     };
   }
   if (
@@ -116,14 +174,12 @@ function evaluateBlock(
 
 /** Warm in-memory cache from DB for one wallet (one query per trading cycle). */
 export async function warmCoinCloseCacheForWallet(wallet: string): Promise<void> {
-  const since = new Date(
-    Date.now() -
-      Math.max(
-        config.hyperliquid.blockOppositeSameCoinMs,
-        config.hyperliquid.sameCoinReentryMinMs
-      ) -
-      60_000
-  ).toISOString();
+  const lookbackMs = Math.max(
+    config.hyperliquid.blockOppositeSameCoinMs,
+    config.hyperliquid.sameCoinReentryMinMs,
+    config.hyperliquid.reentryCooldownMs
+  );
+  const since = new Date(Date.now() - lookbackMs - 60_000).toISOString();
 
   const { data, error } = await supabase
     .from('trade_history')
@@ -136,14 +192,17 @@ export async function warmCoinCloseCacheForWallet(wallet: string): Promise<void>
   if (error || !data?.length) return;
 
   const seen = new Set<string>();
+  let latest = 0;
   for (const row of data) {
+    const at = new Date(String(row.closed_at)).getTime();
+    if (Number.isFinite(at) && at > latest) latest = at;
     const coin = String(row.token_symbol ?? '').toUpperCase();
     if (!coin || seen.has(coin)) continue;
     seen.add(coin);
     const dir = String(row.direction ?? '').toUpperCase();
     if (dir !== 'LONG' && dir !== 'SHORT') continue;
-    const at = new Date(String(row.closed_at)).getTime();
     if (!Number.isFinite(at)) continue;
     rememberCoinClose(wallet, coin, dir, at);
   }
+  if (latest > 0) rememberWalletClose(wallet, latest);
 }

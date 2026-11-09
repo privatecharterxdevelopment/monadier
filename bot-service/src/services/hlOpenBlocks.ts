@@ -46,6 +46,7 @@ export type HlOpenBlockGate =
   | 'order_error'
   | 'open_exception'
   | 'margin'
+  | 'cooldown'
   | 'liquidity'
   | 'notional'
   | 'other';
