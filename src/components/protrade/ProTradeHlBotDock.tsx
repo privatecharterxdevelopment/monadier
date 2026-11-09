@@ -62,7 +62,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   onTabChange,
   refreshKey = 0,
   walletAddress,
-  walletConnected = false,
+  walletConnected: _walletConnected = false,
   onCoinClick,
   onPositionChange,
   showBotAnalysis: _showBotAnalysis = false,
@@ -256,11 +256,9 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     [onTabChange, refreshAccount]
   );
 
-  // Login + wallet — never show positions/history from settings wallet alone.
+  // Safari / iOS often has no live MetaMask — still show the linked trading wallet.
   const connected =
-    isAuthenticated &&
-    Boolean(hlWallet || positionsWallet) &&
-    (walletConnected || isDemoUser);
+    isAuthenticated && Boolean(hlWallet || positionsWallet || walletAddress);
 
   return (
     <div

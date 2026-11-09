@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
@@ -65,6 +66,9 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
 }) => {
   const { metrics, dockRefreshKey, refresh } = useProTradeBot();
   const { address, isConnected } = useMonadierWallet();
+  const { wallet: hlWallet } = useHlActiveWallet();
+  const tradingWallet = hlWallet ?? address ?? null;
+  const walletReady = isConnected || Boolean(tradingWallet);
 
   return (
     <ProTradeBotDock
@@ -73,15 +77,15 @@ export const ProTradeBotDockSlot: React.FC<DockProps> = ({
       refreshKey={dockRefreshKey}
       showBotAnalysis={false}
       botAnalysisMetrics={metrics}
-      botAnalysisWallet={address ?? null}
+      botAnalysisWallet={tradingWallet}
       botAnalysisSymbol={analysisSymbol}
       botOpenPositionCoins={openPositionCoins}
       botManagedCoins={botManagedCoins}
       botManagedCoinsLoading={botManagedCoinsLoading}
-      walletConnected={isConnected}
+      walletConnected={walletReady}
       onPositionChange={refresh}
       onCoinClick={onCoinClick}
-      walletAddress={address ?? null}
+      walletAddress={tradingWallet}
       onDeposit={onDeposit}
       botHlBalanceUsd={metrics.hlBalanceUsd}
     />
@@ -127,9 +131,10 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
 }) => {
   const { metrics } = useProTradeBot();
   const { address, isConnected } = useMonadierWallet();
-  // Only poll HL when logged-in wallet is live — never from stale bot settings.
+  const { wallet: hlWallet } = useHlActiveWallet();
+  const tradingWallet = (hlWallet ?? address)?.toLowerCase();
   const { snapshot } = useHlAccountSnapshot(
-    walletConnected && isConnected ? address : undefined
+    walletConnected && tradingWallet ? tradingWallet : undefined
   );
   const positions = snapshot?.positions ?? [];
   const coins = useMemo(() => positions.map((p) => p.coin), [positions]);
@@ -145,13 +150,13 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
   return (
     <ProTradeStatusBar
       mode="bot"
-      walletConnected={walletConnected && isConnected}
+      walletConnected={walletConnected && (isConnected || Boolean(tradingWallet))}
       wsLive={wsLive}
       openOrders={[]}
       positions={positions}
       totalUpnl={liveUpnl}
       botMetrics={metrics}
-      botWallet={address}
+      botWallet={tradingWallet ?? address}
     />
   );
 };

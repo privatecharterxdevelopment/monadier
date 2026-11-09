@@ -13007,9 +13007,10 @@ html[dir='rtl'] .hl-book {
     min-height: 0;
   }
 
-  /* No wallet yet: drop empty positions dock so chart → bot panel has no white void */
+  /* Keep the positions dock on screen — idle used to hide open trades on Safari. */
   .hl-terminal--bot .hl-bot-dock--idle {
-    display: none;
+    display: flex;
+    flex-direction: column;
   }
 
   .hl-terminal--bot .hl-bot-analyzer-pill__value {
@@ -13377,6 +13378,39 @@ html[dir='rtl'] .hl-book {
   .monadier-app-gate-card {
     padding: 24px 20px;
   }
+
+  /* Open positions must stay on the phone: later rules set min-height:0 and hid the dock. */
+  .hl-terminal--bot .hl-bot-dock,
+  .hl-terminal--bot .hl-bot-dock.hl-bot-dock--idle,
+  .hl-terminal--bot .hl-bot-dock .hl-dock,
+  .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
+    display: flex !important;
+    flex-direction: column;
+    flex: 0 0 auto !important;
+    min-height: 220px !important;
+    max-height: min(52vh, 460px) !important;
+    height: auto !important;
+    overflow: hidden !important;
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock-body,
+  .hl-terminal--bot .hl-bot-dock .term-dock-body {
+    flex: 1 1 auto !important;
+    min-height: 160px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hl-dock-table-scroll {
+    display: none !important;
+  }
+
+  .hl-pos-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px 14px;
+  }
 }
 
 @media (max-width: 900px) and (orientation: landscape) {
@@ -13428,8 +13462,8 @@ html[dir='rtl'] .hl-book {
   .hl-terminal--bot .hl-bot-dock,
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    min-height: 0;
-    max-height: min(38vh, 260px);
+    min-height: 180px;
+    max-height: min(52vh, 420px);
   }
 
   .hl-terminal--bot .hl-bot-dock.hl-bot-dock--history-tab,
@@ -13473,8 +13507,8 @@ html[dir='rtl'] .hl-book {
   .hl-terminal--bot .hl-bot-dock,
   .hl-terminal--bot .hl-bot-dock .hl-dock,
   .hl-terminal--bot .hl-bot-dock .hl-bot-dock-inner {
-    min-height: 0;
-    max-height: min(42vh, 320px);
+    min-height: 220px;
+    max-height: min(52vh, 460px);
   }
 
   .hl-order-panel {
