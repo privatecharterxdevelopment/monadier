@@ -854,13 +854,11 @@ export async function scanGlobalHlSignals(
 }
 
 /**
- * Liquid aggressive scalps the Standard bot may borrow when MTF is thin.
- * Keeps Standard from idling while XRP/LINK/etc. print clear scalp direction.
- * Env: HL_STD_BORROW_AGG_MIN_CONF (default 80), HL_STD_BORROW_AGG_MIN_VOL (default $1M).
+ * When the live profile enables aggressive 1m dump-tape (bear_market), Standard
+ * must trade those prints. Extra $1M / 80% floors used to starve Standard:
+ * scan already let the coin through, then borrow dropped it (e.g. ALGO $485k
+ * 94% SHORT) and the bot idled with skipped cycles.
  */
-const STD_BORROW_AGG_MIN_CONF = Number(process.env.HL_STD_BORROW_AGG_MIN_CONF || 80);
-const STD_BORROW_AGG_MIN_VOL = Number(process.env.HL_STD_BORROW_AGG_MIN_VOL || 1_000_000);
-
 export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
@@ -881,12 +879,7 @@ export function globalSignalsForBotMode(
   if (hlBotStrategy === 'profit_grabber') return aggressive;
 
   const seen = new Set(standard.map((c) => c.coin.toUpperCase()));
-  const borrowed = aggressive.filter((c) => {
-    if (seen.has(c.coin.toUpperCase())) return false;
-    if (c.confidence < STD_BORROW_AGG_MIN_CONF) return false;
-    if ((c.dayVolumeUsd || 0) < STD_BORROW_AGG_MIN_VOL) return false;
-    return true;
-  });
+  const borrowed = aggressive.filter((c) => !seen.has(c.coin.toUpperCase()));
   if (borrowed.length === 0) return standard;
 
   return [...standard, ...borrowed].sort(

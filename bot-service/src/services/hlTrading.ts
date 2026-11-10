@@ -1802,12 +1802,16 @@ export class HyperliquidTradingService {
         );
       }
 
+      const skipConfirmCandles =
+        opts.direction === 'SHORT' &&
+        (opts.pick.botMode === 'aggressive' || trustsDirectionProfile(opts.pick));
       const entryTrendGate = visualPickedSide
         ? { ok: true as const, reason: 'OpenAI visual side — skip 5m/15m entry-trend veto', trend15m: '' }
         : await validateProfileEntryTrend({
         coin,
         direction: opts.direction,
         longClass: liveReversal?.class,
+        skipConfirmCandles,
       });
       if (!entryTrendGate.ok) {
         return rejectOpen(

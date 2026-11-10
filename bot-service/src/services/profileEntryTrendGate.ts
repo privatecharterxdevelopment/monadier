@@ -56,6 +56,12 @@ export async function validateProfileEntryTrend(opts: {
   direction: 'LONG' | 'SHORT';
   /** REVERSAL_LONG: 5m is timing-only; do not require 3 green 15m candles. */
   longClass?: 'TREND_LONG' | 'REVERSAL_LONG' | 'OVEREXTENDED_LONG' | 'NONE';
+  /**
+   * Aggressive 1m dump-tape / trusted MTF SHORT already proved 15m+1h DOWN.
+   * Waiting for 3 closed 15m reds (~45m) idles the bot after the move.
+   * 15m/5m trend requirements still run.
+   */
+  skipConfirmCandles?: boolean;
 }): Promise<ProfileEntryTrendResult> {
   const rules =
     opts.direction === 'LONG'
@@ -72,9 +78,10 @@ export async function validateProfileEntryTrend(opts: {
   }
   const required5 = reversalLong ? null : (rules.required5mTrend ?? null);
   const required15 = rules.required15mTrend ?? null;
-  const minCandles = reversalLong
-    ? 0
-    : Math.max(0, Math.floor(rules.minConfirm15mCandles ?? 0));
+  const minCandles =
+    reversalLong || opts.skipConfirmCandles
+      ? 0
+      : Math.max(0, Math.floor(rules.minConfirm15mCandles ?? 0));
   if (!required5 && !required15 && minCandles <= 0) {
     return { ok: true, reason: 'Profile entry-trend — not configured for this side' };
   }
