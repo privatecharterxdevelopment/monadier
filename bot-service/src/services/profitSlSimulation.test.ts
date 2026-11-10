@@ -29,7 +29,6 @@ describe('profit SL simulations', () => {
 
     assert.ok(result.armedAt, 'must arm once mark clears BE + gap');
     assert.ok(result.armedAt!.mark <= result.minArmMark + 0.05);
-    assert.ok(result.armedAt!.stopPx <= result.beStopPx + 0.01);
     assert.ok(result.armedAt!.stopPx < scenario.entry);
     assert.ok(result.armedAt!.minLockUsd > 0);
     assert.ok(
@@ -61,8 +60,7 @@ describe('profit SL simulations', () => {
     const firstGreen = result.ticks[1];
     assert.equal(firstGreen.stage, 0);
     if (result.armedAt) {
-      assert.ok(result.armedAt.stopPx < scenario.entry);
-      assert.ok(result.armedAt.minLockUsd > 0);
+      assert.ok(result.armedAt.stopPx > result.armedAt.mark);
     }
     assert.equal(result.stopNeverWorsened, true);
   });

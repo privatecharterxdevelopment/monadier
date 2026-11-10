@@ -223,9 +223,9 @@ export const config = {
     /** Dynamic price-based trailing stop (21 Jun ATR/% trail). */
     dynamicTrail: {
       /** Min continuous ms in profit before arming the profit SL. */
-      armMinProfitHoldMs: Math.min(
-        3_000,
-        Math.max(0, Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 0))
+      armMinProfitHoldMs: Math.max(
+        5_000,
+        Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 5_000)
       ),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
@@ -245,10 +245,10 @@ export const config = {
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
-      /** After trail arms — min ms before floor can close. 0 = snap on first cross. */
-      trailMinActiveBeforeCloseMs: Math.min(
-        2_000,
-        Math.max(0, Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 0))
+      /** After trail arms — min ms before a cross can close. Floor 5s (June trail). */
+      trailMinActiveBeforeCloseMs: Math.max(
+        5_000,
+        Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 5_000)
       ),
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.

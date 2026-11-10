@@ -163,24 +163,7 @@ export async function validatePerpMarketContext(opts: {
         };
       }
     } else {
-      // SHORT: block extreme washout bottoms only (not mid-range dump continuation).
-      const minShortRange = Number(process.env.HL_PERP_MIN_SHORT_RANGE || 0.12);
-      const minShort24hRange = Number(process.env.HL_PERP_MIN_SHORT_24H_RANGE || 0.18);
-      const maxShort24hDumpPct = Number(process.env.HL_PERP_MAX_SHORT_24H_DUMP || 4.0);
-      if (ctx.rangePosition <= minShortRange) {
-        return {
-          ok: false,
-          reason: `SHORT blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (extreme low) · ${summary}`,
-          ctx,
-        };
-      }
-      if (ctx.change24hPct <= -maxShort24hDumpPct && ctx.rangePosition <= minShort24hRange) {
-        return {
-          ok: false,
-          reason: `SHORT blocked — ${ctx.coin} already ${ctx.change24hPct.toFixed(2)}% 24h at extreme lows · ${summary}`,
-          ctx,
-        };
-      }
+      // SHORT dumps print at range lows — that is the trade (21 Jun). Never block the washout.
       if (ctx.funding <= -cfg.maxLongFunding) {
         return {
           ok: false,

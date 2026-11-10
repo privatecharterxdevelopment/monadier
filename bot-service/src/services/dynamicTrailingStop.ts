@@ -115,7 +115,7 @@ function updateFavorableExtreme(
   return Math.min(current, mark);
 }
 
-function ratchetStop(
+export function ratchetStop(
   direction: 'LONG' | 'SHORT',
   currentStop: number | null,
   candidate: number
@@ -124,6 +124,63 @@ function ratchetStop(
   return direction === 'LONG'
     ? Math.max(currentStop, candidate)
     : Math.min(currentStop, candidate);
+}
+
+/** Protective side of mark: LONG below, SHORT above — never already triggered. */
+function capTrailDistanceToRun(
+  direction: 'LONG' | 'SHORT',
+  extremePx: number,
+  entryPx: number,
+  markPx: number,
+  trailDist: number,
+  tickSize?: number
+): number {
+  const gap = minProfitTrailGapPx(markPx, tickSize ?? 0);
+  const run =
+    direction === 'LONG'
+      ? Math.max(0, extremePx - entryPx)
+      : Math.max(0, entryPx - extremePx);
+  if (run <= 0) return Math.max(trailDist, gap);
+  return Math.max(gap, Math.min(trailDist, run * 0.75));
+}
+
+function trailStopFromExtreme(
+  direction: 'LONG' | 'SHORT',
+  extremePx: number,
+  trailDist: number
+): number {
+  const dist = Math.max(trailDist, 0);
+  return direction === 'LONG' ? extremePx - dist : extremePx + dist;
+}
+
+/**
+ * June trail: follow the run by ATR/%, but keep the stop on the profit side of
+ * entry when there is room, and never park it through live mark.
+ */
+function juneTrailStopPx(opts: {
+  direction: 'LONG' | 'SHORT';
+  extremePx: number;
+  entryPx: number;
+  markPx: number;
+  trailDist: number;
+  tickSize?: number;
+}): number {
+  const gap = minProfitTrailGapPx(opts.markPx, opts.tickSize ?? 0);
+  const raw = trailStopFromExtreme(opts.direction, opts.extremePx, opts.trailDist);
+  if (opts.direction === 'LONG') {
+    const maxStop = opts.markPx - gap;
+    const minProfit = opts.entryPx + gap;
+    if (maxStop > minProfit) {
+      return Math.min(Math.max(raw, minProfit), maxStop);
+    }
+    return maxStop;
+  }
+  const minStop = opts.markPx + gap;
+  const maxProfit = opts.entryPx - gap;
+  if (maxProfit > minStop) {
+    return Math.max(Math.min(raw, maxProfit), minStop);
+  }
+  return minStop;
 }
 
 export function isTrailStopCrossed(
@@ -249,9 +306,15 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: no stop until arm threshold.
+  const minHoldMs = Math.max(5_000, cfg.armMinProfitHoldMs || 5_000);
+  const minActiveMs = Math.max(5_000, cfg.trailMinActiveBeforeCloseMs || 5_000);
+
+  // Phase 1 — idle: green long enough, then park a stop *behind* mark (June ATR trail).
   if (rec.phase === 'idle') {
-    if (!shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd)) {
+    if (
+      !shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd) ||
+      rec.timeInProfitMs < minHoldMs
+    ) {
       return {
         record: rec,
         shouldClose: false,
@@ -260,42 +323,79 @@ export async function evaluateDynamicTrail(
       };
     }
 
-    const initialStop = breakevenPlusFeesStopPx(
+    const trailDist = capTrailDistanceToRun(
       input.direction,
+      rec.highestPriceSinceEntry,
       input.entryPrice,
-      input.absSize,
-      feesUsd
+      input.markPrice,
+      await resolveTrailDistancePx(input.coin, input.markPrice),
+      input.tickSize
     );
+    rec.lastTrailDistancePx = trailDist;
     rec.phase = 'armed';
     rec.trailArmedAt = input.nowMs;
-    rec.currentTrailStop = initialStop;
+    rec.currentTrailStop = juneTrailStopPx({
+      direction: input.direction,
+      extremePx: rec.highestPriceSinceEntry,
+      entryPx: input.entryPrice,
+      markPx: input.markPrice,
+      trailDist,
+      tickSize: input.tickSize,
+    });
     rec.estimatedFeesUsd = feesUsd;
-    logger.info('HL dynamic trail armed', {
+    logger.info('HL dynamic trail armed (behind mark, 5s fuse)', {
       coin: input.coin,
       direction: input.direction,
       entry: input.entryPrice.toFixed(6),
-      initialStop: initialStop.toFixed(6),
+      mark: input.markPrice.toFixed(6),
+      initialStop: rec.currentTrailStop.toFixed(6),
+      trailDist: trailDist.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
       roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
+      timeInProfitMs: rec.timeInProfitMs,
     });
+    return {
+      record: rec,
+      shouldClose: false,
+      exitReason: '',
+      closeDetail: '',
+    };
   }
 
-  // Phase 3 — ratchet trail (only moves in profit direction).
+  // Ratchet with the run. SHORT stop stays above mark and walks down; LONG below and walks up.
   if ((rec.phase === 'armed' || rec.phase === 'trailing') && rec.currentTrailStop != null) {
     rec.phase = 'trailing';
-    const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
+    const trailDist = capTrailDistanceToRun(
+      input.direction,
+      rec.highestPriceSinceEntry,
+      input.entryPrice,
+      input.markPrice,
+      await resolveTrailDistancePx(input.coin, input.markPrice),
+      input.tickSize
+    );
     rec.lastTrailDistancePx = trailDist;
-    const trailCandidate =
+    let trailCandidate = trailStopFromExtreme(
+      input.direction,
+      rec.highestPriceSinceEntry,
+      trailDist
+    );
+    const gap = minProfitTrailGapPx(input.markPrice, input.tickSize ?? 0);
+    trailCandidate =
       input.direction === 'LONG'
-        ? rec.highestPriceSinceEntry - trailDist
-        : rec.highestPriceSinceEntry + trailDist;
+        ? Math.max(trailCandidate, input.entryPrice + gap)
+        : Math.min(trailCandidate, input.entryPrice - gap);
     rec.currentTrailStop = ratchetStop(
       input.direction,
       rec.currentTrailStop,
       trailCandidate
     );
 
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
+    const armedFor =
+      rec.trailArmedAt != null ? input.nowMs - rec.trailArmedAt : 0;
+    if (
+      armedFor >= minActiveMs &&
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
+    ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
@@ -402,11 +502,12 @@ export function shouldArmBreakevenProtection(input: {
   tickSize?: number;
   szDecimals?: number;
 }): boolean {
-  void input.timeInProfitMs;
   void input.notionalUsd;
   void input.fundingUsd;
   void input.tickSize;
   void input.szDecimals;
+  const minHold = Math.max(5_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs || 5_000);
+  if ((input.timeInProfitMs ?? 0) < minHold) return false;
   return shouldArmProfitProtection(
     input.pnlUsd,
     input.collateralUsd ?? 0,
