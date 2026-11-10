@@ -132,8 +132,9 @@ export async function validateCandleWickGate(opts: {
     ]);
 
     if (opts.direction === 'SHORT') {
-      // 1h only — 15m was blocking almost every short on micro wicks.
-      const h1 = recentBullishDemand(c1h, 2);
+      // Live 1h absorption only. A closed hammer 1–2h ago is normal dump tape
+      // and was blocking every HYPE/LTC SHORT after 15m/1h already printed DOWN.
+      const h1 = recentBullishDemand(c1h, 0);
       if (h1.hit) {
         const reason = `SHORT blocked — ${coin} bullish long-wick demand on 1h (${h1.detail}) — candle was bought / eaten`;
         logger.info('Candle wick gate blocked SHORT', { coin, tf: '1h', detail: h1.detail });
