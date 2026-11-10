@@ -1774,21 +1774,29 @@ export class HyperliquidTradingService {
       const visualPickedSide = scanSide !== opts.direction;
       const reversalOpen =
         opts.direction === 'LONG' && liveReversal?.class === 'REVERSAL_LONG';
+      const majorShortFill =
+        opts.direction === 'SHORT' && isMajorFillCoin(coin);
       const minTfsOpen = reversalOpen
         ? Math.min(2, directionRules.minDirectionalTfs)
-        : directionRules.minDirectionalTfs;
+        : majorShortFill
+          ? 2
+          : directionRules.minDirectionalTfs;
       const minConfOpen = reversalOpen
         ? Math.max(
             directionRules.minConfidence,
             directionProfile.reversalLong?.minConfidence ?? 62
           )
-        : directionRules.minConfidence;
+        : majorShortFill
+          ? Math.min(52, directionRules.minConfidence)
+          : directionRules.minConfidence;
       const minAlignOpen = reversalOpen
         ? Math.min(
             directionRules.minTrendAlignment,
             directionProfile.reversalLong?.minTrendAlignment ?? 55
           )
-        : directionRules.minTrendAlignment;
+        : majorShortFill
+          ? Math.min(45, directionRules.minTrendAlignment)
+          : directionRules.minTrendAlignment;
       if (
         !visualPickedSide &&
         (opts.pick.confidence < minConfOpen ||

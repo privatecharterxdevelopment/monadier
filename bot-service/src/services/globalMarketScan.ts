@@ -314,9 +314,13 @@ async function scanMajorChartFallback(
   }
   if (!pick) pick = shortC;
   if (!pick) return null;
-  if (pick.confidence < 58) return null;
+  const majorConfFloor = pick.direction === 'SHORT' ? 52 : 58;
+  if (pick.confidence < majorConfFloor) return null;
   const majorTfFloor =
-    pick.direction === 'LONG' && pick.longClass === 'REVERSAL_LONG' ? 2 : 3;
+    pick.direction === 'SHORT' ||
+    (pick.direction === 'LONG' && pick.longClass === 'REVERSAL_LONG')
+      ? 2
+      : 3;
   if ((pick.directionalTfCount ?? 0) < majorTfFloor) return null;
   const tagged = withQueueFlag(pick, pick, shortC);
   return {
@@ -418,7 +422,9 @@ async function scanStandardCoinDirection(
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
     const profileMin = rulesFor(wantedDirection).minConfidence;
     const minConf = majorFill
-      ? Math.max(profileMin, 58)
+      ? wantedDirection === 'SHORT'
+        ? Math.min(profileMin, 52)
+        : Math.max(profileMin, 58)
       : cautious
         ? config.hyperliquid.cautiousScan.minSignalConfidence
         : relaxed
@@ -426,16 +432,16 @@ async function scanStandardCoinDirection(
           : profileMin;
     if (analysis.confidence < minConf) return null;
     const minTfs = majorFill
-      ? wantedDirection === 'LONG'
-        ? 2
-        : Math.max(3, rulesFor(wantedDirection).minDirectionalTfs)
+      ? 2
       : relaxed
       ? 2
       : cautious
         ? config.hyperliquid.cautiousScan.minDirectionalTfs
         : config.hyperliquid.minDirectionalTfs;
     const minAlign = majorFill
-      ? Math.max(50, rulesFor(wantedDirection).minTrendAlignment)
+      ? wantedDirection === 'SHORT'
+        ? 45
+        : Math.max(50, rulesFor(wantedDirection).minTrendAlignment)
       : relaxed
       ? 45
       : cautious
