@@ -305,8 +305,11 @@ function formatOpenErrorForClient(error: string): string {
   if (/Pump-short|still heating|green 5m|still pumping/i.test(error)) {
     return 'Pair still pumping — SHORT blocked until rollover';
   }
-  if (/20-candle|structure still up|bullish/i.test(error)) {
+  if (/20-candle|structure still up/i.test(error)) {
     return 'Chart still trending against this direction — waiting';
+  }
+  if (/bullish long-wick|candle was bought/i.test(error)) {
+    return 'Bounce wick at the low — waiting for the bounce to fail';
   }
   if (/needs live momentum|buy low|sell high|wait for pullback|Dip-buy|Rally-fade/i.test(error)) {
     return 'Waiting for pullback to buy low / rally to sell high';
@@ -1981,11 +1984,18 @@ export class HyperliquidTradingService {
         return rejectOpen('pump_short', pumpShortGate.reason, 'pump-short gate');
       }
 
-      // Long-wick demand/rejection — NEVER bypass (user: candle eaten = no short into green wick).
-      const wickGate = await validateCandleWickGate({
-        coin,
-        direction: opts.direction,
-      });
+      // 1h DOWN/SIDEWAYS already proved the dump. Closed hammers in that tape
+      // were blocking every SOL/HYPE SHORT. Still veto a 1h UP short-into-demand.
+      const wickGate =
+        opts.direction === 'SHORT' && h1AllowsShort(opts.pick.h1Trend)
+          ? {
+              ok: true as const,
+              reason: `${coin} SHORT — 1h ${opts.pick.h1Trend ?? 'n/a'} skips stale demand-wick veto`,
+            }
+          : await validateCandleWickGate({
+              coin,
+              direction: opts.direction,
+            });
       if (!wickGate.ok) {
         logEntryLocationRecord({
           record: locationQuality,

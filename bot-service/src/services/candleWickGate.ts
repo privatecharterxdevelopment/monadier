@@ -68,15 +68,21 @@ export function isLiveBullishAbsorption(c: Candle): boolean {
   return w.bullish && lowerFrac >= 0.55 && closePos >= 0.65;
 }
 
+/** `slice(-0)` === `slice(0)` in JS — lookback 0 must not scan every closed bar. */
+export function closedLookback<T>(candles: T[], lookbackClosed: number): T[] {
+  if (lookbackClosed <= 0 || candles.length < 2) return [];
+  return candles.slice(0, -1).slice(-lookbackClosed);
+}
+
 function recentBullishDemand(candles: Candle[], lookbackClosed = 2): {
   hit: boolean;
   detail: string;
 } {
   if (candles.length < 2) return { hit: false, detail: '' };
   const forming = candles[candles.length - 1]!;
-  const closed = candles.slice(0, -1).slice(-lookbackClosed);
+  const closed = closedLookback(candles, lookbackClosed);
 
-  if (isLiveBullishAbsorption(forming)) {
+  if (lookbackClosed > 0 && isLiveBullishAbsorption(forming)) {
     return { hit: true, detail: 'live absorption (long lower wick, close off lows)' };
   }
   for (let i = closed.length - 1; i >= 0; i -= 1) {
@@ -132,8 +138,8 @@ export async function validateCandleWickGate(opts: {
     ]);
 
     if (opts.direction === 'SHORT') {
-      // Live 1h absorption only. A closed hammer 1–2h ago is normal dump tape
-      // and was blocking every HYPE/LTC SHORT after 15m/1h already printed DOWN.
+      // Closed 1h hammers are dump tape (SOL 73% died on a wick 4h ago).
+      // Do not scan closed bars. Live absorption is handled only when lookback > 0.
       const h1 = recentBullishDemand(c1h, 0);
       if (h1.hit) {
         const reason = `SHORT blocked — ${coin} bullish long-wick demand on 1h (${h1.detail}) — candle was bought / eaten`;
