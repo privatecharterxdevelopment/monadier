@@ -246,25 +246,8 @@ export async function validatePreOpenCandleAnalytics(opts: {
         logger.info('Pre-open candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      const shortRangeFloor = tf === '1m' ? cfg.maxRangePositionShort : 0.18;
-      if (
-        !trendConfirms &&
-        pos <= shortRangeFloor &&
-        recent5 > -cfg.breakoutRecentMovePct
-      ) {
-        const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
-        logger.info('Pre-open candle block', { coin, direction: dir, summary });
-        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
-      }
-      if (
-        !trendConfirms &&
-        rejL >= cfg.maxRejectionsAtLevel &&
-        recent5 > -minNet
-      ) {
-        const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;
-        logger.info('Pre-open candle block', { coin, direction: dir, summary });
-        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
-      }
+      // SHORT into a dump sits at range lows with rejection wicks. That is the
+      // setup (BTC/ETH/APT this session), not a bounce. Active pump still vetoes.
       // Reversal veto (mirror of LONG): sustained up-structure past the ATR threshold, or
       // an active fresh pump in the last 5 bars. A slow drift up is noise, not a trend break.
       const sustainedUp = structure === 'up' && net >= reversalPct;

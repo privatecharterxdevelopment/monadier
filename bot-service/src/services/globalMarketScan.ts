@@ -942,9 +942,12 @@ export function globalSignalsForBotMode(
   const borrowed = aggressive.filter((c) => !seen.has(c.coin.toUpperCase()));
   if (borrowed.length === 0) return standard;
 
-  return [...standard, ...borrowed].sort(
-    (a, b) => b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd
-  );
+  return [...standard, ...borrowed].sort((a, b) => {
+    const aMaj = isMajorFillCoin(a.coin) ? 1 : 0;
+    const bMaj = isMajorFillCoin(b.coin) ? 1 : 0;
+    if (aMaj !== bMaj) return bMaj - aMaj;
+    return b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd;
+  });
 }
 
 /** SCAN badges — keep a few LONGs even when SHORTs dominate the top ranks. */
