@@ -128,13 +128,12 @@ export function shouldForceLossCap(pnlPct: number, slPct: number, pnlUsd: number
   return slPct > 0 && pnlPct <= -slPct * mult;
 }
 
-/** User SL% on margin; optional absolute USD ceiling when thesisMaxLossUsd > 0. */
+/** Tightest of: user SL% on margin, absolute USD cap. */
 export function computeMaxLossCapUsd(collateralUsd: number, slPct: number): number {
   const absCap = config.hyperliquid.thesisMaxLossUsd;
   const fromSl =
-    slPct > 0 && collateralUsd > 0 ? collateralUsd * (slPct / 100) : 0;
-  if (absCap <= 0) return fromSl > 0 ? fromSl : 0;
-  if (fromSl <= 0) return absCap;
+    slPct > 0 && collateralUsd > 0 ? collateralUsd * (slPct / 100) : absCap;
+  if (slPct <= 0) return absCap;
   return Math.min(fromSl, absCap);
 }
 
@@ -145,9 +144,6 @@ export function shouldHardLossClose(
 ): boolean {
   if (pnlUsd >= 0) return false;
   const cap = computeMaxLossCapUsd(collateralUsd, slPct);
-  // SL off (0%) and no absolute USD cap → never treat red as "hit stop".
-  // Otherwise cap=0 made `pnl <= 0` true for every loser after the 2m hold window.
-  if (!(cap > 0)) return false;
   return pnlUsd <= -cap;
 }
 
@@ -193,16 +189,6 @@ function deriveProfitRunBias(
   if (thesis.thesisIntact && volumeRatio >= 1.35) return 'strong_run';
   if (thesis.thesisIntact) return 'run';
   return 'neutral';
-}
-
-/** Widen trail on strong runs, tighten when thesis fades. */
-export function trailDistanceMultFromBias(bias: ProfitRunBias): number {
-  const strong = config.hyperliquid.profitTrailStrongRunMult;
-  if (bias === 'strong_run') return strong;
-  if (bias === 'run') return Math.max(1.12, strong * 0.72);
-  if (bias === 'reversal') return 0.92;
-  if (bias === 'fade') return 1;
-  return 1;
 }
 
 /** Live read while in profit — macro, MTF, volume before trail SL arms. */

@@ -1,5 +1,6 @@
 /**
- * Pre-open gate — buy dips / sell rallies, never chase extended moves.
+ * Pre-open gate — only enter when price is already moving in our direction.
+ * No opens on weak/contra momentum; bot waits for plus, never auto-closes red.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
@@ -25,15 +26,6 @@ function pctChangeClosed(candles: Candle[], bars: number): number {
   return ((end.close - start.close) / start.close) * 100;
 }
 
-/** Includes forming candle — catch live flush bottoms closed bars miss. */
-function pctChangeLive(candles: Candle[], bars: number): number {
-  if (candles.length < bars + 1) return 0;
-  const end = candles[candles.length - 1];
-  const start = candles[candles.length - 1 - bars];
-  if (!start?.close || !end?.close || start.close <= 0) return 0;
-  return ((end.close - start.close) / start.close) * 100;
-}
-
 function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHORT'): boolean {
   const closed = candles.slice(-n - 1, -1);
   if (closed.length < n) return false;
@@ -41,18 +33,6 @@ function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHO
     return closed.every((c) => c.close >= c.open * 0.9999);
   }
   return closed.every((c) => c.close <= c.open * 1.0001);
-}
-
-/** Live-aware range position (includes forming high/low) so dump bottoms aren't mid-range. */
-function rangePosition(candles: Candle[]): number {
-  const window = candles.slice(-25);
-  if (window.length < 4) return 0.5;
-  const price = window[window.length - 1]?.close ?? 0;
-  const hi = Math.max(...window.map((c) => c.high));
-  const lo = Math.min(...window.map((c) => c.low));
-  const span = hi - lo;
-  if (span <= 0 || price <= 0) return 0.5;
-  return (price - lo) / span;
 }
 
 export async function validateEntryMomentum(opts: {
@@ -64,23 +44,20 @@ export async function validateEntryMomentum(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const [c15m, c1h] = await Promise.all([
+    const [c5m, c15m, c1h] = await Promise.all([
+      signalEngine.fetchCandles(symbol, '5m', 20),
       signalEngine.fetchCandles(symbol, '15m', 20),
-      signalEngine.fetchCandles(symbol, '1h', 26),
+      signalEngine.fetchCandles(symbol, '1h', 10),
     ]);
 
-    const change5mPct = 0;
+    const change5mPct = pctChangeClosed(c5m, 1);
     const change15mPct = pctChangeClosed(c15m, 1);
     const change1hPct = pctChangeClosed(c1h, 1);
-    const live15mPct = pctChangeLive(c15m, 1);
-    const live1hPct = pctChangeLive(c1h, 1);
-    const rangePos = rangePosition(c1h);
 
-    const macro = await evaluateMacroBetaAlignment({
-      coin,
-      direction: opts.direction,
-      scope: 'open',
-    });
+    const min5 = cfg.minMove5mPct;
+    const min15 = cfg.minMove15mPct;
+
+    const macro = await evaluateMacroBetaAlignment({ coin, direction: opts.direction });
     if (!macro.ok) {
       return {
         ok: false,
@@ -92,82 +69,27 @@ export async function validateEntryMomentum(opts: {
       };
     }
 
-    const min15 = cfg.minMove15mPct;
-    const bounce15m =
-      change15mPct >= min15 && lastNCandlesMove(c15m, 1, 'LONG');
-    const fade15m =
-      change15mPct <= -min15 && lastNCandlesMove(c15m, 1, 'SHORT');
-
     let momentumAligned = false;
-    let reason = '';
-
     if (opts.direction === 'LONG') {
-      if (change15mPct >= cfg.maxChase15mPct && change1hPct >= cfg.maxChase1hPct) {
-        reason =
-          `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — wait for pullback, buy low`;
-      } else if (rangePos > cfg.longMaxRangePosition) {
-        reason =
-          `LONG blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (buy low, not at highs)`;
-      } else if (!bounce15m) {
-        const inLowerRange = rangePos <= cfg.longMaxRangePosition;
-        const smallDip = change15mPct <= 0 && change15mPct > -0.6;
-        if (inLowerRange && smallDip) {
-          momentumAligned = true;
-          reason =
-            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m dip ${change15mPct.toFixed(2)}% to buy`;
-        } else {
-          reason =
-            `LONG blocked — ${coin} needs 15m bounce from dip (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
-        }
-      } else if (change1hPct < -cfg.maxCounter1hPct) {
-        reason = `LONG blocked — ${coin} 1h still dumping (${change1hPct.toFixed(2)}%) — wait for higher-low`;
-      } else {
-        momentumAligned = true;
-        reason =
-          `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% bounce`;
-      }
+      momentumAligned =
+        change5mPct >= min5 &&
+        change15mPct >= min15 &&
+        change1hPct >= -cfg.maxCounter1hPct &&
+        lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'LONG');
     } else {
-      // Chase / flush bottom — require BOTH TFs extended (live-aware min).
-      // 2851481 used OR + tight floors → dumped trade rate; keep live min so
-      // closed-only bars can't miss a forming flush, but don't OR-kill mild dumps.
-      const chase15 =
-        Math.min(change15mPct, live15mPct) <= cfg.maxChaseShort15mPct;
-      const chase1h =
-        Math.min(change1hPct, live1hPct) <= cfg.maxChaseShort1hPct;
-      if (chase15 && chase1h) {
-        reason =
-          `SHORT blocked — ${coin} already extended down ` +
-          `(15m ${Math.min(change15mPct, live15mPct).toFixed(2)}%, 1h ${Math.min(change1hPct, live1hPct).toFixed(2)}%) ` +
-          `— wait for bounce, sell high`;
-      } else if (
-        cfg.shortMinRangePosition > 0 &&
-        rangePos < cfg.shortMinRangePosition
-      ) {
-        reason =
-          `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;
-      } else if (!fade15m) {
-        const smallRally = change15mPct >= 0 && change15mPct < 0.6;
-        const dumping = change15mPct < 0;
-        if (smallRally || dumping) {
-          momentumAligned = true;
-          reason = dumping
-            ? `Dump continuation OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct.toFixed(2)}%`
-            : `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 15m bounce +${change15mPct.toFixed(2)}% to fade`;
-        } else {
-          reason =
-            `SHORT blocked — ${coin} needs 15m fade or dump (15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
-        }
-      } else if (change1hPct > cfg.maxCounter1hPct) {
-        reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;
-      } else {
-        momentumAligned = true;
-        reason =
-          `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 15m ${change15mPct.toFixed(2)}% fade`;
-      }
+      momentumAligned =
+        change5mPct <= -min5 &&
+        change15mPct <= -min15 &&
+        change1hPct <= cfg.maxCounter1hPct &&
+        lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'SHORT');
     }
 
     if (!momentumAligned) {
-      logger.info('Entry momentum gate blocked', { coin, direction: opts.direction, change5mPct, change15mPct, rangePos });
+      const reason =
+        `Entry blocked — ${opts.direction} ${coin} needs live momentum (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, ` +
+        `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%) — ` +
+        `need 5m/15m ${opts.direction === 'LONG' ? 'up' : 'down'} + ${cfg.minConfirmCandles5m}× 5m candles confirming`;
+      logger.info('Entry momentum gate blocked', { coin, direction: opts.direction, change5mPct, change15mPct });
       return {
         ok: false,
         reason,
@@ -180,7 +102,9 @@ export async function validateEntryMomentum(opts: {
 
     return {
       ok: true,
-      reason,
+      reason:
+        `Entry momentum OK ${opts.direction} ${coin} — 5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}% · ` +
+        `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% · 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%`,
       change5mPct,
       change15mPct,
       change1hPct,

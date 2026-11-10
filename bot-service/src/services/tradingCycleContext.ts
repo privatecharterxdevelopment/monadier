@@ -5,10 +5,6 @@ import {
   type GlobalScanResult,
   type GlobalSignalCandidate,
 } from './globalMarketScan';
-import { refreshLiveDirectionProfile } from './liveDirectionProfile';
-import type { HlDirectionProfile } from '../config/profiles/types';
-import type { BtcRegimeSnapshot } from './btcMarketRegime';
-import { getLastBtcMarketRegime } from './btcMarketRegime';
 
 export type { GlobalSignalCandidate, GlobalScanResult };
 
@@ -20,14 +16,9 @@ export type TradingCycleContext = {
   globalScan: GlobalScanResult;
   /** Legacy — standard MTF signals only */
   globalSignals: GlobalSignalCandidate[];
-  directionProfile: HlDirectionProfile;
-  btcRegime: BtcRegimeSnapshot | null;
 };
 
 export async function buildTradingCycleContext(): Promise<TradingCycleContext> {
-  // BTC auto (or forced env) — must run before scan so gates use the live profile.
-  const directionProfile = await refreshLiveDirectionProfile();
-
   const [meta, mids, liquidUniverse] = await Promise.all([
     fetchHlMeta(),
     fetchHlAllMids(),
@@ -42,7 +33,5 @@ export async function buildTradingCycleContext(): Promise<TradingCycleContext> {
     liquidUniverse,
     globalScan,
     globalSignals: globalScan.standard,
-    directionProfile,
-    btcRegime: getLastBtcMarketRegime(),
   };
 }

@@ -51,28 +51,6 @@ export interface TimeframeAnalysis {
   currentPrice: number;
 }
 
-export function rsiDirectionalPoints(
-  rsi: number,
-  trend: TimeframeAnalysis['trend']
-): { bullish: number; bearish: number } {
-  let bullish = 0;
-  let bearish = 0;
-
-  // RSI extremes are reversal evidence in ranges, but often indicate momentum
-  // inside a confirmed trend. Do not manufacture a counter-trend signal merely
-  // because an uptrend is overbought or a downtrend is oversold.
-  if (trend !== 'DOWN') {
-    if (rsi < 30) bullish = 2;
-    else if (rsi < 40) bullish = 1;
-  }
-  if (trend !== 'UP') {
-    if (rsi > 70) bearish = 2;
-    else if (rsi > 60) bearish = 1;
-  }
-
-  return { bullish, bearish };
-}
-
 export interface UnifiedSignal {
   symbol: string;
   direction: SignalDirection;
@@ -604,10 +582,11 @@ export class SignalEngine {
     let bullishPoints = 0;
     let bearishPoints = 0;
 
-    // RSI — counter-trend extremes are ignored in confirmed trends.
-    const rsiPoints = rsiDirectionalPoints(rsi, trend);
-    bullishPoints += rsiPoints.bullish;
-    bearishPoints += rsiPoints.bearish;
+    // RSI
+    if (rsi < 30) bullishPoints += 2; // Oversold
+    else if (rsi < 40) bullishPoints += 1;
+    else if (rsi > 70) bearishPoints += 2; // Overbought
+    else if (rsi > 60) bearishPoints += 1;
 
     // MACD
     if (macd.histogram > 0 && macd.macd > macd.signal) bullishPoints += 2;
@@ -625,17 +604,12 @@ export class SignalEngine {
       else bearishPoints += weight * 3;
     }
 
-    // Price position relative to S/R — mean-reversion evidence, RANGE ONLY.
-    // In a confirmed trend "near support/resistance" must NOT flip the bias: support
-    // breaks in downtrends, resistance breaks in uptrends. The old code zeroed the
-    // trend's own points here, manufacturing LONG-100% signals on coins falling toward
-    // support (catch-a-falling-knife) — the #1 source of bad LONG entries.
-    const srRange = resistance - support;
-    const pricePosition = srRange > 0 ? (currentPrice - support) / srRange : 0.5;
-    if (trend === 'SIDEWAYS' && Number.isFinite(pricePosition)) {
-      if (pricePosition < 0.3) bullishPoints += 1; // near support inside a range
-      if (pricePosition > 0.7) bearishPoints += 1; // near resistance inside a range
-    }
+    // Price position relative to S/R — strong penalty near wrong side of range
+    const pricePosition = (currentPrice - support) / (resistance - support);
+    if (pricePosition < 0.3) bullishPoints += 1; // Near support
+    if (pricePosition > 0.7) bearishPoints += 1; // Near resistance
+    if (pricePosition > 0.72) bullishPoints = Math.max(0, bullishPoints - 2);
+    if (pricePosition < 0.28) bearishPoints = Math.max(0, bearishPoints - 2);
 
     // Calculate direction and confidence
     const totalPoints = bullishPoints + bearishPoints;
