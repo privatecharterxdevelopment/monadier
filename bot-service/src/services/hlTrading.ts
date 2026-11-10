@@ -1921,6 +1921,7 @@ export class HyperliquidTradingService {
         opts.direction === 'SHORT' &&
         !relaxSecondaryGates &&
         !trustedDirection &&
+        !isMajorFillCoin(coin) &&
         opts.pick.botMode !== 'aggressive';
       const scalpGate = !scalpApplies
           ? {
