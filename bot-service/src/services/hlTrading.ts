@@ -9,7 +9,11 @@ import {
   hlCoinLiquidityStatus,
   type HlLiquidUniverse,
 } from './hlLiquidity';
-import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
+import {
+  globalSignalsForBotMode,
+  h1AllowsShort,
+  type GlobalSignalCandidate,
+} from './globalMarketScan';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -1760,9 +1764,11 @@ export class HyperliquidTradingService {
         !required ||
         (required === 'UP'
           ? h1Trend.includes('UP') || h1Trend.includes('LONG') || h1Trend === 'STRONG_UPTREND'
-          : h1Trend.includes('DOWN') ||
-            h1Trend.includes('SHORT') ||
-            h1Trend === 'STRONG_DOWNTREND');
+          : opts.direction === 'SHORT'
+            ? h1AllowsShort(h1Trend)
+            : h1Trend.includes('DOWN') ||
+              h1Trend.includes('SHORT') ||
+              h1Trend === 'STRONG_DOWNTREND');
       const btcLeadWaivesLongH1 =
         opts.direction === 'LONG' && required === 'UP' && btcLeadIsPumping();
       const visualPickedSide = scanSide !== opts.direction;
@@ -1802,9 +1808,7 @@ export class HyperliquidTradingService {
         );
       }
 
-      const skipConfirmCandles =
-        opts.direction === 'SHORT' &&
-        (opts.pick.botMode === 'aggressive' || trustsDirectionProfile(opts.pick));
+      const skipConfirmCandles = opts.direction === 'SHORT';
       const entryTrendGate = visualPickedSide
         ? { ok: true as const, reason: 'OpenAI visual side — skip 5m/15m entry-trend veto', trend15m: '' }
         : await validateProfileEntryTrend({
@@ -1812,6 +1816,7 @@ export class HyperliquidTradingService {
         direction: opts.direction,
         longClass: liveReversal?.class,
         skipConfirmCandles,
+        allow15mSideways: skipConfirmCandles,
       });
       if (!entryTrendGate.ok) {
         return rejectOpen(
@@ -1906,7 +1911,9 @@ export class HyperliquidTradingService {
       const scalpApplies =
         directionProfile.useScalpAlignment &&
         opts.direction === 'SHORT' &&
-        !relaxSecondaryGates;
+        !relaxSecondaryGates &&
+        !trustedDirection &&
+        opts.pick.botMode !== 'aggressive';
       const scalpGate = !scalpApplies
           ? {
               ok: true as const,

@@ -263,12 +263,8 @@ export function scoreEntryLocationQuality(opts: {
   }
 
   if (side === 'SHORT' && !shortBreakdownOk) {
-    // Floor / range-low codes disabled — they classified every dump as a bounce.
-    // Keep hammer/absorption only.
-    if (lowerWickRejection && rangePosition1h <= 0.38) {
-      blockedBy.push('LOWER_WICK_REJECTION');
-      notes.push('15m lower-wick rejection in lower range');
-    }
+    // Floor / range-low / lower-wick codes classified every dump as a bounce
+    // and starved SHORT fills. Active 15m UP is blocked at the trend gate.
   }
 
   const chasingCompletedMove = blockedBy.includes('CHASING_COMPLETED_MOVE');

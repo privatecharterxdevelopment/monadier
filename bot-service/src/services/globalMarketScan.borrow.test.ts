@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { config } from '../config';
 import {
   globalSignalsForBotMode,
+  h1AllowsShort,
   type GlobalScanResult,
   type GlobalSignalCandidate,
 } from './globalMarketScan';
@@ -34,15 +35,32 @@ describe('Standard bot borrows aggressive dump-tape', () => {
     assert.equal(config.hyperliquid.directionProfile.useAggressiveScalpSignals, true);
   });
 
-  it('Standard queues a sub-$1M 94% aggressive SHORT when MTF is empty', () => {
+  it('drops thin alts under the $1M open floor so they cannot occupy the slot', () => {
     const scan: GlobalScanResult = {
-      standard: [],
+      standard: [cand('PROVE', 'SHORT', 83, 50_000, 'standard')],
       aggressive: [cand('ALGO', 'SHORT', 94, 484_783, 'aggressive')],
     };
     const signals = globalSignalsForBotMode(scan, 'standard');
+    assert.equal(signals.length, 0);
+  });
+
+  it('Standard queues a liquid 94% aggressive SHORT when MTF is empty', () => {
+    const scan: GlobalScanResult = {
+      standard: [],
+      aggressive: [cand('ETH', 'SHORT', 94, 80_000_000, 'aggressive')],
+    };
+    const signals = globalSignalsForBotMode(scan, 'standard');
     assert.equal(signals.length, 1);
-    assert.equal(signals[0]?.coin, 'ALGO');
+    assert.equal(signals[0]?.coin, 'ETH');
     assert.equal(signals[0]?.direction, 'SHORT');
+  });
+
+  it('SHORT is allowed on 1h SIDEWAYS and blocked on 1h UP', () => {
+    assert.equal(h1AllowsShort('SIDEWAYS'), true);
+    assert.equal(h1AllowsShort('DOWN'), true);
+    assert.equal(h1AllowsShort('UP'), false);
+    assert.equal(h1AllowsShort('STRONG_UPTREND'), false);
+    assert.equal(h1AllowsShort(''), false);
   });
 
   it('does not duplicate a coin already on the MTF list', () => {

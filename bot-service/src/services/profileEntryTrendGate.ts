@@ -62,6 +62,8 @@ export async function validateProfileEntryTrend(opts: {
    * 15m/5m trend requirements still run.
    */
   skipConfirmCandles?: boolean;
+  /** SHORT: 15m SIDEWAYS is ok; 15m UP still blocks. */
+  allow15mSideways?: boolean;
 }): Promise<ProfileEntryTrendResult> {
   const rules =
     opts.direction === 'LONG'
@@ -114,7 +116,15 @@ export async function validateProfileEntryTrend(opts: {
     }
 
     if (required15) {
-      if (againstRequired(trend15m, required15) || !trendMatches(trend15m, required15)) {
+      if (againstRequired(trend15m, required15)) {
+        return {
+          ok: false,
+          reason: `${opts.direction} blocked — 15m trend ${trend15m ?? 'n/a'} (need ${required15})`,
+          trend5m,
+          trend15m,
+        };
+      }
+      if (!trendMatches(trend15m, required15) && !opts.allow15mSideways) {
         return {
           ok: false,
           reason: `${opts.direction} blocked — 15m trend ${trend15m ?? 'n/a'} (need ${required15})`,

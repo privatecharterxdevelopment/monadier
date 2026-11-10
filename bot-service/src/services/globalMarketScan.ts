@@ -234,6 +234,13 @@ function h1TrendMatchesRequired(
   );
 }
 
+/** SHORT may fire while 1h is SIDEWAYS; only a 1h uptrend is a hard veto. */
+export function h1AllowsShort(h1Trend: string | undefined): boolean {
+  const raw = String(h1Trend ?? '').toUpperCase();
+  if (!raw) return false;
+  return !h1TrendMatchesRequired(raw, 'UP');
+}
+
 function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
   confidence: number;
   directionalTfCount: number;
@@ -249,6 +256,10 @@ function passesProfileThresholds(direction: 'LONG' | 'SHORT', opts: {
     direction === 'LONG' &&
     rules.requiredH1Trend === 'UP' &&
     btcLeadIsPumping();
+  if (direction === 'SHORT' && rules.requiredH1Trend === 'DOWN') {
+    if (!h1AllowsShort(opts.h1Trend)) return false;
+    return true;
+  }
   if (!skipCoinH1Up && !h1TrendMatchesRequired(opts.h1Trend, rules.requiredH1Trend)) {
     return false;
   }
@@ -521,6 +532,8 @@ async function scanStandardCoinDirection(
         coin,
         direction,
         longClass: reversal?.class,
+        skipConfirmCandles: direction === 'SHORT',
+        allow15mSideways: direction === 'SHORT',
       });
       if (!entryTrend.ok) {
         logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
@@ -863,12 +876,17 @@ export function globalSignalsForBotMode(
   scan: GlobalScanResult,
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
+  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const liquidEnough = (c: GlobalSignalCandidate) =>
+    minVol <= 0 || (c.dayVolumeUsd || 0) >= minVol;
   const standard = scan.standard
-    .filter((c) => c.queueable !== false)
+    .filter((c) => c.queueable !== false && liquidEnough(c))
     .sort((a, b) => {
       return b.confidence - a.confidence || b.dayVolumeUsd - a.dayVolumeUsd;
     });
-  const aggressive = scan.aggressive.filter((c) => c.queueable !== false);
+  const aggressive = scan.aggressive.filter(
+    (c) => c.queueable !== false && liquidEnough(c)
+  );
 
   // Aggressive 1m/5m scalps are SHORT-stack only. Do not leak into Standard
   // while the active profile disables aggressive scalp signals.

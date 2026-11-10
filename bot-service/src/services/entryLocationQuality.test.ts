@@ -94,7 +94,7 @@ describe('scoreEntryLocationQuality SHORT', () => {
     assert.equal(record.deterministicLocationDecision, 'ALLOW');
   });
 
-  it('blocks unconfirmed support bounce (hammer at the low)', () => {
+  it('does not treat a dump hammer as a SHORT bounce block', () => {
     const dump = series(10, 102, -0.8);
     const hammer = candle(10, 94.0, 95.2, 90.0, 94.9);
     const forming = candle(11, 94.9, 95.1, 94.6, 94.8);
@@ -109,11 +109,7 @@ describe('scoreEntryLocationQuality SHORT', () => {
       candles4h: series(20, 112, -0.4),
       sr: floorSr({ confirmedBreakdown: false, dumpContinuation: false }),
     });
-    assert.equal(record.deterministicLocationDecision, 'BLOCK');
-    assert.ok(
-      record.blockedBy.includes('LOWER_WICK_REJECTION') ||
-        record.blockedBy.includes('INTO_SUPPORT') ||
-        record.blockedBy.includes('EXTREME_LOCATION')
-    );
+    assert.equal(record.deterministicLocationDecision, 'ALLOW');
+    assert.equal(record.blockedBy.includes('LOWER_WICK_REJECTION'), false);
   });
 });
