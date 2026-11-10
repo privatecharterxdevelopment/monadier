@@ -130,7 +130,7 @@ export const config = {
     /** Global scan — min combined MTF confidence to qualify. */
     minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 62),
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
     /** Live BTC regime (or forced env). Always read via getter — never freeze at boot.
@@ -826,7 +826,7 @@ export const config = {
     /** Max wallets per cycle (0 = all). Round-robin when list exceeds cap. */
     maxUsersPerCycle: Number(process.env.BOT_MAX_USERS_PER_CYCLE || 5000),
     /** Parallel perp signal scans in global universe pass */
-    globalScanConcurrency: Number(process.env.BOT_GLOBAL_SCAN_CONCURRENCY || 24),
+    globalScanConcurrency: Number(process.env.BOT_GLOBAL_SCAN_CONCURRENCY || 8),
     /** Skip ensureFreeSubscriptions on boot when profile count is huge */
     skipSubscriptionBootstrap: process.env.BOT_SKIP_SUB_BOOTSTRAP === 'true',
   },

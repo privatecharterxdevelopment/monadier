@@ -9,6 +9,7 @@
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { binanceSymbolToHlCoin } from './hlSymbols';
+import { getLiveDirectionProfile } from './liveDirectionProfile';
 
 // ============================================================================
 // TYPES
@@ -115,6 +116,7 @@ const PATTERN_WEIGHTS: Record<PatternType, number> = {
 
 export class SignalEngine {
   private cache: Map<string, { data: Candle[]; timestamp: number }> = new Map();
+  private inflight = new Map<string, Promise<Candle[]>>();
   private cacheTTL: Record<Timeframe, number> = {
     '1m': 30000,   // 30 seconds
     '5m': 60000,   // 1 minute
@@ -134,6 +136,22 @@ export class SignalEngine {
     if (cached && Date.now() - cached.timestamp < this.cacheTTL[timeframe]) {
       return cached.data;
     }
+    const existing = this.inflight.get(cacheKey);
+    if (existing) return existing;
+    const pending = this.loadCandles(symbol, timeframe, limit, cacheKey, cached?.data || []).finally(
+      () => this.inflight.delete(cacheKey)
+    );
+    this.inflight.set(cacheKey, pending);
+    return pending;
+  }
+
+  private async loadCandles(
+    symbol: string,
+    timeframe: Timeframe,
+    limit: number,
+    cacheKey: string,
+    stale: Candle[]
+  ): Promise<Candle[]> {
 
     const interval = timeframe === '1m' ? '1m' :
                      timeframe === '5m' ? '5m' :
@@ -280,7 +298,7 @@ export class SignalEngine {
       logger.error('All APIs failed in signalEngine', { symbol, timeframe, error: err.message?.slice(0, 40) });
     }
 
-    return cached?.data || [];
+    return stale;
   }
 
   // --------------------------------------------------------------------------
@@ -622,7 +640,7 @@ export class SignalEngine {
   async analyzeTimeframe(symbol: string, timeframe: Timeframe): Promise<TimeframeAnalysis> {
     const candles = await this.fetchCandles(symbol, timeframe);
 
-    if (candles.length < 30) {
+    if (candles.length < 15) {
       return {
         timeframe,
         direction: 'HOLD',
@@ -644,14 +662,20 @@ export class SignalEngine {
     const { support, resistance } = this.calculateSupportResistance(candles);
     const patterns = this.detectPatterns(candles.slice(-10)); // Check last 10 candles
 
+    const dumpShorts = getLiveDirectionProfile().primaryDirection === 'SHORT';
+
     // Determine direction based on indicators
     let bullishPoints = 0;
     let bearishPoints = 0;
 
-    // RSI
-    if (rsi < 30) bullishPoints += 2; // Oversold
-    else if (rsi < 40) bullishPoints += 1;
-    else if (rsi > 70) bearishPoints += 2; // Overbought
+    // RSI — in a dump, oversold is the short, not a bounce-long.
+    if (rsi < 30) {
+      if (dumpShorts) bearishPoints += 2;
+      else bullishPoints += 2;
+    } else if (rsi < 40) {
+      if (dumpShorts) bearishPoints += 1;
+      else bullishPoints += 1;
+    } else if (rsi > 70) bearishPoints += 2;
     else if (rsi > 60) bearishPoints += 1;
 
     // MACD
@@ -670,12 +694,17 @@ export class SignalEngine {
       else bearishPoints += weight * 3;
     }
 
-    // Price position relative to S/R — strong penalty near wrong side of range
-    const pricePosition = (currentPrice - support) / (resistance - support);
-    if (pricePosition < 0.3) bullishPoints += 1; // Near support
-    if (pricePosition > 0.7) bearishPoints += 1; // Near resistance
+    // Price vs range. Dump at the low is the SHORT — do not invert it to HOLD/LONG.
+    const range = resistance - support;
+    const pricePosition = range > 0 ? (currentPrice - support) / range : 0.5;
+    if (pricePosition > 0.7) bearishPoints += 1;
     if (pricePosition > 0.72) bullishPoints = Math.max(0, bullishPoints - 2);
-    if (pricePosition < 0.28) bearishPoints = Math.max(0, bearishPoints - 2);
+    if (!dumpShorts) {
+      if (pricePosition < 0.3) bullishPoints += 1;
+      if (pricePosition < 0.28) bearishPoints = Math.max(0, bearishPoints - 2);
+    } else if (pricePosition < 0.28 && trend === 'DOWN') {
+      bearishPoints += 2;
+    }
 
     // Calculate direction and confidence
     const totalPoints = bullishPoints + bearishPoints;
@@ -759,6 +788,10 @@ export class SignalEngine {
         weightedBullish += combinedWeight * (analysis.confidence / 100);
       } else if (analysis.direction === 'SHORT') {
         weightedBearish += combinedWeight * (analysis.confidence / 100);
+      } else if (analysis.trend === 'DOWN') {
+        weightedBearish += combinedWeight * 0.55;
+      } else if (analysis.trend === 'UP') {
+        weightedBullish += combinedWeight * 0.55;
       }
 
       // Add reasons

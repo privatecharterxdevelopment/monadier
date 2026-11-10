@@ -1203,9 +1203,12 @@ export async function analyzeMarketMTFBySymbol(
       else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
     }
 
-    const directionalTfCount = signal.timeframes.filter(
-      (tf) => tf.direction === finalDirection
-    ).length;
+    const directionalTfCount = signal.timeframes.filter((tf) => {
+      if (tf.direction === finalDirection) return true;
+      if (finalDirection === 'SHORT' && tf.trend === 'DOWN') return true;
+      if (finalDirection === 'LONG' && tf.trend === 'UP') return true;
+      return false;
+    }).length;
     const counterTrend =
       (finalDirection === 'LONG' && trend === 'DOWN') ||
       (finalDirection === 'SHORT' && trend === 'UP');

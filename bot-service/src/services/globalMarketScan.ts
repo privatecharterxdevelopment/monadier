@@ -202,7 +202,7 @@ async function scanAggressiveCoin(
   }
 }
 
-const SCAN_CACHE_TTL_MS = 8_000;
+const SCAN_CACHE_TTL_MS = 12_000;
 const SCAN_COIN_TIMEOUT_MS = 8_000;
 let scanInFlight: Promise<GlobalScanResult> | null = null;
 
@@ -228,10 +228,7 @@ export async function scanGlobalHlSignals(
   const cacheAge = Number.isFinite(scannedAtMs)
     ? Date.now() - scannedAtMs
     : Number.POSITIVE_INFINITY;
-  if (
-    cacheAge < SCAN_CACHE_TTL_MS &&
-    lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
-  ) {
+  if (cacheAge < SCAN_CACHE_TTL_MS && lastHlGlobalScanStats.scannedAt) {
     return lastGlobalScanResult;
   }
   if (scanInFlight) return scanInFlight;
@@ -265,18 +262,16 @@ async function runGlobalHlSignalScan(
 
   await refreshMegaPairVolumeMonitor(universe);
 
-  const [standardRaw, aggressiveRaw] = await Promise.all([
-    mapPool(coins, concurrency, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-    }),
-    mapPool(coins, concurrency, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-    }),
-  ]);
+  const standardRaw = await mapPool(coins, concurrency, async (coin) => {
+    const liq = liqByCoin.get(coin);
+    if (!liq) return null;
+    return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+  });
+  const aggressiveRaw = await mapPool(coins, concurrency, async (coin) => {
+    const liq = liqByCoin.get(coin);
+    if (!liq) return null;
+    return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+  });
 
   const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
