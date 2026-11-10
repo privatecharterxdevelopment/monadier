@@ -60,6 +60,7 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
+    signal: AbortSignal.timeout(8_000),
   });
   if (!res.ok) {
     throw new Error('HL metaAndAssetCtxs fetch failed');

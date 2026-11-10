@@ -1569,7 +1569,12 @@ const healthServer = http.createServer(async (req, res) => {
           ? Math.max(1, Math.floor(leverageRaw))
           : undefined;
       const dryRun = Boolean(body.dryRun);
-      const ctx = await buildTradingCycleContext();
+      const ctx = await Promise.race([
+        buildTradingCycleContext(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('trading context timeout 20s')), 20_000);
+        }),
+      ]);
       const result = await hyperliquidTradingService.forceOpenForAutoTradeUsers({
         coin,
         direction,
@@ -1939,7 +1944,12 @@ async function runTradingCycle(): Promise<void> {
         roundRobinOffset: offset,
       });
 
-      const ctx = await buildTradingCycleContext();
+      const ctx = await Promise.race([
+        buildTradingCycleContext(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('trading context timeout 20s')), 20_000);
+        }),
+      ]);
       lastGlobalSignals = ctx.globalSignals;
 
       const stats = await processUserBatch(wallets, ctx, total);
@@ -2056,8 +2066,8 @@ async function main(): Promise<void> {
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
   const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
 
-  cron.schedule(tradeCronExpression, async () => {
-    await runTradingCycle();
+  cron.schedule(tradeCronExpression, () => {
+    void runTradingCycle();
   });
 
   // First cycle must not block cron — a hung scan used to freeze the bot for hours.

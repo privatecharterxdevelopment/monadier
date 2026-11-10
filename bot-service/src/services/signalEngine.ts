@@ -7,6 +7,8 @@
  */
 
 import { logger } from '../utils/logger';
+import { config } from '../config';
+import { binanceSymbolToHlCoin } from './hlSymbols';
 
 // ============================================================================
 // TYPES
@@ -137,6 +139,70 @@ export class SignalEngine {
                      timeframe === '5m' ? '5m' :
                      timeframe === '15m' ? '15m' :
                      timeframe === '1h' ? '1h' : '4h';
+
+    // Hyperliquid first — Railway often cannot reach Binance/KuCoin, which
+    // produced empty candles → HOLD 50% on every TF and a "stuck" bot.
+    try {
+      const coin = binanceSymbolToHlCoin(symbol);
+      const endTime = Date.now();
+      const stepMs =
+        interval === '1m'
+          ? 60_000
+          : interval === '5m'
+            ? 300_000
+            : interval === '15m'
+              ? 900_000
+              : interval === '1h'
+                ? 3_600_000
+                : 14_400_000;
+      const startTime = endTime - Math.ceil(limit * 1.25) * stepMs;
+      const response = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'candleSnapshot',
+          req: { coin, interval, startTime, endTime },
+        }),
+        signal: AbortSignal.timeout(8_000),
+      });
+      const rows = (await response.json()) as Array<{
+        t?: number;
+        o?: string | number;
+        h?: string | number;
+        l?: string | number;
+        c?: string | number;
+        v?: string | number;
+      }>;
+      if (Array.isArray(rows) && rows.length > 0) {
+        const candles: Candle[] = rows
+          .map((k) => ({
+            time: Number(k.t) || 0,
+            open: Number(k.o),
+            high: Number(k.h),
+            low: Number(k.l),
+            close: Number(k.c),
+            volume: Number(k.v) || 0,
+          }))
+          .filter(
+            (c) =>
+              c.time > 0 &&
+              Number.isFinite(c.open) &&
+              Number.isFinite(c.high) &&
+              Number.isFinite(c.low) &&
+              Number.isFinite(c.close)
+          )
+          .sort((a, b) => a.time - b.time);
+        if (candles.length > 0) {
+          this.cache.set(cacheKey, { data: candles, timestamp: Date.now() });
+          return candles;
+        }
+      }
+    } catch (err: any) {
+      logger.warn('Hyperliquid candles failed in signalEngine, trying CEX', {
+        symbol,
+        error: err.message?.slice(0, 40),
+      });
+    }
 
     // Try Binance first
     try {
