@@ -753,8 +753,44 @@ async function scanAggressiveCoin(
   }
 }
 
+const SCAN_CACHE_TTL_MS = 8_000;
+const SCAN_COIN_TIMEOUT_MS = 8_000;
+let scanInFlight: Promise<GlobalScanResult> | null = null;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** Scan all listed HL perps — Standard (MTF) + Aggressive (6×1m → next 3, 5m confirm). */
 export async function scanGlobalHlSignals(
+  preloadedUniverse?: HlLiquidUniverse
+): Promise<GlobalScanResult> {
+  const scannedAtMs = Date.parse(lastHlGlobalScanStats.scannedAt || '');
+  const cacheAge = Number.isFinite(scannedAtMs) ? Date.now() - scannedAtMs : Number.POSITIVE_INFINITY;
+  if (
+    cacheAge < SCAN_CACHE_TTL_MS &&
+    lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+  ) {
+    return lastGlobalScanResult;
+  }
+  if (scanInFlight) return scanInFlight;
+  scanInFlight = runGlobalHlSignalScan(preloadedUniverse).finally(() => {
+    scanInFlight = null;
+  });
+  return scanInFlight;
+}
+
+async function runGlobalHlSignalScan(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalScanResult> {
   const started = Date.now();
@@ -790,12 +826,12 @@ export async function scanGlobalHlSignals(
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return [] as GlobalSignalCandidate[];
-      return scanStandardCoin(coin, liq, universe);
+      return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, []);
     }),
     mapPool(coins, concurrency, async (coin) => {
       const liq = liqByCoin.get(coin);
       if (!liq) return null;
-      return scanAggressiveCoin(coin, liq, universe);
+      return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
     }),
   ]);
 

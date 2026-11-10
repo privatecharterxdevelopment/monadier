@@ -1757,6 +1757,8 @@ const DEFAULT_STRATEGY: TradingStrategy = 'aggressive'; // AGGRESSIVE = maximum 
 const ACTIVE_CHAINS: number[] = [42161];
 
 let isTradingCycleRunning = false;
+let tradingCycleStartedAt = 0;
+const TRADING_CYCLE_WATCHDOG_MS = 30_000;
 
 async function processApprovedTrades(): Promise<void> {
   try {
@@ -1895,19 +1897,34 @@ async function runTradingCycle(): Promise<void> {
 
   // Prevent concurrent trading cycles (race condition prevention)
   if (isTradingCycleRunning) {
-    logger.debug('Trading cycle already running, skipping');
-    return;
+    if (
+      tradingCycleStartedAt > 0 &&
+      Date.now() - tradingCycleStartedAt > TRADING_CYCLE_WATCHDOG_MS
+    ) {
+      logger.error('Trading cycle watchdog — releasing stuck lock so opens can resume', {
+        stuckMs: Date.now() - tradingCycleStartedAt,
+      });
+      isTradingCycleRunning = false;
+    } else {
+      logger.debug('Trading cycle already running, skipping');
+      return;
+    }
   }
 
   isTradingCycleRunning = true;
+  tradingCycleStartedAt = Date.now();
   logger.info('Starting trading cycle');
 
   try {
     // First, process any approved trades
     await processApprovedTrades();
 
-    // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
-    await updateBotAnalysis();
+    // UI MTF snapshots must never block Hyperliquid opens.
+    void updateBotAnalysis().catch((err) => {
+      logger.warn('Background MTF analysis failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     try {
       const cycleStarted = Date.now();
@@ -1959,6 +1976,7 @@ async function runTradingCycle(): Promise<void> {
     }
   } finally {
     isTradingCycleRunning = false;
+    tradingCycleStartedAt = 0;
   }
 }
 
@@ -2035,18 +2053,18 @@ async function main(): Promise<void> {
     await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
   }
 
-  // Run immediately on startup
-  await runTradingCycle();
-  if (!config.hyperliquid.botHalted) {
-    void hyperliquidTradingService.runFastPositionMonitor();
-  }
-
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
   const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
 
   cron.schedule(tradeCronExpression, async () => {
     await runTradingCycle();
   });
+
+  // First cycle must not block cron — a hung scan used to freeze the bot for hours.
+  void runTradingCycle();
+  if (!config.hyperliquid.botHalted) {
+    void hyperliquidTradingService.runFastPositionMonitor();
+  }
 
   const positionMonitorMs = config.hyperliquid.positionMonitorMs;
 
