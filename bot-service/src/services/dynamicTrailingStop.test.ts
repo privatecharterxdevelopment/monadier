@@ -188,6 +188,37 @@ describe('profit SL architecture', () => {
     );
   });
 
+  it('armed SHORT profit lock closes when mark crosses BE even if uPnL is red', async () => {
+    const t0 = 4_000_000;
+    const fees = estimateRoundTripFeesUsd(100);
+    const be = breakevenPlusFeesStopPx('SHORT', 100, 1, fees, 0, 100, 0.01, 2);
+    const armMark = be - 0.12;
+    const warm = await evaluateDynamicTrail(
+      shortTick({ nowMs: t0, pnlUsd: 0.02, markPrice: 99.98, record: null })
+    );
+    const armed = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 3_000,
+        pnlUsd: 100 - armMark,
+        markPrice: armMark,
+        record: warm.record,
+        totalHoldMs: 3_000,
+      })
+    );
+    assert.equal(profitProtectionStage(armed.record), 1);
+    const fade = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 6_000,
+        pnlUsd: -0.08,
+        markPrice: 100.08,
+        record: armed.record,
+        totalHoldMs: 6_000,
+      })
+    );
+    assert.equal(fade.shouldClose, true);
+    assert.equal(fade.exitReason, 'profit_lock');
+  });
+
   it('adverse funding pushes BE further into profit', () => {
     const fees = estimateRoundTripFeesUsd(100);
     const noFund = breakevenPlusFeesStopPx('SHORT', 100, 1, fees, 0, 100, 0.01, 2);

@@ -70,9 +70,7 @@ function notifyFreshToasts(
   showToast: (msg: string, ms?: number) => void
 ) {
   const notable = fresh.filter(
-    (n) =>
-      n.kind === 'follow' ||
-      (n.kind !== 'community' && (n.profitLoss > 0 || n.eventType === 'open'))
+    (n) => n.kind === 'follow' || n.kind === 'bot' || n.kind === 'betting'
   );
   if (notable.length === 0) return;
   const sorted = [...notable].sort(
@@ -233,13 +231,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
             }
             if (!knownIdsRef.current.has(fresh.id)) {
               knownIdsRef.current.add(fresh.id);
-              if (
-                fresh.kind === 'community' ||
-                fresh.profitLoss > 0 ||
-                fresh.eventType === 'open'
-              ) {
-                showToast(toastMessageForNotification(fresh), 4500);
-              }
+              showToast(toastMessageForNotification(fresh), 4500);
               setNotifications((prev) =>
                 mergeActivityNotifications([fresh, ...prev], [], 100)
               );

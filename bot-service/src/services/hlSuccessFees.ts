@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { recordHlChartMarker } from './hlChartMarkers';
 import { accrueReferralEarning, tryQualifyReferral } from './referralAffiliate';
 import { isFeeExemptWallet } from './feeExempt';
+import { subscriptionService } from './subscription';
 
 const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 
@@ -109,6 +110,36 @@ export async function recordHlBotClose(params: {
     profitableTrade: profitUsd > 0,
     tradeId: tradeRow?.id ?? null,
   });
+
+  // DB trigger also inserts; unique on trade_history_id. Direct insert covers
+  // wallets the trigger's resolve_user_id_for_wallet misses (user_wallets / vault).
+  if (tradeRow?.id) {
+    const userId = await subscriptionService.getUserIdFromWallet(wallet);
+    if (userId) {
+      const { error: notifErr } = await supabase.from('user_trade_notifications').insert({
+        user_id: userId,
+        trade_history_id: tradeRow.id,
+        wallet_address: wallet,
+        kind: 'bot',
+        event_type: 'close',
+        headline: `${snapshot.direction} ${snapshot.coin}`,
+        profit_loss: profitUsd,
+        profit_loss_percent: pnlPct,
+        closed_at: closedAt,
+      });
+      if (notifErr && !/duplicate|unique/i.test(notifErr.message)) {
+        logger.warn('HL close notification insert failed', {
+          wallet: wallet.slice(0, 10),
+          error: notifErr.message,
+        });
+      }
+    } else {
+      logger.warn('HL close notification skipped — wallet not linked to a user', {
+        wallet: wallet.slice(0, 10),
+        coin: snapshot.coin,
+      });
+    }
+  }
 
   if (successFee <= 0) {
     logger.info('HL close recorded (no success fee)', {

@@ -136,6 +136,10 @@ function blockIfFeesNotCleared(
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
+  // Armed BE/trail already sat on the profit side of entry. Crossing it must
+  // flatten even if mark uPnL is a few cents red — otherwise we cancel the HL
+  // profit stop and ride the 15% emergency SL.
+  if (result.exitReason === 'profit_lock') return result;
   if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd, collateralUsd)) return result;
   logger.info('HL profit close blocked — not green', {
     coin,
@@ -886,14 +890,15 @@ async function evaluateDynamicTrailInner(
   }
 
   if (rec.currentTrailStop != null && rec.phase === 'armed') {
-    const closeSafe = profitClearsFeeGate(
-      input.pnlUsd,
-      feesUsd,
-      rec.highestPnlSinceEntry,
-      input.collateralUsd
-    );
+    const stopOnProfitSideOfEntry =
+      input.direction === 'LONG'
+        ? rec.currentTrailStop > input.entryPrice
+        : rec.currentTrailStop < input.entryPrice;
+    // Once BE is armed, a cross must flatten — even if mark uPnL flipped red
+    // (fees/slip). profitClearsFeeGate here used to skip the close, then
+    // profitOnlyExits blocked the fallback, then sync cancelled the HL stop.
     if (
-      closeSafe &&
+      stopOnProfitSideOfEntry &&
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
     ) {
       const detail = `PROFIT PROTECTION · ${input.direction} ${input.coin} · BE/lock $${lockedPnlAtStopPx(input.direction, input.entryPrice, input.absSize, rec.currentTrailStop).toFixed(4)} · peak $${rec.highestPnlSinceEntry.toFixed(4)} → $${input.pnlUsd.toFixed(4)} · ${formatAnalytics(rec, input.markPrice)}`;
@@ -974,22 +979,19 @@ async function evaluateDynamicTrailInner(
       }
     }
 
+    const stopOnProfitSideOfEntry =
+      input.direction === 'LONG'
+        ? rec.currentTrailStop > input.entryPrice
+        : rec.currentTrailStop < input.entryPrice;
     if (
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-      input.pnlUsd > 0 &&
-      !longGreenTooYoungToClose(rec, input.pnlUsd, input.direction) &&
-      !longPeakTooSmallToTrailClose(
-        input.direction,
-        rec.highestPnlSinceEntry,
-        input.collateralUsd,
-        input.coin
-      )
+      stopOnProfitSideOfEntry &&
+      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
     ) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
         shouldClose: true,
-        exitReason: 'trailing_stop',
+        exitReason: 'profit_lock',
         closeDetail: detail,
       };
     }

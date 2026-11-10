@@ -437,13 +437,28 @@ export async function syncHlProfitStopOrder(opts: {
     });
 
     if (!wantProfit) {
-      const stale = profitOrders.map((x) => Number(x.order.oid));
+      // Mark crossed the trigger → KEEP the resting profit stop so HL can fill.
+      // Cancelling here deleted the lock and left only the 15% emergency SL.
+      const stale = profitOrders
+        .filter((x) => {
+          const px = Number(x.order.triggerPx ?? x.order.limitPx ?? 0);
+          const stillProfitSideOfEntry =
+            opts.direction === 'LONG' ? px > opts.entryPrice : px < opts.entryPrice;
+          return !stillProfitSideOfEntry;
+        })
+        .map((x) => Number(x.order.oid));
       if (stale.length > 0) {
         await cancelOids(opts.userAddress, opts.coin, stale);
-        logger.info('HL profit limit stop cancelled (unarmed or unsafe)', {
+        logger.info('HL profit limit stop cancelled (moved to loss side of entry)', {
           user: opts.userAddress.slice(0, 10),
           coin: opts.coin,
           oids: stale,
+        });
+      } else if (profitOrders.length > 0) {
+        logger.info('HL profit limit stop kept — mark crossed, waiting for fill', {
+          user: opts.userAddress.slice(0, 10),
+          coin: opts.coin,
+          oids: profitOrders.map((x) => Number(x.order.oid)),
         });
       }
     } else if (!matchingProfit) {

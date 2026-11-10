@@ -216,7 +216,10 @@ function mayAutoCloseInRed(reason: string, _holdMs = 0): boolean {
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
-  // User order: no bot red closes — margin/SL/invalidation/trail do NOT cut losers.
+  // Armed profit lock: flatten even if mark uPnL is a few cents red after fees.
+  // Otherwise the 15% emergency SL is the only exit (HYPE −$4.02 / BNB −$3.63).
+  if (reason === 'profit_lock') return true;
+  // User order: no bot red closes — margin/SL/invalidation/loss-trail do not cut losers.
   // Fail-safe flatten is the exception: an unconfirmed user SL cannot stay naked.
   return false;
 }
@@ -2005,6 +2008,18 @@ export class HyperliquidTradingService {
         return rejectOpen('candle_wick', wickGate.reason, 'candle wick gate');
       }
       safetyMarkPass(safety, 'wick', opts.direction);
+
+      if (
+        opts.direction === 'LONG' &&
+        directionProfile.name === 'bear_market' &&
+        liveReversal?.class !== 'REVERSAL_LONG'
+      ) {
+        return rejectOpen(
+          'direction_profile',
+          'Bear LONG blocked — need confirmed REVERSAL_LONG (no dump-bounce TREND_LONG)',
+          'bear reversal only'
+        );
+      }
 
       // Dump tape — never LONG into red 15m/1h. Monster-dump bounce is the exception
       // (the dump *is* the setup; the reclaim candle is the long).
