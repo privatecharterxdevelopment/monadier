@@ -27,12 +27,22 @@ describe('profit SL must stay green on the BE side', () => {
     assert.equal(protectiveSideOk('SHORT', be, mark, entry, be, 0.001), true);
   });
 
-  it('rejects LONG stop below BE even if still above entry', () => {
+  it('posts a LONG profit stop above entry even if still below full BE', () => {
     const longBe = breakevenPlusFeesStopPx('LONG', entry, size, fees, 0, entry * size, 0.001, 2);
     const between = (entry + longBe) / 2;
     assert.equal(
-      protectiveSideOk('LONG', between, entry + 0.8, entry, longBe, 0.001),
-      false
+      profitStopSafeToPost({
+        direction: 'LONG',
+        stopPx: between,
+        markPx: entry + 0.8,
+        entryPx: entry,
+        absSize: size,
+        minLockUsd: 0,
+        breakevenPx: longBe,
+        tickSize: 0.001,
+        isMarket: false,
+      }),
+      true
     );
   });
 
@@ -157,6 +167,47 @@ describe('profit SL must stay green on the BE side', () => {
     assert.equal(longSl.t.trigger.tpsl, 'sl');
     assert.equal(longSl.r, true);
     assert.equal(longSl.b, false);
+  });
+
+  it('profit replace oids never include emergency market SL', () => {
+    const orders = [
+      {
+        coin: 'SOL',
+        oid: 11,
+        reduceOnly: true,
+        isTrigger: true,
+        orderType: 'Stop Limit',
+        triggerPx: String(be),
+      },
+      {
+        coin: 'SOL',
+        oid: 12,
+        reduceOnly: true,
+        isTrigger: true,
+        orderType: 'Stop Market',
+        triggerPx: '88.10',
+      },
+    ];
+    const profitOids = orders
+      .filter((o) => classifyHlTriggerOrder(o, 'SOL', 'SHORT', entry, be) === 'profit_limit')
+      .map((o) => o.oid);
+    const emergencyOids = orders
+      .filter((o) => classifyHlTriggerOrder(o, 'SOL', 'SHORT', entry, be) === 'emergency_market')
+      .map((o) => o.oid);
+    assert.deepEqual(profitOids, [11]);
+    assert.deepEqual(emergencyOids, [12]);
+  });
+
+  it('partial fill remaining size is what the profit leg posts', () => {
+    const remaining = 2.1;
+    const leg = buildProfitStopLimitLeg({
+      assetIndex: 5,
+      direction: 'SHORT',
+      size: remaining,
+      stopPx: be,
+      szDecimals: 2,
+    });
+    assert.equal(Number(leg.s), remaining);
   });
 
   it('still flags a glue-to-mark SHORT as unsafe', () => {

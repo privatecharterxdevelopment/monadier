@@ -155,26 +155,33 @@ export function computeHlChartPositionOverlay(opts: {
   takeProfitMarginPct?: number;
   notionalUsd?: number;
   collateralUsd?: number;
+  /** Exchange-confirmed profit SL only — never a locally computed trail. */
+  exchangeProfitSlPx?: number | null;
+  exchangeProfitSlConfirmed?: boolean;
+  /** Exchange-confirmed emergency / user SL. */
+  exchangeEmergencySlPx?: number | null;
+  exchangeEmergencySlConfirmed?: boolean;
 }): HlChartPositionOverlay | undefined {
   const entryPx = opts.entryPx;
   if (entryPx <= 0 || !opts.szi) return undefined;
 
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const lev = opts.leverage ?? 10;
-  const absSize = Math.abs(opts.szi);
-  const notional = opts.notionalUsd ?? absSize * entryPx;
-  const collateral = opts.collateralUsd ?? notional / lev;
   const peak = Math.max(opts.peakPnlUsd, opts.unrealizedPnlUsd);
 
-  const trail = computeDynamicTrailStopPx({
-    entryPx,
-    szi: opts.szi,
-    unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    peakPnlUsd: peak,
-    coin: opts.coin,
-    notionalUsd: notional,
-    collateralUsd: collateral,
-  });
+  const profitConfirmed =
+    Boolean(opts.exchangeProfitSlConfirmed) &&
+    opts.exchangeProfitSlPx != null &&
+    opts.exchangeProfitSlPx > 0;
+  const emergencyConfirmed =
+    Boolean(opts.exchangeEmergencySlConfirmed) &&
+    opts.exchangeEmergencySlPx != null &&
+    opts.exchangeEmergencySlPx > 0;
+  const mark = opts.entryPx + opts.unrealizedPnlUsd / opts.szi;
+  const trailStopPx = profitConfirmed ? opts.exchangeProfitSlPx ?? undefined : undefined;
+  const trailBreached =
+    trailStopPx != null &&
+    (side === 'long' ? mark <= trailStopPx : mark >= trailStopPx);
 
   const tpPct = opts.takeProfitMarginPct ?? 0;
 
@@ -182,16 +189,16 @@ export function computeHlChartPositionOverlay(opts: {
     entryPx,
     liqPx: undefined,
     side,
-    trailStopPx: trail.stopPx ?? undefined,
-    trailStopLocked: trail.armed,
+    trailStopPx,
+    trailStopLocked: profitConfirmed,
     trailFloorUsd: peak,
     trailCloseFloorUsd: peak,
-    trailBreached: trail.breached,
+    trailBreached,
     unrealizedPnlUsd: opts.unrealizedPnlUsd,
     peakPnlUsd: peak,
-    stopLossPx: undefined,
+    stopLossPx: emergencyConfirmed ? opts.exchangeEmergencySlPx ?? undefined : undefined,
     takeProfitPx: marginTakeProfitPx(entryPx, opts.szi, lev, tpPct) ?? undefined,
-    stopLossMarginPct: undefined,
+    stopLossMarginPct: emergencyConfirmed ? opts.stopLossMarginPct : undefined,
     takeProfitMarginPct: tpPct > 0 ? tpPct : undefined,
   };
 }
@@ -245,14 +252,59 @@ export type ActiveSlDisplay = {
 };
 
 export type BotTrailServerTruth = {
-  phase?: 'idle' | 'armed' | 'trailing' | 'unknown';
+  phase?: 'idle' | 'pending' | 'armed' | 'trailing' | 'unknown';
   peakPnlUsd: number;
   lockPnlUsd: number;
   lockRoePct: number;
   stopPx: number | null;
   wouldCloseNow?: boolean;
   stateTracked?: boolean;
+  profitSlPx?: number | null;
+  profitSlConfirmed?: boolean;
+  profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  emergencySlPx?: number | null;
+  emergencySlConfirmed?: boolean;
 };
+
+/** Map /api/hl-position-trails row → UI truth. Computed stopPx is ignored unless confirmed. */
+export function toBotTrailServerTruth(
+  t:
+    | {
+        phase?: string;
+        peakPnlUsd: number;
+        lockPnlUsd: number;
+        lockRoePct: number;
+        stopPx: number | null;
+        wouldCloseNow?: boolean;
+        stateTracked?: boolean;
+        profitSlPx?: number | null;
+        profitSlConfirmed?: boolean;
+        profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+        emergencySlPx?: number | null;
+        emergencySlConfirmed?: boolean;
+      }
+    | undefined
+): BotTrailServerTruth | undefined {
+  if (!t) return undefined;
+  const phase =
+    t.phase === 'idle' || t.phase === 'pending' || t.phase === 'armed' || t.phase === 'trailing'
+      ? t.phase
+      : 'unknown';
+  return {
+    phase,
+    peakPnlUsd: t.peakPnlUsd,
+    lockPnlUsd: t.lockPnlUsd,
+    lockRoePct: t.lockRoePct,
+    stopPx: t.profitSlConfirmed ? t.profitSlPx ?? null : null,
+    wouldCloseNow: t.wouldCloseNow,
+    stateTracked: t.stateTracked,
+    profitSlPx: t.profitSlPx ?? null,
+    profitSlConfirmed: Boolean(t.profitSlConfirmed),
+    profitSlStatus: t.profitSlStatus ?? 'idle',
+    emergencySlPx: t.emergencySlPx ?? null,
+    emergencySlConfirmed: Boolean(t.emergencySlConfirmed),
+  };
+}
 
 /** Active bot stop — profit SL when green; max-loss cap from settings when red. */
 export function trailStopForOpenPosition(opts: {
@@ -273,96 +325,65 @@ export function trailStopForOpenPosition(opts: {
   }
 
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
-  const notional = absSize * opts.markPx;
-  const collateral = notional / Math.max(1, opts.leverage);
   const server = opts.serverTrail;
-  const peak = Math.max(
-    server?.peakPnlUsd ?? 0,
-    opts.peakPnlUsd ?? opts.unrealizedPnlUsd,
-    opts.unrealizedPnlUsd
-  );
   const slPct = effectiveStopLossPct(opts.stopLossMarginPct ?? 0);
 
-  if (server?.wouldCloseNow && server.stopPx != null) {
-    return {
-      stopPx: server.stopPx,
-      armed: true,
-      kind: 'close_now',
-      label: fmtStopPx(server.stopPx),
-      title: `Mark crossed bot profit SL at ${fmtStopPx(server.stopPx)}. Bot should market-close now.`,
-    };
-  }
+  const exchangeProfit =
+    server?.profitSlConfirmed && server.profitSlPx != null && server.profitSlPx > 0
+      ? server.profitSlPx
+      : null;
+  const exchangeEmergency =
+    server?.emergencySlConfirmed && server.emergencySlPx != null && server.emergencySlPx > 0
+      ? server.emergencySlPx
+      : null;
 
-  if (server?.stateTracked && server.stopPx != null) {
-    const isLong = side === 'long';
-    const displayStop = server.stopPx;
-    const locksProfit = server.lockPnlUsd > 0;
-    const breached =
-      displayStop > 0 &&
-      (isLong ? opts.markPx <= displayStop : opts.markPx >= displayStop);
-    if (breached) {
-      return {
-        stopPx: displayStop,
-        armed: true,
-        kind: 'close_now',
-        label: fmtStopPx(displayStop),
-        title: `Price crossed profit SL at ${fmtStopPx(displayStop)} — bot should close in profit.`,
-      };
-    }
+  if (exchangeProfit != null) {
+    const breached = side === 'long' ? opts.markPx <= exchangeProfit : opts.markPx >= exchangeProfit;
     return {
-      stopPx: displayStop,
+      stopPx: exchangeProfit,
       armed: true,
-      kind: locksProfit ? 'profit' : 'loss_cap',
-      label: fmtStopPx(displayStop),
-      title: locksProfit
-        ? `Exact bot trailing stop at ${fmtStopPx(displayStop)} (live server state).`
-        : `Exact bot loss stop at ${fmtStopPx(displayStop)} (live server state).`,
-    };
-  }
-
-  const trail = computeDynamicTrailStopPx({
-    entryPx: opts.entryPx,
-    szi: opts.szi,
-    unrealizedPnlUsd: opts.unrealizedPnlUsd,
-    peakPnlUsd: peak,
-    coin: opts.coin,
-    notionalUsd: notional,
-    collateralUsd: collateral,
-    holdMs: opts.holdMs,
-    timeInProfitMs: opts.unrealizedPnlUsd > 0 ? opts.holdMs : 0,
-  });
-
-  if (trail.armed && trail.stopPx != null) {
-    return {
-      stopPx: trail.stopPx,
-      armed: true,
-      kind: 'profit',
-      label: fmtStopPx(trail.stopPx),
-      title: `Profit SL — bot closes in profit if price crosses ${fmtStopPx(trail.stopPx)}.`,
+      kind: breached ? 'close_now' : 'profit',
+      label: fmtStopPx(exchangeProfit),
+      sublabel: exchangeEmergency
+        ? `E-SL ${fmtStopPx(exchangeEmergency)}`
+        : server?.profitSlStatus === 'PROFIT_SL_PENDING'
+          ? undefined
+          : 'Profit-SL HL',
+      title: `Profit-SL (HL confirmed) ${fmtStopPx(exchangeProfit)}${
+        exchangeEmergency ? ` · Emergency-SL ${fmtStopPx(exchangeEmergency)}` : ''
+      }`,
     };
   }
 
   if (opts.unrealizedPnlUsd > 0) {
-    const lossPx =
-      slPct > 0 ? lossStopPricePx(side, opts.entryPx, absSize, collateral, slPct) : null;
-    const roe = roePct(opts.unrealizedPnlUsd, collateral);
     return {
-      stopPx: lossPx,
+      stopPx: exchangeEmergency,
       armed: false,
       kind: 'arming',
-      label: lossPx != null ? fmtStopPx(lossPx) : '—',
-      title: `Profit SL should be live now (${roe.toFixed(2)}% ROE).`,
+      label: 'P-SL pending',
+      sublabel: exchangeEmergency ? `E-SL ${fmtStopPx(exchangeEmergency)}` : undefined,
+      title: 'Profit-SL PENDING — waiting for an exchange-confirmed profit-side stop.',
+    };
+  }
+
+  if (exchangeEmergency != null) {
+    return {
+      stopPx: exchangeEmergency,
+      armed: false,
+      kind: 'loss_cap',
+      label: fmtStopPx(exchangeEmergency),
+      sublabel: 'Emergency-SL',
+      title: `Emergency-SL (HL confirmed) ${fmtStopPx(exchangeEmergency)}`,
     };
   }
 
   if (slPct > 0) {
-    const lossPx = lossStopPricePx(side, opts.entryPx, absSize, collateral, slPct);
     return {
-      stopPx: lossPx,
+      stopPx: null,
       armed: false,
       kind: 'loss_cap',
-      label: lossPx != null ? fmtStopPx(lossPx) : '—',
-      title: `Max stop loss — bot closes if price crosses ${lossPx != null ? fmtStopPx(lossPx) : '—'}.`,
+      label: `E-SL ${slPct}%`,
+      title: `User emergency SL ${slPct}% of margin — not yet confirmed on Hyperliquid.`,
     };
   }
 

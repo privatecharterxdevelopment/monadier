@@ -2,7 +2,7 @@ import { getBotApiBase } from './signalService';
 
 export type HlBotTrailSnapshot = {
   coin: string;
-  phase: 'idle' | 'armed' | 'trailing' | 'unknown';
+  phase: 'idle' | 'pending' | 'armed' | 'trailing' | 'unknown';
   armed: boolean;
   currentPnlUsd: number;
   currentRoePct: number;
@@ -17,6 +17,12 @@ export type HlBotTrailSnapshot = {
   trailDistancePx: number | null;
   wouldCloseNow: boolean;
   stateTracked: boolean;
+  profitSlPx?: number | null;
+  profitSlConfirmed?: boolean;
+  profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  emergencySlPx?: number | null;
+  emergencySlConfirmed?: boolean;
+  computedStopPx?: number | null;
 };
 
 export async function fetchHlBotTrailSnapshots(

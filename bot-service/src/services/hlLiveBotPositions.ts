@@ -1,6 +1,6 @@
 /**
  * Exchange-backed position snapshot for /api/bot-status.
- * emergencySlConfirmed is true only when a matching HL trigger is visible.
+ * Confirmed flags are true only when a matching HL trigger is visible.
  */
 import {
   classifyHlTriggerOrder,
@@ -23,8 +23,11 @@ export type LiveBotPositionView = {
   netPnlUsd: number;
   emergencySlPx: number | null;
   emergencySlConfirmed: boolean;
-  trailPhase: 'idle' | 'armed' | 'trailing' | null;
-  trailStopPx: number | null;
+  profitSlPx: number | null;
+  profitSlConfirmed: boolean;
+  profitSlStatus: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  trailPhase: 'idle' | 'pending' | 'armed' | 'trailing' | null;
+  computedTrailStopPx: number | null;
   source: 'hyperliquid';
 };
 
@@ -56,18 +59,31 @@ export async function buildLiveBotPositionViews(opts: {
 
     let emergencySlPx: number | null = null;
     let emergencySlConfirmed = false;
+    let profitSlPx: number | null = null;
+    let profitSlConfirmed = false;
     if (orders) {
       for (const o of orders) {
         const kind = classifyHlTriggerOrder(o, coin, direction, entryPx, entryPx);
-        if (kind !== 'emergency_market') continue;
         const trig = Number(o.triggerPx ?? o.limitPx ?? 0);
         if (!(trig > 0)) continue;
-        if (!emergencySideOk(direction, trig, entryPx, entryPx)) continue;
-        emergencySlPx = trig;
-        emergencySlConfirmed = true;
-        break;
+        if (kind === 'emergency_market' && emergencySideOk(direction, trig, entryPx, entryPx)) {
+          emergencySlPx = trig;
+          emergencySlConfirmed = true;
+        }
+        if (kind === 'profit_limit') {
+          profitSlPx = trig;
+          profitSlConfirmed = true;
+        }
       }
     }
+
+    const pending =
+      upnlUsd > 0 && !profitSlConfirmed && (trail?.phase === 'pending' || trail?.phase === 'idle' || !trail);
+    const profitSlStatus: LiveBotPositionView['profitSlStatus'] = profitSlConfirmed
+      ? 'PROFIT_SL_CONFIRMED'
+      : pending
+        ? 'PROFIT_SL_PENDING'
+        : 'idle';
 
     out.push({
       coin,
@@ -81,8 +97,11 @@ export async function buildLiveBotPositionViews(opts: {
       netPnlUsd,
       emergencySlPx,
       emergencySlConfirmed,
+      profitSlPx,
+      profitSlConfirmed,
+      profitSlStatus,
       trailPhase: trail?.phase ?? null,
-      trailStopPx: trail?.currentTrailStop ?? null,
+      computedTrailStopPx: trail?.currentTrailStop ?? null,
       source: 'hyperliquid',
     });
   }

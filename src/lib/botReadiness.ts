@@ -7,7 +7,14 @@ import {
   HL_MAX_CONCURRENT_POSITIONS,
   HL_MIN_SIGNAL_CONFIDENCE,
 } from './hlBotConstants';
-import { isOpeningTradeState, type BotExecutionSnapshot } from './hlExecutionDisplay';
+import {
+  formatExecutionDiagnosticLine,
+  formatLiveSlLine,
+  isOpeningTradeState,
+  type BotExecutionDiagnostic,
+  type BotExecutionSnapshot,
+  type LiveBotPositionView,
+} from './hlExecutionDisplay';
 
 export type BotReadiness = {
   canEnter: boolean;
@@ -199,6 +206,8 @@ export function evaluateBotReadiness(
     nextSetup?: BotScanSetup | null;
     /** Server execution snapshot — Opening trade only when an order is in flight. */
     execution?: BotExecutionSnapshot | null;
+    executionDiagnostic?: BotExecutionDiagnostic | null;
+    livePositions?: LiveBotPositionView[];
     /** @deprecated use openPositionsCount */
     hasOpenPosition?: boolean;
   }

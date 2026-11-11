@@ -260,7 +260,7 @@ describe('bear reversal LONG classifier', () => {
     assert.equal(r.class, 'TREND_LONG');
   });
 
-  it('10 marginally positive PnL does not arm profit SL', () => {
+  it('10 marginally positive PnL arms profit SL immediately', () => {
     const fees = estimateRoundTripFeesUsd(200);
     assert.equal(
       shouldArmBreakevenProtection({
@@ -271,11 +271,11 @@ describe('bear reversal LONG classifier', () => {
         absSize: 2,
         feesUsd: fees,
         tickSize: 0.01,
-        timeInProfitMs: 5_000,
+        timeInProfitMs: 0,
         collateralUsd: 10,
         notionalUsd: 200,
       }),
-      false
+      true
     );
   });
 

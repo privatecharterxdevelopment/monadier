@@ -7,6 +7,7 @@ import {
 } from '../lib/hlTrailingStopChart';
 import { normalizeHlPerpCoin } from '../lib/botTradingPairs';
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
+import type { HlBotTrailSnapshot } from '../lib/hlBotTrailStatus';
 
 function positionTrackKey(p: HlPosition): string {
   return `${p.coin}:${p.entryPx}:${p.szi}`;
@@ -25,6 +26,7 @@ export function useHlBotChartOverlay(
   opts?: {
     stopLossMarginPct?: number;
     takeProfitMarginPct?: number;
+    trailSnapshot?: HlBotTrailSnapshot | null;
   }
 ): HlChartPositionOverlay | undefined {
   const strategy = normalizeHlBotStrategy(hlBotStrategy ?? 'standard');
@@ -69,8 +71,7 @@ export function useHlBotChartOverlay(
     if (!active) return undefined;
     if (entryPx <= 0) return undefined;
     const lev = active.leverage?.value ?? 10;
-    const absSize = Math.abs(szi);
-    const notional = absSize * mark;
+    const snap = opts?.trailSnapshot;
     return computeHlChartPositionOverlay({
       entryPx,
       liqPx: toNum(active.liquidationPx) || undefined,
@@ -83,8 +84,21 @@ export function useHlBotChartOverlay(
       leverage: lev,
       stopLossMarginPct: opts?.stopLossMarginPct,
       takeProfitMarginPct: opts?.takeProfitMarginPct,
-      notionalUsd: notional,
-      collateralUsd: notional / lev,
+      exchangeProfitSlPx: snap?.profitSlPx,
+      exchangeProfitSlConfirmed: snap?.profitSlConfirmed,
+      exchangeEmergencySlPx: snap?.emergencySlPx,
+      exchangeEmergencySlConfirmed: snap?.emergencySlConfirmed,
     });
-  }, [active, strategy, upnl, trackKey, mark, entryPx, szi, opts?.stopLossMarginPct, opts?.takeProfitMarginPct]);
+  }, [
+    active,
+    strategy,
+    upnl,
+    trackKey,
+    mark,
+    entryPx,
+    szi,
+    opts?.stopLossMarginPct,
+    opts?.takeProfitMarginPct,
+    opts?.trailSnapshot,
+  ]);
 }

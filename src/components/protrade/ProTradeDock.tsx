@@ -48,7 +48,11 @@ import {
   filterOrdersByScope,
 } from '../../lib/hyperliquid/splitHlActivity';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
-import { trailStopForOpenPosition, type ActiveSlDisplay } from '../../lib/hlTrailingStopChart';
+import {
+  toBotTrailServerTruth,
+  trailStopForOpenPosition,
+  type ActiveSlDisplay,
+} from '../../lib/hlTrailingStopChart';
 import { fetchHlLetRunPrefs, setHlLetRunPref } from '../../lib/hyperliquid/hlLetRun';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
@@ -655,17 +659,7 @@ const ProTradeDock: React.FC<Props> = ({
                     peakPnlUsd: peakPnl,
                     stopLossMarginPct,
                     holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
-                    serverTrail: botTrail
-                      ? {
-                          phase: botTrail.phase,
-                          peakPnlUsd: botTrail.peakPnlUsd,
-                          lockPnlUsd: botTrail.lockPnlUsd,
-                          lockRoePct: botTrail.lockRoePct,
-                          stopPx: botTrail.stopPx,
-                          wouldCloseNow: botTrail.wouldCloseNow,
-                          stateTracked: botTrail.stateTracked,
-                        }
-                      : undefined,
+                    serverTrail: toBotTrailServerTruth(botTrail),
                   });
                   return (
                     <tr key={p.coin} className={isDust ? 'hl-pos-row--dust' : undefined}>
@@ -703,10 +697,16 @@ const ProTradeDock: React.FC<Props> = ({
                               }
                             >
                               <span className="hl-active-sl__price">{activeSl.label}</span>
+                              {activeSl.sublabel ? (
+                                <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                              ) : null}
                             </button>
                           ) : (
                             <span className="hl-active-sl__price" title={activeSl.title}>
                               {activeSl.label}
+                              {activeSl.sublabel ? (
+                                <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                              ) : null}
                             </span>
                           )}
                         </td>
@@ -767,17 +767,7 @@ const ProTradeDock: React.FC<Props> = ({
                   peakPnlUsd: peakPnl,
                   stopLossMarginPct,
                   holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
-                  serverTrail: botTrail
-                    ? {
-                        phase: botTrail.phase,
-                        peakPnlUsd: botTrail.peakPnlUsd,
-                        lockPnlUsd: botTrail.lockPnlUsd,
-                        lockRoePct: botTrail.lockRoePct,
-                        stopPx: botTrail.stopPx,
-                        wouldCloseNow: botTrail.wouldCloseNow,
-                        stateTracked: botTrail.stateTracked,
-                      }
-                    : undefined,
+                  serverTrail: toBotTrailServerTruth(botTrail),
                 });
                 return (
                   <article
@@ -838,10 +828,16 @@ const ProTradeDock: React.FC<Props> = ({
                                 }
                               >
                                 <span className="hl-active-sl__price">{activeSl.label}</span>
+                                {activeSl.sublabel ? (
+                                  <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                                ) : null}
                               </button>
                             ) : (
                               <span className="hl-active-sl__price" title={activeSl.title}>
                                 {activeSl.label}
+                                {activeSl.sublabel ? (
+                                  <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                                ) : null}
                               </span>
                             )}
                           </dd>

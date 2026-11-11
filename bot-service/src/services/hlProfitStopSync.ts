@@ -32,13 +32,37 @@ import {
   breakevenPlusFeesStopPx,
   lockedPnlAtStopPx,
   minProfitTrailGapPx,
+  profitStopPlaceable,
+  ratchetStop,
 } from './dynamicTrailingStop';
 
 const transport = new HttpTransport();
 
 const lastSyncAt = new Map<string, number>();
+const lastConfirmedProfitPx = new Map<string, number>();
+const lastConfirmedEmergencyPx = new Map<string, number>();
 const SYNC_EVERY_MS = 2_500;
 const POST_RETRY = 3;
+
+export function lastConfirmedProfitStopPx(
+  userAddress: string,
+  coin: string
+): number | null {
+  const px = lastConfirmedProfitPx.get(
+    `${userAddress.toLowerCase()}:${coin.toUpperCase()}`
+  );
+  return px != null && px > 0 ? px : null;
+}
+
+export function lastConfirmedEmergencyStopPx(
+  userAddress: string,
+  coin: string
+): number | null {
+  const px = lastConfirmedEmergencyPx.get(
+    `${userAddress.toLowerCase()}:${coin.toUpperCase()}`
+  );
+  return px != null && px > 0 ? px : null;
+}
 
 function clientFor(userAddress: string): ExchangeClient {
   return new ExchangeClient({
@@ -87,14 +111,13 @@ export function profitStopSafeToPost(opts: {
   if (opts.isMarket) return false;
   if (!(opts.absSize > 0) || !(opts.stopPx > 0)) return false;
   if (
-    !protectiveSideOk(
-      opts.direction,
-      opts.stopPx,
-      opts.markPx,
-      opts.entryPx,
-      opts.breakevenPx,
-      opts.tickSize ?? 0
-    )
+    !profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: opts.stopPx,
+      markPx: opts.markPx,
+      entryPx: opts.entryPx,
+      tickSize: opts.tickSize ?? 0,
+    })
   ) {
     return false;
   }
@@ -170,7 +193,8 @@ export function classifyHlTriggerOrder(
 
   if (market && onProfitSideOfEntry) return 'legacy_market_profit';
   if (market && onLossSideOfEntry) return 'emergency_market';
-  if (!market && onProfitSideOfBe) return 'profit_limit';
+  if (!market && onProfitSideOfEntry) return 'profit_limit';
+  void onProfitSideOfBe;
   return 'other';
 }
 
@@ -458,12 +482,29 @@ export async function syncHlProfitStopOrder(opts: {
     const profitOrders = classified.filter((x) => x.kind === 'profit_limit');
     const emergencyOrders = classified.filter((x) => x.kind === 'emergency_market');
 
+    const existingProfitPx = profitOrders.reduce<number | null>((best, x) => {
+      const px = Number(x.order.triggerPx ?? x.order.limitPx ?? 0);
+      if (!(px > 0)) return best;
+      return best == null ? px : ratchetStop(opts.direction, best, px);
+    }, null);
+    if (existingProfitPx != null) lastConfirmedProfitPx.set(key, existingProfitPx);
+    const existingEmergencyPx = emergencyOrders.reduce<number | null>((best, x) => {
+      const px = Number(x.order.triggerPx ?? 0);
+      if (!(px > 0)) return best;
+      return best == null ? px : px;
+    }, null);
+    if (existingEmergencyPx != null) lastConfirmedEmergencyPx.set(key, existingEmergencyPx);
+    const mergedStop =
+      opts.stopPx != null
+        ? ratchetStop(opts.direction, existingProfitPx, opts.stopPx)
+        : existingProfitPx;
+
     const wantProfit =
       opts.armed &&
-      opts.stopPx != null &&
+      mergedStop != null &&
       profitStopSafeToPost({
         direction: opts.direction,
-        stopPx: opts.stopPx,
+        stopPx: mergedStop,
         markPx: opts.markPrice,
         entryPx: opts.entryPrice,
         absSize: opts.absSize,
@@ -477,7 +518,7 @@ export async function syncHlProfitStopOrder(opts: {
       const px = Number(x.order.triggerPx ?? x.order.limitPx ?? 0);
       const sz = Number(x.order.sz ?? 0);
       return (
-        samePx(px, opts.stopPx ?? 0, tick) &&
+        samePx(px, mergedStop ?? 0, tick) &&
         (sz <= 0 || Math.abs(sz - opts.absSize) / Math.max(opts.absSize, 1e-9) < 0.02)
       );
     });
@@ -525,7 +566,7 @@ export async function syncHlProfitStopOrder(opts: {
         assetIndex,
         direction: opts.direction,
         size: opts.absSize,
-        stopPx: opts.stopPx as number,
+        stopPx: mergedStop as number,
         szDecimals,
       });
       const client = clientFor(opts.userAddress);

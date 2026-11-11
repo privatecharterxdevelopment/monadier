@@ -5,7 +5,9 @@ import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
 import { useHlBotChartMarkers } from '../../hooks/useHlBotChartMarkers';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
+import { effectiveHlBotSettings } from '../../lib/hlBotEffectiveSettings';
 import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
+import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import {
   PRO_TRADE_INTERVALS,
   PRO_TRADE_QUICK_PICKS,
@@ -54,10 +56,16 @@ const TerminalHlLiveChartInner: React.FC<Props> = ({
       ) ?? null,
     [account?.positions, coin]
   );
+  const trailByCoin = useHlBotTrailSnapshots(walletAddress, Boolean(walletAddress));
+  const botEff = effectiveHlBotSettings(botSettings);
   const positionOverlay = useHlBotChartOverlay(
     openPosition,
     coin,
-    botSettings.hlBotStrategy
+    botSettings.hlBotStrategy,
+    {
+      stopLossMarginPct: botEff.stopLoss,
+      trailSnapshot: trailByCoin[coin] ?? null,
+    }
   );
   const { seriesMarkers } = useHlBotChartMarkers(
     walletAddress?.toLowerCase(),

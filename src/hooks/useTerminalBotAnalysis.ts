@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
-import type { BotExecutionSnapshot } from '../lib/hlExecutionDisplay';
+import type {
+  BotExecutionDiagnostic,
+  BotExecutionSnapshot,
+  LiveBotPositionView,
+} from '../lib/hlExecutionDisplay';
+import { formatExecutionDiagnosticLine, formatLiveSlLine } from '../lib/hlExecutionDisplay';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isFeeExemptUser } from '../lib/admin';
 import { useAuth } from '../contexts/AuthContext';
@@ -148,6 +153,10 @@ export function useTerminalBotAnalysis({
   const [serverCanTrade, setServerCanTrade] = useState<boolean | null>(null);
   const [lastOpenErrorText, setLastOpenErrorText] = useState<string | null>(null);
   const [execution, setExecution] = useState<BotExecutionSnapshot | null>(null);
+  const [executionDiagnostic, setExecutionDiagnostic] = useState<BotExecutionDiagnostic | null>(
+    null
+  );
+  const [livePositions, setLivePositions] = useState<LiveBotPositionView[]>([]);
   const [recentOpenBlocks, setRecentOpenBlocks] = useState<HlOpenBlockLike[]>([]);
   const [step, setStep] = useState(0);
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
@@ -541,12 +550,16 @@ export function useTerminalBotAnalysis({
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
           execution?: BotExecutionSnapshot | null;
+          executionDiagnostic?: BotExecutionDiagnostic | null;
+          livePositions?: LiveBotPositionView[];
           recentOpenBlocks?: HlOpenBlockLike[];
         };
         if (typeof data.canTrade === 'boolean') {
           setServerCanTrade(data.canTrade);
         }
         setExecution(data.execution ?? null);
+        setExecutionDiagnostic(data.executionDiagnostic ?? null);
+        setLivePositions(Array.isArray(data.livePositions) ? data.livePositions : []);
         const apiUserBlockers = Array.isArray(data.userBlockers) ? data.userBlockers : [];
         const apiMarketBlockers = Array.isArray(data.marketBlockers) ? data.marketBlockers : [];
         const blockers =
@@ -672,6 +685,18 @@ export function useTerminalBotAnalysis({
     };
   }, [vaultWallet, botRunning, vaultUsd, feeExempt, openPositionCoins.length]);
 
+  const appendLiveStatus = (row: { canEnter: boolean; headline: string; detail: string }) => {
+    const extra = [
+      formatExecutionDiagnosticLine(executionDiagnostic),
+      ...livePositions.map(formatLiveSlLine),
+    ].filter(Boolean);
+    if (extra.length === 0) return row;
+    return {
+      ...row,
+      detail: row.detail ? `${row.detail} · ${extra.join(' · ')}` : extra.join(' · '),
+    };
+  };
+
   const readiness = useMemo(() => {
     if (!botRunning) {
       return {
@@ -682,7 +707,7 @@ export function useTerminalBotAnalysis({
             ? 'Start bot to scan again. Open trades stay open until an exit or you close them.'
             : `At least $${MIN_HL_BOT_USD} USDC on Hyperliquid to trade.`,
       };
-    }
+    } // live SL lines still appended below for running bot only
 
     const status = botAnalyzerStatusCopy({
       botRunning,
@@ -696,18 +721,18 @@ export function useTerminalBotAnalysis({
     if (status.title === 'Insufficient margin' && !marginBlocked) {
       // fall through to normal scanning copy while the raw block is still settling
     } else if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
-      return {
+      return appendLiveStatus({
         canEnter: false,
         headline: status.title,
         detail: status.detail,
-      };
+      });
     }
     if (slotsFull) {
-      return {
+      return appendLiveStatus({
         canEnter: false,
         headline: status.title,
         detail: status.detail,
-      };
+      });
     }
 
     const local = evaluateBotReadiness(engineUnified, {
@@ -717,6 +742,8 @@ export function useTerminalBotAnalysis({
       vaultUsd,
       nextSetup: scanCandidate,
       execution,
+      executionDiagnostic,
+      livePositions,
     });
 
     if (serverBlockers.length === 0) {
@@ -725,40 +752,40 @@ export function useTerminalBotAnalysis({
           rawScanCandidateCount === 0
             ? `Scanned ${globalCoinsScanned} HL perps — no pair meets ${HL_MIN_SIGNAL_CONFIDENCE}%+ MTF right now`
             : `Scanned ${globalCoinsScanned} HL perps — macro filters removed all ${rawScanCandidateCount} raw setup(s)`;
-        return {
+        return appendLiveStatus({
           canEnter: false,
           headline: 'Bot is reading market…',
           detail: rawHint,
-        };
+        });
       }
-      return {
+      return appendLiveStatus({
         ...local,
         headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
-      };
+      });
     }
 
     const server = readinessFromServerBlockers(serverBlockers);
     if (local.headline === 'Opening trade') {
-      return local;
+      return appendLiveStatus(local);
     }
     if (local.canEnter && server.detail) {
-      return {
+      return appendLiveStatus({
         canEnter: false,
         headline: 'Bot is reading market…',
         detail: server.detail,
-      };
+      });
     }
     if (server.detail) {
-      return {
+      return appendLiveStatus({
         canEnter: false,
         headline: 'Bot is reading market…',
         detail: server.detail,
-      };
+      });
     }
-    return {
+    return appendLiveStatus({
       ...local,
       headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
-    };
+    });
   }, [
     engineUnified,
     botRunning,
@@ -771,6 +798,8 @@ export function useTerminalBotAnalysis({
     serverBlockers,
     scanCandidate,
     execution,
+    executionDiagnostic,
+    livePositions,
     globalScanCount,
     globalCoinsScanned,
     rawScanCandidateCount,
@@ -826,6 +855,8 @@ export function useTerminalBotAnalysis({
     currentlyScanningCoin,
     scanRotationCoins,
     pumpSweepLines,
+    livePositions,
+    executionDiagnostic,
     entryWaitReason: (() => {
       const coin =
         scanCandidate?.coin ?? globalBest?.coin ?? currentlyScanningCoin ?? undefined;

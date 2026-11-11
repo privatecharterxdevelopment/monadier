@@ -68,6 +68,7 @@ import {
   classifyHlTriggerOrder,
   emergencySideOk,
   fetchFrontendOpenOrders,
+  lastConfirmedProfitStopPx,
   syncHlProfitStopOrder,
 } from './hlProfitStopSync';
 import {
@@ -1086,6 +1087,7 @@ export class HyperliquidTradingService {
         record: trailRecord,
         fundingUsd,
         stopLossPct: settings.stopLossPercent,
+        confirmedExchangeStopPx: lastConfirmedProfitStopPx(userAddress, pos.coin),
       });
 
       saveTrailRecord(lockKey, trailResult.record);
@@ -1120,7 +1122,7 @@ export class HyperliquidTradingService {
           emergencyStopPx: emergencyPx,
           szDecimals: metaSz,
           tickSize: hlTickSize(markPrice, metaSz),
-          minLockUsd: feesUsd * config.hyperliquid.dynamicTrail.minProfitCloseFeesMult,
+          minLockUsd: 0,
         });
         if (slPct > 0) {
           const orders = await fetchFrontendOpenOrders(userAddress);

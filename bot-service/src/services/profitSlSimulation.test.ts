@@ -11,39 +11,29 @@ import {
 } from './profitSlSimulation';
 
 describe('profit SL simulations', () => {
-  it('SOL incident: does not arm at +0.002% / first green; arms only past BE', async () => {
+  it('SOL incident: first green uPnL>0 attempts activation; stop never loosens', async () => {
     const scenario = solIncidentScenario();
     const result = await runProfitSlSimulation(scenario);
 
-    assert.ok(result.minArmPriceMovePct > 0.12, `economic arm ~0.2%+, got ${result.minArmPriceMovePct}`);
-    assert.ok(result.minArmPriceMovePct < 0.6);
+    assert.equal(explainWouldArmAt(scenario, 86.448, 0), true);
+    assert.equal(explainWouldArmAt(scenario, 86.45, 0), false);
 
-    assert.equal(explainWouldArmAt(scenario, 86.448, 5_000), false);
-    assert.equal(explainWouldArmAt(scenario, 86.44, 5_000), false);
+    const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
+    assert.ok(firstGreen, 'scenario must print a green tick');
+    assert.ok(firstGreen!.tMs - scenario.ticks[0].tMs < 5_000);
 
-    for (const t of result.ticks) {
-      if (t.tMs <= scenario.ticks[3].tMs) {
-        assert.equal(t.stage, 0, `early mark ${t.mark} must stay unarmed`);
-      }
-    }
-
-    assert.ok(result.armedAt, 'must arm once mark clears BE + gap');
-    assert.ok(result.armedAt!.mark <= result.minArmMark + 0.05);
+    assert.ok(result.armedAt, 'must place a profit-side stop once the mark gap exists');
     assert.ok(result.armedAt!.stopPx < scenario.entry);
-    assert.ok(result.armedAt!.minLockUsd > 0);
-    assert.ok(
-      Math.abs(result.armedAt!.priceMovePct) >= 0.12,
-      `armed at ${result.armedAt!.priceMovePct.toFixed(3)}% price, not 0.002%`
-    );
     assert.equal(result.stopNeverWorsened, true);
     assert.equal(sampleProfitLimitLeg().t.trigger.isMarket, false);
     assert.equal(sampleEmergencyLeg().t.trigger.isMarket, true);
   });
 
-  it('BTC LONG: first ticks stay stage 0, then BE lock, ratchet only up', async () => {
+  it('BTC LONG: first green activates; ratchet only up', async () => {
     const result = await runProfitSlSimulation(longBtcRunScenario());
-    const first = result.ticks[1];
-    assert.equal(first.stage, 0);
+    const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
+    assert.ok(firstGreen);
+    assert.equal(explainWouldArmAt(longBtcRunScenario(), firstGreen!.mark, 0), true);
     assert.ok(result.armedAt);
     assert.ok(result.armedAt!.stopPx > result.entry);
     assert.equal(result.stopNeverWorsened, true);
@@ -53,14 +43,15 @@ describe('profit SL simulations', () => {
     }
   });
 
-  it('ETH SHORT stall: scratch green does not arm', async () => {
+  it('ETH SHORT: first green would-arm is true even at 0ms hold', async () => {
     const scenario = shortEthEarlyGreenScenario();
-    assert.equal(explainWouldArmAt(scenario, 3199.5, 5_000), false);
+    assert.equal(explainWouldArmAt(scenario, 3199.5, 0), true);
     const result = await runProfitSlSimulation(scenario);
-    const firstGreen = result.ticks[1];
-    assert.equal(firstGreen.stage, 0);
+    const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
+    assert.ok(firstGreen);
     if (result.armedAt) {
       assert.ok(result.armedAt.stopPx > result.armedAt.mark);
+      assert.ok(result.armedAt.stopPx < scenario.entry);
     }
     assert.equal(result.stopNeverWorsened, true);
   });

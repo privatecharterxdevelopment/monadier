@@ -41,6 +41,7 @@ import type { ActivityNotification } from '../../lib/activityNotifications';
 import { useHyperliquidMarket } from '../../hooks/useHyperliquidMarket';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotChartOverlay } from '../../hooks/useHlBotChartOverlay';
+import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -310,6 +311,9 @@ const Dashboard2ProPageContent: React.FC = () => {
     [botVaultSettings]
   );
 
+  const botTrailWallet = (botTradingWallet ?? address)?.toLowerCase() ?? null;
+  const botTrailByCoin = useHlBotTrailSnapshots(botTrailWallet, Boolean(botTrailWallet));
+
   const botChartOverlay = useHlBotChartOverlay(
     botChartPosition,
     perpCoin,
@@ -317,6 +321,7 @@ const Dashboard2ProPageContent: React.FC = () => {
     {
       stopLossMarginPct: botEffSettings.stopLoss,
       takeProfitMarginPct: botEffSettings.takeProfit,
+      trailSnapshot: botTrailByCoin[normalizeHlPerpCoin(perpCoin)] ?? botTrailByCoin[perpCoin] ?? null,
     }
   );
 

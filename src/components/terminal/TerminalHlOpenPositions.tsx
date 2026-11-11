@@ -6,7 +6,7 @@ import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
-import { trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
+import { toBotTrailServerTruth, trailStopForOpenPosition } from '../../lib/hlTrailingStopChart';
 
 type Props = {
   positions: HlPosition[];
@@ -104,16 +104,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
               coin: p.coin,
               peakPnlUsd: peakPnl,
               stopLossMarginPct,
-              serverTrail: botTrail
-                ? {
-                    peakPnlUsd: botTrail.peakPnlUsd,
-                    lockPnlUsd: botTrail.lockPnlUsd,
-                    lockRoePct: botTrail.lockRoePct,
-                    stopPx: botTrail.stopPx,
-                    wouldCloseNow: botTrail.wouldCloseNow,
-                    stateTracked: botTrail.stateTracked,
-                  }
-                : undefined,
+              serverTrail: toBotTrailServerTruth(botTrail),
             });
             return (
               <tr key={p.coin}>
