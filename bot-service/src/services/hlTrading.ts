@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { isBotTradeCoin } from './botTradeUniverse';
 import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
@@ -326,6 +327,7 @@ export class HyperliquidTradingService {
 
     for (const signal of signals) {
       if (excluded.has(signal.coin.toUpperCase())) continue;
+      if (!isBotTradeCoin(signal.coin)) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
 

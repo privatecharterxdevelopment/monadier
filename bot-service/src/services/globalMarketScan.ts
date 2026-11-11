@@ -5,6 +5,7 @@ import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { signalEngine } from './signalEngine';
+import { isBotTradeCoin } from './botTradeUniverse';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
@@ -76,6 +77,7 @@ async function scanStandardCoin(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
+    if (!isBotTradeCoin(coin)) return null;
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis || analysis.isWeak) return null;
@@ -149,6 +151,7 @@ async function scanAggressiveCoin(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
+    if (!isBotTradeCoin(coin)) return null;
     const symbol = hlCoinToBinanceSymbol(coin);
     const scalp = await analyzeAggressiveScalpBySymbol(symbol);
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
@@ -251,7 +254,7 @@ async function runGlobalHlSignalScan(
 ): Promise<GlobalScanResult> {
   const started = Date.now();
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
-  const coins = universe.coins;
+  const coins = universe.coins.filter((c) => isBotTradeCoin(c));
   const concurrency = config.scaling.globalScanConcurrency;
   const liqByCoin = new Map(universe.markets.map((m) => [m.coin, m]));
 
@@ -364,6 +367,7 @@ export function boardScanCandidates(scan: GlobalScanResult): GlobalSignalCandida
   const seen = new Set<string>();
   const out: GlobalSignalCandidate[] = [];
   for (const s of [...scan.standard, ...scan.aggressive]) {
+    if (!isBotTradeCoin(s.coin)) continue;
     const key = `${s.coin}:${s.direction}`;
     if (seen.has(key)) continue;
     seen.add(key);

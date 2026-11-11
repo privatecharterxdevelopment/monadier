@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { isBotTradeCoin } from './botTradeUniverse';
 
 export type HlPerpLiquidity = {
   coin: string;
@@ -96,6 +97,7 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
 
   const scannable = all
     .filter(passesScanUniverse)
+    .filter((m) => isBotTradeCoin(m.coin))
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd);
 
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;

@@ -228,10 +228,14 @@ export function useTerminalBotAnalysis({
   );
 
   const scanRotationCoins = useMemo(() => {
-    const fromApi = scanUniverseCoins.map((c) => c.toUpperCase()).filter(Boolean);
+    const fromApi = scanUniverseCoins
+      .map((c) => c.toUpperCase())
+      .filter((c) => c && !isHiddenFromBotUi(c));
     if (fromApi.length > 0) return fromApi;
     const n = globalCoinsScanned > 0 ? globalCoinsScanned : HL_SCAN_UNIVERSE_SIZE;
-    return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length));
+    return HL_SCAN_ROTATION_COINS.slice(0, Math.min(n, HL_SCAN_ROTATION_COINS.length)).filter(
+      (c) => !isHiddenFromBotUi(c)
+    );
   }, [scanUniverseCoins, globalCoinsScanned]);
 
   const scanCoinTotal = scanRotationCoins.length;
