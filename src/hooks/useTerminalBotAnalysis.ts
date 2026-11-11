@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
-import { useUnifiedSignal } from './useUnifiedSignal';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
 import type { BotExecutionSnapshot } from '../lib/hlExecutionDisplay';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
@@ -16,7 +15,12 @@ import {
   shouldHideLastOpenError,
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
-import { getBotApiBase, type Timeframe } from '../lib/signalService';
+import { fetchTimeframeAnalysis, fetchUnifiedSignal, type Timeframe, type TimeframeAnalysis, type UnifiedSignal } from '../lib/signalService';
+import {
+  ENGINE_OPEN_TIMEFRAMES,
+  engineTfChips,
+  parseEngineMtfBreakdown,
+} from '../lib/engineOpenTimeframes';
 import {
   binanceSymbolToHlCoin,
   hlCoinToBotSymbol,
@@ -35,14 +39,12 @@ import {
 import { nextPollDelayMs } from '../lib/pollBackoff';
 
 export const ANALYSIS_STEPS = [
-  { label: 'Scanning liquid HL perps ($2.5M+ vol)', progress: 15 },
-  { label: 'Analyzing 15m / 1h charts', progress: 35 },
-  { label: 'Checking 15m patterns', progress: 55 },
-  { label: 'Evaluating 1h momentum', progress: 75 },
-  { label: 'Picking best setup', progress: 95 },
+  { label: 'Reading 1m', progress: 20 },
+  { label: 'Reading 5m', progress: 40 },
+  { label: 'Reading 15m', progress: 60 },
+  { label: 'Reading 1h', progress: 80 },
+  { label: 'Picking setup', progress: 95 },
 ] as const;
-
-const MTF_TIMEFRAMES: Timeframe[] = ['5m', '15m', '1h'];
 
 type DbAnalysis = {
   signal: string;
@@ -61,6 +63,7 @@ type GlobalScanCandidate = {
   confidence: number;
   reason?: string;
   queueable?: boolean;
+  mtfBreakdown?: string;
 };
 
 function mergeGlobalScanCandidates(
@@ -149,6 +152,12 @@ export function useTerminalBotAnalysis({
   const [step, setStep] = useState(0);
   const [coinRotationIndex, setCoinRotationIndex] = useState(0);
   const [progress, setProgress] = useState(ANALYSIS_STEPS[0].progress);
+  const [tfRows, setTfRows] = useState<
+    Partial<Record<Timeframe, { direction: TimeframeAnalysis['direction']; confidence: number }>>
+  >({});
+  const [revealedCount, setRevealedCount] = useState(0);
+  const [engineUnified, setEngineUnified] = useState<UnifiedSignal | null>(null);
+  const [tfLoading, setTfLoading] = useState(false);
 
   /**
    * Live wallet coins win. Never union with bot-status openCoins — that list
@@ -229,7 +238,8 @@ export function useTerminalBotAnalysis({
   const scanCoinIndex =
     scanCoinTotal > 0 ? coinRotationIndex % scanCoinTotal : 0;
 
-  const currentlyScanningCoin = scanRotationCoins[scanCoinIndex] ?? 'BTC';
+  const currentlyScanningCoin =
+    scanCandidate?.coin?.toUpperCase() ?? scanRotationCoins[scanCoinIndex] ?? 'BTC';
 
   const chartCoin = binanceSymbolToHlCoin(symbol).toUpperCase();
   const chartIsOpenPair =
@@ -249,48 +259,135 @@ export function useTerminalBotAnalysis({
     return symbol;
   }, [scanCandidate?.coin, slotsLeft, chartIsOpenPair, symbol, active, currentlyScanningCoin]);
 
-  const signalEnabled = Boolean(scanSymbol) && walletConnected && active;
-
-  const { signal, isLoading } = useUnifiedSignal({
-    symbol: scanSymbol ?? 'ETHUSDT',
-    timeframes: MTF_TIMEFRAMES,
-    refreshInterval: 5000,
-    autoRefresh: signalEnabled,
-    enabled: signalEnabled,
-  });
+  const candidateKey = scanCandidate
+    ? `${scanCandidate.coin}:${scanCandidate.direction}:${scanCandidate.mtfBreakdown ?? ''}`
+    : '';
 
   useEffect(() => {
     if (!scanning) {
       setStep(0);
       setCoinRotationIndex(0);
       setProgress(ANALYSIS_STEPS[0].progress);
+      setTfRows({});
+      setRevealedCount(0);
+      setEngineUnified(null);
+      setTfLoading(false);
       return;
     }
-    const id = setInterval(() => {
-      setStep((prev) => {
-        const next = (prev + 1) % ANALYSIS_STEPS.length;
-        setProgress(ANALYSIS_STEPS[next].progress);
-        return next;
-      });
-    }, 2000);
-    return () => clearInterval(id);
-  }, [scanning]);
 
-  useEffect(() => {
-    if (!scanning || scanRotationCoins.length === 0) {
-      setCoinRotationIndex(0);
-      return;
-    }
-    // Walk the live universe in ~90s. Never faster than one MTF fetch (5s).
-    const ms = Math.min(
-      8_000,
-      Math.max(5_000, Math.round(90_000 / scanRotationCoins.length))
-    );
-    const id = setInterval(() => {
-      setCoinRotationIndex((i) => (i + 1) % scanRotationCoins.length);
-    }, ms);
-    return () => clearInterval(id);
-  }, [scanning, scanRotationCoins]);
+    let cancelled = false;
+    let idx = 0;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const walk = async () => {
+      while (!cancelled) {
+        const coins =
+          scanRotationCoins.length > 0 ? scanRotationCoins : ([currentlyScanningCoin] as string[]);
+        const focus = scanCandidate?.coin?.toUpperCase() ?? null;
+        const coin = (focus && coins.includes(focus) ? focus : coins[idx % coins.length]).toUpperCase();
+        const coinPos = coins.indexOf(coin);
+        if (coinPos >= 0) setCoinRotationIndex(coinPos);
+        setTfRows({});
+        setEngineUnified(null);
+        setRevealedCount(0);
+        setStep(0);
+        setProgress(ANALYSIS_STEPS[0].progress);
+        setTfLoading(true);
+
+        const engineRow =
+          (focus === coin ? scanCandidate : null) ??
+          globalCandidates.find((c) => c.coin.toUpperCase() === coin) ??
+          null;
+        const fromEngine = parseEngineMtfBreakdown(engineRow?.mtfBreakdown);
+        const pairSymbol = hlCoinToBotSymbol(coin);
+
+        for (let i = 0; i < ENGINE_OPEN_TIMEFRAMES.length; i += 1) {
+          if (cancelled) return;
+          const tf = ENGINE_OPEN_TIMEFRAMES[i];
+          let row = fromEngine[tf] ?? null;
+          if (!row) {
+            const fetched = await fetchTimeframeAnalysis(pairSymbol, tf);
+            if (cancelled) return;
+            if (fetched) {
+              row = { direction: fetched.direction, confidence: fetched.confidence };
+            }
+          } else {
+            await sleep(750);
+            if (cancelled) return;
+          }
+          if (row) {
+            setTfRows((prev) => ({ ...prev, [tf]: row }));
+          }
+          setRevealedCount(i + 1);
+          setStep(i);
+          setProgress(ANALYSIS_STEPS[Math.min(i, ANALYSIS_STEPS.length - 1)].progress);
+        }
+
+        if (engineRow) {
+          setEngineUnified({
+            symbol: pairSymbol,
+            direction: (String(engineRow.direction).toUpperCase() === 'LONG'
+              ? 'LONG'
+              : String(engineRow.direction).toUpperCase() === 'SHORT'
+                ? 'SHORT'
+                : 'HOLD') as UnifiedSignal['direction'],
+            confidence: engineRow.confidence,
+            timeframes: ENGINE_OPEN_TIMEFRAMES.map((tf) => ({
+              timeframe: tf,
+              direction: fromEngine[tf]?.direction ?? 'HOLD',
+              confidence: fromEngine[tf]?.confidence ?? 0,
+              trend: 'SIDEWAYS',
+              rsi: 50,
+              macdSignal: 'neutral',
+              patterns: [],
+              support: 0,
+              resistance: 0,
+              currentPrice: 0,
+            })),
+            trendAlignment: 0,
+            patternStrength: 0,
+            patterns: [],
+            suggestedEntry: 0,
+            suggestedTP: 0,
+            suggestedSL: 0,
+            reasons: engineRow.reason ? [engineRow.reason] : [],
+            warnings: [],
+            timestamp: Date.now(),
+          });
+        } else {
+          const unified = await fetchUnifiedSignal(pairSymbol, [...ENGINE_OPEN_TIMEFRAMES]);
+          if (cancelled) return;
+          if (unified) {
+            setEngineUnified(unified);
+            setTfRows((prev) => {
+              const next = { ...prev };
+              for (const t of unified.timeframes) {
+                next[t.timeframe] = {
+                  direction: t.direction,
+                  confidence: t.confidence,
+                };
+              }
+              return next;
+            });
+          }
+        }
+
+        setTfLoading(false);
+        setStep(4);
+        setProgress(ANALYSIS_STEPS[4].progress);
+        await sleep(focus ? 2800 : 900);
+        if (cancelled) return;
+        if (!focus) idx += 1;
+      }
+    };
+
+    void walk();
+    return () => {
+      cancelled = true;
+    };
+    // currentlyScanningCoin / globalCandidates read from the latest render via candidateKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanning, scanRotationCoins.join('|'), candidateKey]);
 
   useEffect(() => {
     if (!botRunning) {
@@ -609,7 +706,7 @@ export function useTerminalBotAnalysis({
       };
     }
 
-    const local = evaluateBotReadiness(signal, {
+    const local = evaluateBotReadiness(engineUnified, {
       autoTradeEnabled: botRunning,
       openPositionsCount: effectiveOpenCount,
       maxConcurrentPositions: serverMaxSlots,
@@ -659,7 +756,7 @@ export function useTerminalBotAnalysis({
       headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
     };
   }, [
-    signal,
+    engineUnified,
     botRunning,
     lastOpenErrorText,
     openPositionsCount,
@@ -681,6 +778,17 @@ export function useTerminalBotAnalysis({
     return hlCoinToBotSymbol(currentlyScanningCoin);
   }, [scanCandidate?.coin, currentlyScanningCoin]);
 
+  const tfChips = useMemo(
+    () => (scanning ? engineTfChips(revealedCount, tfRows) : engineTfChips(0, {})),
+    [scanning, revealedCount, tfRows]
+  );
+
+  const displaySignal =
+    scanning && revealedCount >= ENGINE_OPEN_TIMEFRAMES.length ? engineUnified : null;
+  const combinedReady = Boolean(displaySignal);
+  const hideLongPill =
+    !combinedReady || String(displaySignal?.direction).toUpperCase() === 'SHORT';
+
   return {
     scanning,
     analyzerActive,
@@ -688,15 +796,17 @@ export function useTerminalBotAnalysis({
     marginBlocked,
     step: scanning ? step : 0,
     progress: scanning ? progress : ANALYSIS_STEPS[0].progress,
-    signal: scanning ? signal : null,
-    isLoading: scanning && isLoading,
+    signal: displaySignal,
+    isLoading: scanning && tfLoading && revealedCount === 0,
+    engineTfChips: tfChips,
+    tfRevealComplete: combinedReady,
     dbAnalysis: scanning ? dbAnalysis : null,
     activeSymbol: scanning ? displaySymbol : undefined,
     scanSymbol: scanning ? scanSymbol : null,
     scanCandidate: scanning ? scanCandidate : null,
     globalBest: scanning ? globalBest : null,
     bestLong:
-      scanning
+      scanning && !hideLongPill
         ? [...boardCandidates, ...globalCandidates]
             .filter((c) => String(c.direction).toUpperCase() === 'LONG')
             .sort((a, b) => b.confidence - a.confidence)[0] ?? null

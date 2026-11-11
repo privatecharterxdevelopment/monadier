@@ -7,8 +7,8 @@ export const HL_DEFAULT_CONCURRENT_POSITIONS = 2;
 export const HL_MIN_SIGNAL_CONFIDENCE = 62;
 export const HL_MIN_TREND_ALIGNMENT = 60;
 export const HL_MIN_DIRECTIONAL_TFS = 3;
-export const HL_STANDARD_MTF_COUNT = 3;
-export const HL_STANDARD_MTF_TIMEFRAMES = ['5m', '15m', '1h'] as const;
+export const HL_STANDARD_MTF_COUNT = 4;
+export const HL_STANDARD_MTF_TIMEFRAMES = ['1m', '5m', '15m', '1h'] as const;
 
 /** Bot analyzer rotation — only ≥$2.5M 24h volume coins (fallback until live botUniverse loads). */
 export const HL_SCAN_UNIVERSE_SIZE = BOT_TRADE_FALLBACK_COINS.length;

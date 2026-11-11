@@ -1090,6 +1090,7 @@ const healthServer = http.createServer(async (req, res) => {
             reason: s.reason,
             mode: s.botMode,
             queueable: s.queueable !== false,
+            mtfBreakdown: s.mtfBreakdown,
           })),
           boardCandidates: boardScanCandidates(globalScan).slice(0, 16).map((s) => ({
             coin: s.coin,
@@ -1097,6 +1098,7 @@ const healthServer = http.createServer(async (req, res) => {
             confidence: s.confidence,
             reason: s.reason,
             queueable: s.queueable !== false,
+            mtfBreakdown: s.mtfBreakdown,
           })),
           best: bestAvailable
             ? {
