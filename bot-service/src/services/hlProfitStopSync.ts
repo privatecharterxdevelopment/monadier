@@ -285,6 +285,52 @@ function samePx(a: number, b: number, tick: number): boolean {
  * reduce-only orders.
  */
 /** Post the user-configured emergency SL immediately after entry. Same leg as the monitor. */
+/** Cancel reduce-only triggers for a coin after a full flatten. Never throws. */
+export async function cancelProtectiveOrdersForCoin(opts: {
+  userAddress: `0x${string}`;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  entryPx: number;
+}): Promise<number> {
+  try {
+    const orders = await fetchFrontendOpenOrders(opts.userAddress);
+    if (orders == null || orders.length === 0) return 0;
+    const be = opts.entryPx;
+    const oids = orders
+      .filter((o) => {
+        const kind = classifyHlTriggerOrder(
+          o,
+          opts.coin,
+          opts.direction,
+          opts.entryPx,
+          be
+        );
+        return (
+          kind === 'profit_limit' ||
+          kind === 'emergency_market' ||
+          kind === 'legacy_market_profit'
+        );
+      })
+      .map((o) => Number(o.oid))
+      .filter((id) => id > 0);
+    if (oids.length === 0) return 0;
+    await cancelOids(opts.userAddress, opts.coin, oids);
+    logger.info('HL protective orders cancelled after close', {
+      user: opts.userAddress.slice(0, 10),
+      coin: opts.coin,
+      oids,
+    });
+    return oids.length;
+  } catch (err) {
+    logger.warn('HL protective cancel after close failed', {
+      user: opts.userAddress.slice(0, 10),
+      coin: opts.coin,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
+}
+
 export async function confirmUserEmergencyStop(opts: {
   userAddress: `0x${string}`;
   coin: string;

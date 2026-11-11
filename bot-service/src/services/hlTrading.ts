@@ -19,6 +19,7 @@ import {
   hlAccountValueUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
+  hlTickSize,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
@@ -51,7 +52,10 @@ import {
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import {
   evaluateDynamicTrail,
+  estimateRoundTripFeesUsd,
+  lossStopPricePx,
   markFromPosition,
+  netPnlAfterCosts,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -59,6 +63,25 @@ import {
   getDynamicTrailRecord,
   setDynamicTrailRecord,
 } from './profitTrailState';
+import {
+  cancelProtectiveOrdersForCoin,
+  classifyHlTriggerOrder,
+  emergencySideOk,
+  fetchFrontendOpenOrders,
+  syncHlProfitStopOrder,
+} from './hlProfitStopSync';
+import {
+  recoverPositionUserStop,
+  runEntryStopFailSafe,
+} from './hlEntrySlFailSafe';
+import { createHlEntrySlExchangeForCoin } from './hlEntrySlExchange';
+import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
+import { shouldAllowBotFlatten } from './botExitPolicy';
+import {
+  markGatePassed,
+  patchExecutionDiagnostic,
+} from './executionDiagnostics';
+import { setHlExecutionState } from './hlExecutionState';
 
 const transport = new HttpTransport();
 
@@ -103,6 +126,53 @@ export function getLastHlOpenErrorForClient(
 
 function positionKey(userAddress: string, coin: string): string {
   return `${userAddress.toLowerCase()}:${coin.toUpperCase()}`;
+}
+
+const lastProtectSyncAt = new Map<string, number>();
+
+function gateFromOpenError(error: string): HlOpenBlockGate {
+  const e = error.toLowerCase();
+  if (e.includes('cautious')) return 'cautious_confidence';
+  if (e.includes('news')) return 'news';
+  if (e.includes('fresh pump') || e.includes('just pumped')) return 'fresh_pump';
+  if (e.includes('20-candle') || e.includes('pre-open')) return 'pre_open_candles';
+  if (e.includes('scalp')) return 'scalp_align';
+  if (e.includes('macro')) return 'macro_beta';
+  if (e.includes('pump') && e.includes('short')) return 'pump_short';
+  if (e.includes('momentum')) return 'entry_momentum';
+  if (e.includes('mega pair')) return 'mega_pair';
+  if (e.includes('resistance') || e.includes('support') || e.includes('location')) {
+    return 'entry_location';
+  }
+  if (e.includes('volume') || e.includes('liquidity')) return 'liquidity';
+  if (e.includes('notional')) return 'notional';
+  return 'other';
+}
+
+function noteOpenBlock(
+  wallet: string,
+  coin: string,
+  direction: 'LONG' | 'SHORT',
+  error: string,
+  extra?: { confidence?: number; notionalUsd?: number; leverage?: number }
+): void {
+  patchExecutionDiagnostic(wallet, {
+    coin,
+    direction,
+    blockedBy: gateFromOpenError(error),
+    blockedReason: error,
+    orderSent: false,
+  });
+  void recordHlOpenBlock({
+    walletAddress: wallet,
+    coin,
+    direction,
+    gate: gateFromOpenError(error),
+    reason: error,
+    confidence: extra?.confidence,
+    notionalUsd: extra?.notionalUsd,
+    leverage: extra?.leverage,
+  });
 }
 
 function clearTrailState(lockKey: string): void {
@@ -496,6 +566,7 @@ export class HyperliquidTradingService {
           pick,
           botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
+          stopLossPercent: settings.stopLossPercent,
         });
 
         if (opened.success) {
@@ -562,6 +633,7 @@ export class HyperliquidTradingService {
     pick: GlobalSignalCandidate;
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
+    stopLossPercent: number;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -577,6 +649,37 @@ export class HyperliquidTradingService {
       const size = opts.notionalUsd / markPx;
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
+      const failOpen = (error: string) => {
+        noteOpenBlock(opts.userAddress, coin, opts.direction, error, {
+          confidence: opts.pick.confidence,
+          notionalUsd: opts.notionalUsd,
+          leverage: effectiveLeverage,
+        });
+        setHlExecutionState(opts.userAddress, {
+          state: 'BLOCKED',
+          longClass: 'NONE',
+          code: null,
+          reason: error,
+          coin,
+          direction: opts.direction,
+        });
+        return { success: false as const, error };
+      };
+
+      patchExecutionDiagnostic(opts.userAddress, {
+        coin,
+        direction: opts.direction,
+        scan: opts.pick.botMode === 'aggressive' ? 'aggressive' : 'standard',
+        scanPassed: true,
+        gatesPassed: [],
+        blockedBy: null,
+        blockedReason: null,
+        orderSent: false,
+        fillConfirmed: false,
+        emergencySlConfirmed: false,
+        userSlPercent: opts.stopLossPercent,
+      });
+
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
@@ -588,7 +691,7 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason,
         });
-        return { success: false, error: reason };
+        return failOpen(reason);
       }
 
       const newsGate = await validateCoinNews({
@@ -604,8 +707,9 @@ export class HyperliquidTradingService {
           tier: coinTier,
           reason: newsGate.reason,
         });
-        return { success: false, error: newsGate.reason };
+        return failOpen(newsGate.reason);
       }
+      markGatePassed(opts.userAddress, 'news');
 
       const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
@@ -615,8 +719,9 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason: freshPumpGate.reason,
         });
-        return { success: false, error: freshPumpGate.reason };
+        return failOpen(freshPumpGate.reason);
       }
+      markGatePassed(opts.userAddress, 'fresh_pump');
 
       const candleAnalytics = await validatePreOpenCandleAnalytics({
         coin,
@@ -630,8 +735,9 @@ export class HyperliquidTradingService {
           reason: candleAnalytics.reason,
           summary: candleAnalytics.summary,
         });
-        return { success: false, error: candleAnalytics.reason };
+        return failOpen(candleAnalytics.reason);
       }
+      markGatePassed(opts.userAddress, 'pre_open_candles');
 
       const scalpGate = await validateScalpAlignment({
         coin,
@@ -644,8 +750,9 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason: scalpGate.reason,
         });
-        return { success: false, error: scalpGate.reason };
+        return failOpen(scalpGate.reason);
       }
+      markGatePassed(opts.userAddress, 'scalp_align');
 
       const macroGate = await validateMacroBetaAlignment({
         coin,
@@ -659,8 +766,9 @@ export class HyperliquidTradingService {
           blockers: macroGate.blockers,
           reason: macroGate.reason,
         });
-        return { success: false, error: macroGate.reason };
+        return failOpen(macroGate.reason);
       }
+      markGatePassed(opts.userAddress, 'macro_beta');
 
       const pumpShortGate = await validateNoAltPumpShort({
         coin,
@@ -673,8 +781,9 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason: pumpShortGate.reason,
         });
-        return { success: false, error: pumpShortGate.reason };
+        return failOpen(pumpShortGate.reason);
       }
+      markGatePassed(opts.userAddress, 'pump_short');
 
       const momentumGate = await validateEntryMomentum({
         coin,
@@ -687,8 +796,9 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason: momentumGate.reason,
         });
-        return { success: false, error: momentumGate.reason };
+        return failOpen(momentumGate.reason);
       }
+      markGatePassed(opts.userAddress, 'entry_momentum');
 
       const megaGate = validateMegaPairVolumeForDirection(opts.direction);
       if (!megaGate.ok) {
@@ -698,8 +808,9 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           reason: megaGate.reason,
         });
-        return { success: false, error: megaGate.reason };
+        return failOpen(megaGate.reason);
       }
+      markGatePassed(opts.userAddress, 'mega_pair');
 
       const locationGate = await validateEntryLocation({
         symbol,
@@ -714,8 +825,9 @@ export class HyperliquidTradingService {
           resistance: locationGate.analysis.resistance,
           rejections: locationGate.analysis.resistanceRejections,
         });
-        return { success: false, error: locationGate.reason };
+        return failOpen(locationGate.reason);
       }
+      markGatePassed(opts.userAddress, 'entry_location');
 
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,
@@ -750,6 +862,16 @@ export class HyperliquidTradingService {
         isClose: false,
       });
 
+      setHlExecutionState(opts.userAddress, {
+        state: 'ORDER_SUBMITTED',
+        longClass: 'NONE',
+        code: null,
+        reason: `Submitting ${opts.direction} ${coin}`,
+        coin,
+        direction: opts.direction,
+      });
+      patchExecutionDiagnostic(opts.userAddress, { orderSent: true, coin, direction: opts.direction });
+
       const result = await client.order({
         orders: [
           {
@@ -766,10 +888,66 @@ export class HyperliquidTradingService {
       });
 
       const status = result.response?.data?.statuses?.[0] as
-        | { filled?: unknown; error?: string }
+        | { filled?: { totalSz?: string | number; avgPx?: string | number; oid?: number }; error?: string; resting?: { oid?: number } }
         | undefined;
       if (status && 'error' in status && status.error) {
-        return { success: false, error: String(status.error) };
+        return failOpen(String(status.error));
+      }
+
+      const slPct = Math.max(0, Number(opts.stopLossPercent) || 0);
+      const collateralUsd = opts.notionalUsd / Math.max(1, effectiveLeverage);
+      const protectedOpen = await runEntryStopFailSafe({
+        wallet: opts.userAddress,
+        coin,
+        direction: opts.direction,
+        requestedSize: size,
+        requestedEntryPx: markPx,
+        collateralUsd,
+        stopLossPercent: slPct,
+        szDecimals,
+        longClass: 'NONE',
+        orderStatus: status ?? null,
+        entryTimedOut: false,
+        exchange: createHlEntrySlExchangeForCoin(opts.userAddress, coin),
+      });
+
+      patchExecutionDiagnostic(opts.userAddress, {
+        coin,
+        direction: opts.direction,
+        fillConfirmed: protectedOpen.fillProven,
+        fillSize: protectedOpen.filledSize,
+        fillPx: protectedOpen.avgPx,
+        emergencySlPosted: slPct > 0 && !protectedOpen.userSlDisabled,
+        emergencySlConfirmed: protectedOpen.slConfirmed,
+        emergencySlPx: protectedOpen.stopPx,
+        userSlPercent: slPct,
+      });
+
+      if (!protectedOpen.openKept) {
+        logger.warn('HL open not kept after fail-safe', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          reason: protectedOpen.reason,
+          flattened: protectedOpen.flattened,
+        });
+        return {
+          success: false,
+          error: protectedOpen.reason || 'Fill/SL fail-safe rejected open',
+        };
+      }
+
+      if (slPct > 0 && !protectedOpen.slConfirmed) {
+        logger.error('HL open not marked success — emergency SL unconfirmed', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          reason: protectedOpen.reason,
+          critical: protectedOpen.critical,
+          slPct,
+        });
+        return {
+          success: false,
+          error: protectedOpen.reason || 'Emergency SL not exchange-confirmed',
+        };
       }
 
       logger.info('HL position opened', {
@@ -778,6 +956,11 @@ export class HyperliquidTradingService {
         direction: opts.direction,
         leverage: effectiveLeverage,
         notionalUsd: opts.notionalUsd.toFixed(2),
+        slPct,
+        emergencySlPx: protectedOpen.stopPx,
+        slConfirmed: protectedOpen.slConfirmed,
+        userSlDisabled: protectedOpen.userSlDisabled,
+        fillSize: protectedOpen.filledSize,
         openReason: openReasonFull,
         macroBlockers: macroGate.blockers,
         openSlot: 'multi',
@@ -787,7 +970,7 @@ export class HyperliquidTradingService {
         walletAddress: opts.userAddress,
         coin,
         direction: opts.direction,
-        entryPx: markPx,
+        entryPx: protectedOpen.avgPx ?? markPx,
         reason: openReasonFull,
       });
 
@@ -886,6 +1069,10 @@ export class HyperliquidTradingService {
       }
 
       const trailRecord = loadTrailRecord(lockKey);
+      const notionalUsd = notional > 0 ? notional : absSize * markPrice;
+      const fundingUsd = Number(
+        (pos as { cumFunding?: { sinceOpen?: string } }).cumFunding?.sinceOpen ?? 0
+      );
       const trailResult = await evaluateDynamicTrail({
         coin: pos.coin,
         direction: positionDirection,
@@ -893,13 +1080,82 @@ export class HyperliquidTradingService {
         markPrice,
         pnlUsd: pnl,
         absSize,
-        notionalUsd: notional > 0 ? notional : absSize * markPrice,
+        notionalUsd,
         collateralUsd: collateralEst,
         nowMs,
         record: trailRecord,
+        fundingUsd,
+        stopLossPct: settings.stopLossPercent,
       });
 
       saveTrailRecord(lockKey, trailResult.record);
+
+      const slPct = Math.max(0, Number(settings.stopLossPercent) || 0);
+      const emergencyPx =
+        slPct > 0 ? lossStopPricePx(positionDirection, entry, absSize, collateralEst, slPct) : null;
+      const feesUsd = estimateRoundTripFeesUsd(notionalUsd);
+      const protectKey = lockKey;
+      const lastProtect = lastProtectSyncAt.get(protectKey) ?? 0;
+      if (nowMs - lastProtect >= 2_400) {
+        lastProtectSyncAt.set(protectKey, nowMs);
+        let metaSz = 0;
+        if (meta) {
+          try {
+            metaSz = meta.universe[coinToAssetIndex(meta, pos.coin)]?.szDecimals ?? 0;
+          } catch {
+            metaSz = 0;
+          }
+        }
+        await syncHlProfitStopOrder({
+          userAddress,
+          coin: pos.coin,
+          direction: positionDirection,
+          absSize,
+          markPrice,
+          entryPrice: entry,
+          stopPx: trailResult.record.currentTrailStop,
+          armed: trailResult.record.phase !== 'idle',
+          feesUsd,
+          fundingUsd,
+          emergencyStopPx: emergencyPx,
+          szDecimals: metaSz,
+          tickSize: hlTickSize(markPrice, metaSz),
+          minLockUsd: feesUsd * config.hyperliquid.dynamicTrail.minProfitCloseFeesMult,
+        });
+        if (slPct > 0) {
+          const orders = await fetchFrontendOpenOrders(userAddress);
+          const hasEmergency =
+            orders != null &&
+            orders.some((o) => {
+              const kind = classifyHlTriggerOrder(
+                o,
+                String(pos.coin),
+                positionDirection,
+                entry,
+                entry
+              );
+              const trig = Number(o.triggerPx ?? o.limitPx ?? 0);
+              return (
+                kind === 'emergency_market' &&
+                emergencySideOk(positionDirection, trig, markPrice, entry)
+              );
+            });
+          if (!hasEmergency) {
+            await recoverPositionUserStop({
+              wallet: userAddress,
+              coin: pos.coin,
+              direction: positionDirection,
+              stopLossPercent: slPct,
+              longClass: 'NONE',
+              collateralUsd: collateralEst,
+              requestedEntryPx: entry,
+              requestedSize: absSize,
+              szDecimals: metaSz,
+              exchange: createHlEntrySlExchangeForCoin(userAddress, pos.coin),
+            });
+          }
+        }
+      }
 
       // Optional MTF/volume log while in profit (no exit side-effects).
       if (pnl > 0 && trailResult.record.phase !== 'idle') {
@@ -1022,15 +1278,25 @@ export class HyperliquidTradingService {
         closeCtx?.unrealizedPnlUsd ?? Number(row.unrealizedPnl ?? 0);
       const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
       const absSize = Math.abs(size);
-
-      if (config.hyperliquid.profitOnlyExits && pnlUsd < 0 && reason !== 'trailing_stop') {
-        logger.warn('HL close rejected — never close in red', {
+      const closeNotional = absSize * (Number(row.entryPx ?? 0) > 0 ? Number(row.entryPx) : 1);
+      const closeFees = estimateRoundTripFeesUsd(closeNotional);
+      const netPnlUsd = netPnlAfterCosts(pnlUsd, closeNotional, closeFees);
+      const flattenGate = shouldAllowBotFlatten({
+        reason,
+        pnlUsd,
+        netPnlUsd,
+        profitOnlyExits: config.hyperliquid.profitOnlyExits,
+      });
+      if (!flattenGate.ok) {
+        logger.warn('HL close rejected — exit policy', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
           reason,
           pnlUsd: pnlUsd.toFixed(4),
+          netPnlUsd: netPnlUsd.toFixed(4),
+          error: flattenGate.error,
         });
-        return { success: false, error: 'Bot does not close in red (profitOnlyExits)' };
+        return { success: false, error: flattenGate.error };
       }
 
       if (reason === 'take_profit' && pnlUsd <= 0) {
@@ -1193,10 +1459,18 @@ export class HyperliquidTradingService {
         coin: coinUpper,
         reason,
         pnl: pnlUsd.toFixed(4),
+        netPnl: netPnlUsd.toFixed(4),
         successFee: collectedFee > 0 ? collectedFee.toFixed(4) : '0',
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+      await cancelProtectiveOrdersForCoin({
+        userAddress,
+        coin: coinUpper,
+        direction: isLong ? 'LONG' : 'SHORT',
+        entryPx,
+      });
+      lastProtectSyncAt.delete(positionKey(userAddress, coinUpper));
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1263,6 +1537,7 @@ export class HyperliquidTradingService {
         },
         botModeLabel: 'Std',
         ctx: opts.ctx,
+        stopLossPercent: settings.stopLossPercent,
       });
       if (result.success) opened += 1;
       else skipped.push(`${w.slice(0, 10)}:${result.error || 'fail'}`);

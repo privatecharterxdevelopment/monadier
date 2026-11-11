@@ -206,7 +206,7 @@ describe('profit SL architecture', () => {
     );
     assert.equal(earlyTag.shouldClose, false);
 
-    const lateTag = await evaluateDynamicTrail(
+    const lateTagTooThin = await evaluateDynamicTrail(
       shortTick({
         nowMs: t0 + 10_100,
         pnlUsd: 0.05,
@@ -215,8 +215,46 @@ describe('profit SL architecture', () => {
         totalHoldMs: 10_100,
       })
     );
+    assert.equal(lateTagTooThin.shouldClose, false, 'thin leftover after fees is not a profit exit');
+
+    const lateTag = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 10_100,
+        pnlUsd: 0.5,
+        markPrice: stop + 0.05,
+        record: armed.record,
+        totalHoldMs: 10_100,
+      })
+    );
     assert.equal(lateTag.shouldClose, true);
     assert.equal(lateTag.exitReason, 'trailing_stop');
+  });
+
+  it('does not treat a red trailing_stop cross as a profit exit', async () => {
+    const t0 = 5_000_000;
+    const warm = await evaluateDynamicTrail(
+      shortTick({ nowMs: t0, pnlUsd: 0.8, markPrice: 99.2, record: null })
+    );
+    const armed = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 5_000,
+        pnlUsd: 0.9,
+        markPrice: 99.1,
+        record: warm.record,
+        totalHoldMs: 5_000,
+      })
+    );
+    const stop = armed.record.currentTrailStop as number;
+    const red = await evaluateDynamicTrail(
+      shortTick({
+        nowMs: t0 + 12_000,
+        pnlUsd: -0.4,
+        markPrice: stop + 0.2,
+        record: armed.record,
+        totalHoldMs: 12_000,
+      })
+    );
+    assert.equal(red.shouldClose, false);
   });
 
   it('adverse funding pushes BE further into profit', () => {

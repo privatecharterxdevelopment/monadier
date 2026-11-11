@@ -41,6 +41,8 @@ import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingServ
 import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
+import { getExecutionDiagnostic } from './services/executionDiagnostics';
+import { buildLiveBotPositionViews } from './services/hlLiveBotPositions';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
@@ -914,6 +916,10 @@ const healthServer = http.createServer(async (req, res) => {
       );
 
       const openDb = await positionService.getOpenPositions(userAddress, chainId);
+      const livePositions = await buildLiveBotPositionViews({
+        wallet: userAddress,
+        state: hlState,
+      });
 
       const megaPumpSweep = await fetchMegaPairPumpSweep();
       const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
@@ -1187,6 +1193,8 @@ const healthServer = http.createServer(async (req, res) => {
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
         execution: getHlExecutionState(userAddress),
+        executionDiagnostic: getExecutionDiagnostic(userAddress),
+        livePositions,
         recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {

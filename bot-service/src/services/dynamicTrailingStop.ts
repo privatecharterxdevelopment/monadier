@@ -101,7 +101,19 @@ export function shouldArmProfitProtection(
 ): boolean {
   const cfg = config.hyperliquid.dynamicTrail;
   const roe = roePct(pnlUsd, collateralUsd);
+  const minNet = feesUsd * Math.max(1, cfg.minProfitCloseFeesMult);
+  if (pnlUsd < minNet) return false;
   return pnlUsd >= feesUsd * cfg.armFeesMultiplier || roe >= cfg.armMinRoePct;
+}
+
+export function netPnlAfterCosts(
+  pnlUsd: number,
+  notionalUsd: number,
+  feesUsd: number
+): number {
+  const slipBps = config.hyperliquid.dynamicTrail.slippageBufferBps;
+  const slip = Math.max(0, notionalUsd) * (slipBps / 10_000);
+  return pnlUsd - feesUsd - slip;
 }
 
 export function breakevenPlusFeesStopPx(
@@ -114,17 +126,20 @@ export function breakevenPlusFeesStopPx(
   tickSize = 0,
   _szDecimals = 0
 ): number {
-  void fundingUsd;
   void notionalUsd;
-  void tickSize;
   void _szDecimals;
   const cfg = config.hyperliquid.dynamicTrail;
   const bufferUsd = Math.max(
     feesUsd * cfg.breakevenBufferFeesMult,
     entryPrice * absSize * (cfg.breakevenBufferPct / 100)
   );
-  const move = (feesUsd + bufferUsd) / absSize;
-  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+  const fundingCost = Number.isFinite(fundingUsd) ? Math.max(0, -fundingUsd) : 0;
+  const move = (feesUsd + bufferUsd + fundingCost) / absSize;
+  let stop = direction === 'LONG' ? entryPrice + move : entryPrice - move;
+  const gap = minProfitTrailGapPx(entryPrice, tickSize);
+  if (direction === 'LONG') stop = Math.max(stop, entryPrice + gap);
+  else stop = Math.min(stop, entryPrice - gap);
+  return stop;
 }
 
 function updateFavorableExtreme(
@@ -136,7 +151,7 @@ function updateFavorableExtreme(
   return Math.min(current, mark);
 }
 
-function ratchetStop(
+export function ratchetStop(
   direction: 'LONG' | 'SHORT',
   currentStop: number | null,
   candidate: number
@@ -145,6 +160,15 @@ function ratchetStop(
   return direction === 'LONG'
     ? Math.max(currentStop, candidate)
     : Math.min(currentStop, candidate);
+}
+
+function clampStopToProfitSide(
+  direction: 'LONG' | 'SHORT',
+  stopPx: number,
+  breakevenPx: number
+): number {
+  if (direction === 'LONG') return Math.max(stopPx, breakevenPx);
+  return Math.min(stopPx, breakevenPx);
 }
 
 export function isTrailStopCrossed(
@@ -270,9 +294,31 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  // Phase 1 — idle: no stop until arm threshold.
+  rec.estimatedFeesUsd = feesUsd;
+  const bePx = breakevenPlusFeesStopPx(
+    input.direction,
+    input.entryPrice,
+    input.absSize,
+    feesUsd,
+    input.fundingUsd ?? 0,
+    input.notionalUsd,
+    input.tickSize ?? 0,
+    input.szDecimals ?? 0
+  );
+  const holdMs = rec.timeInProfitMs;
+  const armHold = cfg.armMinProfitHoldMs;
+  const minActive = cfg.trailMinActiveBeforeCloseMs;
+  const roe = roePct(input.pnlUsd, input.collateralUsd);
+  const peakRoe = roePct(rec.highestPnlSinceEntry, input.collateralUsd);
+  const net = netPnlAfterCosts(input.pnlUsd, input.notionalUsd, feesUsd);
+  const minCloseNet = feesUsd * Math.max(1, cfg.minProfitCloseFeesMult);
+
+  // IDLE — wait for green hold + fee-covered profit. Do not skip to trailing.
   if (rec.phase === 'idle') {
-    if (!shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd)) {
+    const ready =
+      holdMs >= armHold &&
+      shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd);
+    if (!ready) {
       return {
         record: rec,
         shouldClose: false,
@@ -280,29 +326,38 @@ export async function evaluateDynamicTrail(
         closeDetail: '',
       };
     }
-
-    const initialStop = breakevenPlusFeesStopPx(
-      input.direction,
-      input.entryPrice,
-      input.absSize,
-      feesUsd
-    );
     rec.phase = 'armed';
     rec.trailArmedAt = input.nowMs;
-    rec.currentTrailStop = initialStop;
-    rec.estimatedFeesUsd = feesUsd;
+    rec.currentTrailStop = clampStopToProfitSide(input.direction, bePx, bePx);
     logger.info('HL dynamic trail armed', {
       coin: input.coin,
       direction: input.direction,
       entry: input.entryPrice.toFixed(6),
-      initialStop: initialStop.toFixed(6),
+      initialStop: rec.currentTrailStop.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
-      roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
+      roe: roe.toFixed(2),
     });
+    return {
+      record: rec,
+      shouldClose: false,
+      exitReason: '',
+      closeDetail: '',
+    };
   }
 
-  // Phase 3 — ratchet trail (only moves in profit direction).
-  if ((rec.phase === 'armed' || rec.phase === 'trailing') && rec.currentTrailStop != null) {
+  rec.currentTrailStop = clampStopToProfitSide(
+    input.direction,
+    rec.currentTrailStop ?? bePx,
+    bePx
+  );
+
+  const stage2Roe =
+    input.direction === 'LONG' ? cfg.longTrailArmRoePct : cfg.breakevenArmRoePct;
+  const longPeakOk =
+    input.direction !== 'LONG' || peakRoe >= cfg.longMinPeakRoePctBeforeTrailClose;
+  const canTrail = rec.phase === 'trailing' || (roe >= stage2Roe && longPeakOk);
+
+  if (canTrail && rec.currentTrailStop != null) {
     rec.phase = 'trailing';
     const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
     rec.lastTrailDistancePx = trailDist;
@@ -310,14 +365,26 @@ export async function evaluateDynamicTrail(
       input.direction === 'LONG'
         ? rec.highestPriceSinceEntry - trailDist
         : rec.highestPriceSinceEntry + trailDist;
-    rec.currentTrailStop = ratchetStop(
+    rec.currentTrailStop = clampStopToProfitSide(
       input.direction,
-      rec.currentTrailStop,
-      trailCandidate
+      ratchetStop(input.direction, rec.currentTrailStop, trailCandidate),
+      bePx
     );
+  }
 
-    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
-      const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
+  if (
+    rec.currentTrailStop != null &&
+    isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
+  ) {
+    const armedAt = rec.trailArmedAt ?? input.nowMs;
+    const activeMs = input.nowMs - armedAt;
+    const longGreenOk =
+      input.direction !== 'LONG' || holdMs >= cfg.longMinGreenHoldMs;
+    const minActiveOk = activeMs >= minActive;
+    const neverRed = cfg.neverRedAfterArm !== false;
+    const profitableEnough = net >= minCloseNet && (!neverRed || input.pnlUsd > 0);
+    if (minActiveOk && longGreenOk && profitableEnough) {
+      const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)} · net$${net.toFixed(4)}`;
       return {
         record: rec,
         shouldClose: true,
