@@ -79,22 +79,52 @@ describe('scoreEntryLocationQuality SHORT', () => {
     assert.equal(record.deterministicLocationDecision, 'ALLOW');
   });
 
-  it('allows a dump at range lows when floor filter is off', () => {
-    const candles15m = series(12, 102, -0.7);
+  it('blocks an unconfirmed overextended SHORT at range lows', () => {
+    const bounce15 = [
+      ...series(6, 93.2, 0.08),
+      ...series(6, 93.7, -0.03),
+    ];
     const record = scoreEntryLocationQuality({
       coin: 'ETH',
       side: 'SHORT',
-      price: 93,
-      candles5m: series(10, 96, -0.25),
-      candles15m,
+      price: 93.5,
+      candles5m: series(10, 93.4, 0.02),
+      candles15m: bounce15,
       candles1h: series(30, 108, -0.4),
       candles4h: series(20, 112, -0.5),
       sr: floorSr({ confirmedBreakdown: false, dumpContinuation: false, nearSupport: true }),
     });
+    assert.equal(record.deterministicLocationDecision, 'BLOCK');
+    assert.ok(
+      record.blockedBy.includes('CHASING_COMPLETED_MOVE') ||
+        record.blockedBy.includes('EXTREME_LOCATION')
+    );
+  });
+
+  it('allows an unconfirmed SHORT in the mid 1h range', () => {
+    const flat = series(24, 100, 0.02);
+    const record = scoreEntryLocationQuality({
+      coin: 'ETH',
+      side: 'SHORT',
+      price: 100.4,
+      candles5m: series(10, 100.2, -0.05),
+      candles15m: series(12, 100.3, -0.04),
+      candles1h: flat,
+      candles4h: series(20, 99.5, 0.03),
+      sr: floorSr({
+        confirmedBreakdown: false,
+        dumpContinuation: false,
+        nearSupport: false,
+        price: 100.4,
+        pricePosition: 0.48,
+        support: 94,
+        resistance: 110,
+      }),
+    });
     assert.equal(record.deterministicLocationDecision, 'ALLOW');
   });
 
-  it('does not treat a dump hammer as a SHORT bounce block', () => {
+  it('does not treat a dump hammer as a LOWER_WICK bounce code', () => {
     const dump = series(10, 102, -0.8);
     const hammer = candle(10, 94.0, 95.2, 90.0, 94.9);
     const forming = candle(11, 94.9, 95.1, 94.6, 94.8);
@@ -109,7 +139,6 @@ describe('scoreEntryLocationQuality SHORT', () => {
       candles4h: series(20, 112, -0.4),
       sr: floorSr({ confirmedBreakdown: false, dumpContinuation: false }),
     });
-    assert.equal(record.deterministicLocationDecision, 'ALLOW');
     assert.equal(record.blockedBy.includes('LOWER_WICK_REJECTION'), false);
   });
 });

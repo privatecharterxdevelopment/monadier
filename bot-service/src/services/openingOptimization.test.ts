@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { config } from '../config';
+import { isVolumeRankOpenable } from './coinTier';
 import {
   globalSignalsForBotMode,
   h1AllowsShort,
@@ -35,8 +38,35 @@ describe('opening optimization defaults', () => {
     assert.equal(config.hyperliquid.maxLiquidScanUniverse, 40);
     assert.equal(config.hyperliquid.minDayVolumeUsd, 1_000_000);
     assert.equal(config.hyperliquid.scalpOpen.maxVolumeRank, 0);
+    assert.equal(isVolumeRankOpenable(1, 0), true);
+    assert.equal(isVolumeRankOpenable(12, 0), true);
+    assert.equal(isVolumeRankOpenable(40, 0), true);
+    assert.equal(isVolumeRankOpenable(99, 0), true);
+    assert.equal(isVolumeRankOpenable(13, 12), false);
+    assert.equal(isVolumeRankOpenable(12, 12), true);
     assert.equal(config.hyperliquid.scalpOpen.minConfirm1mCandles, 1);
     assert.equal(config.hyperliquid.reentryCooldownMs, 0);
+  });
+
+  it('aggressive SHORTs still hit every open-time safety gate', () => {
+    const src = readFileSync(join(process.cwd(), 'src/services/hlTrading.ts'), 'utf8');
+    const openFn = src.slice(src.indexOf('async openMarketPosition'));
+    assert.match(openFn, /pick\.botMode === 'aggressive'/);
+    for (const gate of [
+      'news',
+      'fresh_pump',
+      'pre_open_candles',
+      'scalp_align',
+      'macro_beta',
+      'pump_short',
+      'entry_momentum',
+      'mega_pair',
+      'entry_location',
+      'entry_location_quality',
+    ]) {
+      assert.match(openFn, new RegExp(`markGatePassed\\([^,]+, '${gate}'\\)`));
+    }
+    assert.doesNotMatch(openFn, /if \(opts\.pick\.botMode === 'aggressive'\) return/);
   });
 
   it('1h SIDEWAYS allows SHORT and 1h UP does not', () => {

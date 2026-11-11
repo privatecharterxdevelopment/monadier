@@ -263,8 +263,18 @@ export function scoreEntryLocationQuality(opts: {
   }
 
   if (side === 'SHORT' && !shortBreakdownOk) {
-    // Floor / range-low / lower-wick codes classified every dump as a bounce
-    // and starved SHORT fills. Active 15m UP is blocked at the trend gate.
+    const extendedDown =
+      (impulse15mATR != null && impulse15mATR <= -1.15) || consecutiveDirectionCandles >= 4;
+    if (rangePosition1h <= 0.15 && extendedDown) {
+      blockedBy.push('CHASING_COMPLETED_MOVE');
+      notes.push(
+        `1h range ${(rangePosition1h * 100).toFixed(0)}% after ${consecutiveDirectionCandles} reds / 15m impulse ${impulse15mATR?.toFixed(2) ?? '?'}×ATR`
+      );
+    }
+    if (rangePosition1h <= 0.12 && rangePosition4h <= 0.18) {
+      blockedBy.push('EXTREME_LOCATION');
+      notes.push(`1h range pos ${rangePosition1h.toFixed(2)} ≤ 0.12 with 4h still low`);
+    }
   }
 
   const chasingCompletedMove = blockedBy.includes('CHASING_COMPLETED_MOVE');

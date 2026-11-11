@@ -46,6 +46,12 @@ export function volumeRankForCoin(universe: HlLiquidUniverse, coin: string): num
   return idx < 0 ? 999 : idx + 1;
 }
 
+/** `maxRank <= 0` means no cap — rank 99 is still openable. */
+export function isVolumeRankOpenable(rank: number, maxRank: number): boolean {
+  if (!(maxRank > 0)) return true;
+  return rank <= maxRank;
+}
+
 export function classifyCoinTier(
   coin: string,
   universe?: HlLiquidUniverse

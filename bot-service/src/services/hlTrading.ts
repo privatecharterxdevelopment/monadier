@@ -49,7 +49,12 @@ import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
-import { classifyCoinTier, needsCautionPath, volumeRankForCoin } from './coinTier';
+import {
+  classifyCoinTier,
+  isVolumeRankOpenable,
+  needsCautionPath,
+  volumeRankForCoin,
+} from './coinTier';
 import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
@@ -434,7 +439,7 @@ export class HyperliquidTradingService {
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
-      if (maxRank > 0 && rank > maxRank) {
+      if (!isVolumeRankOpenable(rank, maxRank)) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
