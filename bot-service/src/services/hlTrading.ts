@@ -1127,6 +1127,14 @@ export class HyperliquidTradingService {
         };
       }
 
+      await recordHlBotOpenMarker({
+        walletAddress: opts.userAddress,
+        coin,
+        direction: opts.direction,
+        entryPx: protectedOpen.avgPx ?? markPx,
+        reason: openReasonFull,
+      });
+
       if (slPct > 0 && !protectedOpen.slConfirmed) {
         logger.error('HL open not marked success — emergency SL unconfirmed', {
           user: opts.userAddress.slice(0, 10),
@@ -1154,14 +1162,6 @@ export class HyperliquidTradingService {
         fillSize: protectedOpen.filledSize,
         openReason: openReasonFull,
         openSlot: 'multi',
-      });
-
-      await recordHlBotOpenMarker({
-        walletAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        entryPx: protectedOpen.avgPx ?? markPx,
-        reason: openReasonFull,
       });
 
       hlPositionOpenedAt.set(positionKey(opts.userAddress, coin), Date.now());

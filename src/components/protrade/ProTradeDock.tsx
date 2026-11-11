@@ -362,8 +362,8 @@ const ProTradeDock: React.FC<Props> = ({
   const botNeedsDeposit = botUnderfunded;
 
   const closeFills = useMemo(
-    () => aggregateHlCloseFills(scopedFills),
-    [scopedFills]
+    () => aggregateHlCloseFills(isBotMode ? fills : scopedFills),
+    [isBotMode, fills, scopedFills]
   );
   /** Wallet-wide closes — Zwischenbalance must track real equity, not bot-scoped subset. */
   const allCloseFills = useMemo(() => aggregateHlCloseFills(fills), [fills]);
