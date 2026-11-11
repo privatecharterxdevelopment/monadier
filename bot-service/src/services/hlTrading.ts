@@ -736,7 +736,7 @@ export class HyperliquidTradingService {
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: false,
+        isCross: config.hyperliquid.botCrossMargin,
         leverage: effectiveLeverage,
       });
 

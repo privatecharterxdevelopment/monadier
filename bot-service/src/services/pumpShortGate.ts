@@ -55,15 +55,6 @@ export async function validateNoAltPumpShort(opts: {
       return { ok: false, reason };
     }
 
-    const tf15 = signal.timeframes.find((t) => t.timeframe === '15m');
-    const tf1h = signal.timeframes.find((t) => t.timeframe === '1h');
-    if (tf1h?.direction === 'LONG' || tf15?.direction === 'LONG') {
-      const reason =
-        `SHORT blocked — ${coin}: 15m/1h signal still LONG (wait for rollover, not a 1m dip)`;
-      logger.info('Pump-short gate blocked', { coin, tf15: tf15?.direction, tf1h: tf1h?.direction });
-      return { ok: false, reason };
-    }
-
     const ch1h = pctChangeClosed(c1h, 1);
     const ch4h = pctChangeClosed(c1h, 4);
     const ch15m = pctChangeClosed(c15m, 1);
@@ -74,21 +65,6 @@ export async function validateNoAltPumpShort(opts: {
         `4h ${ch4h >= 0 ? '+' : ''}${ch4h.toFixed(2)}%)`;
       logger.info('Pump-short gate blocked', { coin, ch1h, ch4h });
       return { ok: false, reason };
-    }
-
-    if (ch15m > -cfg.min15mRolloverPct) {
-      const reason =
-        `SHORT blocked — ${coin} 15m not rolling over (${ch15m >= 0 ? '+' : ''}${ch15m.toFixed(2)}%) — ` +
-        `need clear fade, not a tiny pullback after pump`;
-      logger.info('Pump-short gate blocked', { coin, ch15m });
-      return { ok: false, reason };
-    }
-
-    if (tf15?.direction !== 'SHORT' && tf1h?.direction !== 'SHORT') {
-      return {
-        ok: false,
-        reason: `SHORT blocked — ${coin}: need 15m or 1h SHORT confirmation before alt short`,
-      };
     }
 
     return {

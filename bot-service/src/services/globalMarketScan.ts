@@ -7,7 +7,6 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -108,13 +107,6 @@ async function scanStandardCoin(
     ) {
       return null;
     }
-    if (analysis.direction === 'SHORT') {
-      const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-      if (!pumpGate.ok) {
-        logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
-        return null;
-      }
-    }
     return {
       coin,
       symbol,
@@ -164,11 +156,6 @@ async function scanAggressiveCoin(
       if (scalp.direction === 'SHORT') {
         if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
           logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
-          return null;
-        }
-        const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-        if (!pumpGate.ok) {
-          logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
           return null;
         }
       }

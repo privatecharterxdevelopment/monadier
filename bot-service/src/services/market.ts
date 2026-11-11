@@ -1217,12 +1217,14 @@ export async function analyzeMarketMTFBySymbol(
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
       !counterTrend;
 
+    const minConf = Math.min(
+      strategyConfig.minConfidence,
+      config.hyperliquid.minSignalConfidence
+    );
     const isWeak =
       !trendAligned ||
-      (strategyConfig.minConfidence >= 40
-        ? signal.confidence < strategyConfig.minConfidence ||
-          (signal.warnings.length > 0 && signal.trendAlignment < 50)
-        : signal.confidence < strategyConfig.minConfidence);
+      signal.confidence < minConf ||
+      (signal.warnings.length > 0 && signal.trendAlignment < 50);
 
     const mtfBreakdown = signal.timeframes
       .map(

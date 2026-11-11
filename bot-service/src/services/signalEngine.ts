@@ -727,6 +727,12 @@ export class SignalEngine {
       }
     }
 
+    // Chop on 1h/15m must not print LONG 100% and veto dump shorts.
+    if (dumpShorts && direction === 'LONG' && trend !== 'UP') {
+      direction = 'HOLD';
+      confidence = 50;
+    }
+
     return {
       timeframe,
       direction,

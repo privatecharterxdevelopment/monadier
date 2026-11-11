@@ -204,11 +204,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
         return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
       }
-      if (pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
-        const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
-        logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
-        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
-      }
+      // Dump shorts live at the low of the range — do not block them.
       if (rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
         const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;
         logger.info('Pre-open 20-candle block', { coin, direction: dir, summary });
