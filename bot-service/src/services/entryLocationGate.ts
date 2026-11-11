@@ -6,6 +6,20 @@
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import {
+  confirmedBreakdownThroughPriorSupport,
+  isShortDumpContinuation,
+} from './shortDumpStructure';
+
+export type LocationBlockCode =
+  | 'LOCATION_BREAKOUT'
+  | 'LOCATION_PULLBACK'
+  | 'LOCATION_RESISTANCE'
+  | 'LOCATION_BREAKDOWN'
+  | 'LOCATION_DUMP_CONTINUATION'
+  | 'LOCATION_SUPPORT'
+  | 'LOCATION_OK'
+  | 'LOCATION_SKIP_DATA';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -25,6 +39,7 @@ export type SrZoneAnalysis = {
 
 export type EntryLocationResult = {
   ok: boolean;
+  code: LocationBlockCode;
   reason: string;
   analysis: SrZoneAnalysis;
 };
@@ -218,6 +233,7 @@ export function evaluateEntryLocation(
     if (analysis.confirmedBreakoutUp) {
       return {
         ok: true,
+        code: 'LOCATION_BREAKOUT',
         analysis,
         reason: `Breakout above resistance ${fmtLevel(analysis.resistance)} confirmed`,
       };
@@ -226,6 +242,7 @@ export function evaluateEntryLocation(
     if (analysis.pricePosition <= cfg.pullbackMaxPosition) {
       return {
         ok: true,
+        code: 'LOCATION_PULLBACK',
         analysis,
         reason: `Pullback entry (${(analysis.pricePosition * 100).toFixed(0)}% of range, support ${fmtLevel(analysis.support)})`,
       };
@@ -236,6 +253,7 @@ export function evaluateEntryLocation(
       if (failedTests >= cfg.minRejectionsToBlock) {
         return {
           ok: false,
+          code: 'LOCATION_RESISTANCE',
           analysis,
           reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× (need break above or pullback to support)`,
         };
@@ -243,6 +261,7 @@ export function evaluateEntryLocation(
       if (failedTests >= 1 || analysis.pricePosition >= cfg.rangeTopBlock) {
         return {
           ok: false,
+          code: 'LOCATION_RESISTANCE',
           analysis,
           reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} without breakout (${failedTests} rejection${failedTests === 1 ? '' : 's'})`,
         };
@@ -251,6 +270,7 @@ export function evaluateEntryLocation(
 
     return {
       ok: true,
+      code: 'LOCATION_OK',
       analysis,
       reason: `Entry ok — ${(analysis.pricePosition * 100).toFixed(0)}% of range (R ${fmtLevel(analysis.resistance)})`,
     };
@@ -259,14 +279,25 @@ export function evaluateEntryLocation(
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
+      code: 'LOCATION_BREAKDOWN',
       analysis,
       reason: `Breakdown below support ${fmtLevel(analysis.support)} confirmed`,
+    };
+  }
+
+  if (analysis.dumpContinuation) {
+    return {
+      ok: true,
+      code: 'LOCATION_DUMP_CONTINUATION',
+      analysis,
+      reason: `Dump continuation below support ${fmtLevel(analysis.support)} — SHORT allowed`,
     };
   }
 
   if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) {
     return {
       ok: true,
+      code: 'LOCATION_PULLBACK',
       analysis,
       reason: `Pullback short (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
     };
@@ -277,6 +308,7 @@ export function evaluateEntryLocation(
     if (failedTests >= cfg.minRejectionsToBlock) {
       return {
         ok: false,
+        code: 'LOCATION_SUPPORT',
         analysis,
         reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
       };
@@ -284,6 +316,7 @@ export function evaluateEntryLocation(
     if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
       return {
         ok: false,
+        code: 'LOCATION_SUPPORT',
         analysis,
         reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
       };
@@ -292,6 +325,7 @@ export function evaluateEntryLocation(
 
   return {
     ok: true,
+    code: 'LOCATION_OK',
     analysis,
     reason: `Entry ok — ${(analysis.pricePosition * 100).toFixed(0)}% of range (S ${fmtLevel(analysis.support)})`,
   };
@@ -308,6 +342,7 @@ export async function validateEntryLocation(opts: {
   if (candles15.length < 12 || candles5.length < 12) {
     return {
       ok: true,
+      code: 'LOCATION_SKIP_DATA',
       reason: 'insufficient candle history — location check skipped',
       analysis: {
         support: 0,
@@ -327,5 +362,12 @@ export async function validateEntryLocation(opts: {
   }
 
   const sr = analyzeSrZones(candles5, candles15);
+  sr.dumpContinuation = isShortDumpContinuation({
+    candles15m: candles15,
+    candles5m: candles5,
+  });
+  if (!sr.confirmedBreakdown && confirmedBreakdownThroughPriorSupport(candles15)) {
+    sr.confirmedBreakdown = true;
+  }
   return evaluateEntryLocation(opts.direction, sr);
 }

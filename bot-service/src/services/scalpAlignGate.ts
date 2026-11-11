@@ -5,8 +5,17 @@ import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 
+export type ScalpBlockCode =
+  | 'SCALP_DISABLED'
+  | 'SCALP_1M_MISALIGN'
+  | 'SCALP_5M_MISALIGN'
+  | 'SCALP_1M_CONFIRM'
+  | 'SCALP_FETCH_ERROR'
+  | 'SCALP_PASS';
+
 export type ScalpAlignResult = {
   ok: boolean;
+  code: ScalpBlockCode;
   reason: string;
   tf1m?: string;
   tf5m?: string;
@@ -27,7 +36,7 @@ export async function validateScalpAlignment(opts: {
 }): Promise<ScalpAlignResult> {
   const cfg = config.hyperliquid.scalpOpen;
   if (!cfg.require1m5mAlign) {
-    return { ok: true, reason: 'Scalp align — check disabled' };
+    return { ok: true, code: 'SCALP_DISABLED', reason: 'Scalp align — check disabled' };
   }
 
   const coin = opts.coin.toUpperCase();
@@ -47,6 +56,7 @@ export async function validateScalpAlignment(opts: {
     if (tf1m.direction !== opts.direction || tf1m.confidence < minConf) {
       return {
         ok: false,
+        code: 'SCALP_1M_MISALIGN',
         reason: `Scalp blocked — ${coin} ${opts.direction} needs 1m aligned (got ${label1m})`,
         tf1m: label1m,
         tf5m: label5m,
@@ -56,6 +66,7 @@ export async function validateScalpAlignment(opts: {
     if (tf5m.direction !== opts.direction || tf5m.confidence < minConf) {
       return {
         ok: false,
+        code: 'SCALP_5M_MISALIGN',
         reason: `Scalp blocked — ${coin} ${opts.direction} needs 5m aligned (got ${label5m})`,
         tf1m: label1m,
         tf5m: label5m,
@@ -65,6 +76,7 @@ export async function validateScalpAlignment(opts: {
     if (!lastNCandlesMove(c1m, cfg.minConfirm1mCandles, opts.direction)) {
       return {
         ok: false,
+        code: 'SCALP_1M_CONFIRM',
         reason: `Scalp blocked — ${coin} ${opts.direction} needs ${cfg.minConfirm1mCandles}× 1m candles confirming`,
         tf1m: label1m,
         tf5m: label5m,
@@ -73,6 +85,7 @@ export async function validateScalpAlignment(opts: {
 
     return {
       ok: true,
+      code: 'SCALP_PASS',
       reason: `Scalp aligned — ${coin} ${opts.direction} · 1m ${label1m} · 5m ${label5m}`,
       tf1m: label1m,
       tf5m: label5m,
@@ -81,6 +94,7 @@ export async function validateScalpAlignment(opts: {
     const msg = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
+      code: 'SCALP_FETCH_ERROR',
       reason: `Scalp align check failed — open blocked (${msg.slice(0, 60)})`,
     };
   }

@@ -11,6 +11,7 @@ export type ExecutionDiagnostic = {
   scanPassed: boolean;
   gatesPassed: string[];
   blockedBy: string | null;
+  blockedCode: string | null;
   blockedReason: string | null;
   orderSent: boolean;
   fillConfirmed: boolean;
@@ -33,6 +34,7 @@ function empty(coin = ''): ExecutionDiagnostic {
     scanPassed: false,
     gatesPassed: [],
     blockedBy: null,
+    blockedCode: null,
     blockedReason: null,
     orderSent: false,
     fillConfirmed: false,

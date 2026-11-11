@@ -7,8 +7,11 @@ import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 
+export type EntryMomentumBlockCode = 'MOMENTUM_WEAK' | 'MOMENTUM_FETCH_ERROR' | 'MOMENTUM_PASS';
+
 export type EntryMomentumResult = {
   ok: boolean;
+  code: EntryMomentumBlockCode;
   reason: string;
   change5mPct: number;
   change15mPct: number;
@@ -76,9 +79,18 @@ export async function validateEntryMomentum(opts: {
         `Entry blocked — ${opts.direction} ${coin} needs live momentum (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, ` +
         `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%) — ` +
         `need 5m/15m ${opts.direction === 'LONG' ? 'up' : 'down'} + ${cfg.minConfirmCandles5m}× 5m candles confirming`;
-      logger.info('Entry momentum gate blocked', { coin, direction: opts.direction, change5mPct, change15mPct });
+      logger.info('Entry momentum gate blocked', {
+        coin,
+        direction: opts.direction,
+        gate: 'entry_momentum',
+        code: 'MOMENTUM_WEAK',
+        change5mPct,
+        change15mPct,
+        change1hPct,
+      });
       return {
         ok: false,
+        code: 'MOMENTUM_WEAK',
         reason,
         change5mPct,
         change15mPct,
@@ -89,6 +101,7 @@ export async function validateEntryMomentum(opts: {
 
     return {
       ok: true,
+      code: 'MOMENTUM_PASS',
       reason:
         `Entry momentum OK ${opts.direction} ${coin} — 5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}% · ` +
         `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% · 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%`,
@@ -101,6 +114,7 @@ export async function validateEntryMomentum(opts: {
     const msg = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
+      code: 'MOMENTUM_FETCH_ERROR',
       reason: `Entry momentum check failed — open blocked (${msg.slice(0, 60)})`,
       change5mPct: 0,
       change15mPct: 0,

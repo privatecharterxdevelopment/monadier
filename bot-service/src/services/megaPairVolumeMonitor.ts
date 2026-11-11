@@ -125,11 +125,14 @@ export function getMegaPairVolumeSnapshot(): MegaPairVolumeSnapshot | null {
 /** Gate alt entries against mega-cap volume flow. */
 export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'): {
   ok: boolean;
+  code: 'MEGA_PENDING' | 'MEGA_INFLOW' | 'MEGA_OUTFLOW' | 'MEGA_PASS';
   reason: string;
+  inflowCount?: number;
+  outflowCount?: number;
 } {
   const snap = lastSnapshot;
   if (!snap || snap.pairs.length === 0) {
-    return { ok: true, reason: 'Mega pairs — data pending' };
+    return { ok: true, code: 'MEGA_PENDING', reason: 'Mega pairs — data pending' };
   }
 
   const inflow = snap.pairs.filter((p) => p.flow === 'INFLOW');
@@ -138,19 +141,28 @@ export function validateMegaPairVolumeForDirection(direction: 'LONG' | 'SHORT'):
   if (direction === 'SHORT' && inflow.length >= 2) {
     return {
       ok: false,
+      code: 'MEGA_INFLOW',
       reason: `Mega pair INFLOW blocks SHORT — ${snap.summary}`,
+      inflowCount: inflow.length,
+      outflowCount: outflow.length,
     };
   }
   if (direction === 'LONG' && outflow.length >= 2) {
     return {
       ok: false,
+      code: 'MEGA_OUTFLOW',
       reason: `Mega pair OUTFLOW blocks LONG — ${snap.summary}`,
+      inflowCount: inflow.length,
+      outflowCount: outflow.length,
     };
   }
 
   return {
     ok: true,
+    code: 'MEGA_PASS',
     reason: `Mega pairs OK for ${direction} — ${snap.summary}`,
+    inflowCount: inflow.length,
+    outflowCount: outflow.length,
   };
 }
 
