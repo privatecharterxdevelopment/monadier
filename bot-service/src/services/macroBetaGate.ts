@@ -320,7 +320,6 @@ export async function validateMacroBetaAlignment(opts: {
   }
 }
 
-/** Later gates (pump sweep / perp context) — 21 Jun has no live BTC-lead pump cache. */
 export function btcLeadIsPumping(): boolean {
   return false;
 }

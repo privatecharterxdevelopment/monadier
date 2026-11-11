@@ -7,6 +7,7 @@ import { hlCoinToBinanceSymbol } from './hlSymbols';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
+import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 
@@ -107,6 +108,13 @@ async function scanStandardCoin(
     ) {
       return null;
     }
+    if (analysis.direction === 'SHORT') {
+      const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+      if (!pumpGate.ok) {
+        logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+        return null;
+      }
+    }
     return {
       coin,
       symbol,
@@ -158,6 +166,11 @@ async function scanAggressiveCoin(
           logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
           return null;
         }
+        const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
+        if (!pumpGate.ok) {
+          logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
+          return null;
+        }
       }
       if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
         logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
@@ -189,7 +202,7 @@ async function scanAggressiveCoin(
   }
 }
 
-const SCAN_CACHE_TTL_MS = 12_000;
+const SCAN_CACHE_TTL_MS = 8_000;
 const SCAN_COIN_TIMEOUT_MS = 8_000;
 let scanInFlight: Promise<GlobalScanResult> | null = null;
 
@@ -249,16 +262,18 @@ async function runGlobalHlSignalScan(
 
   await refreshMegaPairVolumeMonitor(universe);
 
-  const standardRaw = await mapPool(coins, concurrency, async (coin) => {
-    const liq = liqByCoin.get(coin);
-    if (!liq) return null;
-    return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-  });
-  const aggressiveRaw = await mapPool(coins, concurrency, async (coin) => {
-    const liq = liqByCoin.get(coin);
-    if (!liq) return null;
-    return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-  });
+  const [standardRaw, aggressiveRaw] = await Promise.all([
+    mapPool(coins, concurrency, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+    }),
+    mapPool(coins, concurrency, async (coin) => {
+      const liq = liqByCoin.get(coin);
+      if (!liq) return null;
+      return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+    }),
+  ]);
 
   const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
@@ -302,7 +317,6 @@ export function globalSignalsForBotMode(
   return scan.standard;
 }
 
-/** UI board — 21 Jun engine has no separate queue; show the scan book. */
 export function boardScanCandidates(scan: GlobalScanResult): GlobalSignalCandidate[] {
   const seen = new Set<string>();
   const out: GlobalSignalCandidate[] = [];

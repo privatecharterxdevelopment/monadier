@@ -273,11 +273,21 @@ export function evaluateEntryLocation(
   }
 
   if (analysis.nearSupport) {
-    return {
-      ok: true,
-      analysis: { ...analysis, dumpContinuation: true },
-      reason: `Dump short at support ${fmtLevel(analysis.support)} (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
-    };
+    const failedTests = analysis.supportRejections;
+    if (failedTests >= cfg.minRejectionsToBlock) {
+      return {
+        ok: false,
+        analysis,
+        reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
+      };
+    }
+    if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
+      return {
+        ok: false,
+        analysis,
+        reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
+      };
+    }
   }
 
   return {

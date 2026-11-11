@@ -25,9 +25,9 @@ export type DynamicTrailRecord = {
   estimatedFeesUsd: number;
   lastTrailDistancePx: number;
   timeInProfitMs: number;
+  lossSlArmed?: boolean;
   trailCloseDeferUntil?: number | null;
   trailCloseDeferCount?: number;
-  lossSlArmed?: boolean;
 };
 
 export type TrailTickInput = {
@@ -43,11 +43,9 @@ export type TrailTickInput = {
   record: DynamicTrailRecord | null;
   totalHoldMs?: number;
   stopLossPct?: number;
+  fundingUsd?: number;
   tickSize?: number;
   szDecimals?: number;
-  fundingUsd?: number;
-  trailCloseDeferred?: boolean;
-  trailDistanceMult?: number;
 };
 
 export type TrailTickResult = {
@@ -106,6 +104,29 @@ export function shouldArmProfitProtection(
   return pnlUsd >= feesUsd * cfg.armFeesMultiplier || roe >= cfg.armMinRoePct;
 }
 
+export function breakevenPlusFeesStopPx(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  absSize: number,
+  feesUsd: number,
+  fundingUsd = 0,
+  notionalUsd = 0,
+  tickSize = 0,
+  _szDecimals = 0
+): number {
+  void fundingUsd;
+  void notionalUsd;
+  void tickSize;
+  void _szDecimals;
+  const cfg = config.hyperliquid.dynamicTrail;
+  const bufferUsd = Math.max(
+    feesUsd * cfg.breakevenBufferFeesMult,
+    entryPrice * absSize * (cfg.breakevenBufferPct / 100)
+  );
+  const move = (feesUsd + bufferUsd) / absSize;
+  return direction === 'LONG' ? entryPrice + move : entryPrice - move;
+}
+
 function updateFavorableExtreme(
   direction: 'LONG' | 'SHORT',
   current: number,
@@ -115,7 +136,7 @@ function updateFavorableExtreme(
   return Math.min(current, mark);
 }
 
-export function ratchetStop(
+function ratchetStop(
   direction: 'LONG' | 'SHORT',
   currentStop: number | null,
   candidate: number
@@ -124,63 +145,6 @@ export function ratchetStop(
   return direction === 'LONG'
     ? Math.max(currentStop, candidate)
     : Math.min(currentStop, candidate);
-}
-
-/** Protective side of mark: LONG below, SHORT above — never already triggered. */
-function capTrailDistanceToRun(
-  direction: 'LONG' | 'SHORT',
-  extremePx: number,
-  entryPx: number,
-  markPx: number,
-  trailDist: number,
-  tickSize?: number
-): number {
-  const gap = minProfitTrailGapPx(markPx, tickSize ?? 0);
-  const run =
-    direction === 'LONG'
-      ? Math.max(0, extremePx - entryPx)
-      : Math.max(0, entryPx - extremePx);
-  if (run <= 0) return Math.max(trailDist, gap);
-  return Math.max(gap, Math.min(trailDist, run * 0.75));
-}
-
-function trailStopFromExtreme(
-  direction: 'LONG' | 'SHORT',
-  extremePx: number,
-  trailDist: number
-): number {
-  const dist = Math.max(trailDist, 0);
-  return direction === 'LONG' ? extremePx - dist : extremePx + dist;
-}
-
-/**
- * June trail: follow the run by ATR/%, but keep the stop on the profit side of
- * entry when there is room, and never park it through live mark.
- */
-function juneTrailStopPx(opts: {
-  direction: 'LONG' | 'SHORT';
-  extremePx: number;
-  entryPx: number;
-  markPx: number;
-  trailDist: number;
-  tickSize?: number;
-}): number {
-  const gap = minProfitTrailGapPx(opts.markPx, opts.tickSize ?? 0);
-  const raw = trailStopFromExtreme(opts.direction, opts.extremePx, opts.trailDist);
-  if (opts.direction === 'LONG') {
-    const maxStop = opts.markPx - gap;
-    const minProfit = opts.entryPx + gap;
-    if (maxStop > minProfit) {
-      return Math.min(Math.max(raw, minProfit), maxStop);
-    }
-    return maxStop;
-  }
-  const minStop = opts.markPx + gap;
-  const maxProfit = opts.entryPx - gap;
-  if (maxProfit > minStop) {
-    return Math.max(Math.min(raw, maxProfit), minStop);
-  }
-  return minStop;
 }
 
 export function isTrailStopCrossed(
@@ -306,15 +270,9 @@ export async function evaluateDynamicTrail(
     rec.timeInProfitMs = 0;
   }
 
-  const minHoldMs = Math.max(5_000, cfg.armMinProfitHoldMs || 5_000);
-  const minActiveMs = Math.max(5_000, cfg.trailMinActiveBeforeCloseMs || 5_000);
-
-  // Phase 1 — idle: green long enough, then park a stop *behind* mark (June ATR trail).
+  // Phase 1 — idle: no stop until arm threshold.
   if (rec.phase === 'idle') {
-    if (
-      !shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd) ||
-      rec.timeInProfitMs < minHoldMs
-    ) {
+    if (!shouldArmProfitProtection(input.pnlUsd, input.collateralUsd, feesUsd)) {
       return {
         record: rec,
         shouldClose: false,
@@ -323,79 +281,42 @@ export async function evaluateDynamicTrail(
       };
     }
 
-    const trailDist = capTrailDistanceToRun(
+    const initialStop = breakevenPlusFeesStopPx(
       input.direction,
-      rec.highestPriceSinceEntry,
       input.entryPrice,
-      input.markPrice,
-      await resolveTrailDistancePx(input.coin, input.markPrice),
-      input.tickSize
+      input.absSize,
+      feesUsd
     );
-    rec.lastTrailDistancePx = trailDist;
     rec.phase = 'armed';
     rec.trailArmedAt = input.nowMs;
-    rec.currentTrailStop = juneTrailStopPx({
-      direction: input.direction,
-      extremePx: rec.highestPriceSinceEntry,
-      entryPx: input.entryPrice,
-      markPx: input.markPrice,
-      trailDist,
-      tickSize: input.tickSize,
-    });
+    rec.currentTrailStop = initialStop;
     rec.estimatedFeesUsd = feesUsd;
-    logger.info('HL dynamic trail armed (behind mark, 5s fuse)', {
+    logger.info('HL dynamic trail armed', {
       coin: input.coin,
       direction: input.direction,
       entry: input.entryPrice.toFixed(6),
-      mark: input.markPrice.toFixed(6),
-      initialStop: rec.currentTrailStop.toFixed(6),
-      trailDist: trailDist.toFixed(6),
+      initialStop: initialStop.toFixed(6),
       pnlUsd: input.pnlUsd.toFixed(4),
       roe: roePct(input.pnlUsd, input.collateralUsd).toFixed(2),
-      timeInProfitMs: rec.timeInProfitMs,
     });
-    return {
-      record: rec,
-      shouldClose: false,
-      exitReason: '',
-      closeDetail: '',
-    };
   }
 
-  // Ratchet with the run. SHORT stop stays above mark and walks down; LONG below and walks up.
+  // Phase 3 — ratchet trail (only moves in profit direction).
   if ((rec.phase === 'armed' || rec.phase === 'trailing') && rec.currentTrailStop != null) {
     rec.phase = 'trailing';
-    const trailDist = capTrailDistanceToRun(
-      input.direction,
-      rec.highestPriceSinceEntry,
-      input.entryPrice,
-      input.markPrice,
-      await resolveTrailDistancePx(input.coin, input.markPrice),
-      input.tickSize
-    );
+    const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
     rec.lastTrailDistancePx = trailDist;
-    let trailCandidate = trailStopFromExtreme(
-      input.direction,
-      rec.highestPriceSinceEntry,
-      trailDist
-    );
-    const gap = minProfitTrailGapPx(input.markPrice, input.tickSize ?? 0);
-    trailCandidate =
+    const trailCandidate =
       input.direction === 'LONG'
-        ? Math.max(trailCandidate, input.entryPrice + gap)
-        : Math.min(trailCandidate, input.entryPrice - gap);
+        ? rec.highestPriceSinceEntry - trailDist
+        : rec.highestPriceSinceEntry + trailDist;
     rec.currentTrailStop = ratchetStop(
       input.direction,
       rec.currentTrailStop,
       trailCandidate
     );
 
-    const armedFor =
-      rec.trailArmedAt != null ? input.nowMs - rec.trailArmedAt : 0;
-    if (
-      armedFor >= minActiveMs &&
-      isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)
-    ) {
+    if (isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop)) {
       const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
       return {
         record: rec,
@@ -428,37 +349,8 @@ export function profitProtectionStage(
 }
 
 export function minProfitTrailGapPx(markPrice: number, tickSize = 0): number {
-  const cfg = config.hyperliquid.dynamicTrail;
-  const bps = Math.max(0, cfg.minProfitTrailGapBps || 8);
-  const fromBps = markPrice * (bps / 10_000);
   const fromTick = Math.max(0, tickSize) * 2;
-  return Math.max(fromBps, fromTick, markPrice * 0.0004);
-}
-
-export function breakevenPlusFeesStopPx(
-  direction: 'LONG' | 'SHORT',
-  entryPrice: number,
-  absSize: number,
-  feesUsd: number,
-  fundingUsd = 0,
-  notionalUsd = 0,
-  tickSize = 0,
-  _szDecimals = 0
-): number {
-  if (!(entryPrice > 0) || !(absSize > 0)) {
-    return direction === 'LONG' ? Number.POSITIVE_INFINITY : 0;
-  }
-  const cfg = config.hyperliquid.dynamicTrail;
-  const notional = notionalUsd > 0 ? notionalUsd : entryPrice * absSize;
-  const slipUsd = notional * (Math.max(0, cfg.slippageBufferBps || 0) / 10_000);
-  const pctBuf = notional * (cfg.breakevenBufferPct / 100);
-  const feeBuf = Math.max(0, feesUsd) * cfg.breakevenBufferFeesMult;
-  const extra = Math.max(slipUsd, pctBuf, feeBuf);
-  const fundingCost = Math.max(0, -fundingUsd);
-  const move = (Math.max(0, feesUsd) + extra + fundingCost) / absSize;
-  const raw = direction === 'LONG' ? entryPrice + move : entryPrice - move;
-  void tickSize;
-  return raw;
+  return Math.max(fromTick, markPrice * 0.0004);
 }
 
 export function lockedPnlAtStopPx(
@@ -502,27 +394,21 @@ export function shouldArmBreakevenProtection(input: {
   tickSize?: number;
   szDecimals?: number;
 }): boolean {
-  void input.notionalUsd;
-  void input.fundingUsd;
-  void input.tickSize;
-  void input.szDecimals;
-  const minHold = Math.max(5_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs || 5_000);
-  if ((input.timeInProfitMs ?? 0) < minHold) return false;
-  return shouldArmProfitProtection(
-    input.pnlUsd,
-    input.collateralUsd ?? 0,
-    input.feesUsd
-  );
+  return shouldArmProfitProtection(input.pnlUsd, input.collateralUsd ?? 0, input.feesUsd);
 }
 
 export function resolveEffectiveTrailProfile(leverage = 1) {
-  const trail = config.hyperliquid.dynamicTrail;
+  const trail = config.hyperliquid.dynamicTrail as typeof config.hyperliquid.dynamicTrail & {
+    breakevenArmRoePct?: number;
+    armMinProfitHoldMs?: number;
+    trailMinActiveBeforeCloseMs?: number;
+  };
   return {
-    breakevenArmRoePct: trail.breakevenArmRoePct,
+    breakevenArmRoePct: trail.breakevenArmRoePct ?? trail.armMinRoePct,
     armMinRoePct: trail.armMinRoePct,
     armFeesMultiplier: trail.armFeesMultiplier,
-    armMinProfitHoldMs: trail.armMinProfitHoldMs,
-    trailMinActiveBeforeCloseMs: trail.trailMinActiveBeforeCloseMs,
+    armMinProfitHoldMs: trail.armMinProfitHoldMs ?? 0,
+    trailMinActiveBeforeCloseMs: trail.trailMinActiveBeforeCloseMs ?? 0,
     majorTrailPct: trail.majorTrailPct,
     midTrailPct: trail.midTrailPct,
     cautiousTrailPct: trail.cautiousTrailPct,

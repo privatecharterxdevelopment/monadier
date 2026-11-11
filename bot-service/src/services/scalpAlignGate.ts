@@ -44,12 +44,10 @@ export async function validateScalpAlignment(opts: {
     const label1m = `${tf1m.direction} ${Math.round(tf1m.confidence)}%`;
     const label5m = `${tf5m.direction} ${Math.round(tf5m.confidence)}%`;
 
-    const entryTf = opts.direction === 'SHORT' ? tf5m : tf1m;
-    const entryLabel = opts.direction === 'SHORT' ? label5m : label1m;
-    if (entryTf.direction !== opts.direction || entryTf.confidence < minConf) {
+    if (tf1m.direction !== opts.direction || tf1m.confidence < minConf) {
       return {
         ok: false,
-        reason: `Scalp blocked — ${coin} ${opts.direction} needs ${opts.direction === 'SHORT' ? '5m' : '1m'} aligned (got ${entryLabel})`,
+        reason: `Scalp blocked — ${coin} ${opts.direction} needs 1m aligned (got ${label1m})`,
         tf1m: label1m,
         tf5m: label5m,
       };
@@ -64,13 +62,10 @@ export async function validateScalpAlignment(opts: {
       };
     }
 
-    if (
-      opts.direction === 'LONG' &&
-      !lastNCandlesMove(c1m, cfg.minConfirm1mCandles, opts.direction)
-    ) {
+    if (!lastNCandlesMove(c1m, cfg.minConfirm1mCandles, opts.direction)) {
       return {
         ok: false,
-        reason: `Scalp blocked — ${coin} LONG needs ${cfg.minConfirm1mCandles}× 1m candles confirming`,
+        reason: `Scalp blocked — ${coin} ${opts.direction} needs ${cfg.minConfirm1mCandles}× 1m candles confirming`,
         tf1m: label1m,
         tf5m: label5m,
       };

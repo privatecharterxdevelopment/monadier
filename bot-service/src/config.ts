@@ -110,7 +110,7 @@ export const config = {
   /** hyperliquid only — GMX vault path removed */
   executionVenue: 'hyperliquid' as const,
   /** Open/scan/trail core restored from git dcb096f (21 Jun 2026 23:40 GST). */
-  tradingEngineSnapshot: 'dcb096f-21jun',
+  tradingEngineSnapshot: 'dcb096f-21jun-restored',
 
   hyperliquid: {
     /**
@@ -128,9 +128,9 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     /** Global scan — min combined MTF confidence to qualify. */
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 52),
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 62),
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
     minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
     /** Live BTC regime (or forced env). Always read via getter — never freeze at boot.
@@ -209,7 +209,7 @@ export const config = {
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 40),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -541,9 +541,9 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 40),
-      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
-      require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M === 'true',
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 12),
+      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
+      require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
       minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 3),
     },
@@ -580,9 +580,9 @@ export const config = {
     },
     /** Stricter scan thresholds for mass-driven alts. */
     cautiousScan: {
-      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 52),
-      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 2),
-      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 50),
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
+      minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
+      minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {

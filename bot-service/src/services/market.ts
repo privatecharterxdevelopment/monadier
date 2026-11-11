@@ -1203,12 +1203,9 @@ export async function analyzeMarketMTFBySymbol(
       else finalDirection = longVotes >= shortVotes ? 'LONG' : 'SHORT';
     }
 
-    const directionalTfCount = signal.timeframes.filter((tf) => {
-      if (tf.direction === finalDirection) return true;
-      if (finalDirection === 'SHORT' && tf.trend === 'DOWN') return true;
-      if (finalDirection === 'LONG' && tf.trend === 'UP') return true;
-      return false;
-    }).length;
+    const directionalTfCount = signal.timeframes.filter(
+      (tf) => tf.direction === finalDirection
+    ).length;
     const counterTrend =
       (finalDirection === 'LONG' && trend === 'DOWN') ||
       (finalDirection === 'SHORT' && trend === 'UP');
@@ -1217,14 +1214,12 @@ export async function analyzeMarketMTFBySymbol(
       signal.trendAlignment >= config.hyperliquid.minTrendAlignment &&
       !counterTrend;
 
-    const minConf = Math.min(
-      strategyConfig.minConfidence,
-      config.hyperliquid.minSignalConfidence
-    );
     const isWeak =
       !trendAligned ||
-      signal.confidence < minConf ||
-      (signal.warnings.length > 0 && signal.trendAlignment < 50);
+      (strategyConfig.minConfidence >= 40
+        ? signal.confidence < strategyConfig.minConfidence ||
+          (signal.warnings.length > 0 && signal.trendAlignment < 50)
+        : signal.confidence < strategyConfig.minConfidence);
 
     const mtfBreakdown = signal.timeframes
       .map(

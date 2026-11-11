@@ -161,5 +161,5 @@ export function megaPairVolumeOpenReasonLine(): string {
 }
 
 export function isMacroRiskOffEnvironment(): { active: boolean; reason: string } {
-  return { active: false, reason: '21 Jun engine — no macro risk-off overlay' };
+  return { active: false, reason: '' };
 }
