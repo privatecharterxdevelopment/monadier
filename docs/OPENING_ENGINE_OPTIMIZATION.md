@@ -4,6 +4,8 @@ Date: 2026-11-11 (Asia/Dubai). **No gate code changed. No Railway deploy.**
 
 Live Railway at audit time: `GET /health` `gitCommit=9e605a3`, `globalSignals=0`, `reentryCooldownMs=0`, profile `bear_market`. Workspace is later (`6f32293`) on SL/trailing only; the open path below is the restored 21 Jun engine.
 
+**Status (implemented in repo, not deployed):** items 1–6 from the agreed list. SL/trail, leverage, size, and max 2 slots unchanged. Railway not updated.
+
 **Verdict for this phase:** starvation is mostly **scan + unused profile + unused aggressive book**, not the 10-minute wallet cooldown. Bad fills are **chase / HTF location / missing same-coin anti-churn**, plus two major SHORT liquidations into a bounce.
 
 ---

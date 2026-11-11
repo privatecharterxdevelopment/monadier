@@ -9,9 +9,15 @@ import { isBotTradeCoin } from './botTradeUniverse';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
-import { validateNoAltPumpShort } from './pumpShortGate';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
+import { isLongAllowedCoin } from './longAllowlist';
+import {
+  evaluateBearLongOpportunity,
+  votesFromTfMap,
+  type BearLongVotes,
+} from './bearReversalLong';
+import type { LongOpportunityClass } from './hlExecutionState';
 
 export type BotSignalMode = 'standard' | 'aggressive';
 
@@ -36,6 +42,14 @@ export type GlobalSignalCandidate = {
   signalReasons?: string[];
   indicators?: string[];
   queueable?: boolean;
+  longClass?: LongOpportunityClass;
+  reversalCode?: string | null;
+};
+
+export type HlScanSkip = {
+  coin: string;
+  mode: BotSignalMode;
+  reason: string;
 };
 
 const STANDARD_STRATEGY: TradingStrategy = 'normal';
@@ -70,6 +84,74 @@ export let lastHlGlobalScanStats: HlGlobalScanStats = {
 };
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
+export let lastHlScanSkips: HlScanSkip[] = [];
+
+function pushSkip(coin: string, mode: BotSignalMode, reason: string): null {
+  lastHlScanSkips.push({ coin: coin.toUpperCase(), mode, reason });
+  return null;
+}
+
+export function h1AllowsShort(h1Trend: string | undefined | null): boolean {
+  const t = String(h1Trend ?? '').toUpperCase();
+  if (!t) return false;
+  if (t.includes('UP')) return false;
+  return true;
+}
+
+export function isOpenableLongCandidate(
+  candidate: Pick<GlobalSignalCandidate, 'direction' | 'longClass' | 'reversalCode'>
+): boolean {
+  if (candidate.direction !== 'LONG') return false;
+  const cls = candidate.longClass;
+  if (cls === 'TREND_LONG' || cls === 'REVERSAL_LONG') return true;
+  return false;
+}
+
+/** SHORT-primary queue: SHORTs always queue; LONGs only if classified and MTF did not pick SHORT. */
+export function isScanQueueable(
+  candidate: GlobalSignalCandidate,
+  mtfPick: GlobalSignalCandidate | null,
+  _shortPrimary: GlobalSignalCandidate | null
+): boolean {
+  if (candidate.direction === 'SHORT') return true;
+  if (candidate.direction !== 'LONG') return false;
+  if (!isOpenableLongCandidate(candidate)) return false;
+  if (mtfPick && mtfPick.direction === 'SHORT' && mtfPick.coin === candidate.coin) {
+    return false;
+  }
+  return true;
+}
+
+function votesFromBreakdown(
+  breakdown: string | undefined,
+  h1Trend: string | undefined
+): BearLongVotes {
+  const map: Partial<Record<string, string>> = {};
+  if (h1Trend) map['1h'] = h1Trend;
+  for (const part of String(breakdown ?? '').split('·')) {
+    const m = part.trim().match(/^(1m|5m|15m|1h|4h)\s+([A-Za-z_]+)/i);
+    if (m) map[m[1].toLowerCase()] = m[2];
+  }
+  return votesFromTfMap(map);
+}
+
+function shortScanBars() {
+  const rules = config.hyperliquid.directionProfile.short;
+  return {
+    minConf: rules.minConfidence ?? config.hyperliquid.minSignalConfidence,
+    minAlign: rules.minTrendAlignment ?? config.hyperliquid.minTrendAlignment,
+    minTfs: rules.minDirectionalTfs ?? config.hyperliquid.minDirectionalTfs,
+  };
+}
+
+function longScanBars() {
+  const rules = config.hyperliquid.directionProfile.long;
+  return {
+    minConf: rules.minConfidence ?? config.hyperliquid.minSignalConfidence,
+    minAlign: rules.minTrendAlignment ?? config.hyperliquid.minTrendAlignment,
+    minTfs: rules.minDirectionalTfs ?? config.hyperliquid.minDirectionalTfs,
+  };
+}
 
 async function scanStandardCoin(
   coin: string,
@@ -77,54 +159,60 @@ async function scanStandardCoin(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalSignalCandidate | null> {
   try {
-    if (!isBotTradeCoin(coin)) return null;
+    if (!isBotTradeCoin(coin)) return pushSkip(coin, 'standard', 'not in bot universe');
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
-    if (!analysis || analysis.isWeak) return null;
-    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') return null;
+    if (!analysis) return pushSkip(coin, 'standard', 'no MTF analysis');
+    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') {
+      return pushSkip(coin, 'standard', `direction ${String(analysis.direction)}`);
+    }
+    const bars = analysis.direction === 'SHORT' ? shortScanBars() : longScanBars();
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier);
     const minConf = cautious
-      ? config.hyperliquid.cautiousScan.minSignalConfidence
-      : config.hyperliquid.minSignalConfidence;
-    if (analysis.confidence < minConf) return null;
+      ? Math.max(bars.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
+      : bars.minConf;
+    if (analysis.confidence < minConf) {
+      return pushSkip(coin, 'standard', `conf ${analysis.confidence}% < ${minConf}%`);
+    }
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
-        return null;
-      }
-      if (
-        (analysis.metrics?.directionalTfCount ?? 0) <
-        config.hyperliquid.cautiousScan.minDirectionalTfs
-      ) {
-        return null;
-      }
-      if (
-        (analysis.metrics?.trendAlignment ?? 0) <
-        config.hyperliquid.cautiousScan.minTrendAlignment
-      ) {
-        return null;
+        return pushSkip(coin, 'standard', pumpSkip.reason);
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < config.hyperliquid.minDirectionalTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < config.hyperliquid.minTrendAlignment) return null;
-    if (
-      (analysis.direction === 'LONG' && analysis.metrics?.h1Trend === 'DOWN') ||
-      (analysis.direction === 'SHORT' &&
-        (/UP/i.test(String(analysis.metrics?.h1Trend ?? '')) ||
-          analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
-    ) {
-      return null;
+    const tfCount = analysis.metrics?.directionalTfCount ?? 0;
+    const align = analysis.metrics?.trendAlignment ?? 0;
+    if (tfCount < bars.minTfs) {
+      return pushSkip(coin, 'standard', `tfs ${tfCount} < ${bars.minTfs}`);
     }
-    if (analysis.direction === 'SHORT') {
-      const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-      if (!pumpGate.ok) {
-        logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
-        return null;
+    if (align < bars.minAlign) {
+      return pushSkip(coin, 'standard', `align ${align}% < ${bars.minAlign}%`);
+    }
+    if (analysis.direction === 'SHORT' && !h1AllowsShort(analysis.metrics?.h1Trend)) {
+      return pushSkip(coin, 'standard', `1h ${analysis.metrics?.h1Trend ?? ''} blocks SHORT`);
+    }
+
+    let longClass: LongOpportunityClass | undefined;
+    let reversalCode: string | null = null;
+    if (analysis.direction === 'LONG') {
+      if (!isLongAllowedCoin(coin)) {
+        return pushSkip(coin, 'standard', 'LONG not on allowlist');
+      }
+      const cls = await evaluateBearLongOpportunity({
+        coin,
+        votes: votesFromBreakdown(analysis.mtfBreakdown, analysis.metrics?.h1Trend),
+        confidence: analysis.confidence,
+      });
+      longClass = cls.class;
+      reversalCode = cls.code;
+      if (!isOpenableLongCandidate({ direction: 'LONG', longClass, reversalCode })) {
+        return pushSkip(coin, 'standard', cls.reason || 'LONG not TREND/REVERSAL');
       }
     }
-    return {
+
+    const candidate: GlobalSignalCandidate = {
       coin,
       symbol,
       direction: analysis.direction,
@@ -139,9 +227,15 @@ async function scanStandardCoin(
       h1Trend: analysis.metrics?.h1Trend,
       signalReasons: analysis.signalReasons,
       indicators: analysis.indicators,
+      longClass,
+      reversalCode,
+      queueable: true,
     };
-  } catch {
-    return null;
+    candidate.queueable = isScanQueueable(candidate, candidate, null);
+    return candidate;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return pushSkip(coin, 'standard', `scan error ${msg.slice(0, 80)}`);
   }
 }
 
@@ -159,32 +253,31 @@ async function scanAggressiveCoin(
     const minConf = cautious
       ? config.hyperliquid.cautiousScan.minSignalConfidence
       : Math.max(60, config.hyperliquid.minSignalConfidence - 2);
-    if (!scalp || scalp.confidence < minConf) return null;
+    if (!scalp || scalp.confidence < minConf) {
+      return pushSkip(
+        coin,
+        'aggressive',
+        !scalp ? 'no scalp print' : `conf ${scalp.confidence}% < ${minConf}%`
+      );
+    }
 
     if (cautious) {
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL agg scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
-        return null;
+        return pushSkip(coin, 'aggressive', pumpSkip.reason);
       }
     }
 
     const h1Check = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (h1Check) {
-      if (scalp.direction === 'SHORT') {
-        if (/UP/i.test(String(h1Check.metrics?.h1Trend ?? ''))) {
-          logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
-          return null;
-        }
-        const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
-        if (!pumpGate.ok) {
-          logger.debug('HL agg scan skip: pump-short gate', { coin, reason: pumpGate.reason });
-          return null;
-        }
+      if (scalp.direction === 'SHORT' && !h1AllowsShort(h1Check.metrics?.h1Trend)) {
+        logger.debug('HL agg scan skip: 1h trend UP blocks SHORT', { coin });
+        return pushSkip(coin, 'aggressive', `1h ${h1Check.metrics?.h1Trend ?? ''} blocks SHORT`);
       }
       if (scalp.direction === 'LONG' && h1Check.metrics?.h1Trend === 'DOWN') {
         logger.debug('HL agg scan skip: 1h trend DOWN blocks LONG', { coin });
-        return null;
+        return pushSkip(coin, 'aggressive', '1h DOWN blocks LONG');
       }
     }
 
@@ -207,8 +300,9 @@ async function scanAggressiveCoin(
       ],
       indicators: h1Check?.indicators,
     };
-  } catch {
-    return null;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return pushSkip(coin, 'aggressive', `scan error ${msg.slice(0, 80)}`);
   }
 }
 
@@ -253,6 +347,7 @@ async function runGlobalHlSignalScan(
   preloadedUniverse?: HlLiquidUniverse
 ): Promise<GlobalScanResult> {
   const started = Date.now();
+  lastHlScanSkips = [];
   const universe = preloadedUniverse ?? (await fetchHlLiquidUniverse());
   const coins = universe.coins.filter((c) => isBotTradeCoin(c));
   const concurrency = config.scaling.globalScanConcurrency;
@@ -360,7 +455,31 @@ export function globalSignalsForBotMode(
   hlBotStrategy: string | null | undefined
 ): GlobalSignalCandidate[] {
   if (hlBotStrategy === 'profit_grabber') return scan.aggressive;
-  return scan.standard;
+  const minVol = config.hyperliquid.minDayVolumeUsd;
+  const liquid = (rows: GlobalSignalCandidate[]) =>
+    minVol > 0 ? rows.filter((s) => s.dayVolumeUsd >= minVol) : rows;
+
+  const standard = liquid(scan.standard).filter((s) => {
+    if (s.direction === 'SHORT') return true;
+    return isOpenableLongCandidate(s);
+  });
+  const seen = new Set(standard.map((s) => `${s.coin.toUpperCase()}:${s.direction}`));
+  const out = [...standard];
+
+  const borrow =
+    config.hyperliquid.directionProfile.useAggressiveScalpSignals !== false;
+  if (borrow) {
+    for (const s of liquid(scan.aggressive)) {
+      if (s.direction !== 'SHORT') continue;
+      if (!h1AllowsShort(s.h1Trend)) continue;
+      const key = `${s.coin.toUpperCase()}:${s.direction}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+  }
+
+  return out.sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd || b.confidence - a.confidence);
 }
 
 export function boardScanCandidates(scan: GlobalScanResult): GlobalSignalCandidate[] {

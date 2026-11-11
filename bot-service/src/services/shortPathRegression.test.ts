@@ -35,11 +35,14 @@ describe('SHORT path regression vs prior bear engine', () => {
     const wallet = '0x2222222222222222222222222222222222222222';
     rememberCoinClose(wallet, 'SOL', 'LONG', Date.now() - 3 * 60_000);
     const r = isOpenCooldownBlocked(wallet, 'BTC', 'SHORT');
-    assert.equal(r.blocked, true);
-    assert.equal(r.guard, 'wallet');
+    assert.equal(r.blocked, false);
+    assert.equal(r.guard, 'none');
     const wait = evaluateWalletReentry(Date.now() - 3 * 60_000);
-    assert.equal(wait.blocked, true);
-    assert.ok(config.hyperliquid.reentryCooldownMs >= 10 * 60_000);
+    assert.equal(wait.blocked, false);
+    assert.equal(config.hyperliquid.reentryCooldownMs, 0);
+    const sameSol = isOpenCooldownBlocked(wallet, 'SOL', 'LONG');
+    assert.equal(sameSol.blocked, true);
+    assert.equal(sameSol.guard, 'same-coin');
   });
 
   it('REVERSAL_LONG exception does not apply to SHORT', () => {

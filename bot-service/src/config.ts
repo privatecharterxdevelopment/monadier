@@ -147,8 +147,8 @@ export const config = {
     maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
-    /** Bot open floor — 0 = scan all HL perps (21 Jun engine). */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 0),
+    /** Bot open floor — $1M filters thin alts; scan universe is still top-N by volume. */
+    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 1_000_000),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
@@ -209,7 +209,7 @@ export const config = {
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 18),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 40),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
@@ -541,11 +541,12 @@ export const config = {
     },
     /** Scalp opens — top liquid pairs only, fast TF alignment. */
     scalpOpen: {
-      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 12),
+      /** 0 = no rank cap (bear profile). Positive N = top-N by 24h volume. */
+      maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 0),
       allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
-      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 3),
+      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 1),
     },
     /** Mandatory profile-specific structure read immediately before every open. */
     preOpenCandles: {

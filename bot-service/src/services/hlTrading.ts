@@ -5,8 +5,22 @@ import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { isBotTradeCoin } from './botTradeUniverse';
-import { globalSignalsForBotMode, type GlobalSignalCandidate } from './globalMarketScan';
+import {
+  globalSignalsForBotMode,
+  isOpenableLongCandidate,
+  type GlobalSignalCandidate,
+} from './globalMarketScan';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
+import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
+import {
+  isOpenCooldownBlocked,
+  rememberCoinClose,
+  warmCoinCloseCacheForWallet,
+} from './hlCoinCloseGuard';
+import {
+  evaluateEntryLocationQuality,
+  logEntryLocationRecord,
+} from './entryLocationQuality';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -152,6 +166,8 @@ function gateFromOpenError(error: string): HlOpenBlockGate {
   }
   if (e.includes('volume') || e.includes('liquidity')) return 'liquidity';
   if (e.includes('notional')) return 'notional';
+  if (e.includes('cooldown') || e.includes('re-entry') || e.includes('anti-flip')) return 'cooldown';
+  if (e.includes('allowlist')) return 'long_allowlist';
   return 'other';
 }
 
@@ -417,18 +433,33 @@ export class HyperliquidTradingService {
       if (!isOpenDirectionAllowed(signal.direction)) continue;
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
-      if (rank > config.hyperliquid.scalpOpen.maxVolumeRank) {
+      const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
+      if (maxRank > 0 && rank > maxRank) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
-          maxRank: config.hyperliquid.scalpOpen.maxVolumeRank,
+          maxRank,
         });
         continue;
       }
 
       const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
-      if (needsCautionPath(tier) && !config.hyperliquid.scalpOpen.allowCautiousAlts) {
-        logger.debug('HL signal skip: cautious alt (scalp whitelist off)', { coin: signal.coin });
+      if (
+        needsCautionPath(tier) &&
+        !config.hyperliquid.scalpOpen.allowCautiousAlts &&
+        signal.direction !== 'SHORT'
+      ) {
+        logger.debug('HL signal skip: cautious alt LONG (SHORT still allowed)', {
+          coin: signal.coin,
+        });
+        continue;
+      }
+      if (signal.direction === 'LONG' && !isOpenableLongCandidate(signal)) {
+        logger.debug('HL signal skip: LONG not TREND/REVERSAL', { coin: signal.coin });
+        continue;
+      }
+      if (signal.direction === 'LONG' && !isLongAllowedCoin(signal.coin)) {
+        logger.debug('HL signal skip: LONG not on allowlist', { coin: signal.coin });
         continue;
       }
 
@@ -478,6 +509,7 @@ export class HyperliquidTradingService {
     openCoins: string[]
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
+    await warmCoinCloseCacheForWallet(userAddress);
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
@@ -557,6 +589,22 @@ export class HyperliquidTradingService {
       let openedThisSlot = false;
 
       for (const pick of picks) {
+        const cooldown = isOpenCooldownBlocked(userAddress, pick.coin, pick.direction, {
+          reversalLong: pick.longClass === 'REVERSAL_LONG',
+        });
+        if (cooldown.blocked) {
+          lastError = cooldown.reason;
+          noteOpenBlock(userAddress, pick.coin, pick.direction, cooldown.reason ?? 'cooldown', {
+            confidence: pick.confidence,
+          });
+          logger.info('HL open skip: same-coin cooldown', {
+            user: userAddress.slice(0, 10),
+            coin: pick.coin,
+            guard: cooldown.guard,
+            reason: cooldown.reason,
+          });
+          continue;
+        }
         const leverage = Math.min(leverageCap, maxLeverageForCoin(ctx.meta, pick.coin));
         const notionalUsd = collateral * leverage;
         if (notionalUsd < minNotional) {
@@ -672,7 +720,7 @@ export class HyperliquidTradingService {
         });
         setHlExecutionState(opts.userAddress, {
           state: 'BLOCKED',
-          longClass: 'NONE',
+          longClass: opts.pick.longClass ?? 'NONE',
           code: null,
           reason: error,
           coin,
@@ -698,7 +746,20 @@ export class HyperliquidTradingService {
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
-      if (needsCautionPath(coinTier) && opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence) {
+      if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
+        return failOpen(longAllowlistReason(coin));
+      }
+      if (opts.direction === 'LONG' && !isOpenableLongCandidate(opts.pick)) {
+        return failOpen(
+          `LONG blocked — ${coin} is not TREND_LONG or REVERSAL_LONG (${opts.pick.longClass ?? 'NONE'})`
+        );
+      }
+
+      if (
+        needsCautionPath(coinTier) &&
+        opts.direction === 'LONG' &&
+        opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence
+      ) {
         const reason = `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`;
         logger.info('HL open blocked — cautious confidence', {
           user: opts.userAddress.slice(0, 10),
@@ -844,6 +905,27 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'entry_location');
 
+      const htfLocation = await evaluateEntryLocationQuality({
+        coin,
+        direction: opts.direction,
+        markPx,
+      });
+      logEntryLocationRecord({
+        record: htfLocation,
+        finalDecision: htfLocation.deterministicLocationDecision === 'ALLOW' ? 'OPEN' : 'NO_OPEN',
+      });
+      if (htfLocation.deterministicLocationDecision !== 'ALLOW') {
+        logger.info('HL open blocked — HTF entry location', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          reason: htfLocation.reason,
+          blockedBy: htfLocation.blockedBy,
+        });
+        return failOpen(htfLocation.reason);
+      }
+      markGatePassed(opts.userAddress, 'entry_location_quality');
+
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,
         pick: opts.pick,
@@ -879,7 +961,7 @@ export class HyperliquidTradingService {
 
       setHlExecutionState(opts.userAddress, {
         state: 'ORDER_SUBMITTED',
-        longClass: 'NONE',
+        longClass: opts.pick.longClass ?? 'NONE',
         code: null,
         reason: `Submitting ${opts.direction} ${coin}`,
         coin,
@@ -920,7 +1002,7 @@ export class HyperliquidTradingService {
         collateralUsd,
         stopLossPercent: slPct,
         szDecimals,
-        longClass: 'NONE',
+        longClass: opts.pick.longClass ?? 'NONE',
         orderStatus: status ?? null,
         entryTimedOut: false,
         exchange: createHlEntrySlExchangeForCoin(opts.userAddress, coin),
@@ -1509,6 +1591,7 @@ export class HyperliquidTradingService {
         viaHlBuilder,
       });
       hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
+      rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
       await cancelProtectiveOrdersForCoin({
         userAddress,
         coin: coinUpper,

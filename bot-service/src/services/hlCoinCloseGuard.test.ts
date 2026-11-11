@@ -12,7 +12,7 @@ const TEN_MIN = 10 * 60 * 1000;
 
 describe('post-close cooldown (min 10 minutes)', () => {
   it('config floors are at least 10 minutes', () => {
-    assert.ok(config.hyperliquid.reentryCooldownMs >= TEN_MIN);
+    assert.equal(config.hyperliquid.reentryCooldownMs, 0);
     assert.ok(config.hyperliquid.sameCoinReentryMinMs >= TEN_MIN);
     assert.ok(config.hyperliquid.blockOppositeSameCoinMs >= TEN_MIN);
   });
@@ -20,8 +20,7 @@ describe('post-close cooldown (min 10 minutes)', () => {
   it('blocks a new open 9 minutes after the last wallet close', () => {
     const now = Date.now();
     const r = evaluateWalletReentry(now - 9 * 60_000, now);
-    assert.equal(r.blocked, true);
-    assert.match(r.reason ?? '', /min 10m/);
+    assert.equal(r.blocked, false);
   });
 
   it('allows a new open 11 minutes after the last wallet close', () => {
@@ -67,11 +66,13 @@ describe('post-close cooldown (min 10 minutes)', () => {
     const wallet = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
     rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 3 * 60_000);
     const shortBtc = isOpenCooldownBlocked(wallet, 'BTC', 'SHORT');
-    assert.equal(shortBtc.blocked, true);
-    assert.equal(shortBtc.guard, 'wallet');
+    assert.equal(shortBtc.blocked, false);
+    assert.equal(shortBtc.guard, 'none');
     const trendLong = isOpenCooldownBlocked(wallet, 'BTC', 'LONG');
-    assert.equal(trendLong.blocked, true);
-    assert.equal(trendLong.guard, 'wallet');
+    assert.equal(trendLong.blocked, false);
+    const sameEth = isOpenCooldownBlocked(wallet, 'ETH', 'SHORT');
+    assert.equal(sameEth.blocked, true);
+    assert.equal(sameEth.guard, 'same-coin');
   });
 
   it('REVERSAL_LONG after this coin SHORT skips stacked wallet 10m once 2m passed', () => {
@@ -86,8 +87,10 @@ describe('post-close cooldown (min 10 minutes)', () => {
     rememberCoinClose(wallet, 'BTC', 'SHORT', Date.now() - 8 * 60_000);
     rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 60_000);
     const r = isOpenCooldownBlocked(wallet, 'BTC', 'LONG', { reversalLong: true });
-    assert.equal(r.blocked, true);
-    assert.equal(r.guard, 'wallet');
+    assert.equal(r.blocked, false);
+    const eth = isOpenCooldownBlocked(wallet, 'ETH', 'SHORT');
+    assert.equal(eth.blocked, true);
+    assert.equal(eth.guard, 'same-coin');
   });
 
   it('REVERSAL_LONG 90s after same-coin SHORT still hits 2m floor', () => {

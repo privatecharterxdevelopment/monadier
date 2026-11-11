@@ -6,7 +6,6 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { evaluateMacroBetaAlignment } from './macroBetaGate';
 
 export type EntryMomentumResult = {
   ok: boolean;
@@ -56,18 +55,6 @@ export async function validateEntryMomentum(opts: {
 
     const min5 = cfg.minMove5mPct;
     const min15 = cfg.minMove15mPct;
-
-    const macro = await evaluateMacroBetaAlignment({ coin, direction: opts.direction });
-    if (!macro.ok) {
-      return {
-        ok: false,
-        reason: `Entry blocked — macro against ${opts.direction}: ${macro.blockers.join('; ') || macro.reason}`,
-        change5mPct,
-        change15mPct,
-        change1hPct,
-        momentumAligned: false,
-      };
-    }
 
     let momentumAligned = false;
     if (opts.direction === 'LONG') {

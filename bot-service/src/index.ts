@@ -20,6 +20,7 @@ import {
 import {
   lastHlGlobalScanStats,
   lastGlobalScanResult,
+  lastHlScanSkips,
   scanGlobalHlSignals,
   globalSignalsForBotMode,
   boardScanCandidates,
@@ -1501,6 +1502,7 @@ const healthServer = http.createServer(async (req, res) => {
           coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
           scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
           botUniverse: lastHlGlobalScanStats.universeCoins,
+          scanSkips: lastHlScanSkips.slice(0, 40),
         })
       );
     } catch (err: any) {
