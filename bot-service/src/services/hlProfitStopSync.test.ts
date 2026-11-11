@@ -4,10 +4,15 @@ import { estimateRoundTripFeesUsd, breakevenPlusFeesStopPx } from './dynamicTrai
 import {
   buildEmergencyStopMarketLeg,
   buildProfitStopLimitLeg,
+  buildProfitStopMarketLeg,
   classifyHlTriggerOrder,
   emergencySideOk,
+  planProtectiveSync,
+  profitStopMarketCapPx,
   profitStopSafeToPost,
   protectiveSideOk,
+  shouldDeferTrailSync,
+  simulateTriggeredProfitFill,
 } from './hlProfitStopSync';
 
 const entry = 86.45;
@@ -46,7 +51,7 @@ describe('profit SL must stay green on the BE side', () => {
     );
   });
 
-  it('never posts a Hyperliquid market profit SL', () => {
+  it('allows a capped profit stop-market on the profit side of entry', () => {
     assert.equal(
       profitStopSafeToPost({
         direction: 'SHORT',
@@ -57,19 +62,6 @@ describe('profit SL must stay green on the BE side', () => {
         minLockUsd: 0.2,
         breakevenPx: be,
         isMarket: true,
-      }),
-      false
-    );
-    assert.equal(
-      profitStopSafeToPost({
-        direction: 'SHORT',
-        stopPx: be,
-        markPx: be - 0.25,
-        entryPx: entry,
-        absSize: size,
-        minLockUsd: 0.2,
-        breakevenPx: be,
-        isMarket: false,
       }),
       true
     );
@@ -92,6 +84,24 @@ describe('profit SL must stay green on the BE side', () => {
         be
       ),
       'legacy_market_profit'
+    );
+    assert.equal(
+      classifyHlTriggerOrder(
+        {
+          coin: 'SOL',
+          oid: 4,
+          reduceOnly: true,
+          isTrigger: true,
+          orderType: 'Stop Market',
+          triggerPx: String(be),
+          limitPx: String(entry - 0.01),
+        },
+        'SOL',
+        'SHORT',
+        entry,
+        be
+      ),
+      'profit_market'
     );
     assert.equal(
       classifyHlTriggerOrder(
@@ -128,6 +138,23 @@ describe('profit SL must stay green on the BE side', () => {
       ),
       'profit_limit'
     );
+  });
+
+  it('profit market leg is reduce-only stop-market with profit-side cap', () => {
+    const profit = buildProfitStopMarketLeg({
+      assetIndex: 5,
+      direction: 'SHORT',
+      size,
+      stopPx: be,
+      entryPx: entry,
+      szDecimals: 2,
+      tickSize: 0.001,
+    });
+    assert.equal(profit.r, true);
+    assert.equal(profit.t.trigger.isMarket, true);
+    assert.equal(profit.t.trigger.tpsl, 'sl');
+    assert.ok(Number(profit.p) < entry);
+    assert.ok(Number(profit.p) >= Number(profit.t.trigger.triggerPx));
   });
 
   it('profit limit leg is reduce-only stop-limit; emergency is stop-market', () => {
@@ -189,7 +216,10 @@ describe('profit SL must stay green on the BE side', () => {
       },
     ];
     const profitOids = orders
-      .filter((o) => classifyHlTriggerOrder(o, 'SOL', 'SHORT', entry, be) === 'profit_limit')
+      .filter((o) => {
+        const k = classifyHlTriggerOrder(o, 'SOL', 'SHORT', entry, be);
+        return k === 'profit_limit' || k === 'profit_market';
+      })
       .map((o) => o.oid);
     const emergencyOids = orders
       .filter((o) => classifyHlTriggerOrder(o, 'SOL', 'SHORT', entry, be) === 'emergency_market')
@@ -212,5 +242,158 @@ describe('profit SL must stay green on the BE side', () => {
 
   it('still flags a glue-to-mark SHORT as unsafe', () => {
     assert.equal(protectiveSideOk('SHORT', 86.44, 86.43, entry, be, 0.001), false);
+  });
+});
+
+describe('capped profit stop-market vs stop-limit fills', () => {
+  it('stop-limit with p=trigger misses a gap through the trigger', () => {
+    assert.equal(
+      simulateTriggeredProfitFill({
+        execution: 'stop_limit',
+        direction: 'SHORT',
+        triggerPx: 86.32,
+        capPx: 86.32,
+        gapPrintPx: 86.40,
+        entryPx: entry,
+      }),
+      'unfilled'
+    );
+  });
+
+  it('capped stop-market fills a gap that stays profit-side of entry', () => {
+    const cap = profitStopMarketCapPx('SHORT', 86.32, entry, 0.001);
+    assert.equal(
+      simulateTriggeredProfitFill({
+        execution: 'stop_market_capped',
+        direction: 'SHORT',
+        triggerPx: 86.32,
+        capPx: cap,
+        gapPrintPx: 86.40,
+        entryPx: entry,
+      }),
+      'filled'
+    );
+    assert.ok(cap < entry);
+  });
+
+  it('uncapped 10% market would realize the SOL-incident loss; cap refuses it', () => {
+    assert.equal(
+      simulateTriggeredProfitFill({
+        execution: 'stop_market_uncapped',
+        direction: 'SHORT',
+        triggerPx: 86.32,
+        capPx: entry * 1.1,
+        gapPrintPx: 86.518,
+        entryPx: entry,
+      }),
+      'would_realize_loss'
+    );
+    const cap = profitStopMarketCapPx('SHORT', 86.32, entry, 0.001);
+    assert.equal(
+      simulateTriggeredProfitFill({
+        execution: 'stop_market_capped',
+        direction: 'SHORT',
+        triggerPx: 86.32,
+        capPx: cap,
+        gapPrintPx: 86.518,
+        entryPx: entry,
+      }),
+      'unfilled'
+    );
+  });
+
+  it('first valid profit placement is not deferred by the 2.5s trail throttle', () => {
+    assert.equal(
+      shouldDeferTrailSync({
+        nowMs: 1000,
+        lastSyncAt: 900,
+        intervalMs: 2500,
+        firstProfitPlacement: true,
+        emergencyMissing: false,
+        upgradeLimitToMarket: false,
+      }),
+      false
+    );
+    assert.equal(
+      shouldDeferTrailSync({
+        nowMs: 1000,
+        lastSyncAt: 900,
+        intervalMs: 2500,
+        firstProfitPlacement: false,
+        emergencyMissing: false,
+        upgradeLimitToMarket: false,
+      }),
+      true
+    );
+    assert.equal(
+      shouldDeferTrailSync({
+        nowMs: 1000,
+        lastSyncAt: 900,
+        intervalMs: 2500,
+        firstProfitPlacement: false,
+        emergencyMissing: true,
+        upgradeLimitToMarket: false,
+      }),
+      false
+    );
+  });
+
+  it('plan posts capped market immediately when no profit SL exists', () => {
+    const plan = planProtectiveSync({
+      direction: 'SHORT',
+      entryPx: entry,
+      markPx: be - 0.25,
+      absSize: size,
+      orders: [],
+      coin: 'SOL',
+      desiredStopPx: be,
+      armed: true,
+      emergencyStopPx: 88.1,
+      minLockUsd: 0,
+      tickSize: 0.001,
+      breakevenPx: be,
+      nowMs: 1,
+      lastTrailSyncAt: 0,
+    });
+    assert.equal(plan.firstProfitPlacement, true);
+    assert.equal(plan.deferTrail, false);
+    assert.ok(plan.postProfit);
+    assert.equal(plan.postProfit!.triggerPx, be);
+    assert.ok(plan.postProfit!.capPx < entry);
+    assert.equal(plan.emergencyMissing, true);
+    assert.equal(plan.postEmergencyPx, 88.1);
+  });
+
+  it('plan never loosens an exchange profit floor after empty memory restart', () => {
+    const plan = planProtectiveSync({
+      direction: 'SHORT',
+      entryPx: entry,
+      markPx: 86.1,
+      absSize: size,
+      orders: [
+        {
+          coin: 'SOL',
+          oid: 9,
+          reduceOnly: true,
+          isTrigger: true,
+          orderType: 'Stop Market',
+          triggerPx: '86.20',
+          limitPx: '86.44',
+        },
+      ],
+      coin: 'SOL',
+      desiredStopPx: 86.35,
+      armed: true,
+      emergencyStopPx: 88.1,
+      minLockUsd: 0,
+      tickSize: 0.001,
+      breakevenPx: be,
+      nowMs: 1,
+      lastTrailSyncAt: 0,
+    });
+    assert.equal(plan.reconstructedProfitPx, 86.2);
+    assert.ok((plan.mergedProfitPx as number) <= 86.2);
+    assert.equal(plan.existingProfitKind, 'market');
+    assert.equal(plan.firstProfitPlacement, false);
   });
 });

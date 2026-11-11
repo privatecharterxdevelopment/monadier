@@ -6,6 +6,7 @@ import {
   runProfitSlSimulation,
   sampleEmergencyLeg,
   sampleProfitLimitLeg,
+  sampleProfitMarketLeg,
   shortEthEarlyGreenScenario,
   solIncidentScenario,
 } from './profitSlSimulation';
@@ -26,6 +27,9 @@ describe('profit SL simulations', () => {
     assert.ok(result.armedAt!.stopPx < scenario.entry);
     assert.equal(result.stopNeverWorsened, true);
     assert.equal(sampleProfitLimitLeg().t.trigger.isMarket, false);
+    assert.equal(sampleProfitMarketLeg().t.trigger.isMarket, true);
+    assert.ok(Number(sampleProfitMarketLeg().p) < 86.45);
+    assert.ok(Number(sampleProfitMarketLeg().p) >= Number(sampleProfitMarketLeg().t.trigger.triggerPx));
     assert.equal(sampleEmergencyLeg().t.trigger.isMarket, true);
   });
 

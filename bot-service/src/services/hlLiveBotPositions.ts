@@ -70,7 +70,7 @@ export async function buildLiveBotPositionViews(opts: {
           emergencySlPx = trig;
           emergencySlConfirmed = true;
         }
-        if (kind === 'profit_limit') {
+        if (kind === 'profit_limit' || kind === 'profit_market') {
           profitSlPx = trig;
           profitSlConfirmed = true;
         }

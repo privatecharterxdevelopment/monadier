@@ -17,6 +17,7 @@ import { hlTickSize } from './hlInfo';
 import {
   buildEmergencyStopMarketLeg,
   buildProfitStopLimitLeg,
+  buildProfitStopMarketLeg,
   profitStopSafeToPost,
   protectiveSideOk,
 } from './hlProfitStopSync';
@@ -198,7 +199,7 @@ export async function runProfitSlSimulation(s: SimScenario): Promise<SimResult> 
       minLockUsd: 0,
       breakevenPx: beStopPx,
       tickSize: tick,
-      isMarket: false,
+      isMarket: true,
     });
 
   return {
@@ -328,6 +329,18 @@ export function sampleProfitLimitLeg() {
     size: 5.25,
     stopPx: 86.32,
     szDecimals: 2,
+  });
+}
+
+export function sampleProfitMarketLeg() {
+  return buildProfitStopMarketLeg({
+    assetIndex: 5,
+    direction: 'SHORT',
+    size: 5.25,
+    stopPx: 86.32,
+    entryPx: 86.45,
+    szDecimals: 2,
+    tickSize: 0.001,
   });
 }
 

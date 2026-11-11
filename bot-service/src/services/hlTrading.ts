@@ -65,12 +65,17 @@ import {
 } from './profitTrailState';
 import {
   cancelProtectiveOrdersForCoin,
-  classifyHlTriggerOrder,
-  emergencySideOk,
   fetchFrontendOpenOrders,
   lastConfirmedProfitStopPx,
+  rememberConfirmedStops,
+  snapshotConfirmedStops,
   syncHlProfitStopOrder,
 } from './hlProfitStopSync';
+import {
+  blockNewEntriesUntilReconciled,
+  markWalletProtectiveReconcile,
+  reconcileProtectiveFromSnapshot,
+} from './hlProtectiveReconcile';
 import {
   recoverPositionUserStop,
   runEntryStopFailSafe,
@@ -331,6 +336,8 @@ export class HyperliquidTradingService {
 
     if (openCoins.length > 0) {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
+    } else {
+      markWalletProtectiveReconcile(userAddress, true, 'no open positions');
     }
 
     if (!settings.autoTradeEnabled) {
@@ -342,6 +349,13 @@ export class HyperliquidTradingService {
         logger.debug('HL user skip: auto-trade off', { user: userAddress.slice(0, 10) });
       }
       return openCoins.length > 0 ? 'ok' : 'skip';
+    }
+
+    if (blockNewEntriesUntilReconciled(userAddress)) {
+      logger.info('HL skip new entries until protective reconcile', {
+        user: userAddress.slice(0, 10),
+      });
+      return 'ok';
     }
 
     if (openCoins.length >= maxPositions) {
@@ -1033,6 +1047,18 @@ export class HyperliquidTradingService {
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
     const nowMs = Date.now();
+    const openOrders = await fetchFrontendOpenOrders(userAddress);
+    if (openOrders == null) {
+      markWalletProtectiveReconcile(
+        userAddress,
+        false,
+        'frontendOpenOrders unreachable',
+        nowMs
+      );
+    }
+
+    const reconcilePositions: Parameters<typeof reconcileProtectiveFromSnapshot>[0]['positions'] =
+      [];
 
     for (const row of state?.assetPositions ?? []) {
       const pos = row.position;
@@ -1069,6 +1095,16 @@ export class HyperliquidTradingService {
         );
       }
 
+      const liveStops = openOrders
+        ? snapshotConfirmedStops(openOrders, String(pos.coin), positionDirection, entry)
+        : { profitPx: lastConfirmedProfitStopPx(userAddress, pos.coin), emergencyPx: null };
+      rememberConfirmedStops(
+        userAddress,
+        pos.coin,
+        liveStops.profitPx,
+        liveStops.emergencyPx
+      );
+
       const trailRecord = loadTrailRecord(lockKey);
       const notionalUsd = notional > 0 ? notional : absSize * markPrice;
       const fundingUsd = Number(
@@ -1087,7 +1123,7 @@ export class HyperliquidTradingService {
         record: trailRecord,
         fundingUsd,
         stopLossPct: settings.stopLossPercent,
-        confirmedExchangeStopPx: lastConfirmedProfitStopPx(userAddress, pos.coin),
+        confirmedExchangeStopPx: liveStops.profitPx,
       });
 
       saveTrailRecord(lockKey, trailResult.record);
@@ -1098,8 +1134,10 @@ export class HyperliquidTradingService {
       const feesUsd = estimateRoundTripFeesUsd(notionalUsd);
       const protectKey = lockKey;
       const lastProtect = lastProtectSyncAt.get(protectKey) ?? 0;
-      if (nowMs - lastProtect >= 2_400) {
-        lastProtectSyncAt.set(protectKey, nowMs);
+      const firstProfitDue = pnl > 0 && liveStops.profitPx == null;
+      const emergencyDue = slPct > 0 && liveStops.emergencyPx == null;
+      if (firstProfitDue || emergencyDue || nowMs - lastProtect >= 2_400) {
+        if (!firstProfitDue && !emergencyDue) lastProtectSyncAt.set(protectKey, nowMs);
         let metaSz = 0;
         if (meta) {
           try {
@@ -1108,7 +1146,7 @@ export class HyperliquidTradingService {
             metaSz = 0;
           }
         }
-        await syncHlProfitStopOrder({
+        const plan = await syncHlProfitStopOrder({
           userAddress,
           coin: pos.coin,
           direction: positionDirection,
@@ -1123,41 +1161,37 @@ export class HyperliquidTradingService {
           szDecimals: metaSz,
           tickSize: hlTickSize(markPrice, metaSz),
           minLockUsd: 0,
+          openOrders,
+          nowMs,
         });
-        if (slPct > 0) {
-          const orders = await fetchFrontendOpenOrders(userAddress);
-          const hasEmergency =
-            orders != null &&
-            orders.some((o) => {
-              const kind = classifyHlTriggerOrder(
-                o,
-                String(pos.coin),
-                positionDirection,
-                entry,
-                entry
-              );
-              const trig = Number(o.triggerPx ?? o.limitPx ?? 0);
-              return (
-                kind === 'emergency_market' &&
-                emergencySideOk(positionDirection, trig, markPrice, entry)
-              );
-            });
-          if (!hasEmergency) {
-            await recoverPositionUserStop({
-              wallet: userAddress,
-              coin: pos.coin,
-              direction: positionDirection,
-              stopLossPercent: slPct,
-              longClass: 'NONE',
-              collateralUsd: collateralEst,
-              requestedEntryPx: entry,
-              requestedSize: absSize,
-              szDecimals: metaSz,
-              exchange: createHlEntrySlExchangeForCoin(userAddress, pos.coin),
-            });
-          }
+        if (slPct > 0 && (plan?.emergencyMissing || emergencyDue)) {
+          await recoverPositionUserStop({
+            wallet: userAddress,
+            coin: pos.coin,
+            direction: positionDirection,
+            stopLossPercent: slPct,
+            longClass: 'NONE',
+            collateralUsd: collateralEst,
+            requestedEntryPx: entry,
+            requestedSize: absSize,
+            szDecimals: metaSz,
+            exchange: createHlEntrySlExchangeForCoin(userAddress, pos.coin),
+          });
         }
       }
+
+      reconcilePositions.push({
+        coin: String(pos.coin),
+        direction: positionDirection,
+        entryPx: entry,
+        markPx: markPrice,
+        absSize,
+        upnlUsd: pnl,
+        desiredStopPx: trailResult.record.currentTrailStop,
+        armed: trailResult.record.phase !== 'idle',
+        emergencyStopPx: emergencyPx,
+        tickSize: hlTickSize(markPrice, 0),
+      });
 
       // Optional MTF/volume log while in profit (no exit side-effects).
       if (pnl > 0 && trailResult.record.phase !== 'idle') {
@@ -1206,6 +1240,15 @@ export class HyperliquidTradingService {
           });
         }
       }
+    }
+
+    if (openOrders != null) {
+      reconcileProtectiveFromSnapshot({
+        wallet: userAddress,
+        positions: reconcilePositions,
+        orders: openOrders,
+        nowMs,
+      });
     }
   }
 
