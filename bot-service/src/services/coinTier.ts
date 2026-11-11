@@ -2,7 +2,7 @@ import type { HlLiquidUniverse } from './hlLiquidity';
 import { getHlLiquidityForCoin } from './hlLiquidity';
 
 /**
- * Mass-driven alts — extra caution (news first, skip if freshly pumped).
+ * Mass-driven alts — extra caution (skip if freshly pumped).
  * Not a ban on SHORT; treat with care.
  */
 export const CAUTIOUS_ALTS = new Set([

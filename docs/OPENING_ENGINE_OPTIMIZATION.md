@@ -64,7 +64,7 @@ Same-coin 10m **config exists** (`sameCoinReentryMinMs`) and **is not wired**. T
 
 SCAN `scanStandardCoin` / `scanAggressiveCoin` → QUEUE `globalSignalsForBotMode` (standard **or** aggressive, never merge) → PICK `pickBestSignalsPassingLiquidityGate` (rank ≤12, no cautious alts) → OPEN gates in `openMarketPosition` → `FrontendMarket` fill + emergency SL.
 
-Open-time stack: news (cautious) → fresh pump → 20×1m candles → scalp 1m/5m + **3×1m** confirm → macro beta → pump-short (again) → momentum (5m/15m + **macro again**) → mega pair → 5m/15m location.
+Open-time stack: fresh pump → 20×1m candles → scalp 1m/5m + **1×1m** confirm → macro beta → pump-short → momentum (5m/15m) → mega pair → 5m/15m location → HTF location. News is not an open gate.
 
 **Not called:** `isScanQueueable`, aggressive borrow, `classifyBearLongFromCandles` / REVERSAL_LONG, `isLongAllowedCoin`, `hlCoinCloseGuard`, `scoreEntryLocationQuality`, HTF S/R, profile `requiredH1Trend`.
 

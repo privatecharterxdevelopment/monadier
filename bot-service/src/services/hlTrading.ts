@@ -55,7 +55,6 @@ import {
   needsCautionPath,
   volumeRankForCoin,
 } from './coinTier';
-import { validateCoinNews } from './coinNewsGate';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
@@ -775,23 +774,6 @@ export class HyperliquidTradingService {
         return failOpen(reason);
       }
 
-      const newsGate = await validateCoinNews({
-        coin,
-        direction: opts.direction,
-        tier: coinTier,
-      });
-      if (!newsGate.ok) {
-        logger.info('HL open blocked — news gate (step 1)', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          tier: coinTier,
-          reason: newsGate.reason,
-        });
-        return failOpen(newsGate.reason);
-      }
-      markGatePassed(opts.userAddress, 'news');
-
       const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
       if (!freshPumpGate.ok) {
         logger.info('HL open blocked — fresh pump skip (step 2)', {
@@ -940,7 +922,6 @@ export class HyperliquidTradingService {
         macroGate,
         momentumGate,
         pumpShortGate,
-        newsGate,
         freshPumpGate,
         megaPairLine: megaGate.reason,
         liquidityReason: opts.pick.liquidityReason,

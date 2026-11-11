@@ -515,7 +515,7 @@ export const config = {
       min15mRolloverPct: Number(process.env.HL_PUMP_SHORT_15M_ROLL || 0.08),
       minHigherTfLongBlock: Number(process.env.HL_PUMP_SHORT_HTF_LONG || 2),
     },
-    /** Cautious alts (UNI/SUI/CELO-style) — news check before open. */
+    /** Cautious alts (UNI/SUI/CELO-style) — unused by open path; news is not a gate. */
     cautiousNews: {
       lookbackMs: Number(process.env.HL_NEWS_LOOKBACK_MS || 48 * 60 * 60 * 1000),
       cacheMs: Number(process.env.HL_NEWS_CACHE_MS || 600_000),

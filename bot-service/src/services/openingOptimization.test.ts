@@ -53,7 +53,6 @@ describe('opening optimization defaults', () => {
     const openFn = src.slice(src.indexOf('async openMarketPosition'));
     assert.match(openFn, /pick\.botMode === 'aggressive'/);
     for (const gate of [
-      'news',
       'fresh_pump',
       'pre_open_candles',
       'scalp_align',
@@ -67,6 +66,8 @@ describe('opening optimization defaults', () => {
       assert.match(openFn, new RegExp(`markGatePassed\\([^,]+, '${gate}'\\)`));
     }
     assert.doesNotMatch(openFn, /if \(opts\.pick\.botMode === 'aggressive'\) return/);
+    assert.doesNotMatch(openFn, /validateCoinNews/);
+    assert.doesNotMatch(openFn, /markGatePassed\([^,]+, 'news'\)/);
   });
 
   it('1h SIDEWAYS allows SHORT and 1h UP does not', () => {
