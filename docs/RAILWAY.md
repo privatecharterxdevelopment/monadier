@@ -30,6 +30,10 @@ See `bot-service/.env.example`:
 
 **Do not use** the legacy vault treasury `0x64d79e…` for fees. **Do not use** `TREASURY_ADDRESS` or `ARBITRUM_VAULT_ADDRESS` for fee routing.
 
+## Production readiness (do not auto-deploy)
+
+Final audit: [`PRODUCTION_READINESS_AUDIT.md`](./PRODUCTION_READINESS_AUDIT.md). Verdict at last audit: **NO-GO** until a signed Hyperliquid fill of the capped profit stop-market is observed. Deploy/rollback checklist is in that file.
+
 ## Verify deploy (CLI)
 
 ```bash
