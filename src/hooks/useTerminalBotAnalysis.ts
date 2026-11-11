@@ -281,7 +281,11 @@ export function useTerminalBotAnalysis({
       setCoinRotationIndex(0);
       return;
     }
-    const ms = Math.min(1200, Math.max(450, Math.round(90_000 / scanRotationCoins.length)));
+    // Walk the live universe in ~90s. Never faster than one MTF fetch (5s).
+    const ms = Math.min(
+      8_000,
+      Math.max(5_000, Math.round(90_000 / scanRotationCoins.length))
+    );
     const id = setInterval(() => {
       setCoinRotationIndex((i) => (i + 1) % scanRotationCoins.length);
     }, ms);

@@ -102,9 +102,8 @@ export function isBotTradeableHlCoin(
 ): boolean {
   const key = normalizeHlPerpCoin(coin);
   if (!key || isHiddenFromBotUi(key)) return false;
-  if (!BOT_TRADE_FALLBACK_SET.has(key)) return false;
   if (liveUniverse && liveUniverse.length > 0) {
     return liveUniverse.some((c) => normalizeHlPerpCoin(c) === key);
   }
-  return true;
+  return BOT_TRADE_FALLBACK_SET.has(key);
 }

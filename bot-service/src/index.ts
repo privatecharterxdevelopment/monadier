@@ -1075,6 +1075,10 @@ const healthServer = http.createServer(async (req, res) => {
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
+          coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
+          scanComplete: lastHlGlobalScanStats.complete,
+          universeCoins: lastHlGlobalScanStats.universeCoins,
+          scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
           candidateCount: userSignals.length,
@@ -1483,8 +1487,10 @@ const healthServer = http.createServer(async (req, res) => {
           aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
-          scanUniverseCoins: config.hyperliquid.botTradeCoins,
-          botUniverse: config.hyperliquid.botTradeCoins,
+          scanComplete: lastHlGlobalScanStats.complete,
+          coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
+          scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
+          botUniverse: lastHlGlobalScanStats.universeCoins,
         })
       );
     } catch (err: any) {

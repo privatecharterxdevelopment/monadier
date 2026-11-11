@@ -4,6 +4,7 @@ import { mapPool } from '../utils/asyncPool';
 import { analyzeMarketMTFBySymbol, type TradingStrategy } from './market';
 import { analyzeAggressiveScalpBySymbol } from './aggressiveScalpAnalysis';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { signalEngine } from './signalEngine';
 import { fetchHlLiquidUniverse, type HlLiquidUniverse } from './hlLiquidity';
 import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradingRules';
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
@@ -40,11 +41,14 @@ const STANDARD_STRATEGY: TradingStrategy = 'normal';
 
 export type HlGlobalScanStats = {
   coinsScanned: number;
+  coinsAnalyzed: number;
   liquidUniverse: number;
   standardCandidates: number;
   aggressiveCandidates: number;
   candidates: number;
   scannedAt: string;
+  complete: boolean;
+  universeCoins: string[];
 };
 
 export type GlobalScanResult = {
@@ -54,11 +58,14 @@ export type GlobalScanResult = {
 
 export let lastHlGlobalScanStats: HlGlobalScanStats = {
   coinsScanned: 0,
+  coinsAnalyzed: 0,
   liquidUniverse: 0,
   standardCandidates: 0,
   aggressiveCandidates: 0,
   candidates: 0,
   scannedAt: '',
+  complete: false,
+  universeCoins: [],
 };
 
 export let lastGlobalScanResult: GlobalScanResult = { standard: [], aggressive: [] };
@@ -202,8 +209,9 @@ async function scanAggressiveCoin(
   }
 }
 
-const SCAN_CACHE_TTL_MS = 8_000;
-const SCAN_COIN_TIMEOUT_MS = 8_000;
+const SCAN_CACHE_TTL_MS = 12_000;
+const SCAN_COIN_TIMEOUT_MS = 12_000;
+const WARM_CONCURRENCY = 6;
 let scanInFlight: Promise<GlobalScanResult> | null = null;
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -250,11 +258,14 @@ async function runGlobalHlSignalScan(
   if (coins.length === 0) {
     lastHlGlobalScanStats = {
       coinsScanned: 0,
+      coinsAnalyzed: 0,
       liquidUniverse: 0,
       standardCandidates: 0,
       aggressiveCandidates: 0,
       candidates: 0,
       scannedAt: new Date().toISOString(),
+      complete: true,
+      universeCoins: [],
     };
     lastGlobalScanResult = { standard: [], aggressive: [] };
     return lastGlobalScanResult;
@@ -262,18 +273,31 @@ async function runGlobalHlSignalScan(
 
   await refreshMegaPairVolumeMonitor(universe);
 
-  const [standardRaw, aggressiveRaw] = await Promise.all([
-    mapPool(coins, concurrency, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-    }),
-    mapPool(coins, concurrency, async (coin) => {
-      const liq = liqByCoin.get(coin);
-      if (!liq) return null;
-      return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
-    }),
-  ]);
+  let candlesWarmed = 0;
+  await mapPool(coins, WARM_CONCURRENCY, async (coin) => {
+    const symbol = hlCoinToBinanceSymbol(coin);
+    try {
+      await Promise.all(
+        (['1m', '5m', '15m', '1h'] as const).map((tf) =>
+          signalEngine.fetchCandles(symbol, tf, 100)
+        )
+      );
+      candlesWarmed += 1;
+    } catch {
+      /* coin still goes through scan; timeout below */
+    }
+  });
+
+  const standardRaw = await mapPool(coins, concurrency, async (coin) => {
+    const liq = liqByCoin.get(coin);
+    if (!liq) return null;
+    return withTimeout(scanStandardCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+  });
+  const aggressiveRaw = await mapPool(coins, concurrency, async (coin) => {
+    const liq = liqByCoin.get(coin);
+    if (!liq) return null;
+    return withTimeout(scanAggressiveCoin(coin, liq, universe), SCAN_COIN_TIMEOUT_MS, null);
+  });
 
   const standard = standardRaw
     .filter((c): c is GlobalSignalCandidate => c !== null)
@@ -286,18 +310,37 @@ async function runGlobalHlSignalScan(
   const standardFiltered = filterWeekendShortOnly(standard);
   const aggressiveFiltered = filterWeekendShortOnly(aggressive);
 
+  const complete = candlesWarmed >= Math.ceil(coins.length * 0.8);
+  if (
+    !complete &&
+    lastHlGlobalScanStats.complete &&
+    lastGlobalScanResult.standard.length + lastGlobalScanResult.aggressive.length > 0
+  ) {
+    logger.warn('HL scan incomplete — keeping previous full book', {
+      universe: coins.length,
+      candlesWarmed,
+      ms: Date.now() - started,
+    });
+    return lastGlobalScanResult;
+  }
+
   lastGlobalScanResult = { standard: standardFiltered, aggressive: aggressiveFiltered };
   lastHlGlobalScanStats = {
     coinsScanned: coins.length,
+    coinsAnalyzed: candlesWarmed,
     liquidUniverse: coins.length,
     standardCandidates: standardFiltered.length,
     aggressiveCandidates: aggressiveFiltered.length,
     candidates: standardFiltered.length + aggressiveFiltered.length,
     scannedAt: new Date().toISOString(),
+    complete,
+    universeCoins: coins,
   };
 
   logger.info('Global HL signal scan complete', {
     liquidCoins: coins.length,
+    candlesWarmed,
+    complete,
     standard: standardFiltered.length,
     aggressive: aggressiveFiltered.length,
     weekendShortOnly: isWeekendShortOnlyWindow(),
