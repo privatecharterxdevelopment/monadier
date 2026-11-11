@@ -3,7 +3,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
-import { getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
+import { fetchHlLiquidUniverse, getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
 import { isBotTradeCoin } from './botTradeUniverse';
 import {
   globalSignalsForBotMode,
@@ -723,6 +723,8 @@ export class HyperliquidTradingService {
     botModeLabel: 'Std' | 'Agg';
     ctx: TradingCycleContext;
     stopLossPercent: number;
+    /** Ops desk / manual — skip SCAN entry gates; still posts fill + emergency SL. */
+    skipOpenGates?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -771,13 +773,16 @@ export class HyperliquidTradingService {
         userSlPercent: opts.stopLossPercent,
       });
 
+      const skipOpenGates = opts.skipOpenGates === true;
+      let openReasonFull = `${opts.botModeLabel} ${opts.direction} ${coin} · FORCE ${effectiveLeverage}× · ${opts.pick.reason}`;
+
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
-      if (opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
+      if (!skipOpenGates && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
         return failOpen(longAllowlistReason(coin), 'LONG_ALLOWLIST');
       }
-      if (opts.direction === 'LONG' && !isOpenableLongCandidate(opts.pick)) {
+      if (!skipOpenGates && opts.direction === 'LONG' && !isOpenableLongCandidate(opts.pick)) {
         return failOpen(
           `LONG blocked — ${coin} is not TREND_LONG or REVERSAL_LONG (${opts.pick.longClass ?? 'NONE'})`,
           'LONG_CLASS'
@@ -785,6 +790,7 @@ export class HyperliquidTradingService {
       }
 
       if (
+        !skipOpenGates &&
         needsCautionPath(coinTier) &&
         opts.direction === 'LONG' &&
         opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence
@@ -799,6 +805,17 @@ export class HyperliquidTradingService {
         return failOpen(reason, 'CAUTIOUS_CONFIDENCE');
       }
 
+      if (skipOpenGates) {
+        logger.info('HL open — entry gates skipped (force/manual)', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          leverage: effectiveLeverage,
+          notionalUsd: opts.notionalUsd,
+        });
+      }
+
+      if (!skipOpenGates) {
       const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
       logOpenGate({
         userAddress: opts.userAddress,
@@ -1013,7 +1030,8 @@ export class HyperliquidTradingService {
         scalpAlignLine: scalpGate.reason,
         candleAnalyticsLine: candleAnalytics.summary,
       });
-      const openReasonFull = openReasonDoc;
+      openReasonFull = openReasonDoc;
+      }
 
       const client = createAgentClient(opts.userAddress);
       await client.updateLeverage({
@@ -1130,7 +1148,6 @@ export class HyperliquidTradingService {
         userSlDisabled: protectedOpen.userSlDisabled,
         fillSize: protectedOpen.filledSize,
         openReason: openReasonFull,
-        macroBlockers: macroGate.blockers,
         openSlot: 'multi',
       });
 
@@ -1733,10 +1750,12 @@ export class HyperliquidTradingService {
           dayVolumeUsd: 0,
           openInterestUsd: 0,
           botMode: 'standard',
+          longClass: opts.direction === 'LONG' ? 'TREND_LONG' : undefined,
         },
         botModeLabel: 'Std',
         ctx: opts.ctx,
         stopLossPercent: settings.stopLossPercent,
+        skipOpenGates: true,
       });
       if (result.success) opened += 1;
       else skipped.push(`${w.slice(0, 10)}:${result.error || 'fail'}`);
@@ -1762,7 +1781,7 @@ export class HyperliquidTradingService {
     return { success: true };
   }
 
-  async placeManualPerpOrder(_opts: {
+  async placeManualPerpOrder(opts: {
     userAddress: `0x${string}`;
     coin: string;
     side: 'LONG' | 'SHORT';
@@ -1775,7 +1794,56 @@ export class HyperliquidTradingService {
     reduceOnly: boolean;
     botManaged: boolean;
   }): Promise<{ success: boolean; error?: string }> {
-    return { success: false, error: 'Manual perp orders are not part of the 21 Jun engine' };
+    if (opts.reduceOnly) {
+      return { success: false, error: 'Reduce-only not supported on this path — use close' };
+    }
+    if (opts.kind !== 'market') {
+      return { success: false, error: 'Only market opens are supported' };
+    }
+    if (!(opts.size > 0) || !(opts.markPx > 0)) {
+      return { success: false, error: 'size and markPx required' };
+    }
+    const [meta, mids, liquidUniverse] = await Promise.all([
+      fetchHlMeta(),
+      fetchHlAllMids(),
+      fetchHlLiquidUniverse(),
+    ]);
+    const ctx: TradingCycleContext = {
+      startedAt: Date.now(),
+      meta,
+      mids,
+      liquidUniverse,
+      globalScan: { standard: [], aggressive: [] },
+      globalSignals: [],
+    };
+    const settings = await subscriptionService.getUserTradingSettings(
+      opts.userAddress,
+      config.arbitrum.chainId
+    );
+    const mark = Number(mids[opts.coin] ?? mids[`${opts.coin}-PERP`] ?? opts.markPx);
+    const notionalUsd = opts.size * mark;
+    return this.openMarketPosition({
+      userAddress: opts.userAddress,
+      coin: opts.coin,
+      direction: opts.side,
+      notionalUsd,
+      leverage: opts.leverage ?? Math.max(1, settings.leverageMultiplier || 5),
+      pick: {
+        coin: opts.coin,
+        symbol: `${opts.coin}-PERP`,
+        direction: opts.side,
+        confidence: 99,
+        reason: opts.botManaged ? 'manual bot-managed open' : 'manual open',
+        dayVolumeUsd: 0,
+        openInterestUsd: 0,
+        botMode: 'standard',
+        longClass: opts.side === 'LONG' ? 'TREND_LONG' : undefined,
+      },
+      botModeLabel: 'Std',
+      ctx,
+      stopLossPercent: settings.stopLossPercent,
+      skipOpenGates: true,
+    });
   }
 }
 
