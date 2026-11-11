@@ -17,6 +17,7 @@ import {
   votesFromTfMap,
   type BearLongVotes,
 } from './bearReversalLong';
+import { fetchPerpMarketContext } from './perpMarketContextGate';
 import type { LongOpportunityClass } from './hlExecutionState';
 
 export type BotSignalMode = 'standard' | 'aggressive';
@@ -107,7 +108,7 @@ export function isOpenableLongCandidate(
   return false;
 }
 
-/** SHORT-primary queue: SHORTs always queue; LONGs only if classified and MTF did not pick SHORT. */
+/** SHORT-primary queue, except confirmed REVERSAL_LONG on the same coin (floor bounce). */
 export function isScanQueueable(
   candidate: GlobalSignalCandidate,
   mtfPick: GlobalSignalCandidate | null,
@@ -116,6 +117,7 @@ export function isScanQueueable(
   if (candidate.direction === 'SHORT') return true;
   if (candidate.direction !== 'LONG') return false;
   if (!isOpenableLongCandidate(candidate)) return false;
+  if (candidate.longClass === 'REVERSAL_LONG') return true;
   if (mtfPick && mtfPick.direction === 'SHORT' && mtfPick.coin === candidate.coin) {
     return false;
   }
@@ -163,10 +165,71 @@ async function scanStandardCoin(
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis) return pushSkip(coin, 'standard', 'no MTF analysis');
-    if (analysis.direction !== 'LONG' && analysis.direction !== 'SHORT') {
+    const votes = votesFromBreakdown(analysis.mtfBreakdown, analysis.metrics?.h1Trend);
+    let longClass: LongOpportunityClass | undefined;
+    let reversalCode: string | null = null;
+    if (isLongAllowedCoin(coin)) {
+      let rangePosition24h: number | undefined;
+      try {
+        rangePosition24h = (await fetchPerpMarketContext(coin))?.rangePosition;
+      } catch {
+        rangePosition24h = undefined;
+      }
+      const cls = await evaluateBearLongOpportunity({
+        coin,
+        votes,
+        confidence: analysis.confidence,
+        floorMajor: true,
+        rangePosition24h,
+      });
+      if (
+        isOpenableLongCandidate({
+          direction: 'LONG',
+          longClass: cls.class,
+          reversalCode: cls.code,
+        })
+      ) {
+        const candidate: GlobalSignalCandidate = {
+          coin,
+          symbol,
+          direction: 'LONG',
+          confidence: analysis.confidence,
+          reason: cls.reason || analysis.reason,
+          dayVolumeUsd: liq.dayVolumeUsd,
+          openInterestUsd: liq.openInterestUsd,
+          botMode: 'standard',
+          mtfBreakdown: analysis.mtfBreakdown,
+          trendAlignment: analysis.metrics?.trendAlignment,
+          directionalTfCount: analysis.metrics?.directionalTfCount,
+          h1Trend: analysis.metrics?.h1Trend,
+          signalReasons: [cls.reason, ...(analysis.signalReasons ?? [])],
+          indicators: analysis.indicators,
+          longClass: cls.class,
+          reversalCode: cls.code,
+          queueable: true,
+        };
+        candidate.queueable = isScanQueueable(
+          candidate,
+          analysis.direction === 'SHORT'
+            ? { ...candidate, direction: 'SHORT', longClass: undefined }
+            : candidate,
+          null
+        );
+        return candidate;
+      }
+      longClass = cls.class;
+      reversalCode = cls.code;
+      if (analysis.direction === 'LONG') {
+        return pushSkip(coin, 'standard', cls.reason || 'LONG not TREND/REVERSAL');
+      }
+    } else if (analysis.direction === 'LONG') {
+      return pushSkip(coin, 'standard', 'LONG not on allowlist');
+    }
+
+    if (analysis.direction !== 'SHORT') {
       return pushSkip(coin, 'standard', `direction ${String(analysis.direction)}`);
     }
-    const bars = analysis.direction === 'SHORT' ? shortScanBars() : longScanBars();
+    const bars = shortScanBars();
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier);
     const minConf = cautious
@@ -192,24 +255,6 @@ async function scanStandardCoin(
     }
     if (analysis.direction === 'SHORT' && !h1AllowsShort(analysis.metrics?.h1Trend)) {
       return pushSkip(coin, 'standard', `1h ${analysis.metrics?.h1Trend ?? ''} blocks SHORT`);
-    }
-
-    let longClass: LongOpportunityClass | undefined;
-    let reversalCode: string | null = null;
-    if (analysis.direction === 'LONG') {
-      if (!isLongAllowedCoin(coin)) {
-        return pushSkip(coin, 'standard', 'LONG not on allowlist');
-      }
-      const cls = await evaluateBearLongOpportunity({
-        coin,
-        votes: votesFromBreakdown(analysis.mtfBreakdown, analysis.metrics?.h1Trend),
-        confidence: analysis.confidence,
-      });
-      longClass = cls.class;
-      reversalCode = cls.code;
-      if (!isOpenableLongCandidate({ direction: 'LONG', longClass, reversalCode })) {
-        return pushSkip(coin, 'standard', cls.reason || 'LONG not TREND/REVERSAL');
-      }
     }
 
     const candidate: GlobalSignalCandidate = {
@@ -463,6 +508,11 @@ export function globalSignalsForBotMode(
     if (s.direction === 'SHORT') return true;
     return isOpenableLongCandidate(s);
   });
+  const reversalCoins = new Set(
+    standard
+      .filter((s) => s.direction === 'LONG' && s.longClass === 'REVERSAL_LONG')
+      .map((s) => s.coin.toUpperCase())
+  );
   const seen = new Set(standard.map((s) => `${s.coin.toUpperCase()}:${s.direction}`));
   const out = [...standard];
 
@@ -471,6 +521,7 @@ export function globalSignalsForBotMode(
   if (borrow) {
     for (const s of liquid(scan.aggressive)) {
       if (s.direction !== 'SHORT') continue;
+      if (reversalCoins.has(s.coin.toUpperCase())) continue;
       if (!h1AllowsShort(s.h1Trend)) continue;
       const key = `${s.coin.toUpperCase()}:${s.direction}`;
       if (seen.has(key)) continue;

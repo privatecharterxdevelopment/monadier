@@ -68,4 +68,11 @@ describe('scan queueable vs board LONG', () => {
     assert.equal(isOpenableLongCandidate(long), true);
     assert.equal(isScanQueueable(long, long, null), true);
   });
+
+  it('queues REVERSAL_LONG even when MTF printed SHORT on the same coin', () => {
+    const long = cand('BTC', 'LONG', 61);
+    long.longClass = 'REVERSAL_LONG';
+    const short = cand('BTC', 'SHORT', 88);
+    assert.equal(isScanQueueable(long, short, short), true);
+  });
 });

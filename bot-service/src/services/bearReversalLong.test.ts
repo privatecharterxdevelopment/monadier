@@ -128,6 +128,50 @@ describe('bear reversal LONG classifier', () => {
     assert.equal(r.code, 'REVERSAL_WAITING_RECLAIM');
   });
 
+  it('floor major with relief bounce at 24h lows is REVERSAL_LONG without 1h flip', () => {
+    const m15 = quiet(16, 75_000, 1, 40);
+    const dumpOpen = m15[m15.length - 1]!.close;
+    m15.push(c(dumpOpen, dumpOpen + 30, dumpOpen - 1800, dumpOpen - 1600, m15.length));
+    const dump = m15[m15.length - 1]!;
+    const mid = (dump.high + dump.low) / 2;
+    m15.push(c(dump.close, mid + 200, dump.close - 20, mid + 80, m15.length));
+    m15.push(c(mid + 80, mid + 100, mid + 60, mid + 70, m15.length));
+    const r = classifyBearLongFromCandles({
+      candles5m: m15,
+      candles15m: m15,
+      candles1h: m15,
+      candles4h: m15,
+      votes: { tf5m: 'SHORT', tf15m: 'SHORT', tf1h: 'DOWN', tf4h: 'DOWN' },
+      confidence: 61,
+      floorMajor: true,
+      rangePosition24h: 0.04,
+    });
+    assert.equal(r.class, 'REVERSAL_LONG');
+    assert.equal(r.dumpPhase, 'FLUSH_WAIT');
+  });
+
+  it('floor flag without range-low still waits on relief', () => {
+    const m15 = quiet(16, 75_000, 1, 40);
+    const dumpOpen = m15[m15.length - 1]!.close;
+    m15.push(c(dumpOpen, dumpOpen + 30, dumpOpen - 1800, dumpOpen - 1600, m15.length));
+    const dump = m15[m15.length - 1]!;
+    const mid = (dump.high + dump.low) / 2;
+    m15.push(c(dump.close, mid + 200, dump.close - 20, mid + 80, m15.length));
+    m15.push(c(mid + 80, mid + 100, mid + 60, mid + 70, m15.length));
+    const r = classifyBearLongFromCandles({
+      candles5m: m15,
+      candles15m: m15,
+      candles1h: m15,
+      candles4h: m15,
+      votes: { tf5m: 'SHORT', tf15m: 'SHORT', tf1h: 'DOWN', tf4h: 'DOWN' },
+      confidence: 61,
+      floorMajor: true,
+      rangePosition24h: 0.55,
+    });
+    assert.notEqual(r.class, 'REVERSAL_LONG');
+    assert.equal(r.code, 'REVERSAL_WAITING_RECLAIM');
+  });
+
   it('1 BTC flush → 15m/1h bullish → 5m bearish → confirmed reclaim = REVERSAL_LONG', () => {
     const { m15, m5, h1, h4 } = flushReclaim();
     const r = classifyBearLongFromCandles({
@@ -202,6 +246,17 @@ describe('bear reversal LONG classifier', () => {
     assert.ok(
       r.code === 'REVERSAL_WAITING_RECLAIM' || r.code === 'LONG_DUMP_CONTINUATION'
     );
+    const floor = classifyBearLongFromCandles({
+      candles5m: m5,
+      candles15m: m15,
+      candles1h: h1,
+      candles4h: h4,
+      votes: reversalVotes,
+      confidence: 70,
+      floorMajor: true,
+      rangePosition24h: 0.02,
+    });
+    assert.notEqual(floor.class, 'REVERSAL_LONG');
   });
 
   it('6 false reclaim then resume down blocks LONG', () => {

@@ -116,6 +116,18 @@ describe('aggressive SHORT borrow + $1M floor', () => {
     const scan: GlobalScanResult = { standard: [], aggressive: [long] };
     assert.equal(globalSignalsForBotMode(scan, 'standard').length, 0);
   });
+
+  it('does not borrow an aggressive SHORT over a floor REVERSAL_LONG on the same coin', () => {
+    const long = cand('BTC', 'LONG', 61, 2_000_000_000, 'standard');
+    long.longClass = 'REVERSAL_LONG';
+    const scan: GlobalScanResult = {
+      standard: [long],
+      aggressive: [cand('BTC', 'SHORT', 94, 2_000_000_000, 'aggressive')],
+    };
+    const signals = globalSignalsForBotMode(scan, 'standard');
+    assert.equal(signals.some((s) => s.direction === 'SHORT' && s.coin === 'BTC'), false);
+    assert.equal(signals.some((s) => s.direction === 'LONG' && s.longClass === 'REVERSAL_LONG'), true);
+  });
 });
 
 describe('SHORT-primary queue helpers', () => {
@@ -139,5 +151,9 @@ describe('SHORT-primary queue helpers', () => {
     relief.reversalCode = 'REVERSAL_WAITING_RECLAIM';
     assert.equal(isOpenableLongCandidate(relief), false);
     assert.equal(isScanQueueable(relief, relief, cand('BTC', 'SHORT', 64, 10_000_000)), false);
+    assert.equal(
+      isScanQueueable(reversal, cand('BTC', 'SHORT', 90, 10_000_000), cand('BTC', 'SHORT', 90, 10_000_000)),
+      true
+    );
   });
 });

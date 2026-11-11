@@ -299,6 +299,36 @@ export function executablePriceOverextended(opts: {
   return extension >= rules.overextensionAtr;
 }
 
+function lastClosedGreen(candles: Candle[]): boolean {
+  const last = closedBars(candles).at(-1);
+  if (!last) return false;
+  return last.close > last.open;
+}
+
+/** Majors sitting on the 24h floor: bounce LONG is allowed while 1h is still DOWN. */
+function floorMajorBounceOk(opts: {
+  floorMajor?: boolean;
+  rangePosition24h?: number;
+  candles5m: Candle[];
+  candles15m: Candle[];
+  confidence: number;
+  reclaimKind: ReclaimKind;
+  rules: BearReversalLongRules;
+}): boolean {
+  if (!opts.floorMajor) return false;
+  const range = opts.rangePosition24h;
+  if (!(typeof range === 'number') || range > 0.22) return false;
+  if (opts.confidence < opts.rules.shadowMinConfidence) return false;
+  if (tapeStillDumping(opts.candles5m) || tapeStillDumping(opts.candles15m)) return false;
+  const bounce =
+    opts.reclaimKind === 'relief' ||
+    opts.reclaimKind === 'structure_break' ||
+    opts.reclaimKind === 'retest' ||
+    lastClosedGreen(opts.candles15m) ||
+    lastClosedGreen(opts.candles5m);
+  return bounce;
+}
+
 export function classifyBearLongFromCandles(opts: {
   candles5m: Candle[];
   candles15m: Candle[];
@@ -308,6 +338,9 @@ export function classifyBearLongFromCandles(opts: {
   confidence: number;
   positionOpen?: boolean;
   rules?: BearReversalLongRules;
+  /** Allowlisted major — floor bounce may LONG before 1h flips. */
+  floorMajor?: boolean;
+  rangePosition24h?: number;
 }): BearLongClassification {
   const rules = opts.rules ?? BEAR_REVERSAL_LONG;
   const atr15m = candleAtr(opts.candles15m);
@@ -366,6 +399,27 @@ export function classifyBearLongFromCandles(opts: {
   }
 
   if (dump.phase === 'FLUSH_WAIT') {
+    if (
+      floorMajorBounceOk({
+        floorMajor: opts.floorMajor,
+        rangePosition24h: opts.rangePosition24h,
+        candles5m: opts.candles5m,
+        candles15m: opts.candles15m,
+        confidence: opts.confidence,
+        reclaimKind: dump.reclaimKind,
+        rules,
+      })
+    ) {
+      return {
+        ...EMPTY,
+        ...base,
+        class: 'REVERSAL_LONG',
+        dumpPhase: 'FLUSH_WAIT',
+        executionState: 'CANDIDATE',
+        code: null,
+        reason: `REVERSAL_LONG — floor major bounce at ${(opts.rangePosition24h! * 100).toFixed(0)}% of 24h range (1h may still be DOWN)`,
+      };
+    }
     const relief =
       dump.reclaimKind === 'relief'
         ? 'relief bounce above dump midpoint is not a structure break'
@@ -393,6 +447,25 @@ export function classifyBearLongFromCandles(opts: {
 
   if (dump.phase === 'RECLAIMED') {
     if (!primary) {
+      const floor =
+        opts.floorMajor &&
+        typeof opts.rangePosition24h === 'number' &&
+        opts.rangePosition24h <= 0.35 &&
+        opts.confidence >= rules.shadowMinConfidence &&
+        !tapeStillDumping(opts.candles5m) &&
+        !tapeStillDumping(opts.candles15m);
+      if (floor) {
+        return {
+          ...EMPTY,
+          ...base,
+          class: 'REVERSAL_LONG',
+          dumpPhase: 'RECLAIMED',
+          executionState: 'CANDIDATE',
+          code: null,
+          reason:
+            'REVERSAL_LONG — structure reclaim on floor major while 1h still not LONG',
+        };
+      }
       return {
         ...EMPTY,
         ...base,
@@ -469,6 +542,8 @@ export async function evaluateBearLongOpportunity(opts: {
   votes: BearLongVotes;
   confidence: number;
   positionOpen?: boolean;
+  floorMajor?: boolean;
+  rangePosition24h?: number;
 }): Promise<BearLongClassification> {
   if (!BEAR_REVERSAL_LONG.enabled) {
     return { ...EMPTY, reason: 'Bear reversal path disabled' };
@@ -489,6 +564,8 @@ export async function evaluateBearLongOpportunity(opts: {
       votes: opts.votes,
       confidence: opts.confidence,
       positionOpen: opts.positionOpen,
+      floorMajor: opts.floorMajor,
+      rangePosition24h: opts.rangePosition24h,
     });
   } catch {
     return {

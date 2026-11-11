@@ -84,6 +84,7 @@ import {
 import {
   cancelProtectiveOrdersForCoin,
   fetchFrontendOpenOrders,
+  lastConfirmedEmergencyStopPx,
   lastConfirmedProfitStopPx,
   rememberConfirmedStops,
   snapshotConfirmedStops,
@@ -307,7 +308,11 @@ function liquidityPickScore(signal: GlobalSignalCandidate, tier: 'major' | 'mid'
   const volM = signal.dayVolumeUsd / 1_000_000;
   const oiM = signal.openInterestUsd / 1_000_000;
   const tierBonus = tier === 'major' ? 40 : tier === 'mid' ? 15 : -25;
-  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus;
+  const reversalBonus =
+    signal.direction === 'LONG' && signal.longClass === 'REVERSAL_LONG' && tier === 'major'
+      ? 90
+      : 0;
+  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus + reversalBonus;
 }
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
@@ -1219,10 +1224,19 @@ export class HyperliquidTradingService {
     const nowMs = Date.now();
     const openOrders = await fetchFrontendOpenOrders(userAddress);
     if (openOrders == null) {
+      const liveCoins = (state?.assetPositions ?? [])
+        .map((row) => row.position?.coin)
+        .filter((c): c is string => Boolean(c));
+      const remembered = liveCoins.filter(
+        (coin) => lastConfirmedEmergencyStopPx(userAddress, coin) != null
+      );
+      const keep = liveCoins.length > 0 && remembered.length === liveCoins.length;
       markWalletProtectiveReconcile(
         userAddress,
-        false,
-        'frontendOpenOrders unreachable',
+        keep,
+        keep
+          ? 'orders query failed — using last confirmed emergency SL'
+          : 'frontendOpenOrders unreachable',
         nowMs
       );
     }
@@ -1267,7 +1281,10 @@ export class HyperliquidTradingService {
 
       const liveStops = openOrders
         ? snapshotConfirmedStops(openOrders, String(pos.coin), positionDirection, entry)
-        : { profitPx: lastConfirmedProfitStopPx(userAddress, pos.coin), emergencyPx: null };
+        : {
+            profitPx: lastConfirmedProfitStopPx(userAddress, pos.coin),
+            emergencyPx: lastConfirmedEmergencyStopPx(userAddress, pos.coin),
+          };
       rememberConfirmedStops(
         userAddress,
         pos.coin,
