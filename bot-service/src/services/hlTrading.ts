@@ -1655,28 +1655,64 @@ export class HyperliquidTradingService {
       unrealizedPnlUsd: number;
       size: number;
       leverage: number;
+      isLong?: boolean;
     },
     reasonDetail?: string
   ): Promise<{ success: boolean; error?: string; alreadyClosed?: boolean }> {
     try {
       const coinUpper = coin.toUpperCase();
-      const state = await fetchHlClearinghouseState(userAddress);
+      const fastClose =
+        closeCtx != null &&
+        Number.isFinite(closeCtx.size) &&
+        closeCtx.size > 1e-12 &&
+        typeof closeCtx.isLong === 'boolean';
+
+      const state = await fetchHlClearinghouseState(userAddress, {
+        critical: reason === 'manual',
+      });
       const row = state?.assetPositions?.find(
         (p) => p.position?.coin?.toUpperCase() === coinUpper
       )?.position;
-      if (!row) return { success: true, alreadyClosed: true };
 
-      const size = Number(row.szi ?? 0);
-      if (!Number.isFinite(size) || Math.abs(size) < 1e-12) {
-        return { success: false, error: 'Zero size' };
+      let absSize: number;
+      let isLong: boolean;
+      let entryPx: number;
+      let pnlUsd: number;
+      let leverage: number;
+
+      const rowSize = row != null ? Number(row.szi ?? 0) : 0;
+      if (Number.isFinite(rowSize) && Math.abs(rowSize) > 1e-12) {
+        absSize = Math.abs(rowSize);
+        isLong = rowSize > 0;
+        entryPx = closeCtx?.entryPx ?? Number(row?.entryPx ?? 0);
+        pnlUsd = closeCtx?.unrealizedPnlUsd ?? Number(row?.unrealizedPnl ?? 0);
+        leverage = closeCtx?.leverage ?? row?.leverage?.value ?? 10;
+      } else if (fastClose && closeCtx) {
+        absSize = closeCtx.size;
+        isLong = closeCtx.isLong === true;
+        entryPx = closeCtx.entryPx ?? 0;
+        pnlUsd = closeCtx.unrealizedPnlUsd ?? 0;
+        leverage = closeCtx.leverage ?? 10;
+        logger.info('HL close fast path — UI size (skip clearinghouse wait)', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          absSize,
+          isLong,
+        });
+      } else if (!row && !state) {
+        return {
+          success: false,
+          error:
+            'Hyperliquid account sync busy — wait a few seconds and tap Close again.',
+        };
+      } else {
+        return { success: true, alreadyClosed: true };
       }
 
-      const entryPx = closeCtx?.entryPx ?? Number(row.entryPx ?? 0);
-      const pnlUsd =
-        closeCtx?.unrealizedPnlUsd ?? Number(row.unrealizedPnl ?? 0);
-      const leverage = closeCtx?.leverage ?? row.leverage?.value ?? 10;
-      const absSize = Math.abs(size);
-      const closeNotional = absSize * (Number(row.entryPx ?? 0) > 0 ? Number(row.entryPx) : 1);
+      if (!Number.isFinite(absSize) || absSize < 1e-12) {
+        return { success: false, error: 'Zero size' };
+      }
+      const closeNotional = absSize * (entryPx > 0 ? entryPx : 1);
       const closeFees = estimateRoundTripFeesUsd(closeNotional);
       const netPnlUsd = netPnlAfterCosts(pnlUsd, closeNotional, closeFees);
       const flattenGate = shouldAllowBotFlatten({
@@ -1733,7 +1769,6 @@ export class HyperliquidTradingService {
       if (!Number.isFinite(markPx) || markPx <= 0) {
         return { success: false, error: 'Could not read mark price — try again' };
       }
-      const isLong = size > 0;
       const limitPx = isLong ? markPx * 0.95 : markPx * 1.05;
 
       const client = createAgentClient(userAddress);
@@ -1774,36 +1809,74 @@ export class HyperliquidTradingService {
         }
       }
 
-      let result = await client.order({
-        ...orderPayload,
-        ...(closeBuilder ? { builder: closeBuilder } : {}),
-      });
-
-      let status = result.response?.data?.statuses?.[0] as
-        | { filled?: unknown; error?: string }
-        | undefined;
-
-      if (
-        closeBuilder &&
-        status &&
-        'error' in status &&
-        status.error &&
-        isBuilderOrderError(String(status.error))
-      ) {
-        logger.warn('HL close builder error — retrying without builder', {
-          user: userAddress.slice(0, 10),
-          coin: coinUpper,
-          error: String(status.error),
+      const submitClose = async (withBuilder: boolean) => {
+        return client.order({
+          ...orderPayload,
+          ...(withBuilder && closeBuilder ? { builder: closeBuilder } : {}),
         });
-        closeBuilder = undefined;
-        result = await client.order(orderPayload);
-        status = result.response?.data?.statuses?.[0] as
-          | { filled?: unknown; error?: string }
-          | undefined;
+      };
+
+      let result: Awaited<ReturnType<typeof submitClose>> | undefined;
+      let status: { filled?: unknown; error?: string } | undefined;
+      const maxAttempts = reason === 'manual' ? 4 : 2;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          result = await submitClose(Boolean(closeBuilder));
+          status = result.response?.data?.statuses?.[0] as
+            | { filled?: unknown; error?: string }
+            | undefined;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const rateLimited = /429|rate limit|too many/i.test(msg);
+          if (rateLimited && attempt < maxAttempts - 1) {
+            await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
+
+        if (
+          closeBuilder &&
+          status &&
+          'error' in status &&
+          status.error &&
+          isBuilderOrderError(String(status.error))
+        ) {
+          logger.warn('HL close builder error — retrying without builder', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            error: String(status.error),
+          });
+          closeBuilder = undefined;
+          continue;
+        }
+
+        const errText =
+          status && 'error' in status && status.error ? String(status.error) : '';
+        if (/429|rate limit|too many/i.test(errText) && attempt < maxAttempts - 1) {
+          await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+          continue;
+        }
+        break;
+      }
+
+      if (!result) {
+        return {
+          success: false,
+          error: 'Hyperliquid busy — wait a few seconds and retry close.',
+        };
       }
 
       if (status && 'error' in status && status.error) {
-        return { success: false, error: String(status.error) };
+        const errText = String(status.error);
+        if (/429|rate limit|too many/i.test(errText)) {
+          return {
+            success: false,
+            error: 'Hyperliquid rate limit — wait ~15 seconds and retry close.',
+          };
+        }
+        return { success: false, error: errText };
       }
 
       if (closeBuilder) {
