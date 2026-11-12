@@ -562,7 +562,7 @@ export const config = {
       // Volume-fade veto: only a genuine collapse (recent 5 bars < 50% of base) blocks.
       // 0.85 vetoed liquid majors during quiet hours (Sunday BTC 0.54×) — the trades we
       // actually want. Real dumps (<0.5×, e.g. XLM 0.17×) still block.
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.85),
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.5),
       /**
        * Reversal veto (structure flipping / active dump against the trade). ATR-normalized
        * so a sluggish −0.15% drift over 100min (noise inside a confirmed uptrend) never

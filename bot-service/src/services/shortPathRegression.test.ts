@@ -24,11 +24,11 @@ describe('SHORT path regression vs prior bear engine', () => {
     assert.equal(s.required5mTrend, undefined);
     assert.equal(s.minConfirm15mCandles, 3);
     assert.equal(s.trustMtfScan, true);
-    assert.equal(s.relaxSecondaryGates, false);
-    assert.equal(s.bypassFreshPumpWhenTrusted, false);
-    assert.equal(s.bypassMacroBetaWhenTrusted, false);
-    assert.equal(s.bypassPumpShortWhenTrusted, false);
-    assert.equal(s.bypassEntryLocationWhenTrusted, false);
+    assert.equal(s.relaxSecondaryGates, true);
+    assert.equal(s.bypassFreshPumpWhenTrusted, true);
+    assert.equal(s.bypassMacroBetaWhenTrusted, true);
+    assert.equal(s.bypassPumpShortWhenTrusted, true);
+    assert.equal(s.bypassEntryLocationWhenTrusted, true);
   });
 
   it('wallet-wide 10m still blocks a SHORT 3m after any close', () => {

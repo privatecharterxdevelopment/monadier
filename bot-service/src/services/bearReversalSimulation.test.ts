@@ -79,7 +79,7 @@ describe('historical fixture comparison (baseline vs reversal)', () => {
     assert.equal(s.required15mTrend, 'DOWN');
     assert.equal(s.minConfirm15mCandles, 3);
     assert.equal(s.trustMtfScan, true);
-    assert.equal(s.relaxSecondaryGates, false);
+    assert.equal(s.relaxSecondaryGates, true);
   });
 
   it('does not count extra LONG entries as an improvement without reclaim', () => {

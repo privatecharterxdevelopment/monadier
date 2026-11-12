@@ -781,6 +781,15 @@ export class HyperliquidTradingService {
       const skipOpenGates = opts.skipOpenGates === true;
       let openReasonFull = `${opts.botModeLabel} ${opts.direction} ${coin} · FORCE ${effectiveLeverage}× · ${opts.pick.reason}`;
 
+      const shortRules = config.hyperliquid.directionProfile.short;
+      const reversalLong = opts.pick.longClass === 'REVERSAL_LONG';
+      const trustedMtf =
+        shortRules.trustMtfScan &&
+        opts.pick.confidence >= Math.max(58, shortRules.minConfidence - 4);
+      const relaxSecondary = shortRules.relaxSecondaryGates && trustedMtf;
+      const aggShort =
+        opts.pick.botMode === 'aggressive' && opts.direction === 'SHORT';
+
       const symbol = hlCoinToBinanceSymbol(coin);
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
@@ -821,7 +830,10 @@ export class HyperliquidTradingService {
       }
 
       if (!skipOpenGates) {
-      const freshPumpGate = await validateNotFreshlyPumped({ coin, tier: coinTier });
+      const freshPumpGate =
+        relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
+          ? { ok: true as const, reason: 'Fresh pump bypass — trusted MTF scan' }
+          : await validateNotFreshlyPumped({ coin, tier: coinTier });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -881,10 +893,25 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'scalp_align');
 
-      const macroGate = await validateMacroBetaAlignment({
-        coin,
-        direction: opts.direction,
-      });
+      const macroGate =
+        relaxSecondary && shortRules.bypassMacroBetaWhenTrusted
+          ? {
+              ok: true as const,
+              reason: 'Macro beta bypass — trusted MTF scan',
+              blockers: [] as string[],
+              snapshot: {
+                coin,
+                anchor: 'SELF' as const,
+                btc: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
+                eth: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
+                coinMom: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
+                checkedAt: new Date().toISOString(),
+              },
+            }
+          : await validateMacroBetaAlignment({
+              coin,
+              direction: opts.direction,
+            });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -900,10 +927,21 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'macro_beta');
 
-      const pumpShortGate = await validateNoAltPumpShort({
-        coin,
-        direction: opts.direction,
-      });
+      const pumpShortGate =
+        relaxSecondary && shortRules.bypassPumpShortWhenTrusted
+          ? {
+              ok: true as const,
+              reason: 'Alt pump-short bypass — trusted MTF',
+              code: 'PUMP_SHORT_PASS' as const,
+              change15mPct: 0,
+              change1hPct: 0,
+              change4hPct: 0,
+              higherLong: false,
+            }
+          : await validateNoAltPumpShort({
+              coin,
+              direction: opts.direction,
+            });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -924,10 +962,23 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'pump_short');
 
-      const momentumGate = await validateEntryMomentum({
-        coin,
-        direction: opts.direction,
-      });
+      const skipMomentum = reversalLong || aggShort;
+      const momentumGate = skipMomentum
+        ? {
+            ok: true as const,
+            code: 'MOMENTUM_PASS' as const,
+            reason: reversalLong
+              ? 'Entry momentum bypass — REVERSAL_LONG floor bounce'
+              : 'Entry momentum bypass — aggressive scalp SHORT',
+            change5mPct: 0,
+            change15mPct: 0,
+            change1hPct: 0,
+            momentumAligned: true,
+          }
+        : await validateEntryMomentum({
+            coin,
+            direction: opts.direction,
+          });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -988,11 +1039,44 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'entry_location');
 
-      const htfLocation = await evaluateEntryLocationQuality({
-        coin,
-        direction: opts.direction,
-        markPx,
-      });
+      const bypassHtfLocation =
+        reversalLong ||
+        (relaxSecondary && shortRules.bypassEntryLocationWhenTrusted);
+      const htfLocation = bypassHtfLocation
+        ? {
+            coin,
+            side: opts.direction,
+            price: markPx,
+            rangePosition1h: 0,
+            rangePosition4h: 0,
+            distanceResistanceATR: null,
+            distanceSupportATR: null,
+            distanceSwingHighATR: null,
+            distanceSwingLowATR: null,
+            impulse15mATR: null,
+            impulse5mATR: null,
+            consecutiveDirectionCandles: 0,
+            atr1h: 0,
+            nearResistance: false,
+            nearSupport: false,
+            confirmedBreakoutUp: false,
+            confirmedBreakdown: false,
+            upperWickRejection: false,
+            lowerWickRejection: false,
+            chasingCompletedMove: false,
+            upsideRoomATR: null,
+            downsideRoomATR: null,
+            deterministicLocationDecision: 'ALLOW' as const,
+            blockedBy: [] as string[],
+            reason: reversalLong
+              ? 'HTF location bypass — REVERSAL_LONG'
+              : 'HTF location bypass — trusted MTF scan',
+          }
+        : await evaluateEntryLocationQuality({
+            coin,
+            direction: opts.direction,
+            markPx,
+          });
       logEntryLocationRecord({
         record: htfLocation,
         finalDecision: htfLocation.deterministicLocationDecision === 'ALLOW' ? 'OPEN' : 'NO_OPEN',
