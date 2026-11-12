@@ -979,9 +979,9 @@ const TerminalTradePanel: React.FC<Props> = ({
         )}
 
         {panelTab === 'manual' && (
-          <div className="term-panel-stack">
+          <div className="term-panel-stack term-panel-stack--manual-trade">
             {!walletReady ? (
-              <p className="term-hint">{t('tradePanel.connectWallet')}</p>
+              <p className="term-hint term-panel-stack--manual-trade-hint">{t('tradePanel.connectWallet')}</p>
             ) : wallet ? (
               <ProTradeAgentManualTrade
                 wallet={wallet}
@@ -995,7 +995,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 onSuccess={() => {
                   showToast(
                     t('tradePanel.manualAgentSuccess', {
-                      defaultValue: 'Market order sent — check Agent positions.',
+                      defaultValue: 'Order filled — see Agent positions.',
                     }),
                     4000,
                     'ok'
