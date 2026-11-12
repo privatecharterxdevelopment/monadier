@@ -1,3 +1,4 @@
+import { getBotApiBase } from '../botApiFetch';
 import { HL_INFO_URL } from './constants';
 
 type CacheEntry = { at: number; data: unknown };
@@ -102,8 +103,12 @@ function makeError(message: string, status?: number): HlInfoError {
 
 async function postOnce<T>(body: Record<string, unknown>): Promise<T> {
   let res: Response;
+  const url =
+    typeof window !== 'undefined'
+      ? `${getBotApiBase()}/api/hl-info`
+      : HL_INFO_URL;
   try {
-    res = await fetch(HL_INFO_URL, {
+    res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -119,8 +124,13 @@ async function postOnce<T>(body: Record<string, unknown>): Promise<T> {
     throw makeError(`Hyperliquid API ${res.status}`, res.status);
   }
   try {
-    return (await res.json()) as T;
-  } catch {
+    const data = (await res.json()) as T | { error?: string };
+    if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) {
+      throw makeError(String((data as { error: string }).error), res.status);
+    }
+    return data as T;
+  } catch (err) {
+    if (err instanceof Error && (err as HlInfoError).retryable !== undefined) throw err;
     throw makeError('Hyperliquid API invalid JSON', res.status);
   }
 }
@@ -173,11 +183,8 @@ export async function hlInfoPost<T>(body: Record<string, unknown>): Promise<T> {
         return data;
       } catch (err) {
         lastErr = err;
-        // Serve stale candles immediately on 5xx instead of waiting out every retry.
-        if (isCandleBody(body)) {
-          const stale = readCache<T>(key, ttl, true, staleMs);
-          if (stale != null) return stale;
-        }
+        const staleEarly = readCache<T>(key, ttl, true, staleMs);
+        if (staleEarly != null) return staleEarly;
         const retryable =
           !err ||
           typeof err !== 'object' ||

@@ -1512,6 +1512,25 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/hl-info' && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(chunk as Buffer);
+      const raw = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(raw || '{}') as Record<string, unknown>;
+      const { proxyHlInfoPost } = await import('./services/hlInfoProxy');
+      const data = await proxyHlInfoPost(body);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify(data));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'hl-info failed';
+      const status = /not allowed/i.test(msg) ? 400 : 502;
+      res.writeHead(status, corsHeaders);
+      res.end(JSON.stringify({ error: msg }));
+    }
+    return;
+  }
+
   /** CORS-safe Binance spot prices for vault position PnL (browser → same-origin proxy). */
   if (url.pathname === '/api/token-prices' && req.method === 'GET') {
     try {
