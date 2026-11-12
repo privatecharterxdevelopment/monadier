@@ -74,6 +74,10 @@ import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
 import { fmtClosedPnl } from '../../lib/hyperliquid/format';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import TerminalHlOpenPositions from './TerminalHlOpenPositions';
+import type { HlPosition } from '../../lib/hyperliquid/user';
+import { toNum } from '../../lib/hyperliquid/parse';
 type PanelTab = 'bot' | 'lvrg' | 'funds';
 
 type Props = {
@@ -112,7 +116,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
-  const { transferUsdClass } = useHyperliquidTrading();
+  const { transferUsdClass, closePosition, busy: hlCloseBusy } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTab, setPanelTab] = useState<PanelTab>('bot');
@@ -137,6 +141,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     ? botWallet ?? monadierAddress ?? undefined
     : undefined;
   const hlSetup = useHlBotSetup(hlBalanceWallet);
+  const { snapshot: hlOpenSnap, refresh: refreshHlOpenSnap } = useHlAccountSnapshot(
+    hlBalanceWallet?.toLowerCase()
+  );
+  const openHlPositions = hlOpenSnap?.positions ?? [];
+  const botEffSettings = effectiveHlBotSettings(botSettingsSnapshot);
+  const [closingHlCoin, setClosingHlCoin] = useState<string | null>(null);
   const builderConfig = getHlBuilderConfig();
   const botSuccessFeeLabel = hlBotSuccessFeeStepButtonLabel(2);
   const platformFees = usePlatformFeeGate();
@@ -216,7 +226,33 @@ const TerminalTradePanel: React.FC<Props> = ({
   }, [botRunning, timerWallet]);
 
 
-  const hasOpenPosition = metrics.openPositionsCount > 0;
+  const hasOpenPosition =
+    metrics.openPositionsCount > 0 || openHlPositions.length > 0;
+
+  const handleCloseHlPosition = async (position: HlPosition) => {
+    const closeWallet = wallet ?? hlBalanceWallet;
+    if (!closeWallet) return;
+    const size = Math.abs(toNum(position.szi));
+    const isLong = toNum(position.szi) >= 0;
+    const markPx = toNum(position.entryPx);
+    if (size <= 0) return;
+    setClosingHlCoin(position.coin);
+    try {
+      const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+      await closePosition({
+        coin: position.coin,
+        size,
+        isLong,
+        markPx: markPx > 0 ? markPx : 1,
+        profitUsd,
+        walletAddress: closeWallet,
+      });
+      await refreshHlOpenSnap();
+      onRefresh();
+    } finally {
+      setClosingHlCoin(null);
+    }
+  };
 
   const phase: SetupPhase = useMemo(() => {
     if (!walletReady) return 'connect';
@@ -888,14 +924,35 @@ const TerminalTradePanel: React.FC<Props> = ({
               </button>
             )}
 
-            {onOpenHistory && (
+            {walletReady && openHlPositions.length > 0 ? (
+              <div className="term-bot-open-positions-wrap">
+                <TerminalHlOpenPositions
+                  positions={openHlPositions}
+                  walletAddress={wallet ?? hlBalanceWallet}
+                  configuredLeverage={botEffSettings.leverage}
+                  stopLossMarginPct={botEffSettings.stopLoss}
+                  compact
+                  closeBusy={hlCloseBusy}
+                  closingCoin={closingHlCoin}
+                  onClose={(p) => void handleCloseHlPosition(p)}
+                />
+                {onOpenHistory ? (
+                  <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
+                    <span>Full trade history</span>
+                    <span className="term-bot-positions-chevron" aria-hidden>
+                      ›
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+            ) : onOpenHistory ? (
               <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
                 <span>{t('tradePanel.openPositions')}</span>
                 <span className="term-bot-positions-chevron" aria-hidden>
                   ›
                 </span>
               </button>
-            )}
+            ) : null}
 
             {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
           </div>

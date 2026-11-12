@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { proxyHlInfoPost } from './hlInfoProxy';
 
 export type HlClearinghouseState = {
   marginSummary?: {
@@ -116,34 +117,10 @@ export async function fetchHlClearinghouseState(
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'clearinghouseState',
-          user,
-        }),
-        signal: AbortSignal.timeout(opts?.critical ? 12_000 : 8_000),
-      });
-      if (res.status === 429 || res.status >= 500) {
-        if (hit) {
-          logger.warn('HL clearinghouse rate-limited — serving stale', {
-            user: user.slice(0, 10),
-            status: res.status,
-          });
-          return hit.data;
-        }
-        await new Promise((r) => setTimeout(r, 350 * (attempt + 1) * (attempt + 1)));
-        continue;
-      }
-      if (!res.ok) {
-        if (attempt < attempts - 1) {
-          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-          continue;
-        }
-        break;
-      }
-      const data = (await res.json()) as HlClearinghouseState;
+      const data = (await proxyHlInfoPost({
+        type: 'clearinghouseState',
+        user,
+      })) as HlClearinghouseState;
       clearinghouseCache.set(user, { at: Date.now(), data });
       return data;
     } catch (err: unknown) {
@@ -172,19 +149,10 @@ export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
   const user = userAddress.toLowerCase();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const res = await fetch(config.hyperliquid.infoUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'spotClearinghouseState',
-          user,
-        }),
-      });
-      if (!res.ok) {
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-        continue;
-      }
-      const data = (await res.json()) as {
+      const data = (await proxyHlInfoPost({
+        type: 'spotClearinghouseState',
+        user,
+      })) as {
         balances?: Array<{ coin?: string; total?: string; hold?: string }>;
       };
       const row = (data.balances ?? []).find((b) => String(b.coin ?? '').toUpperCase() === 'USDC');

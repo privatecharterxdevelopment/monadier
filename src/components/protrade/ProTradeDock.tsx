@@ -273,8 +273,14 @@ const ProTradeDock: React.FC<Props> = ({
 
   const liveAccountPositions = useMemo(() => {
     const fromAccount = account?.positions ?? [];
-    if (fromAccount.length > 0) return fromAccount;
-    return hlSnap?.positions ?? [];
+    const fromSnap = hlSnap?.positions ?? [];
+    const hasMeaningful = (list: HlPosition[]) =>
+      list.some(
+        (p) => isMeaningfulHlPosition(p.szi, p.entryPx) || isHlDustPosition(p.szi, p.entryPx)
+      );
+    if (hasMeaningful(fromAccount)) return fromAccount;
+    if (fromSnap.length > 0) return fromSnap;
+    return fromAccount;
   }, [account?.positions, hlSnap?.positions]);
 
   const scopedPositions = useMemo(
@@ -895,12 +901,23 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty" role="status">
               Loading open positions…
             </p>
+          ) : isBotMode &&
+            (hlSnap?.openPositionsCount ?? 0) > 0 &&
+            filteredPositions.length === 0 ? (
+            <p className="hl-dock-empty" role="status">
+              <Loader2 size={14} className="animate-spin inline" aria-hidden /> Loading open
+              positions…
+            </p>
           ) : isBotMode && hlOpenPositionCount > 0 && scopedPositions.length === 0 ? (
             <p className="hl-dock-empty" role="status">
               {hlOpenPositionCount} open on Hyperliquid — not tagged as bot yet (syncing markers). Check
               Perps → Positions, or refresh in a few seconds.
             </p>
-          ) : isBotMode && (botRunning || Boolean(botScanMetrics?.autoTradeEnabled)) && !botNeedsDeposit ? (
+          ) : isBotMode &&
+            (botRunning || Boolean(botScanMetrics?.autoTradeEnabled)) &&
+            !botNeedsDeposit &&
+            hlOpenPositionCount === 0 &&
+            (hlSnap?.openPositionsCount ?? 0) === 0 ? (
             <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
               {botScanMetrics ? (
                 <ProTradeBotScanInsights

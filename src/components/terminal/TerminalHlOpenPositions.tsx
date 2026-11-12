@@ -1,6 +1,7 @@
 import React from 'react';
 import type { HlPosition } from '../../lib/hyperliquid/user';
-import { fmtTradeUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtLeverage, fmtPrice, fmtSize, fmtTradeUsdSymbol, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { toNum } from '../../lib/hyperliquid/parse';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
@@ -69,6 +70,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
 
   return (
     <div className={`term-hl-open-block${compact ? ' term-hl-open-block--compact' : ''}`}>
+      <div className="hl-dock-table-scroll">
       <table className="hl-table hl-table--positions term-hl-open-table">
         <thead>
           <tr>
@@ -162,6 +164,88 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
           })}
         </tbody>
       </table>
+      </div>
+      <div className="hl-pos-cards term-hl-open-cards" aria-hidden={false}>
+        {positions.map((p) => {
+          const szi = toNum(p.szi);
+          const isLong = szi >= 0;
+          const mark = markPrices[p.coin] ?? 0;
+          const upnl =
+            toNum(p.unrealizedPnl) ||
+            (mark > 0 && szi ? (mark - toNum(p.entryPx)) * szi : 0);
+          const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
+          const isClosing = closingCoin === p.coin;
+          const peakPnl = peakPnlFor(p.coin, toNum(p.entryPx), szi, upnl);
+          const botTrail = botTrailByCoin[p.coin];
+          const activeSl = trailStopForOpenPosition({
+            entryPx: toNum(p.entryPx),
+            szi,
+            markPx: mark > 0 ? mark : toNum(p.entryPx),
+            unrealizedPnlUsd: upnl,
+            leverage: lev,
+            coin: p.coin,
+            peakPnlUsd: peakPnl,
+            stopLossMarginPct,
+            serverTrail: toBotTrailServerTruth(botTrail),
+          });
+          return (
+            <article key={`card-${p.coin}`} className="hl-pos-card">
+              <header className="hl-pos-card__head">
+                {onCoinClick ? (
+                  <button
+                    type="button"
+                    className="hl-coin-link"
+                    onClick={() => onCoinClick(p.coin)}
+                  >
+                    {p.coin}
+                  </button>
+                ) : (
+                  <strong>{p.coin}</strong>
+                )}
+                <span className={isLong ? 'hl-up' : 'hl-down'}>
+                  {isLong ? 'LONG' : 'SHORT'} · {fmtLeverage(lev)}
+                </span>
+                <span className={upnl >= 0 ? 'hl-up' : 'hl-down'}>{fmtTradeUsdSymbol(upnl)}</span>
+              </header>
+              <dl className="hl-pos-card__grid">
+                <div>
+                  <dt>Size</dt>
+                  <dd>{fmtSize(Math.abs(szi))}</dd>
+                </div>
+                <div>
+                  <dt>Value</dt>
+                  <dd>{fmtUsdSymbol(p.positionValue)}</dd>
+                </div>
+                <div>
+                  <dt>Entry</dt>
+                  <dd>{fmtPrice(p.entryPx)}</dd>
+                </div>
+                <div>
+                  <dt>Mark</dt>
+                  <dd>{mark > 0 ? fmtPrice(mark) : '—'}</dd>
+                </div>
+                <div className="hl-pos-card__stop">
+                  <dt>Stop</dt>
+                  <dd className={`hl-active-sl hl-active-sl--${activeSl.kind}`}>
+                    <span className="hl-active-sl__price">{activeSl.label}</span>
+                    {activeSl.sublabel ? (
+                      <span className="hl-active-sl__roe">{activeSl.sublabel}</span>
+                    ) : null}
+                  </dd>
+                </div>
+              </dl>
+              <button
+                type="button"
+                className="hl-dock-action hl-pos-card__close"
+                disabled={closeBusy || isClosing}
+                onClick={() => onClose(p)}
+              >
+                {isClosing ? '…' : 'Close'}
+              </button>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 };

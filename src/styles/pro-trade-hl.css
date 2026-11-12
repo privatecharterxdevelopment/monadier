@@ -13411,6 +13411,21 @@ html[dir='rtl'] .hl-book {
     gap: 8px;
     padding: 8px 10px 14px;
   }
+
+  .hl-bot-panel-wrap .term-hl-open-block .hl-dock-table-scroll {
+    display: none !important;
+  }
+
+  .hl-bot-panel-wrap .term-hl-open-cards.hl-pos-cards {
+    display: flex !important;
+    padding: 4px 0 8px;
+  }
+
+  .term-bot-open-positions-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 
 @media (max-width: 900px) and (orientation: landscape) {
