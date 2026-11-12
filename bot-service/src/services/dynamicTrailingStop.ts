@@ -210,7 +210,7 @@ export function shouldArmProfitProtection(
 ): boolean {
   const notional = notionalUsd > 0 ? notionalUsd : Math.max(feesUsd * 200, 1);
   const minLock = minProfitLockUsd(notional);
-  return netPnlAfterCosts(pnlUsd, notional, feesUsd) >= minLock;
+  return netPnlForProfitArm(pnlUsd, notional, feesUsd) >= minLock;
 }
 
 /** Profit-side of entry and away from mark — no ROE / fee / BE floor. */
@@ -285,6 +285,31 @@ export function firstPlaceableProfitStopPx(opts: {
   return null;
 }
 
+export function netPnlAfterFees(pnlUsd: number, feesUsd: number): number {
+  return pnlUsd - Math.max(0, feesUsd);
+}
+
+/**
+ * Whether uPnL is high enough to arm/post profit-SL (fees only).
+ * Full-notional slippage reserve blocked small alt greens (ARB +$0.33 → net −$0.09).
+ */
+export function netPnlForProfitArm(
+  pnlUsd: number,
+  notionalUsd: number,
+  feesUsd: number
+): number {
+  void notionalUsd;
+  return netPnlAfterFees(pnlUsd, feesUsd);
+}
+
+/** Arm profit-SL on small alts when net-after-fees is green but below full $0.20 headline floor. */
+export function profitArmFloorUsd(minLockUsd: number, netArmUsd: number, grossPnlUsd: number): number {
+  if (!(grossPnlUsd > 0)) return minLockUsd;
+  if (netArmUsd >= minLockUsd) return minLockUsd;
+  return Math.min(minLockUsd, Math.max(0.1, netArmUsd * 0.92));
+}
+
+/** Conservative net for close validation — includes slippage reserve on notional. */
 export function netPnlAfterCosts(
   pnlUsd: number,
   notionalUsd: number,
@@ -292,7 +317,7 @@ export function netPnlAfterCosts(
 ): number {
   const slipBps = config.hyperliquid.dynamicTrail.slippageBufferBps;
   const slip = Math.max(0, notionalUsd) * (slipBps / 10_000);
-  return pnlUsd - feesUsd - slip;
+  return netPnlAfterFees(pnlUsd, feesUsd) - slip;
 }
 
 export function breakevenPlusFeesStopPx(
@@ -490,7 +515,12 @@ export async function evaluateDynamicTrail(
   const feesUsd = estimateRoundTripFeesUsd(input.notionalUsd);
   const minLockUsd = minProfitLockUsd(input.notionalUsd);
   const cfgTrail = config.hyperliquid.dynamicTrail;
-  const netPnlUsd = netPnlAfterCosts(input.pnlUsd, input.notionalUsd, feesUsd);
+  const netPnlUsd = netPnlForProfitArm(input.pnlUsd, input.notionalUsd, feesUsd);
+  const netPnlConservative = netPnlAfterCosts(
+    input.pnlUsd,
+    input.notionalUsd,
+    feesUsd
+  );
   let rec =
     input.record ??
     emptyRecord(
@@ -542,7 +572,8 @@ export async function evaluateDynamicTrail(
     tickSize: tick,
   });
 
-  if (input.pnlUsd <= 0 || netPnlUsd < minLockUsd) {
+  const armFloor = profitArmFloorUsd(minLockUsd, netPnlUsd, input.pnlUsd);
+  if (input.pnlUsd <= 0 || netPnlUsd < armFloor) {
     if (rec.phase === 'pending') rec.phase = rec.currentTrailStop != null ? 'armed' : 'idle';
     return {
       record: rec,
@@ -656,11 +687,11 @@ export async function evaluateDynamicTrail(
     rec.currentTrailStop != null &&
     isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
     input.pnlUsd > 0 &&
-    netPnlUsd >= targetUsd &&
+    netPnlConservative >= targetUsd &&
     lockAtStop >= targetUsd &&
     rec.timeInProfitMs >= minActiveMs &&
     peakOk &&
-    (!cfgTrail.neverRedAfterArm || netPnlUsd >= targetUsd)
+    (!cfgTrail.neverRedAfterArm || netPnlConservative >= targetUsd)
   ) {
     const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
     return {

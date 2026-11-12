@@ -5,6 +5,9 @@ import {
   estimateRoundTripFeesUsd,
   evaluateDynamicTrail,
   lossStopPricePx,
+  netPnlAfterCosts,
+  netPnlForProfitArm,
+  profitArmFloorUsd,
   ratchetStop,
   seedTrailFromConfirmedProfitStop,
   shouldArmBreakevenProtection,
@@ -324,6 +327,19 @@ describe('profit SL architecture', () => {
     );
     assert.equal(rec.currentTrailStop, 99.2);
     assert.equal(rec.phase, 'armed');
+  });
+
+  it('arms alt-sized green uPnL without full-notional slippage blocking net', () => {
+    const notional = 278;
+    const fees = estimateRoundTripFeesUsd(notional);
+    const upnl = 0.328;
+    const netArm = netPnlForProfitArm(upnl, notional, fees);
+    assert.ok(netPnlAfterCosts(upnl, notional, fees) < 0.2, 'conservative net can be below floor');
+    assert.ok(netArm > 0.1, 'fee-only net should be green on ARB-like size');
+    assert.ok(
+      profitArmFloorUsd(0.2, netArm, upnl) <= netArm,
+      'scaled arm floor should allow posting'
+    );
   });
 
   it('adverse funding pushes BE further into profit', () => {

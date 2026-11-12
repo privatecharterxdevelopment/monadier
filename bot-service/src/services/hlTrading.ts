@@ -88,6 +88,8 @@ import {
   markFromPosition,
   minProfitLockUsd,
   netPnlAfterCosts,
+  netPnlForProfitArm,
+  profitArmFloorUsd,
   resolveDesiredProfitStopPx,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
@@ -1615,7 +1617,7 @@ export class HyperliquidTradingService {
         slPct > 0 ? lossStopPricePx(positionDirection, entry, absSize, collateralEst, slPct) : null;
       const feesUsd = estimateRoundTripFeesUsd(notionalUsd);
       const minLockUsd = minProfitLockUsd(notionalUsd, lev);
-      const netPnlUsd = netPnlAfterCosts(pnl, notionalUsd, feesUsd);
+      const netPnlUsd = netPnlForProfitArm(pnl, notionalUsd, feesUsd);
       const protectKey = lockKey;
       const lastProtect = lastProtectSyncAt.get(protectKey) ?? 0;
       const firstProfitDue = pnl > 0 && liveStops.profitPx == null;
@@ -1646,10 +1648,27 @@ export class HyperliquidTradingService {
           tickSize: tickSizeForTrail,
           currentTrailStop: trailResult.record.currentTrailStop,
         });
+        const armFloor = profitArmFloorUsd(minLockUsd, netPnlUsd, pnl);
+        const lockUsdAtStop = Math.min(
+          profitTargetUsd,
+          Math.max(armFloor, netPnlUsd * 0.9)
+        );
+        const desiredWithLock =
+          desiredProfitStopPx ??
+          resolveDesiredProfitStopPx({
+            direction: positionDirection,
+            entryPrice: entry,
+            markPrice,
+            absSize,
+            feesUsd,
+            fundingUsd,
+            tickSize: tickSizeForTrail,
+            currentTrailStop: null,
+          });
         const profitArmed =
           pnl > 0 &&
-          netPnlUsd >= profitTargetUsd &&
-          desiredProfitStopPx != null &&
+          netPnlUsd >= armFloor &&
+          desiredWithLock != null &&
           trailResult.record.timeInProfitMs >= armHoldMs;
 
         const plan = await syncHlProfitStopOrder({
@@ -1659,14 +1678,14 @@ export class HyperliquidTradingService {
           absSize,
           markPrice,
           entryPrice: entry,
-          stopPx: profitArmed ? desiredProfitStopPx : null,
+          stopPx: profitArmed ? desiredWithLock : null,
           armed: profitArmed,
           feesUsd,
           fundingUsd,
           emergencyStopPx: emergencyPx,
           szDecimals: metaSz,
           tickSize: hlTickSize(markPrice, metaSz),
-          minLockUsd,
+          minLockUsd: profitArmed ? lockUsdAtStop : minLockUsd,
           openOrders,
           nowMs,
         });

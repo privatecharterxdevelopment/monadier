@@ -13,7 +13,7 @@ import {
   breakevenPlusFeesStopPx,
   estimateRoundTripFeesUsd,
   markFromPosition,
-  netPnlAfterCosts,
+  netPnlForProfitArm,
 } from './dynamicTrailingStop';
 import { getDynamicTrailRecord } from './profitTrailState';
 import { hlTickSize, type HlClearinghouseState } from './hlInfo';
@@ -66,11 +66,8 @@ export async function buildLiveBotPositionViews(opts: {
         ? markFromPosition(entryPx, direction === 'LONG' ? absSize : -absSize, upnlUsd)
         : entryPx;
     const feesUsd = estimateRoundTripFeesUsd(notional > 0 ? notional : absSize * markPx);
-    const netPnlUsd = netPnlAfterCosts(
-      upnlUsd,
-      notional > 0 ? notional : absSize * markPx,
-      feesUsd
-    );
+    const notionalForFees = notional > 0 ? notional : absSize * markPx;
+    const netPnlUsd = netPnlForProfitArm(upnlUsd, notionalForFees, feesUsd);
     const trail = getDynamicTrailRecord(`${opts.wallet.toLowerCase()}:${coin}`);
     const tick = hlTickSize(markPx > 0 ? markPx : entryPx, 4);
     const bePx = breakevenPlusFeesStopPx(
