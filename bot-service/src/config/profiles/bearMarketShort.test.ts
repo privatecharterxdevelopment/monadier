@@ -10,6 +10,10 @@ describe('bear_market thorough pre-open', () => {
     assert.equal(s.bypassPumpShortWhenTrusted, true);
     assert.equal(s.bypassEntryLocationWhenTrusted, true);
     assert.equal(s.bypassFreshPumpWhenTrusted, true);
+    assert.equal(s.bypassPreOpenWhenTrusted, true);
+    assert.equal(s.bypassScalpAlignWhenTrusted, true);
+    assert.equal(s.bypassEntryMomentumWhenTrusted, true);
+    assert.equal(s.bypassSrLocationWhenTrusted, true);
   });
 
   it('requires 15m+1h DOWN and 3 confirming 15m candles for SHORTs', () => {

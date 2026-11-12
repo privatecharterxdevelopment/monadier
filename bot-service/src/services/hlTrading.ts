@@ -872,10 +872,28 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'fresh_pump');
 
-      const candleAnalytics = await validatePreOpenCandleAnalytics({
-        coin,
-        direction: opts.direction,
-      });
+      const candleAnalytics =
+        relaxSecondary && shortRules.bypassPreOpenWhenTrusted
+          ? {
+              ok: true as const,
+              code: 'PRE_OPEN_PASS' as const,
+              reason: 'Pre-open bypass — trusted MTF scan',
+              summary: 'Pre-open bypass — trusted MTF scan',
+              netMovePct: 0,
+              greenCount: 0,
+              redCount: 0,
+              rangePosition: 0.5,
+              recentMovePct: 0,
+              volumeRatio: 1,
+              structure: 'chop' as const,
+              rejectionsAtHigh: 0,
+              rejectionsAtLow: 0,
+              shortBreakdownConfirmed: true,
+            }
+          : await validatePreOpenCandleAnalytics({
+              coin,
+              direction: opts.direction,
+            });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -898,10 +916,21 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'pre_open_candles');
 
-      const scalpGate = await validateScalpAlignment({
-        coin,
-        direction: opts.direction,
-      });
+      const scalpGate =
+        relaxSecondary &&
+        shortRules.bypassScalpAlignWhenTrusted &&
+        opts.direction === 'SHORT'
+          ? {
+              ok: true as const,
+              code: 'SCALP_PASS' as const,
+              reason: 'Scalp align bypass — trusted MTF scan',
+              tf1m: opts.direction,
+              tf5m: opts.direction,
+            }
+          : await validateScalpAlignment({
+              coin,
+              direction: opts.direction,
+            });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -986,14 +1015,21 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'pump_short');
 
-      const skipMomentum = reversalLong || aggShort;
+      const skipMomentum =
+        reversalLong ||
+        aggShort ||
+        (relaxSecondary &&
+          shortRules.bypassEntryMomentumWhenTrusted &&
+          opts.direction === 'SHORT');
       const momentumGate = skipMomentum
         ? {
             ok: true as const,
             code: 'MOMENTUM_PASS' as const,
             reason: reversalLong
               ? 'Entry momentum bypass — REVERSAL_LONG floor bounce'
-              : 'Entry momentum bypass — aggressive scalp SHORT',
+              : aggShort
+                ? 'Entry momentum bypass — aggressive scalp SHORT'
+                : 'Entry momentum bypass — trusted MTF SHORT',
             change5mPct: 0,
             change15mPct: 0,
             change1hPct: 0,
@@ -1038,10 +1074,32 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'mega_pair');
 
-      const locationGate = await validateEntryLocation({
-        symbol,
-        direction: opts.direction,
-      });
+      const locationGate =
+        relaxSecondary && shortRules.bypassSrLocationWhenTrusted
+          ? {
+              ok: true as const,
+              code: 'LOCATION_OK' as const,
+              reason: 'S/R location bypass — trusted MTF scan',
+              analysis: {
+                support: markPx * 0.95,
+                resistance: markPx * 1.05,
+                price: markPx,
+                pricePosition: 0.5,
+                resistanceTouches: 0,
+                resistanceRejections: 0,
+                supportTouches: 0,
+                supportRejections: 0,
+                confirmedBreakoutUp: false,
+                confirmedBreakdown: true,
+                nearResistance: false,
+                nearSupport: false,
+                dumpContinuation: opts.direction === 'SHORT',
+              },
+            }
+          : await validateEntryLocation({
+              symbol,
+              direction: opts.direction,
+            });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,

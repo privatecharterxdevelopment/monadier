@@ -34,7 +34,7 @@ export const BEAR_MARKET: HlDirectionProfile = {
   preOpenTimeframeLong: '15m',
   preOpenTimeframeShort: '15m',
   preOpenCandleCount: 20,
-  preOpenMinVolumeRatio: 0.85,
+  preOpenMinVolumeRatio: 0.5,
   /** 0 = no rank cap — let every liquid pair through. */
   maxVolumeRank: 0,
   /** Shitcoin filter — liquid mid-caps; was $5M and starved opens. */
@@ -61,6 +61,10 @@ export const BEAR_MARKET: HlDirectionProfile = {
     bypassMacroBetaWhenTrusted: true,
     bypassPumpShortWhenTrusted: true,
     bypassEntryLocationWhenTrusted: true,
+    bypassPreOpenWhenTrusted: true,
+    bypassScalpAlignWhenTrusted: true,
+    bypassEntryMomentumWhenTrusted: true,
+    bypassSrLocationWhenTrusted: true,
   },
   long: {
     ...COUNTER_TREND_RULES('UP'),

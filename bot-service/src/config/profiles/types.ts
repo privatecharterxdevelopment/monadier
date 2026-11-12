@@ -50,6 +50,14 @@ export type HlDirectionRules = {
   bypassMacroBetaWhenTrusted: boolean;
   bypassPumpShortWhenTrusted: boolean;
   bypassEntryLocationWhenTrusted: boolean;
+  /** Trusted MTF SHORT — skip 15m candle-structure veto (volume/chop). */
+  bypassPreOpenWhenTrusted?: boolean;
+  /** Trusted MTF SHORT — skip 1m/5m re-check (scan already scored TFs). */
+  bypassScalpAlignWhenTrusted?: boolean;
+  /** Trusted MTF SHORT — skip “already extended” momentum veto on standard mode. */
+  bypassEntryMomentumWhenTrusted?: boolean;
+  /** Trusted MTF SHORT — skip S/R location gate (HTF quality has its own bypass). */
+  bypassSrLocationWhenTrusted?: boolean;
 };
 
 /**
