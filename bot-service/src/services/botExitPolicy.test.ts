@@ -20,16 +20,30 @@ describe('botExitPolicy', () => {
     assert.equal(thin.ok, false);
   });
 
-  it('allows recovery flatten and manual while red', () => {
+  it('blocks fail-safe loss flatten when user SL is 0 (profit trail)', () => {
     assert.equal(
       shouldAllowBotFlatten({
         reason: 'sl_fail_safe_flatten',
         pnlUsd: -4,
         netPnlUsd: -4.2,
         profitOnlyExits: true,
+        userStopLossPct: 0,
+      }).ok,
+      false
+    );
+    assert.equal(
+      shouldAllowBotFlatten({
+        reason: 'sl_fail_safe_flatten',
+        pnlUsd: -4,
+        netPnlUsd: -4.2,
+        profitOnlyExits: true,
+        userStopLossPct: 15,
       }).ok,
       true
     );
+  });
+
+  it('allows manual while red', () => {
     assert.equal(
       shouldAllowBotFlatten({
         reason: 'manual',

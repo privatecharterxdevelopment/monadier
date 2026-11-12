@@ -1486,13 +1486,14 @@ export class HyperliquidTradingService {
       const emergencyPx =
         slPct > 0 ? lossStopPricePx(positionDirection, entry, absSize, collateralEst, slPct) : null;
       const feesUsd = estimateRoundTripFeesUsd(notionalUsd);
-      const minLockUsd = minProfitLockUsd(notionalUsd);
+      const minLockUsd = minProfitLockUsd(notionalUsd, lev);
       const netPnlUsd = netPnlAfterCosts(pnl, notionalUsd, feesUsd);
       const protectKey = lockKey;
       const lastProtect = lastProtectSyncAt.get(protectKey) ?? 0;
       const firstProfitDue = pnl > 0 && liveStops.profitPx == null;
       const emergencyDue = slPct > 0 && liveStops.emergencyPx == null;
-      if (firstProfitDue || emergencyDue || nowMs - lastProtect >= 2_400) {
+      const redCancelProfitStops = pnl <= 0 && liveStops.profitPx != null;
+      if (firstProfitDue || emergencyDue || redCancelProfitStops || nowMs - lastProtect >= 2_400) {
         if (!firstProfitDue && !emergencyDue) lastProtectSyncAt.set(protectKey, nowMs);
         let metaSz = 0;
         if (meta) {
@@ -1503,9 +1504,9 @@ export class HyperliquidTradingService {
           }
         }
         const profitArmed =
-          trailResult.record.phase !== 'idle' &&
           pnl > 0 &&
-          netPnlUsd >= minLockUsd &&
+          netPnlUsd >= minLockUsd * 1.15 &&
+          trailResult.record.phase !== 'idle' &&
           trailResult.record.timeInProfitMs >=
             config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
 
@@ -1730,6 +1731,7 @@ export class HyperliquidTradingService {
         pnlUsd,
         netPnlUsd,
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
+        userStopLossPct: 0,
       });
       if (!flattenGate.ok) {
         logger.warn('HL close rejected — exit policy', {

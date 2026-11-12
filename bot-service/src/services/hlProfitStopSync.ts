@@ -402,6 +402,9 @@ export function planProtectiveSync(opts: {
   });
 
   const cancelOids = [...legacyOids];
+  if (!opts.armed || !wantProfit) {
+    cancelOids.push(...profitOrders.map((x) => Number(x.order.oid)).filter((id) => id > 0));
+  }
   let postProfit: ProtectiveSyncPlan['postProfit'] = null;
   if (wantProfit && !matchingMarket && !deferTrail) {
     cancelOids.push(...profitOrders.map((x) => Number(x.order.oid)));

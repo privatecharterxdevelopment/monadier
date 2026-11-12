@@ -87,13 +87,17 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
 }
 
 /** Min locked uPnL at the profit stop / trail close — avoids fee-red fills (LIT −$0.04). */
-export function minProfitLockUsd(notionalUsd: number): number {
+export function minProfitLockUsd(notionalUsd: number, leverage = 1): number {
   const cfg = config.hyperliquid.dynamicTrail;
   const fees = estimateRoundTripFeesUsd(Math.max(0, notionalUsd));
-  return Math.max(
+  let floor = Math.max(
     config.hyperliquid.minProfitCloseUsd,
     fees * cfg.minProfitCloseFeesMult
   );
+  if (leverage >= 40) floor *= 1.85;
+  else if (leverage >= 25) floor *= 1.5;
+  else if (leverage >= 15) floor *= 1.2;
+  return floor;
 }
 
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
