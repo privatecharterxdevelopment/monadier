@@ -936,7 +936,7 @@ export class HyperliquidTradingService {
               change15mPct: 0,
               change1hPct: 0,
               change4hPct: 0,
-              higherLong: false,
+              higherLong: 0,
             }
           : await validateNoAltPumpShort({
               coin,
