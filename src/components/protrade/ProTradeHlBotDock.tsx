@@ -106,6 +106,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     loading: accountLoading,
     fillsLoading,
     refresh: refreshAccount,
+    refreshAfterTrade,
   } = useHyperliquidAccount(hlWallet);
   const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
   const [fallbackAccount, setFallbackAccount] = useState<typeof account>(null);
@@ -242,7 +243,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         });
         setCloseNotice(null);
         onPositionChange?.();
-        void refreshAccount({ forceHeavy: true });
+        void refreshAfterTrade(closeWallet);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Close failed';
         setCloseNotice(msg);

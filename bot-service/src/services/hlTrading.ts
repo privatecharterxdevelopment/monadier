@@ -1544,6 +1544,8 @@ export class HyperliquidTradingService {
         confirmedExchangeStopPx: liveStops.profitPx,
         tickSize: tickSizeForTrail,
         szDecimals: metaSzForTick,
+        leverage: lev,
+        pctOnlyTrail: fast,
       });
 
       saveTrailRecord(lockKey, trailResult.record);

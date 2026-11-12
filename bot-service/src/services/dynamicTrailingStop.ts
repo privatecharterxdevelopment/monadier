@@ -46,6 +46,9 @@ export type TrailTickInput = {
   fundingUsd?: number;
   tickSize?: number;
   szDecimals?: number;
+  leverage?: number;
+  /** Fast monitor — skip Binance ATR (keeps UI + HL sync responsive). */
+  pctOnlyTrail?: boolean;
   /** Exchange-confirmed profit stop (restart reconstruct / never loosen). */
   confirmedExchangeStopPx?: number | null;
 };
@@ -385,16 +388,43 @@ export function calculateATR(candles: Candle[], period = 14): number {
 
 const atrCache = new Map<string, { at: number; atr: number; mark: number }>();
 
+/** Tight trail at high leverage (~2% ROE ≈ 0.1% price at 20×). */
+export function leverageScaledTrailCapPx(
+  markPrice: number,
+  leverage: number,
+  collateralUsd: number,
+  pnlUsd: number
+): number {
+  const lev = Math.max(1, leverage);
+  const roePct = collateralUsd > 0 ? (pnlUsd / collateralUsd) * 100 : 0;
+  const roeGapPct = Math.max(0.35, Math.min(2, roePct * 0.35));
+  const fromRoe = markPrice * (roeGapPct / 100 / lev);
+  const floor = markPrice * 0.00035;
+  return Math.max(floor, Math.min(fromRoe, markPrice * 0.003));
+}
+
 export async function resolveTrailDistancePx(
   coin: string,
-  markPrice: number
+  markPrice: number,
+  opts?: { pctOnly?: boolean; leverage?: number; collateralUsd?: number; pnlUsd?: number }
 ): Promise<number> {
   const cfg = config.hyperliquid.dynamicTrail;
   const tier = classifyCoinTier(coin).tier;
   const pctFallback = tierTrailPct(tier);
-  const pctDistance = markPrice * pctFallback;
+  let pctDistance = markPrice * pctFallback;
+  if (opts?.leverage && opts.leverage >= 10) {
+    pctDistance = Math.min(
+      pctDistance,
+      leverageScaledTrailCapPx(
+        markPrice,
+        opts.leverage,
+        opts.collateralUsd ?? 0,
+        opts.pnlUsd ?? 0
+      )
+    );
+  }
 
-  if (!cfg.useAtr) return pctDistance;
+  if (!cfg.useAtr || opts?.pctOnly) return pctDistance;
 
   const cacheKey = `${coin}:${cfg.atrTimeframe}`;
   const cached = atrCache.get(cacheKey);
@@ -580,12 +610,27 @@ export async function evaluateDynamicTrail(
     });
   }
 
-  const trailDist = await resolveTrailDistancePx(input.coin, input.markPrice);
-  rec.lastTrailDistancePx = trailDist;
+  const trailDistFixed = await resolveTrailDistancePx(input.coin, input.markPrice, {
+    pctOnly: input.pctOnlyTrail,
+    leverage: input.leverage,
+    collateralUsd: input.collateralUsd,
+    pnlUsd: input.pnlUsd,
+  });
+  rec.lastTrailDistancePx = trailDistFixed;
+  const gapPx = minProfitTrailGapPx(input.markPrice, tick);
+  const markTrail =
+    input.direction === 'LONG'
+      ? input.markPrice - gapPx
+      : input.markPrice + gapPx;
   const trailCandidate =
     input.direction === 'LONG'
-      ? rec.highestPriceSinceEntry - trailDist
-      : rec.highestPriceSinceEntry + trailDist;
+      ? rec.highestPriceSinceEntry - trailDistFixed
+      : rec.highestPriceSinceEntry + trailDistFixed;
+  rec.currentTrailStop = clampStopToProfitSideOfEntry(
+    input.direction,
+    ratchetStop(input.direction, rec.currentTrailStop, markTrail),
+    input.entryPrice
+  );
   rec.currentTrailStop = clampStopToProfitSideOfEntry(
     input.direction,
     ratchetStop(input.direction, rec.currentTrailStop, trailCandidate),

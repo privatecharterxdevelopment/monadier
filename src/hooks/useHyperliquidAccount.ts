@@ -30,8 +30,7 @@ type State = {
   error: string | null;
 };
 
-const BALANCE_POLL_MS = 20_000;
-const POSITION_POLL_MS = 4_000;
+const POSITION_POLL_MS = 6_000;
 /** Background fills poll — closes still force an immediate heavy refresh. */
 const HEAVY_REFRESH_MS = 60_000;
 const FILLS_LIMIT = 2000;
@@ -168,7 +167,11 @@ export function useHyperliquidAccount(address: string | undefined) {
       if (!isTabVisible()) return;
       if (debounce) clearTimeout(debounce);
       // Force fills — plain refresh() used to skip heavy for up to HEAVY_REFRESH_MS.
-      debounce = setTimeout(() => void refresh({ forceHeavy: true }), 400);
+      debounce = setTimeout(() => {
+        void refreshCore(address);
+        const staleHeavy = Date.now() - lastHeavyAtRef.current > 12_000;
+        if (staleHeavy) void refreshHeavy(address);
+      }, 600);
     });
 
     return () => {
@@ -176,12 +179,16 @@ export function useHyperliquidAccount(address: string | undefined) {
       off();
       if (debounce) clearTimeout(debounce);
     };
-  }, [address, refresh]);
+  }, [address, refresh, refreshCore, refreshHeavy]);
+
+  useEffect(() => {
+    lastHeavyAtRef.current = 0;
+  }, [address]);
 
   useEffect(() => {
     if (!address) return undefined;
 
-    const pollBalances = async () => {
+    const pollLight = async () => {
       if (!isTabVisible()) return;
       try {
         await refreshCore(address);
@@ -190,13 +197,9 @@ export function useHyperliquidAccount(address: string | undefined) {
       }
     };
 
-    const id = setInterval(() => void pollBalances(), 5_000);
+    const id = setInterval(() => void pollLight(), POSITION_POLL_MS);
     return () => clearInterval(id);
   }, [address, refreshCore]);
-
-  useEffect(() => {
-    lastHeavyAtRef.current = 0;
-  }, [address]);
 
   useEffect(() => {
     if (!address) return undefined;
@@ -215,22 +218,21 @@ export function useHyperliquidAccount(address: string | undefined) {
     return () => clearInterval(id);
   }, [address, refreshHeavy]);
 
-  useEffect(() => {
-    if (!address) return undefined;
-
-    const pollAccount = async () => {
-      if (!isTabVisible()) return;
+  const refreshAfterTrade = useCallback(
+    async (addr?: string) => {
+      const target = addr ?? address;
+      if (!target) return;
       try {
-        const account = await fetchHlAccountState(address);
-        setState((prev) => ({ ...prev, account }));
+        await refreshCore(target);
       } catch {
-        /* keep last snapshot */
+        /* keep snapshot */
       }
-    };
+      window.setTimeout(() => {
+        void refreshHeavy(target);
+      }, 1_800);
+    },
+    [address, refreshCore, refreshHeavy]
+  );
 
-    const id = setInterval(() => void pollAccount(), POSITION_POLL_MS);
-    return () => clearInterval(id);
-  }, [address]);
-
-  return { ...state, refresh };
+  return { ...state, refresh, refreshAfterTrade };
 }

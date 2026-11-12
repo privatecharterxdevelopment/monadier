@@ -876,6 +876,7 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const userAddress = wallet.toLowerCase() as `0x${string}`;
+      const lite = url.searchParams.get('lite') === '1' || url.searchParams.get('lite') === 'true';
       const chainId = 42161;
 
       const userId = await subscriptionService.getUserIdFromWallet(userAddress);
@@ -916,31 +917,37 @@ const healthServer = http.createServer(async (req, res) => {
       const bestAvailable =
         userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
 
-      const ethSignal = await marketService.getSignal(
-        chainId,
-        ARBITRUM_SIGNAL_TOKENS.WETH,
-        collateralForSignal,
-        10000,
-        DEFAULT_STRATEGY
-      );
-      const btcSignal = await marketService.getSignal(
-        chainId,
-        ARBITRUM_SIGNAL_TOKENS.WBTC,
-        collateralForSignal,
-        10000,
-        DEFAULT_STRATEGY
-      );
+      const ethSignal = lite
+        ? null
+        : await marketService.getSignal(
+            chainId,
+            ARBITRUM_SIGNAL_TOKENS.WETH,
+            collateralForSignal,
+            10000,
+            DEFAULT_STRATEGY
+          );
+      const btcSignal = lite
+        ? null
+        : await marketService.getSignal(
+            chainId,
+            ARBITRUM_SIGNAL_TOKENS.WBTC,
+            collateralForSignal,
+            10000,
+            DEFAULT_STRATEGY
+          );
 
-      const openDb = await positionService.getOpenPositions(userAddress, chainId);
+      const openDb = lite ? [] : await positionService.getOpenPositions(userAddress, chainId);
       const livePositions = await buildLiveBotPositionViews({
         wallet: userAddress,
         state: hlState,
       });
 
-      const megaPumpSweep = await fetchMegaPairPumpSweep();
-      const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
-        .filter((row): row is NonNullable<typeof row> => Boolean(row))
-        .map(formatPumpSweepLine);
+      const megaPumpSweep = lite ? { BTC: null, ETH: null } : await fetchMegaPairPumpSweep();
+      const pumpSweepLines = lite
+        ? []
+        : [megaPumpSweep.BTC, megaPumpSweep.ETH]
+            .filter((row): row is NonNullable<typeof row> => Boolean(row))
+            .map(formatPumpSweepLine);
 
       const blockers: string[] = [];
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
@@ -1211,8 +1218,8 @@ const healthServer = http.createServer(async (req, res) => {
         execution: getHlExecutionState(userAddress),
         executionDiagnostic: getExecutionDiagnostic(userAddress),
         livePositions,
-        recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
-        recentOpenAudits: await fetchRecentHlOpenAudits(userAddress, 15),
+        recentOpenBlocks: lite ? [] : await fetchRecentHlOpenBlocks(userAddress, 25),
+        recentOpenAudits: lite ? [] : await fetchRecentHlOpenAudits(userAddress, 15),
         openGateAudit: buildOpenGateAudit(config.hyperliquid.directionProfile),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {

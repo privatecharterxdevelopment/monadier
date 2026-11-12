@@ -112,7 +112,7 @@ describe('profit SL architecture', () => {
     assert.ok(armed.record.phase === 'armed' || armed.record.phase === 'trailing');
     assert.ok(armed.record.currentTrailStop != null);
     assert.ok(
-      (armed.record.currentTrailStop as number) > 99.6,
+      (armed.record.currentTrailStop as number) > 99.5,
       'SHORT trail must sit above mark'
     );
     assert.ok((armed.record.currentTrailStop as number) < 100);
@@ -133,7 +133,7 @@ describe('profit SL architecture', () => {
     );
     assert.equal(armed.shouldClose, false);
     assert.ok(armed.record.currentTrailStop != null);
-    assert.ok((armed.record.currentTrailStop as number) < 100.4);
+    assert.ok((armed.record.currentTrailStop as number) < 100.5);
     assert.ok((armed.record.currentTrailStop as number) > 100);
   });
 

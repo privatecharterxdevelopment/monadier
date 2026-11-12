@@ -42,7 +42,7 @@ const transport = new HttpTransport();
 const lastSyncAt = new Map<string, number>();
 const lastConfirmedProfitPx = new Map<string, number>();
 const lastConfirmedEmergencyPx = new Map<string, number>();
-const SYNC_EVERY_MS = 2_500;
+const SYNC_EVERY_MS = 1_200;
 const POST_RETRY = 3;
 
 export function lastConfirmedProfitStopPx(
@@ -396,14 +396,24 @@ export function planProtectiveSync(opts: {
   );
   const emergencyMissing = Boolean(wantEmergency && !matchingEmergency);
 
-  const deferTrail = shouldDeferTrailSync({
-    nowMs: opts.nowMs,
-    lastSyncAt: opts.lastTrailSyncAt,
-    intervalMs: opts.trailSyncIntervalMs,
-    firstProfitPlacement,
-    emergencyMissing,
-    upgradeLimitToMarket,
-  });
+  const needsTrailTighten =
+    mergedProfitPx != null &&
+    reconstructedProfitPx != null &&
+    !samePx(mergedProfitPx, reconstructedProfitPx, opts.tickSize) &&
+    (opts.direction === 'SHORT'
+      ? mergedProfitPx < reconstructedProfitPx - opts.tickSize * 0.25
+      : mergedProfitPx > reconstructedProfitPx + opts.tickSize * 0.25);
+
+  const deferTrail =
+    !needsTrailTighten &&
+    shouldDeferTrailSync({
+      nowMs: opts.nowMs,
+      lastSyncAt: opts.lastTrailSyncAt,
+      intervalMs: opts.trailSyncIntervalMs,
+      firstProfitPlacement,
+      emergencyMissing,
+      upgradeLimitToMarket,
+    });
 
   const cancelOids = [...legacyOids];
   if (!opts.armed || !wantProfit) {

@@ -90,7 +90,7 @@ export function useHlTradeReasonMarkers(
 
   useEffect(() => {
     if (!wallet || coins.length === 0) return undefined;
-    const id = setInterval(() => void refresh(), 20_000);
+    const id = setInterval(() => void refresh(), 45_000);
     return () => clearInterval(id);
   }, [wallet, coinKey, refresh]);
 

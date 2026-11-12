@@ -513,7 +513,7 @@ export function useTerminalBotAnalysis({
       return;
     }
     let cancelled = false;
-    let delayMs = 5_000;
+    let delayMs = 7_000;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const schedule = () => {
@@ -525,8 +525,8 @@ export function useTerminalBotAnalysis({
       let ok = false;
       try {
         const res = await fetchBotApi(
-          `/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}`,
-          { retries: 2, timeoutMs: 30_000 }
+          `/api/bot-status?wallet=${encodeURIComponent(vaultWallet)}&lite=1`,
+          { retries: 1, timeoutMs: 12_000 }
         );
         ok = res.ok;
         if (!res.ok) return;

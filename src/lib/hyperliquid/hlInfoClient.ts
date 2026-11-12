@@ -10,8 +10,8 @@ const DEFAULT_TTL_MS = 4_000;
 const USER_STATE_TTL_MS = 2_500;
 const USER_FILLS_TTL_MS = 45_000;
 const MAX_RETRIES = 4;
-const MIN_REQUEST_GAP_MS = 220;
-const RATE_LIMIT_PAUSE_MS = 20_000;
+const MIN_REQUEST_GAP_MS = 90;
+const RATE_LIMIT_PAUSE_MS = 6_000;
 
 type HlInfoError = Error & { status?: number; retryable?: boolean };
 
@@ -168,7 +168,8 @@ export async function hlInfoPost<T>(body: Record<string, unknown>): Promise<T> {
   if (Date.now() < rateLimitUntil) {
     const stale = readCache<T>(key, ttl, true, staleMs);
     if (stale != null) return stale;
-    await new Promise((r) => setTimeout(r, Math.max(0, rateLimitUntil - Date.now())));
+    const waitMs = Math.min(2_500, Math.max(0, rateLimitUntil - Date.now()));
+    if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
   }
 
   const pending = inflight.get(key);
