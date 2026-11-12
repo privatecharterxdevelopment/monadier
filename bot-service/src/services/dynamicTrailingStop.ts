@@ -86,6 +86,16 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
   return notionalUsd * (bps / 10_000) * 2;
 }
 
+/** Min locked uPnL at the profit stop / trail close — avoids fee-red fills (LIT −$0.04). */
+export function minProfitLockUsd(notionalUsd: number): number {
+  const cfg = config.hyperliquid.dynamicTrail;
+  const fees = estimateRoundTripFeesUsd(Math.max(0, notionalUsd));
+  return Math.max(
+    config.hyperliquid.minProfitCloseUsd,
+    fees * cfg.minProfitCloseFeesMult
+  );
+}
+
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
   if (!Number.isFinite(entryPx) || Math.abs(szi) < 1e-12) return entryPx;
   return entryPx + pnlUsd / szi;
@@ -100,9 +110,12 @@ function roePct(pnlUsd: number, collateralUsd: number): number {
 export function shouldArmProfitProtection(
   pnlUsd: number,
   _collateralUsd: number,
-  _feesUsd: number
+  feesUsd: number,
+  notionalUsd = 0
 ): boolean {
-  return pnlUsd > 0;
+  const notional = notionalUsd > 0 ? notionalUsd : Math.max(feesUsd * 200, 1);
+  const minLock = minProfitLockUsd(notional);
+  return netPnlAfterCosts(pnlUsd, notional, feesUsd) >= minLock;
 }
 
 /** Profit-side of entry and away from mark — no ROE / fee / BE floor. */
@@ -341,6 +354,9 @@ export async function evaluateDynamicTrail(
   input: TrailTickInput
 ): Promise<TrailTickResult> {
   const feesUsd = estimateRoundTripFeesUsd(input.notionalUsd);
+  const minLockUsd = minProfitLockUsd(input.notionalUsd);
+  const cfgTrail = config.hyperliquid.dynamicTrail;
+  const netPnlUsd = netPnlAfterCosts(input.pnlUsd, input.notionalUsd, feesUsd);
   let rec =
     input.record ??
     emptyRecord(
@@ -392,13 +408,25 @@ export async function evaluateDynamicTrail(
     tickSize: tick,
   });
 
-  if (input.pnlUsd <= 0) {
+  if (input.pnlUsd <= 0 || netPnlUsd < minLockUsd) {
     if (rec.phase === 'pending') rec.phase = rec.currentTrailStop != null ? 'armed' : 'idle';
     return {
       record: rec,
       shouldClose: false,
       exitReason: '',
       closeDetail: '',
+    };
+  }
+
+  if (
+    rec.profitSinceAt != null &&
+    input.nowMs - rec.profitSinceAt < (cfgTrail.armMinProfitHoldMs ?? 0)
+  ) {
+    return {
+      record: rec,
+      shouldClose: false,
+      exitReason: '',
+      closeDetail: 'PROFIT_HOLD_ARM',
     };
   }
 
@@ -446,10 +474,29 @@ export async function evaluateDynamicTrail(
   );
   rec.phase = 'trailing';
 
+  const lockAtStop =
+    rec.currentTrailStop != null
+      ? lockedPnlAtStopPx(
+          input.direction,
+          input.entryPrice,
+          input.absSize,
+          rec.currentTrailStop
+        )
+      : 0;
+  const minActiveMs = Math.max(0, cfgTrail.trailMinActiveBeforeCloseMs ?? 0);
+  const peakOk =
+    rec.maxRunup <= 0 ||
+    input.pnlUsd >= rec.maxRunup * (cfgTrail.minPeakRemainFracBeforeClose ?? 0);
+
   if (
     rec.currentTrailStop != null &&
     isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
-    input.pnlUsd > 0
+    input.pnlUsd > 0 &&
+    netPnlUsd >= minLockUsd &&
+    lockAtStop >= minLockUsd &&
+    rec.timeInProfitMs >= minActiveMs &&
+    peakOk &&
+    (!cfgTrail.neverRedAfterArm || netPnlUsd > 0)
   ) {
     const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
     return {
@@ -527,7 +574,12 @@ export function shouldArmBreakevenProtection(input: {
   tickSize?: number;
   szDecimals?: number;
 }): boolean {
-  return shouldArmProfitProtection(input.pnlUsd, input.collateralUsd ?? 0, input.feesUsd);
+  return shouldArmProfitProtection(
+    input.pnlUsd,
+    input.collateralUsd ?? 0,
+    input.feesUsd,
+    input.notionalUsd ?? 0
+  );
 }
 
 export function resolveEffectiveTrailProfile(leverage = 1) {

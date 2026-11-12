@@ -76,6 +76,7 @@ import {
   estimateRoundTripFeesUsd,
   lossStopPricePx,
   markFromPosition,
+  minProfitLockUsd,
   netPnlAfterCosts,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
@@ -1485,6 +1486,8 @@ export class HyperliquidTradingService {
       const emergencyPx =
         slPct > 0 ? lossStopPricePx(positionDirection, entry, absSize, collateralEst, slPct) : null;
       const feesUsd = estimateRoundTripFeesUsd(notionalUsd);
+      const minLockUsd = minProfitLockUsd(notionalUsd);
+      const netPnlUsd = netPnlAfterCosts(pnl, notionalUsd, feesUsd);
       const protectKey = lockKey;
       const lastProtect = lastProtectSyncAt.get(protectKey) ?? 0;
       const firstProfitDue = pnl > 0 && liveStops.profitPx == null;
@@ -1499,6 +1502,13 @@ export class HyperliquidTradingService {
             metaSz = 0;
           }
         }
+        const profitArmed =
+          trailResult.record.phase !== 'idle' &&
+          pnl > 0 &&
+          netPnlUsd >= minLockUsd &&
+          trailResult.record.timeInProfitMs >=
+            config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+
         const plan = await syncHlProfitStopOrder({
           userAddress,
           coin: pos.coin,
@@ -1506,14 +1516,14 @@ export class HyperliquidTradingService {
           absSize,
           markPrice,
           entryPrice: entry,
-          stopPx: trailResult.record.currentTrailStop,
-          armed: trailResult.record.phase !== 'idle',
+          stopPx: profitArmed ? trailResult.record.currentTrailStop : null,
+          armed: profitArmed,
           feesUsd,
           fundingUsd,
           emergencyStopPx: emergencyPx,
           szDecimals: metaSz,
           tickSize: hlTickSize(markPrice, metaSz),
-          minLockUsd: 0,
+          minLockUsd,
           openOrders,
           nowMs,
         });

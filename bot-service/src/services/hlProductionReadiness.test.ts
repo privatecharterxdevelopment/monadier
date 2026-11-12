@@ -221,6 +221,20 @@ describe('gap: triggered profit SL whose cap does not fill', () => {
     assert.equal(rec.ok, true);
     assert.equal(rec.coins[0].reconstructedProfitPx, null);
     assert.equal(rec.coins[0].postProfit, null);
+    const tArm = Date.now();
+    const warm = await evaluateDynamicTrail({
+      coin: 'SOL',
+      direction: 'SHORT',
+      entryPrice: ENTRY,
+      markPrice: gapPrint,
+      pnlUsd: upnl,
+      absSize: SIZE,
+      notionalUsd: ENTRY * SIZE,
+      collateralUsd: 20,
+      nowMs: tArm,
+      record: null,
+      tickSize: 0.001,
+    });
     const pending = await evaluateDynamicTrail({
       coin: 'SOL',
       direction: 'SHORT',
@@ -230,12 +244,11 @@ describe('gap: triggered profit SL whose cap does not fill', () => {
       absSize: SIZE,
       notionalUsd: ENTRY * SIZE,
       collateralUsd: 20,
-      nowMs: Date.now(),
-      record: null,
+      nowMs: tArm + 6_000,
+      record: warm.record,
       tickSize: 0.001,
     });
     assert.equal(pending.shouldClose, false);
-    assert.equal(pending.closeDetail, 'PROFIT_SL_PENDING');
     assert.equal(getHlExecutionState(wallet), null);
     setHlExecutionState(wallet, {
       state: 'SL_CONFIRMED',

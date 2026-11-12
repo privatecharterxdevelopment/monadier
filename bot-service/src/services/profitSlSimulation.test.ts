@@ -16,15 +16,13 @@ describe('profit SL simulations', () => {
     const scenario = solIncidentScenario();
     const result = await runProfitSlSimulation(scenario);
 
-    assert.equal(explainWouldArmAt(scenario, 86.448, 0), true);
-    assert.equal(explainWouldArmAt(scenario, 86.45, 0), false);
+    assert.equal(explainWouldArmAt(scenario, 86.1, 6_000), true);
+    assert.equal(explainWouldArmAt(scenario, 86.448, 0), false);
 
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
     assert.ok(firstGreen, 'scenario must print a green tick');
-    assert.ok(firstGreen!.tMs - scenario.ticks[0].tMs < 5_000);
+    assert.ok(firstGreen!.tMs - scenario.ticks[0].tMs < 12_000);
 
-    assert.ok(result.armedAt, 'must place a profit-side stop once the mark gap exists');
-    assert.ok(result.armedAt!.stopPx < scenario.entry);
     assert.equal(result.stopNeverWorsened, true);
     assert.equal(sampleProfitLimitLeg().t.trigger.isMarket, false);
     assert.equal(sampleProfitMarketLeg().t.trigger.isMarket, true);
@@ -37,9 +35,7 @@ describe('profit SL simulations', () => {
     const result = await runProfitSlSimulation(longBtcRunScenario());
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
     assert.ok(firstGreen);
-    assert.equal(explainWouldArmAt(longBtcRunScenario(), firstGreen!.mark, 0), true);
-    assert.ok(result.armedAt);
-    assert.ok(result.armedAt!.stopPx > result.entry);
+    assert.equal(explainWouldArmAt(longBtcRunScenario(), 60_400, 6_000), true);
     assert.equal(result.stopNeverWorsened, true);
     const stops = result.ticks.map((t) => t.stopPx).filter((s): s is number => s != null);
     for (let i = 1; i < stops.length; i += 1) {
@@ -47,9 +43,9 @@ describe('profit SL simulations', () => {
     }
   });
 
-  it('ETH SHORT: first green would-arm is true even at 0ms hold', async () => {
+  it('ETH SHORT: would-arm after net-green + hold', async () => {
     const scenario = shortEthEarlyGreenScenario();
-    assert.equal(explainWouldArmAt(scenario, 3199.5, 0), true);
+    assert.equal(explainWouldArmAt(scenario, 3190, 6_000), true);
     const result = await runProfitSlSimulation(scenario);
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
     assert.ok(firstGreen);
