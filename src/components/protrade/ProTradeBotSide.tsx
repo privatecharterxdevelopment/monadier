@@ -155,7 +155,15 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
       openOrders={[]}
       positions={positions}
       totalUpnl={liveUpnl}
-      botMetrics={metrics}
+      botMetrics={{
+        ...metrics,
+        hlBalanceUsd: Math.max(
+          metrics.hlBalanceUsd,
+          snapshot?.totalUsd ?? 0,
+          snapshot?.tradablePerpUsd ?? 0,
+          snapshot?.spotUsdcUsd ?? 0
+        ),
+      }}
       botWallet={tradingWallet ?? address}
     />
   );

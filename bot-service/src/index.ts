@@ -1502,7 +1502,7 @@ const healthServer = http.createServer(async (req, res) => {
           coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
           scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
           botUniverse: lastHlGlobalScanStats.universeCoins,
-          scanSkips: lastHlScanSkips.slice(0, 40),
+          scanSkips: lastHlScanSkips.slice(-80),
         })
       );
     } catch (err: any) {

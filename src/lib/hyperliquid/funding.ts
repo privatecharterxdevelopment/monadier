@@ -5,7 +5,7 @@ import {
   fetchHlSpotAccountState,
   fetchHlUserAbstraction,
 } from './user';
-import { clearHlInfoCache } from './hlInfoClient';
+import { clearHlUserInfoCache } from './hlInfoClient';
 import { MIN_HL_BOT_USD } from './hlBotAgent';
 
 export type HlFundingSnapshot = {
@@ -188,7 +188,7 @@ export async function fetchHlFundingSnapshot(
   wallet: string,
   opts?: { fresh?: boolean }
 ): Promise<HlFundingSnapshot> {
-  if (opts?.fresh) clearHlInfoCache();
+  if (opts?.fresh) clearHlUserInfoCache(wallet);
   try {
     let snap = await fetchHlFundingSnapshotOnce(wallet);
     if (
@@ -197,7 +197,7 @@ export async function fetchHlFundingSnapshot(
       snap.perpUsd < 0.01 &&
       snap.spotUsdcUsd < 0.01
     ) {
-      clearHlInfoCache();
+      clearHlUserInfoCache(wallet);
       await new Promise((r) => setTimeout(r, 400));
       snap = await fetchHlFundingSnapshotOnce(wallet);
     }

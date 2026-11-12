@@ -3,6 +3,7 @@ import { useWeb3 } from '../../contexts/Web3Context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
+import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -106,6 +107,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     fillsLoading,
     refresh: refreshAccount,
   } = useHyperliquidAccount(hlWallet);
+  const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
   const [fallbackAccount, setFallbackAccount] = useState<typeof account>(null);
   const fallbackWallet =
     settingsWallet &&
@@ -305,6 +307,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         botHlBalanceUsd={Math.max(
           toNum(botAnalysisMetrics?.hlBalanceUsd),
           toNum(botHlBalanceUsd),
+          toNum(hlSnap?.totalUsd),
+          toNum(hlSnap?.tradablePerpUsd),
+          toNum(hlSnap?.spotUsdcUsd),
+          toNum(spotBalances.find((b) => b.coin === 'USDC')?.total),
           toNum(account?.margin?.accountValue),
           toNum(account?.crossMargin?.accountValue)
         )}

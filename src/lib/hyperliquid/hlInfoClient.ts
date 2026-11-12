@@ -199,6 +199,31 @@ export async function hlInfoPost<T>(body: Record<string, unknown>): Promise<T> {
   }
 }
 
+const USER_INFO_TYPES = new Set([
+  'clearinghouseState',
+  'spotClearinghouseState',
+  'userAbstraction',
+  'extraAgents',
+  'userFills',
+  'openOrders',
+  'frontendOpenOrders',
+]);
+
+/** Drop only account-state cache so a deposit poll cannot wipe candles/mids. */
+export function clearHlUserInfoCache(user?: string) {
+  const needle = user?.trim().toLowerCase();
+  for (const key of [...cache.keys()]) {
+    try {
+      const parsed = JSON.parse(key) as { type?: string; user?: string };
+      if (!parsed?.type || !USER_INFO_TYPES.has(parsed.type)) continue;
+      if (needle && parsed.user && parsed.user !== needle) continue;
+      cache.delete(key);
+    } catch {
+      /* ignore non-json keys */
+    }
+  }
+}
+
 /** Invalidate meta cache after long idle — optional manual refresh. */
 export function clearHlInfoCache() {
   cache.clear();

@@ -126,7 +126,12 @@ export function useTradingDashboardMetrics() {
     hasSnapshotRef.current = true;
     setMetrics((prev) => ({
       ...prev,
-      vaultBalanceUsd: hlSnap.totalUsd,
+      vaultBalanceUsd: Math.max(
+        hlSnap.totalUsd,
+        hlSnap.tradablePerpUsd,
+        hlSnap.spotUsdcUsd,
+        0
+      ),
       withdrawableUsd: hlSnap.withdrawableUsd,
       openPositionValueUsd: hlSnap.openNotionalUsd,
       openPositionsCount: hlSnap.openPositionsCount,

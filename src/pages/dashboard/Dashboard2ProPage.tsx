@@ -228,7 +228,14 @@ const Dashboard2ProPageContent: React.FC = () => {
     (hlActiveWallet ?? address)?.toLowerCase()
   );
   const perpWithdrawable = toNum(account?.withdrawable);
-  const hlTotalUsd = perpHlSnapshot?.totalUsd ?? perpHlSnapshot?.tradablePerpUsd ?? 0;
+  const hlTotalUsd = Math.max(
+    perpHlSnapshot?.totalUsd ?? 0,
+    perpHlSnapshot?.tradablePerpUsd ?? 0,
+    perpHlSnapshot?.spotUsdcUsd ?? 0,
+    spotUsdc,
+    perpAccountValue,
+    0
+  );
   const hlWithdrawable = perpHlSnapshot?.withdrawableUsd ?? perpWithdrawable;
   const perpTradableUsd =
     perpHlSnapshot?.tradablePerpUsd ??
@@ -280,7 +287,14 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { snapshot: botHlSnapshot } = useHlAccountSnapshot(
     (botTradingWallet ?? address)?.toLowerCase() ?? undefined
   );
-  const botTradableHlUsd = botHlSnapshot?.tradablePerpUsd ?? perpAccountValue;
+  const botTradableHlUsd = Math.max(
+    botHlSnapshot?.tradablePerpUsd ?? 0,
+    botHlSnapshot?.totalUsd ?? 0,
+    botHlSnapshot?.spotUsdcUsd ?? 0,
+    perpAccountValue,
+    spotUsdc,
+    0
+  );
   const botServerStatus = useBotServerBlockers(
     (botTradingWallet ?? address)?.toLowerCase(),
     section === 'bot' && botVaultSettings.autoTradeEnabled

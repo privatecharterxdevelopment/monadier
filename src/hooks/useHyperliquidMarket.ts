@@ -328,7 +328,8 @@ export function useHyperliquidMarket(
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Chart data unavailable';
-      const isTransient = /429|Hyperliquid API 50|network|failed/i.test(message);
+      const isTransient =
+        /429|Hyperliquid API 50|invalid JSON|network|failed|unavailable/i.test(message);
       let shouldRetry = false;
       chartDebugWarn('market', 'fetch-candles-fail', {
         coin: requestedCoin,
