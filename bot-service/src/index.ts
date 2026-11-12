@@ -519,9 +519,11 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      // Fast path: DB approval first — never wait on HL extraAgents for Close.
+      const hasUiSize =
+        Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody === 'boolean';
+      // Close: DB approval only when UI sent size (instant path — no HL extraAgents poll).
       let dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
-      if (!dbApproved) {
+      if (!dbApproved && !hasUiSize) {
         const agents = await fetchHlExtraAgents(wallet);
         const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
         const live =
@@ -546,11 +548,22 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
+      if (Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody !== 'boolean') {
+        res.writeHead(400, corsHeaders);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: 'Close requires position size and side (isLong) from the UI.',
+          })
+        );
+        return;
+      }
+
       const closeCtx =
-        Number.isFinite(sizeAbs) && sizeAbs > 1e-12
+        Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody === 'boolean'
           ? {
               size: sizeAbs,
-              isLong: typeof isLongBody === 'boolean' ? isLongBody : undefined,
+              isLong: isLongBody,
               entryPx: Number.isFinite(entryPxBody) ? entryPxBody : 0,
               unrealizedPnlUsd: Number.isFinite(unrealizedPnlBody) ? unrealizedPnlBody : 0,
               leverage: 10,

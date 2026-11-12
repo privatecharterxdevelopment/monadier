@@ -236,12 +236,13 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           size,
           isLong,
           markPx,
+          entryPx: toNum(position.entryPx),
           profitUsd,
           walletAddress: closeWallet,
         });
         setCloseNotice(null);
-        await refreshAccount({ forceHeavy: true });
         onPositionChange?.();
+        void refreshAccount({ forceHeavy: true });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Close failed';
         setCloseNotice(msg);

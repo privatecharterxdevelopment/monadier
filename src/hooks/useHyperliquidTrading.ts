@@ -273,6 +273,7 @@ export function useHyperliquidTrading() {
       size: number;
       isLong: boolean;
       markPx: number;
+      entryPx?: number;
       profitUsd?: number;
       walletAddress?: string;
     }) =>
@@ -296,6 +297,7 @@ export function useHyperliquidTrading() {
           coin: opts.coin,
           size: opts.size,
           isLong: opts.isLong,
+          entryPx: opts.entryPx ?? opts.markPx,
           unrealizedPnlUsd: opts.profitUsd,
         });
       }, 'Close position failed'),

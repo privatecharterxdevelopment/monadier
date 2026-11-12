@@ -10,7 +10,7 @@ function closeAgentError(res: Response, json: { error?: string | null }): Error 
       : '');
   const cleaned = raw.replace(/\s*-\s*null\s*$/i, '').trim();
   if (res.status === 429 || isHlRateLimitError(cleaned) || /429|too many requests/i.test(cleaned)) {
-    return new Error('Hyperliquid rate limit — wait ~30 seconds and retry close.');
+    return new Error('Hyperliquid busy — close is retrying automatically.');
   }
   if (cleaned) return new Error(cleaned);
   return new Error('Close failed — try again.');
@@ -68,7 +68,7 @@ export async function closeHlPositionViaAgent(params: {
       if (isNetworkCloseError(err)) {
         lastErr = new Error('Network error — check Wi‑Fi/VPN, then retry close.');
         if (attempt < 3) {
-          await sleep(1500 * (attempt + 1));
+          await sleep(400 + attempt * 300);
           continue;
         }
         throw lastErr;
@@ -90,7 +90,7 @@ export async function closeHlPositionViaAgent(params: {
     } catch {
       lastErr = closeAgentError(res, json);
       if (attempt < 3) {
-        await sleep(1500 * (attempt + 1));
+        await sleep(400 + attempt * 300);
         continue;
       }
       throw lastErr;
@@ -114,7 +114,7 @@ export async function closeHlPositionViaAgent(params: {
       res.status === 429 ||
       /rate limit|busy|429|too many/i.test(lastErr.message);
     if (retryable && attempt < 3) {
-      await sleep(2000 * (attempt + 1));
+      await sleep(350 + attempt * 350);
       continue;
     }
     throw lastErr;

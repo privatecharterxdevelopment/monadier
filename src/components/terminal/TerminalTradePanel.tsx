@@ -244,10 +244,11 @@ const TerminalTradePanel: React.FC<Props> = ({
         size,
         isLong,
         markPx: markPx > 0 ? markPx : 1,
+        entryPx: toNum(position.entryPx),
         profitUsd,
         walletAddress: closeWallet,
       });
-      await refreshHlOpenSnap();
+      void refreshHlOpenSnap();
       onRefresh();
     } finally {
       setClosingHlCoin(null);

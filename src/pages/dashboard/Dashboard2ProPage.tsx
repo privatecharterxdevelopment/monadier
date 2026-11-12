@@ -671,8 +671,15 @@ const Dashboard2ProPageContent: React.FC = () => {
     const px = perpMarkPrices[position.coin] ?? perpMarkPx;
     if (size <= 0 || px <= 0) return;
     const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
-    await closePosition({ coin: position.coin, size, isLong, markPx: px, profitUsd });
-    await handleRefreshAll();
+    await closePosition({
+      coin: position.coin,
+      size,
+      isLong,
+      markPx: px,
+      entryPx: toNum(position.entryPx),
+      profitUsd,
+    });
+    void handleRefreshAll();
   };
 
   const openBotHistory = (_tradeId?: string) => {
