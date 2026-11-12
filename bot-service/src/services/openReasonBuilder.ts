@@ -8,6 +8,8 @@ import { megaPairVolumeOpenReasonLine } from './megaPairVolumeMonitor';
 
 const SECTION = ' ‖ ';
 
+export type OpenGatePassLine = { gate: string; code: string; reason: string };
+
 export type OpenReasonParts = {
   mode: 'Std' | 'Agg';
   pick: GlobalSignalCandidate;
@@ -22,6 +24,7 @@ export type OpenReasonParts = {
   candleAnalyticsLine?: string;
   megaPairLine?: string;
   liquidityReason?: string;
+  gatesPassed?: OpenGatePassLine[];
 };
 
 /** Full open audit — every gate + indicator that led to the trade. */
@@ -102,7 +105,15 @@ export function buildHlOpenReasonDoc(parts: OpenReasonParts): string {
     lines.push(`── Location scan ── ${pick.locationReason}`);
   }
 
-  lines.push(`── Gates passed ── pump-cooldown · macro · short-timing · mega · momentum · location · MTF`);
+  if (parts.gatesPassed && parts.gatesPassed.length > 0) {
+    const gateNames = parts.gatesPassed.map((g) => g.gate).join(' · ');
+    lines.push(`── Gates passed (${parts.gatesPassed.length}) ── ${gateNames}`);
+    for (const g of parts.gatesPassed) {
+      lines.push(`   ✓ ${g.gate} — ${g.code}: ${g.reason}`);
+    }
+  } else {
+    lines.push(`── Gates passed ── (see sections above)`);
+  }
 
   return lines.join(SECTION);
 }

@@ -42,6 +42,7 @@ import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingServ
 import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
+import { fetchRecentHlOpenAudits } from './services/hlOpenAudit';
 import { buildOpenGateAudit } from './services/openGateAudit';
 import { getExecutionDiagnostic } from './services/executionDiagnostics';
 import { buildLiveBotPositionViews } from './services/hlLiveBotPositions';
@@ -1211,6 +1212,7 @@ const healthServer = http.createServer(async (req, res) => {
         executionDiagnostic: getExecutionDiagnostic(userAddress),
         livePositions,
         recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
+        recentOpenAudits: await fetchRecentHlOpenAudits(userAddress, 15),
         openGateAudit: buildOpenGateAudit(config.hyperliquid.directionProfile),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {

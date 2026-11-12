@@ -32,18 +32,27 @@ export function useHlTradeReasonMarkers(
     const coinList = [...new Set(coins.map((c) => c.toUpperCase()))];
 
     try {
-      const { data, error } = await supabase
-        .from('hl_bot_chart_markers')
-        .select('coin, event_type, direction, close_reason, event_ts')
-        .eq('wallet_address', walletLower)
-        .in('coin', coinList)
-        .in('event_type', ['open', 'close'])
-        .order('event_ts', { ascending: false })
-        .limit(120);
+      const [markerRes, auditRes] = await Promise.all([
+        supabase
+          .from('hl_bot_chart_markers')
+          .select('coin, event_type, direction, close_reason, event_ts')
+          .eq('wallet_address', walletLower)
+          .in('coin', coinList)
+          .in('event_type', ['open', 'close'])
+          .order('event_ts', { ascending: false })
+          .limit(120),
+        supabase
+          .from('hl_open_audits')
+          .select('coin, direction, analysis_text, recorded_at')
+          .eq('wallet_address', walletLower)
+          .in('coin', coinList)
+          .order('recorded_at', { ascending: false })
+          .limit(80),
+      ]);
 
-      if (error) throw error;
+      if (markerRes.error) throw markerRes.error;
 
-      const mapped = (data ?? [])
+      const mapped = (markerRes.data ?? [])
         .filter((r) => r.close_reason?.trim())
         .map((r) => ({
           coin: String(r.coin).toUpperCase(),
@@ -53,6 +62,20 @@ export function useHlTradeReasonMarkers(
           eventTs: String(r.event_ts),
           eventMs: Date.parse(String(r.event_ts)) || 0,
         }));
+
+      for (const row of auditRes.data ?? []) {
+        if (!row.analysis_text?.trim()) continue;
+        mapped.push({
+          coin: String(row.coin).toUpperCase(),
+          eventType: 'open',
+          direction: row.direction as 'LONG' | 'SHORT',
+          reason: String(row.analysis_text),
+          eventTs: String(row.recorded_at),
+          eventMs: Date.parse(String(row.recorded_at)) || 0,
+        });
+      }
+
+      mapped.sort((a, b) => b.eventMs - a.eventMs);
 
       setMarkers(mapped);
     } catch (e) {

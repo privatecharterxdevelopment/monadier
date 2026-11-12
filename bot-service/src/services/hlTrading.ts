@@ -65,6 +65,7 @@ import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
+import { recordHlOpenAudit, type HlOpenGatePass } from './hlOpenAudit';
 import {
   evaluateProfitRunAnalysis,
   logProfitRunAnalysis,
@@ -208,16 +209,19 @@ function noteOpenBlock(
   });
 }
 
-function logOpenGate(fields: {
-  userAddress: string;
-  coin: string;
-  direction: 'LONG' | 'SHORT';
-  gate: string;
-  ok: boolean;
-  code: string;
-  reason: string;
-  metrics?: Record<string, string | number | boolean | null | undefined>;
-}): void {
+function logOpenGate(
+  fields: {
+    userAddress: string;
+    coin: string;
+    direction: 'LONG' | 'SHORT';
+    gate: string;
+    ok: boolean;
+    code: string;
+    reason: string;
+    metrics?: Record<string, string | number | boolean | null | undefined>;
+  },
+  passes?: HlOpenGatePass[]
+): void {
   logger.info(fields.ok ? 'HL open gate pass' : 'HL open gate blocked', {
     user: fields.userAddress.slice(0, 10),
     coin: fields.coin,
@@ -227,6 +231,13 @@ function logOpenGate(fields: {
     reason: fields.reason,
     ...fields.metrics,
   });
+  if (fields.ok && passes) {
+    passes.push({
+      gate: fields.gate,
+      code: fields.code,
+      reason: String(fields.reason).slice(0, 1200),
+    });
+  }
 }
 
 function clearTrailState(lockKey: string): void {
@@ -855,6 +866,22 @@ export class HyperliquidTradingService {
         });
       }
 
+      const gatesPassed: HlOpenGatePass[] = [];
+      if (!skipOpenGates) {
+        gatesPassed.push({
+          gate: 'signal_scan',
+          code: 'SIGNAL_PICKED',
+          reason: `${opts.pick.reason} · conf ${opts.pick.confidence}% · ${opts.pick.directionalTfCount ?? '?'} TFs`,
+        });
+        if (opts.pick.liquidityReason) {
+          gatesPassed.push({
+            gate: 'pre_trade_liquidity',
+            code: 'LIQUIDITY_PASS',
+            reason: opts.pick.liquidityReason,
+          });
+        }
+      }
+
       if (!skipOpenGates) {
       const freshPumpGate =
         relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
@@ -868,7 +895,7 @@ export class HyperliquidTradingService {
         ok: freshPumpGate.ok,
         code: freshPumpGate.ok ? 'FRESH_PUMP_PASS' : 'FRESH_PUMP_BLOCK',
         reason: freshPumpGate.reason,
-      });
+      }, gatesPassed);
       if (!freshPumpGate.ok) {
         return failOpen(freshPumpGate.reason, 'FRESH_PUMP_BLOCK');
       }
@@ -912,7 +939,7 @@ export class HyperliquidTradingService {
           structure: candleAnalytics.structure,
           shortBreakdownConfirmed: candleAnalytics.shortBreakdownConfirmed,
         },
-      });
+      }, gatesPassed);
       if (!candleAnalytics.ok) {
         return failOpen(candleAnalytics.reason, candleAnalytics.code);
       }
@@ -942,7 +969,7 @@ export class HyperliquidTradingService {
         code: scalpGate.code,
         reason: scalpGate.reason,
         metrics: { tf1m: scalpGate.tf1m, tf5m: scalpGate.tf5m },
-      });
+      }, gatesPassed);
       if (!scalpGate.ok) {
         return failOpen(scalpGate.reason, scalpGate.code);
       }
@@ -976,7 +1003,7 @@ export class HyperliquidTradingService {
         code: macroGate.ok ? 'MACRO_PASS' : 'MACRO_BLOCK',
         reason: macroGate.reason,
         metrics: { blockers: macroGate.blockers.join('; ') || undefined },
-      });
+      }, gatesPassed);
       if (!macroGate.ok) {
         return failOpen(macroGate.reason, 'MACRO_BLOCK');
       }
@@ -1011,7 +1038,7 @@ export class HyperliquidTradingService {
           change4hPct: pumpShortGate.change4hPct,
           higherLong: pumpShortGate.higherLong,
         },
-      });
+      }, gatesPassed);
       if (!pumpShortGate.ok) {
         return failOpen(pumpShortGate.reason, pumpShortGate.code);
       }
@@ -1054,7 +1081,7 @@ export class HyperliquidTradingService {
           change15mPct: momentumGate.change15mPct,
           change1hPct: momentumGate.change1hPct,
         },
-      });
+      }, gatesPassed);
       if (!momentumGate.ok) {
         return failOpen(momentumGate.reason, momentumGate.code);
       }
@@ -1070,7 +1097,7 @@ export class HyperliquidTradingService {
         code: megaGate.code,
         reason: megaGate.reason,
         metrics: { inflowCount: megaGate.inflowCount, outflowCount: megaGate.outflowCount },
-      });
+      }, gatesPassed);
       if (!megaGate.ok) {
         return failOpen(megaGate.reason, megaGate.code);
       }
@@ -1117,7 +1144,7 @@ export class HyperliquidTradingService {
           confirmedBreakdown: locationGate.analysis.confirmedBreakdown,
           dumpContinuation: locationGate.analysis.dumpContinuation === true,
         },
-      });
+      }, gatesPassed);
       if (!locationGate.ok) {
         return failOpen(locationGate.reason, locationGate.code);
       }
@@ -1182,7 +1209,7 @@ export class HyperliquidTradingService {
           rangePosition4h: htfLocation.rangePosition4h,
           confirmedBreakdown: htfLocation.confirmedBreakdown,
         },
-      });
+      }, gatesPassed);
       if (htfLocation.deterministicLocationDecision !== 'ALLOW') {
         return failOpen(htfLocation.reason, htfCode);
       }
@@ -1202,8 +1229,12 @@ export class HyperliquidTradingService {
         liquidityReason: opts.pick.liquidityReason,
         scalpAlignLine: scalpGate.reason,
         candleAnalyticsLine: candleAnalytics.summary,
+        gatesPassed,
       });
       openReasonFull = openReasonDoc;
+      patchExecutionDiagnostic(opts.userAddress, {
+        gatesPassed: gatesPassed.map((g) => g.gate),
+      });
       }
 
       const client = createAgentClient(opts.userAddress);
@@ -1295,12 +1326,34 @@ export class HyperliquidTradingService {
         };
       }
 
+      const fillEntry = protectedOpen.avgPx ?? markPx;
       await recordHlBotOpenMarker({
         walletAddress: opts.userAddress,
         coin,
         direction: opts.direction,
-        entryPx: protectedOpen.avgPx ?? markPx,
+        entryPx: fillEntry,
         reason: openReasonFull,
+      });
+
+      await recordHlOpenAudit({
+        walletAddress: opts.userAddress,
+        coin,
+        direction: opts.direction,
+        entryPx: fillEntry,
+        leverage: effectiveLeverage,
+        notionalUsd: opts.notionalUsd,
+        confidence: opts.pick.confidence,
+        botMode: opts.botModeLabel,
+        gatesPassed,
+        analysisText: openReasonFull,
+        signalSnapshot: {
+          longClass: opts.pick.longClass,
+          h1Trend: opts.pick.h1Trend,
+          trendAlignment: opts.pick.trendAlignment,
+          directionalTfCount: opts.pick.directionalTfCount,
+          mtfBreakdown: opts.pick.mtfBreakdown,
+          indicators: opts.pick.indicators,
+        },
       });
 
       if (slPct > 0 && !protectedOpen.slConfirmed) {
