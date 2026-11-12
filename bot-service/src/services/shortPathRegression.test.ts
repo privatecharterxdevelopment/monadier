@@ -28,7 +28,7 @@ describe('SHORT path regression vs prior bear engine', () => {
     assert.equal(s.bypassFreshPumpWhenTrusted, true);
     assert.equal(s.bypassMacroBetaWhenTrusted, true);
     assert.equal(s.bypassPumpShortWhenTrusted, true);
-    assert.equal(s.bypassEntryLocationWhenTrusted, true);
+    assert.equal(s.bypassEntryLocationWhenTrusted, false);
   });
 
   it('wallet-wide 10m still blocks a SHORT 3m after any close', () => {

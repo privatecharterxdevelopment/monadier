@@ -21,6 +21,10 @@ import {
   evaluateEntryLocationQuality,
   logEntryLocationRecord,
 } from './entryLocationQuality';
+import {
+  capLeverageByEntryRange,
+  requiresHardEntryLocationGate,
+} from './entryLeverageCap';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -773,13 +777,14 @@ export class HyperliquidTradingService {
       const coin = opts.coin.toUpperCase();
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-      const effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
+      let effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
       const markPx = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
       if (!markPx || !Number.isFinite(markPx)) {
         return { success: false, error: 'No HL mark price' };
       }
 
-      const size = opts.notionalUsd / markPx;
+      let notionalUsd = opts.notionalUsd;
+      let size = notionalUsd / markPx;
       if (size <= 0) return { success: false, error: 'Invalid size' };
 
       const failOpen = (error: string, code?: string) => {
@@ -824,6 +829,7 @@ export class HyperliquidTradingService {
         shortRules.trustMtfScan &&
         opts.pick.confidence >= Math.max(58, shortRules.minConfidence - 4);
       const relaxSecondary = shortRules.relaxSecondaryGates && trustedMtf;
+      const hardEntryLocation = requiresHardEntryLocationGate(coin, effectiveLeverage);
       const aggShort =
         opts.pick.botMode === 'aggressive' && opts.direction === 'SHORT';
 
@@ -1104,7 +1110,7 @@ export class HyperliquidTradingService {
       markGatePassed(opts.userAddress, 'mega_pair');
 
       const locationGate =
-        relaxSecondary && shortRules.bypassSrLocationWhenTrusted
+        relaxSecondary && shortRules.bypassSrLocationWhenTrusted && !hardEntryLocation
           ? {
               ok: true as const,
               code: 'LOCATION_OK' as const,
@@ -1151,8 +1157,9 @@ export class HyperliquidTradingService {
       markGatePassed(opts.userAddress, 'entry_location');
 
       const bypassHtfLocation =
-        reversalLong ||
-        (relaxSecondary && shortRules.bypassEntryLocationWhenTrusted);
+        !hardEntryLocation &&
+        (reversalLong ||
+          (relaxSecondary && shortRules.bypassEntryLocationWhenTrusted));
       const htfLocation = bypassHtfLocation
         ? {
             coin,
@@ -1214,6 +1221,48 @@ export class HyperliquidTradingService {
         return failOpen(htfLocation.reason, htfCode);
       }
       markGatePassed(opts.userAddress, 'entry_location_quality');
+
+      const levCap = capLeverageByEntryRange({
+        coin,
+        direction: opts.direction,
+        requested: effectiveLeverage,
+        rangePosition1h: htfLocation.rangePosition1h,
+        chasingCompletedMove: htfLocation.chasingCompletedMove,
+      });
+      if (levCap.capped) {
+        const prevLev = effectiveLeverage;
+        effectiveLeverage = levCap.leverage;
+        notionalUsd = notionalUsd * (effectiveLeverage / prevLev);
+        size = notionalUsd / markPx;
+        logOpenGate(
+          {
+            userAddress: opts.userAddress,
+            coin,
+            direction: opts.direction,
+            gate: 'leverage_location_cap',
+            ok: true,
+            code: 'LEV_RANGE_CAP',
+            reason: levCap.reason ?? `Capped ${prevLev}× → ${effectiveLeverage}×`,
+            metrics: { rangePosition1h: htfLocation.rangePosition1h, prevLev, effectiveLeverage },
+          },
+          gatesPassed
+        );
+        logger.info('HL open leverage capped by 1h range', {
+          user: opts.userAddress.slice(0, 10),
+          coin,
+          direction: opts.direction,
+          prevLev,
+          effectiveLeverage,
+          range1h: htfLocation.rangePosition1h,
+          reason: levCap.reason,
+        });
+      }
+      if (notionalUsd < config.hyperliquid.minNotionalUsd) {
+        return failOpen(
+          `Notional $${notionalUsd.toFixed(2)} below floor after leverage cap — wait better location`,
+          'LEV_CAP_NOTIONAL'
+        );
+      }
 
       const openReasonDoc = buildHlOpenReasonDoc({
         mode: opts.botModeLabel,

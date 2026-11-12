@@ -60,11 +60,12 @@ export const BEAR_MARKET: HlDirectionProfile = {
     bypassFreshPumpWhenTrusted: true,
     bypassMacroBetaWhenTrusted: true,
     bypassPumpShortWhenTrusted: true,
-    bypassEntryLocationWhenTrusted: true,
-    bypassPreOpenWhenTrusted: true,
+    /** Never — shorts at 1h lows with full lev wiped sessions (BTC 40× chase). */
+    bypassEntryLocationWhenTrusted: false,
+    bypassPreOpenWhenTrusted: false,
     bypassScalpAlignWhenTrusted: true,
     bypassEntryMomentumWhenTrusted: true,
-    bypassSrLocationWhenTrusted: true,
+    bypassSrLocationWhenTrusted: false,
   },
   long: {
     ...COUNTER_TREND_RULES('UP'),

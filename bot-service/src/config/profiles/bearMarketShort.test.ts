@@ -3,17 +3,17 @@ import { describe, it } from 'node:test';
 import { BEAR_MARKET } from './bearMarketShort';
 
 describe('bear_market thorough pre-open', () => {
-  it('bypasses secondary open gates when MTF scan is trusted', () => {
+  it('relaxes some secondary gates when MTF scan is trusted but never location/pre-open', () => {
     const s = BEAR_MARKET.short;
     assert.equal(s.relaxSecondaryGates, true);
     assert.equal(s.bypassMacroBetaWhenTrusted, true);
     assert.equal(s.bypassPumpShortWhenTrusted, true);
-    assert.equal(s.bypassEntryLocationWhenTrusted, true);
+    assert.equal(s.bypassEntryLocationWhenTrusted, false);
     assert.equal(s.bypassFreshPumpWhenTrusted, true);
-    assert.equal(s.bypassPreOpenWhenTrusted, true);
+    assert.equal(s.bypassPreOpenWhenTrusted, false);
     assert.equal(s.bypassScalpAlignWhenTrusted, true);
     assert.equal(s.bypassEntryMomentumWhenTrusted, true);
-    assert.equal(s.bypassSrLocationWhenTrusted, true);
+    assert.equal(s.bypassSrLocationWhenTrusted, false);
   });
 
   it('requires 15m+1h DOWN and 3 confirming 15m candles for SHORTs', () => {
