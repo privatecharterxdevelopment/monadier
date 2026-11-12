@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useMonadierAppKit } from '../../hooks/useMonadierAppKit';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBettingUi } from '../../contexts/BettingUiContext';
@@ -30,6 +32,7 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   onRequireSignIn,
   compact = false,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { open } = useMonadierAppKit();
   const { isRestoring } = useMonadierWallet();
@@ -118,8 +121,13 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   if (!walletConnected) {
     if (isRestoring) {
       return (
-        <span className="hl-topnav-betting-balance hl-topnav-betting-balance--restoring">
-          Restoring wallet…
+        <span
+          className="hl-topnav-betting-balance hl-wallet-connecting-pill"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 size={13} className="hl-wallet-connecting-spin" aria-hidden />
+          {t('trading.order.restoringWallet')}
         </span>
       );
     }

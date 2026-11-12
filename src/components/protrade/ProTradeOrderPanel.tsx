@@ -702,8 +702,13 @@ const ProTradeOrderPanel: React.FC<Props> = ({
         ) : null}
 
         {isRestoring || (isConnected && !isLiveConnected && !walletReady) ? (
-          <button type="button" className="hl-entry-submit" disabled>
-            <Loader2 size={14} className="animate-spin" style={{ display: 'inline', marginRight: 6 }} />
+          <button
+            type="button"
+            className="hl-entry-submit hl-entry-submit--connecting"
+            disabled
+            aria-busy="true"
+          >
+            <Loader2 size={14} className="hl-wallet-connecting-spin" aria-hidden />
             {t('trading.order.restoringWallet')}
           </button>
         ) : !isConnected || !walletReady ? (

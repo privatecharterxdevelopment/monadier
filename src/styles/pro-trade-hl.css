@@ -249,6 +249,30 @@
   background: var(--hl-bg);
 }
 
+.hl-wallet-connecting-pill {
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--hl-green-bright) 35%, var(--hl-border));
+  background: color-mix(in srgb, var(--hl-green-bright) 8%, var(--hl-bg-elevated));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hl-text);
+  letter-spacing: 0.01em;
+}
+
+.hl-wallet-connecting-spin {
+  flex-shrink: 0;
+  animation: hl-wallet-connect-spin 0.75s linear infinite;
+  color: var(--hl-green-bright);
+}
+
+@keyframes hl-wallet-connect-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .hl-topnav-bet-stat--compact {
   padding: 5px 8px;
   border-radius: 6px;

@@ -923,7 +923,7 @@ const Dashboard2ProPageContent: React.FC = () => {
               : 0,
             toNum(account?.marginSummary?.accountValue)
           )}
-          manualMarketOptions={perpMarkets.map((m) => m.name)}
+          manualMarketOptions={perpMarkets.map((m) => m.name).filter((c) => !isBotExcludedHlCoin(c))}
           onManualTradeCoinChange={selectChartCoin}
         />
       </div>

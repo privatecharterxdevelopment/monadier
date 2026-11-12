@@ -59,7 +59,9 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
 
   const coinSelect = useMemo(() => {
     const opts = marketOptions.length > 0 ? marketOptions : [coin];
-    const unique = [...new Set([coinLabel, ...opts.map((c) => c.toUpperCase())])];
+    const unique = [...new Set([coinLabel, ...opts.map((c) => c.toUpperCase())])].filter(
+      (c) => !isBotExcludedHlCoin(c)
+    );
     return unique.slice(0, 64);
   }, [coin, coinLabel, marketOptions]);
 
@@ -175,6 +177,10 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    if (isBotExcludedHlCoin(coinLabel)) {
+      onError?.(t('tradePanel.coinExcluded', { coin: coinLabel, defaultValue: `${coinLabel} is not tradable on HyperGain.` }));
+      return;
+    }
     setBusy(true);
     try {
       await updateHlManualPerpLeverageViaAgent({
