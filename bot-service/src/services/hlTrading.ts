@@ -78,6 +78,7 @@ import {
   markFromPosition,
   minProfitLockUsd,
   netPnlAfterCosts,
+  resolveDesiredProfitStopPx,
   type DynamicTrailRecord,
 } from './dynamicTrailingStop';
 import {
@@ -1464,6 +1465,16 @@ export class HyperliquidTradingService {
       const fundingUsd = Number(
         (pos as { cumFunding?: { sinceOpen?: string } }).cumFunding?.sinceOpen ?? 0
       );
+      let metaSzForTick = 0;
+      if (meta) {
+        try {
+          metaSzForTick = meta.universe[coinToAssetIndex(meta, pos.coin)]?.szDecimals ?? 0;
+        } catch {
+          metaSzForTick = 0;
+        }
+      }
+      const tickSizeForTrail = hlTickSize(markPrice, metaSzForTick);
+
       const trailResult = await evaluateDynamicTrail({
         coin: pos.coin,
         direction: positionDirection,
@@ -1478,6 +1489,8 @@ export class HyperliquidTradingService {
         fundingUsd,
         stopLossPct: settings.stopLossPercent,
         confirmedExchangeStopPx: liveStops.profitPx,
+        tickSize: tickSizeForTrail,
+        szDecimals: metaSzForTick,
       });
 
       saveTrailRecord(lockKey, trailResult.record);
@@ -1508,10 +1521,20 @@ export class HyperliquidTradingService {
           netPnlUsd >= profitTargetUsd
             ? Math.min(1_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs)
             : config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+        const desiredProfitStopPx = resolveDesiredProfitStopPx({
+          direction: positionDirection,
+          entryPrice: entry,
+          markPrice,
+          absSize,
+          feesUsd,
+          fundingUsd,
+          tickSize: tickSizeForTrail,
+          currentTrailStop: trailResult.record.currentTrailStop,
+        });
         const profitArmed =
           pnl > 0 &&
           netPnlUsd >= profitTargetUsd &&
-          trailResult.record.phase !== 'idle' &&
+          desiredProfitStopPx != null &&
           trailResult.record.timeInProfitMs >= armHoldMs;
 
         const plan = await syncHlProfitStopOrder({
@@ -1521,7 +1544,7 @@ export class HyperliquidTradingService {
           absSize,
           markPrice,
           entryPrice: entry,
-          stopPx: profitArmed ? trailResult.record.currentTrailStop : null,
+          stopPx: profitArmed ? desiredProfitStopPx : null,
           armed: profitArmed,
           feesUsd,
           fundingUsd,

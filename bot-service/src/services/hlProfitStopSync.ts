@@ -222,7 +222,11 @@ export function profitStopMarketCapPx(
 }
 
 export function isProfitTriggerKind(kind: TriggerClass): boolean {
-  return kind === 'profit_market' || kind === 'profit_limit';
+  return (
+    kind === 'profit_market' ||
+    kind === 'profit_limit' ||
+    kind === 'legacy_market_profit'
+  );
 }
 
 /**

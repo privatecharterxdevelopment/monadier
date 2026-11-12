@@ -100,6 +100,64 @@ export function minProfitLockUsd(notionalUsd: number, leverage = 1): number {
 }
 
 /** Stop price that locks at least `lockUsd` gross uPnL at the stop fill. */
+/** Stop price for HL post when trail record has no stop yet (avoids endless PENDING). */
+export function resolveDesiredProfitStopPx(opts: {
+  direction: 'LONG' | 'SHORT';
+  entryPrice: number;
+  markPrice: number;
+  absSize: number;
+  feesUsd: number;
+  fundingUsd?: number;
+  tickSize?: number;
+  currentTrailStop?: number | null;
+}): number | null {
+  if (opts.currentTrailStop != null && opts.currentTrailStop > 0) {
+    return opts.currentTrailStop;
+  }
+  const placed = firstPlaceableProfitStopPx({
+    direction: opts.direction,
+    entryPrice: opts.entryPrice,
+    markPrice: opts.markPrice,
+    absSize: opts.absSize,
+    feesUsd: opts.feesUsd,
+    fundingUsd: opts.fundingUsd ?? 0,
+    tickSize: opts.tickSize,
+  });
+  if (placed != null) return placed;
+
+  const target = config.hyperliquid.minProfitCloseUsd;
+  const lockPx = profitStopPxForLockedUsd({
+    direction: opts.direction,
+    entryPrice: opts.entryPrice,
+    absSize: opts.absSize,
+    lockUsd: Math.max(
+      target,
+      opts.feesUsd * config.hyperliquid.dynamicTrail.minProfitCloseFeesMult
+    ),
+    markPrice: opts.markPrice,
+    tickSize: opts.tickSize,
+  });
+  if (lockPx != null) return lockPx;
+
+  const gap = minProfitTrailGapPx(opts.markPrice, opts.tickSize ?? 0);
+  const glue =
+    opts.direction === 'LONG' ? opts.markPrice - gap : opts.markPrice + gap;
+  if (
+    profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: glue,
+      markPx: opts.markPrice,
+      entryPx: opts.entryPrice,
+      tickSize: opts.tickSize ?? 0,
+    }) &&
+    lockedPnlAtStopPx(opts.direction, opts.entryPrice, opts.absSize, glue) >=
+      target
+  ) {
+    return clampStopToProfitSideOfEntry(opts.direction, glue, opts.entryPrice);
+  }
+  return null;
+}
+
 export function profitStopPxForLockedUsd(opts: {
   direction: 'LONG' | 'SHORT';
   entryPrice: number;
@@ -479,15 +537,27 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  // Green: try to place immediately. No time/ROE/fee activation gates.
   if (placeable == null && rec.currentTrailStop == null) {
-    rec.phase = 'pending';
-    return {
-      record: rec,
-      shouldClose: false,
-      exitReason: '',
-      closeDetail: 'PROFIT_SL_PENDING',
-    };
+    const fallback = resolveDesiredProfitStopPx({
+      direction: input.direction,
+      entryPrice: input.entryPrice,
+      markPrice: input.markPrice,
+      absSize: input.absSize,
+      feesUsd,
+      fundingUsd: input.fundingUsd ?? 0,
+      tickSize: tick,
+      currentTrailStop: null,
+    });
+    if (fallback == null) {
+      rec.phase = 'pending';
+      return {
+        record: rec,
+        shouldClose: false,
+        exitReason: '',
+        closeDetail: 'PROFIT_SL_PENDING',
+      };
+    }
+    rec.currentTrailStop = fallback;
   }
 
   const justArmed = rec.currentTrailStop == null;

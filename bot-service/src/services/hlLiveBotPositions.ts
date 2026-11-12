@@ -6,10 +6,18 @@ import {
   classifyHlTriggerOrder,
   emergencySideOk,
   fetchFrontendOpenOrders,
+  isProfitTriggerKind,
+  lastConfirmedProfitStopPx,
 } from './hlProfitStopSync';
-import { estimateRoundTripFeesUsd, netPnlAfterCosts } from './dynamicTrailingStop';
+import {
+  breakevenPlusFeesStopPx,
+  estimateRoundTripFeesUsd,
+  markFromPosition,
+  netPnlAfterCosts,
+} from './dynamicTrailingStop';
 import { getDynamicTrailRecord } from './profitTrailState';
-import type { HlClearinghouseState } from './hlInfo';
+import { hlTickSize, type HlClearinghouseState } from './hlInfo';
+import { config } from '../config';
 
 export type LiveBotPositionView = {
   coin: string;
@@ -53,9 +61,28 @@ export async function buildLiveBotPositionViews(opts: {
     const notional = Math.abs(Number((pos as { positionValue?: string }).positionValue ?? 0));
     const marginUsd = notional > 0 ? notional / leverage : entryPx > 0 ? (absSize * entryPx) / leverage : 0;
     const upnlUsd = Number(pos.unrealizedPnl ?? 0);
-    const feesUsd = estimateRoundTripFeesUsd(notional > 0 ? notional : absSize * entryPx);
-    const netPnlUsd = netPnlAfterCosts(upnlUsd, notional > 0 ? notional : absSize * entryPx, feesUsd);
+    const markPx =
+      entryPx > 0
+        ? markFromPosition(entryPx, direction === 'LONG' ? absSize : -absSize, upnlUsd)
+        : entryPx;
+    const feesUsd = estimateRoundTripFeesUsd(notional > 0 ? notional : absSize * markPx);
+    const netPnlUsd = netPnlAfterCosts(
+      upnlUsd,
+      notional > 0 ? notional : absSize * markPx,
+      feesUsd
+    );
     const trail = getDynamicTrailRecord(`${opts.wallet.toLowerCase()}:${coin}`);
+    const tick = hlTickSize(markPx > 0 ? markPx : entryPx, 4);
+    const bePx = breakevenPlusFeesStopPx(
+      direction,
+      entryPx,
+      absSize,
+      feesUsd,
+      0,
+      notional > 0 ? notional : absSize * markPx,
+      tick,
+      4
+    );
 
     let emergencySlPx: number | null = null;
     let emergencySlConfirmed = false;
@@ -63,22 +90,37 @@ export async function buildLiveBotPositionViews(opts: {
     let profitSlConfirmed = false;
     if (orders) {
       for (const o of orders) {
-        const kind = classifyHlTriggerOrder(o, coin, direction, entryPx, entryPx);
+        const kind = classifyHlTriggerOrder(o, coin, direction, entryPx, bePx);
         const trig = Number(o.triggerPx ?? o.limitPx ?? 0);
         if (!(trig > 0)) continue;
         if (kind === 'emergency_market' && emergencySideOk(direction, trig, entryPx, entryPx)) {
           emergencySlPx = trig;
           emergencySlConfirmed = true;
         }
-        if (kind === 'profit_limit' || kind === 'profit_market') {
+        if (isProfitTriggerKind(kind)) {
           profitSlPx = trig;
           profitSlConfirmed = true;
         }
       }
     }
+    if (!profitSlConfirmed) {
+      const mem = lastConfirmedProfitStopPx(opts.wallet, coin);
+      if (mem != null && mem > 0) {
+        profitSlPx = mem;
+        profitSlConfirmed = true;
+      }
+    }
 
+    const profitTarget = config.hyperliquid.minProfitCloseUsd;
     const pending =
-      upnlUsd > 0 && !profitSlConfirmed && (trail?.phase === 'pending' || trail?.phase === 'idle' || !trail);
+      upnlUsd > 0 &&
+      !profitSlConfirmed &&
+      netPnlUsd >= profitTarget &&
+      (trail?.phase === 'pending' ||
+        trail?.phase === 'idle' ||
+        trail?.phase === 'armed' ||
+        trail?.phase === 'trailing' ||
+        !trail);
     const profitSlStatus: LiveBotPositionView['profitSlStatus'] = profitSlConfirmed
       ? 'PROFIT_SL_CONFIRMED'
       : pending
