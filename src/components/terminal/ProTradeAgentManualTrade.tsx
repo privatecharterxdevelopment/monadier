@@ -10,6 +10,7 @@ import {
   updateHlManualPerpLeverageViaAgent,
 } from '../../lib/hyperliquid/hlManualOrder';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { isBotExcludedHlCoin } from '../../lib/botTradingPairs';
 
 const MIN_MARGIN_USD = 5;
 const SIZE_PRESETS = [25, 33, 50, 66, 75, 100] as const;

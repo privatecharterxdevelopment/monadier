@@ -58,6 +58,7 @@ import type { HlInterval } from '../../lib/hyperliquid/types';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { isHlSpotCoin } from '../../lib/hyperliquid/spot';
 import { readNum, toNum } from '../../lib/hyperliquid/parse';
+import { isBotExcludedHlCoin } from '../../lib/botTradingPairs';
 import { isMeaningfulHlPosition } from '../../lib/hyperliquid/format';
 import { hlCoinToBotSymbol, normalizeHlPerpCoin } from '../../lib/botTradingPairs';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';

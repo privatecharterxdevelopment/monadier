@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import { deriveUserHlAgent } from './hlAgent';
 import { hlAgentApprovalService } from './hlAgentApprovals';
 import { fetchHlLiquidUniverse, getHlLiquidityForCoin, isHlCoinLiquid, type HlLiquidUniverse } from './hlLiquidity';
-import { isBotTradeCoin } from './botTradeUniverse';
+import { isBotTradeCoin, isExcludedHlCoin } from './botTradeUniverse';
 import {
   globalSignalsForBotMode,
   isOpenableLongCandidate,
@@ -2298,6 +2298,10 @@ export class HyperliquidTradingService {
     reduceOnly: boolean;
     botManaged: boolean;
   }): Promise<{ success: boolean; error?: string }> {
+  const coinUpper = opts.coin.toUpperCase();
+    if (isExcludedHlCoin(coinUpper)) {
+      return { success: false, error: `${coinUpper} is excluded from HyperGain trading` };
+    }
     if (opts.reduceOnly) {
       return { success: false, error: 'Reduce-only not supported on this path — use close' };
     }
