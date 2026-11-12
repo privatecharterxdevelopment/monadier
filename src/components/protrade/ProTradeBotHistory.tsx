@@ -1,14 +1,17 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
+import { useHlBotTradeWindows } from '../../hooks/useHlBotTradeWindows';
 import { exportBotTradesPdf } from '../../lib/exportBotTradesPdf';
 import { fmtClosedPnl, fmtTradingSince, fmtUsdSymbol, isHlFillOpen } from '../../lib/hyperliquid/format';
-import { summarizeHlClosedPnlFromFills } from '../../lib/hyperliquid/hlPnl';
+import { summarizeHlBotClosedPnlFromFills } from '../../lib/hyperliquid/hlPnl';
 import { toNum } from '../../lib/hyperliquid/parse';
+import { filterFillsByScope } from '../../lib/hyperliquid/splitHlActivity';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
+import { fetchHlUserFills, type HlUserFill } from '../../lib/hyperliquid/user';
 import { displayHandle } from '../../lib/username';
 import ProTradeHlBotDock from './ProTradeHlBotDock';
 
@@ -33,6 +36,32 @@ const ProTradeBotHistory: React.FC<Props> = ({
   const userId = user?.id ?? null;
   const wallet = walletAddress?.trim() || undefined;
   const { account, fills, fillsLoading } = useHyperliquidAccount(wallet);
+  const [fillsFallback, setFillsFallback] = useState<HlUserFill[]>([]);
+  useEffect(() => {
+    if (!wallet) {
+      setFillsFallback([]);
+      return;
+    }
+    if (fills.length > 0) {
+      setFillsFallback([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchHlUserFills(wallet, 2000)
+      .then((list) => {
+        if (!cancelled && list.length > 0) setFillsFallback(list);
+      })
+      .catch(() => {
+        /* hook may populate later */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet, fills.length, refreshKey]);
+
+  const effectiveFills = fills.length > 0 ? fills : fillsFallback;
+  const { windows: botWindows, fillTids: botFillTids, markers: botMarkers } =
+    useHlBotTradeWindows(wallet, refreshKey + effectiveFills.length);
   const openCoins = useMemo(
     () =>
       (account?.positions ?? [])
@@ -47,12 +76,21 @@ const ProTradeBotHistory: React.FC<Props> = ({
     fills
   );
 
-  const closeFills = useMemo(
-    () => fills.filter((f) => !isHlFillOpen(f.dir)),
-    [fills]
+  const botScopedFills = useMemo(
+    () =>
+      filterFillsByScope(effectiveFills, 'bot', botWindows, botFillTids, botMarkers),
+    [effectiveFills, botWindows, botFillTids, botMarkers]
   );
 
-  const pnlSummary = useMemo(() => summarizeHlClosedPnlFromFills(fills), [fills]);
+  const closeFills = useMemo(
+    () => botScopedFills.filter((f) => !isHlFillOpen(f.dir)),
+    [botScopedFills]
+  );
+
+  const pnlSummary = useMemo(
+    () => summarizeHlBotClosedPnlFromFills(botScopedFills),
+    [botScopedFills]
+  );
 
   const botPositions = useMemo(
     () => filterHlPositions(account?.positions, botManagedCoins, 'bot'),
@@ -83,7 +121,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
     setExporting(true);
     try {
       await exportBotTradesPdf({
-        fills,
+        fills: effectiveFills,
         walletAddress: wallet,
         userId,
         username,
@@ -95,7 +133,7 @@ const ProTradeBotHistory: React.FC<Props> = ({
     } finally {
       setExporting(false);
     }
-  }, [wallet, closeFills.length, exporting, fills, userId, username, displayName, t]);
+  }, [wallet, closeFills.length, exporting, effectiveFills, userId, username, displayName, t]);
 
   const showPdfExport = embedded && Boolean(wallet) && closeFills.length > 0;
   const accountLine = username ? `@${username}` : displayName;

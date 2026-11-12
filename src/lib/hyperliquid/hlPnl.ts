@@ -1,3 +1,4 @@
+import { aggregateHlCloseFills, type AggregatedHlCloseFill } from './hlFillAggregate';
 import { isHlFillClose } from './format';
 import { toNum } from './parse';
 import type { HlUserFill } from './user';
@@ -55,4 +56,36 @@ export function summarizeHlClosedPnlFromFills(fills: HlUserFill[]): HlClosedPnlS
 
 export function countHlClosedFills(fills: HlUserFill[]): number {
   return fills.filter((f) => isHlFillClose(f.dir, f.closedPnl)).length;
+}
+
+/** Net realized P/L per aggregated close (matches trade-history Win/Loss column). */
+export function summarizeHlClosedNetFromAggregated(
+  closes: AggregatedHlCloseFill[]
+): HlClosedPnlSummary {
+  let totalGain = 0;
+  let totalLoss = 0;
+  let firstCloseAt: number | null = null;
+  for (const f of closes) {
+    const time = toNum(f.time);
+    if (time > 0) {
+      firstCloseAt = firstCloseAt == null ? time : Math.min(firstCloseAt, time);
+    }
+    const net = toNum(f.closedPnl) - toNum(f.fee);
+    if (!Number.isFinite(net)) continue;
+    if (net > 0) totalGain += net;
+    else if (net < 0) totalLoss += net;
+  }
+  return {
+    totalGain,
+    totalLoss,
+    netPnl: totalGain + totalLoss,
+    closedCount: closes.length,
+    firstFillAt: firstCloseAt,
+    firstCloseAt,
+  };
+}
+
+/** Bot-scoped closes (aggregated, net of HL fees) — aligns profile Gain/Loss with the dock table. */
+export function summarizeHlBotClosedPnlFromFills(fills: HlUserFill[]): HlClosedPnlSummary {
+  return summarizeHlClosedNetFromAggregated(aggregateHlCloseFills(fills));
 }
