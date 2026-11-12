@@ -26,6 +26,9 @@ import {
   coinToAssetIndex,
   maxLeverageForCoin,
   fetchHlClearinghouseState,
+  fetchHlPerpFundingSnapshot,
+  hlTradableFreeMarginUsd,
+  describeHlPerpBalanceBlocker,
   fetchHlAllMids,
   fetchHlMeta,
   formatHlPrice,
@@ -349,13 +352,13 @@ export class HyperliquidTradingService {
       };
     }
 
-    const state = await fetchHlClearinghouseState(userAddress);
-    const acct = hlAccountValueUsd(state);
-    if (acct < config.hyperliquid.minAccountUsd) {
-      return {
-        ok: false,
-        reason: `HL balance $${acct.toFixed(2)} (min $${config.hyperliquid.minAccountUsd})`,
-      };
+    const funding = await fetchHlPerpFundingSnapshot(userAddress);
+    const balanceBlocker = describeHlPerpBalanceBlocker(
+      funding,
+      config.hyperliquid.minAccountUsd
+    );
+    if (balanceBlocker) {
+      return { ok: false, reason: balanceBlocker };
     }
 
     return { ok: true };
@@ -375,13 +378,16 @@ export class HyperliquidTradingService {
       userAddress,
       config.arbitrum.chainId
     );
-    const state = await fetchHlClearinghouseState(userAddress);
-    if (!state) return 'skip';
+    const [state, funding] = await Promise.all([
+      fetchHlClearinghouseState(userAddress),
+      fetchHlPerpFundingSnapshot(userAddress),
+    ]);
+    if (!funding.stateLoaded && !state) return 'skip';
 
-    const openCoins = hlOpenPerpCoins(state);
+    const openCoins = state ? hlOpenPerpCoins(state) : [];
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
-    if (openCoins.length > 0) {
+    if (openCoins.length > 0 && state) {
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
     } else {
       markWalletProtectiveReconcile(userAddress, true, 'no open positions');
@@ -444,7 +450,14 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    return this.tryOpenFromGlobalSignals(userAddress, settings, state, ctx, openCoins);
+    return this.tryOpenFromGlobalSignals(
+      userAddress,
+      settings,
+      state,
+      funding,
+      ctx,
+      openCoins
+    );
   }
 
   /** Ranked signals that pass liquidity gates — prefers high 24h volume / OI. */
@@ -535,7 +548,8 @@ export class HyperliquidTradingService {
   private async tryOpenFromGlobalSignals(
     userAddress: `0x${string}`,
     settings: Awaited<ReturnType<typeof subscriptionService.getUserTradingSettings>>,
-    state: NonNullable<Awaited<ReturnType<typeof fetchHlClearinghouseState>>>,
+    state: Awaited<ReturnType<typeof fetchHlClearinghouseState>>,
+    funding: Awaited<ReturnType<typeof fetchHlPerpFundingSnapshot>>,
     ctx: TradingCycleContext,
     openCoins: string[]
   ): Promise<UserProcessResult> {
@@ -563,14 +577,20 @@ export class HyperliquidTradingService {
     }
 
     let stateRef = state;
+    let fundingRef = funding;
     let coinsOpen = [...openCoins];
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
 
     while (coinsOpen.length < maxPositions) {
       const slotsLeft = maxPositions - coinsOpen.length;
-      const balance = hlAccountValueUsd(stateRef);
-      const freeMargin = hlFreeMarginUsd(stateRef);
+      const reservedBudget = Math.max(0, Number(settings.autoBettingBudgetUsd) || 0);
+      const balance = balanceForTradingRisk(
+        fundingRef.tradablePerpUsd,
+        reservedBudget,
+        fundingRef.unifiedAccount
+      );
+      const freeMargin = hlTradableFreeMarginUsd(fundingRef, stateRef);
       const collateral = resolveMarginPerSlot(
         balance,
         freeMargin,
@@ -678,9 +698,13 @@ export class HyperliquidTradingService {
 
           if (coinsOpen.length >= maxPositions) break;
 
-          const fresh = await fetchHlClearinghouseState(userAddress);
-          if (!fresh) break;
+          const [fresh, freshFunding] = await Promise.all([
+            fetchHlClearinghouseState(userAddress),
+            fetchHlPerpFundingSnapshot(userAddress),
+          ]);
+          if (!freshFunding.stateLoaded && !fresh) break;
           stateRef = fresh;
+          fundingRef = freshFunding;
           break;
         }
 
