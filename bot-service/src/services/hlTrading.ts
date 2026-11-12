@@ -1503,12 +1503,16 @@ export class HyperliquidTradingService {
             metaSz = 0;
           }
         }
+        const profitTargetUsd = config.hyperliquid.minProfitCloseUsd;
+        const armHoldMs =
+          netPnlUsd >= profitTargetUsd
+            ? Math.min(1_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs)
+            : config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
         const profitArmed =
           pnl > 0 &&
-          netPnlUsd >= minLockUsd * 1.15 &&
+          netPnlUsd >= profitTargetUsd &&
           trailResult.record.phase !== 'idle' &&
-          trailResult.record.timeInProfitMs >=
-            config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+          trailResult.record.timeInProfitMs >= armHoldMs;
 
         const plan = await syncHlProfitStopOrder({
           userAddress,

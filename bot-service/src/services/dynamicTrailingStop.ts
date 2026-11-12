@@ -94,10 +94,40 @@ export function minProfitLockUsd(notionalUsd: number, leverage = 1): number {
     config.hyperliquid.minProfitCloseUsd,
     fees * cfg.minProfitCloseFeesMult
   );
-  if (leverage >= 40) floor *= 1.85;
-  else if (leverage >= 25) floor *= 1.5;
-  else if (leverage >= 15) floor *= 1.2;
+  if (leverage >= 40) floor = Math.max(floor, config.hyperliquid.minProfitCloseUsd * 1.05);
+  else if (leverage >= 25) floor = Math.max(floor, config.hyperliquid.minProfitCloseUsd);
   return floor;
+}
+
+/** Stop price that locks at least `lockUsd` gross uPnL at the stop fill. */
+export function profitStopPxForLockedUsd(opts: {
+  direction: 'LONG' | 'SHORT';
+  entryPrice: number;
+  absSize: number;
+  lockUsd: number;
+  markPrice: number;
+  tickSize?: number;
+}): number | null {
+  const lockUsd = Math.max(0, opts.lockUsd);
+  if (!(lockUsd > 0) || !(opts.absSize > 0) || !(opts.entryPrice > 0)) return null;
+  const move = lockUsd / opts.absSize;
+  let stop =
+    opts.direction === 'LONG'
+      ? opts.entryPrice + move
+      : opts.entryPrice - move;
+  stop = clampStopToProfitSideOfEntry(opts.direction, stop, opts.entryPrice);
+  if (
+    !profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: stop,
+      markPx: opts.markPrice,
+      entryPx: opts.entryPrice,
+      tickSize: opts.tickSize ?? 0,
+    })
+  ) {
+    return null;
+  }
+  return stop;
 }
 
 export function markFromPosition(entryPx: number, szi: number, pnlUsd: number): number {
@@ -148,6 +178,15 @@ export function firstPlaceableProfitStopPx(opts: {
   fundingUsd?: number;
   tickSize?: number;
 }): number | null {
+  const minCloseUsd = config.hyperliquid.minProfitCloseUsd;
+  const profitLockPx = profitStopPxForLockedUsd({
+    direction: opts.direction,
+    entryPrice: opts.entryPrice,
+    absSize: opts.absSize,
+    lockUsd: Math.max(minCloseUsd, opts.feesUsd * config.hyperliquid.dynamicTrail.minProfitCloseFeesMult),
+    markPrice: opts.markPrice,
+    tickSize: opts.tickSize,
+  });
   const be = breakevenPlusFeesStopPx(
     opts.direction,
     opts.entryPrice,
@@ -162,10 +201,13 @@ export function firstPlaceableProfitStopPx(opts: {
     opts.direction === 'LONG'
       ? opts.markPrice - gap
       : opts.markPrice + gap;
+  const rawCandidates = [profitLockPx, be, glue].filter(
+    (px): px is number => px != null && Number.isFinite(px)
+  );
   const candidates =
     opts.direction === 'LONG'
-      ? [be, glue].filter((px) => px > opts.entryPrice)
-      : [be, glue].filter((px) => px < opts.entryPrice);
+      ? rawCandidates.filter((px) => px > opts.entryPrice)
+      : rawCandidates.filter((px) => px < opts.entryPrice);
   for (const stopPx of candidates) {
     if (
       profitStopPlaceable({
@@ -422,10 +464,13 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  if (
-    rec.profitSinceAt != null &&
-    input.nowMs - rec.profitSinceAt < (cfgTrail.armMinProfitHoldMs ?? 0)
-  ) {
+  const targetUsd = config.hyperliquid.minProfitCloseUsd;
+  const armHoldMs =
+    netPnlUsd >= targetUsd
+      ? Math.min(1_000, cfgTrail.armMinProfitHoldMs ?? 1_000)
+      : cfgTrail.armMinProfitHoldMs ?? 0;
+
+  if (rec.profitSinceAt != null && input.nowMs - rec.profitSinceAt < armHoldMs) {
     return {
       record: rec,
       shouldClose: false,
@@ -496,11 +541,11 @@ export async function evaluateDynamicTrail(
     rec.currentTrailStop != null &&
     isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
     input.pnlUsd > 0 &&
-    netPnlUsd >= minLockUsd &&
-    lockAtStop >= minLockUsd &&
+    netPnlUsd >= targetUsd &&
+    lockAtStop >= targetUsd &&
     rec.timeInProfitMs >= minActiveMs &&
     peakOk &&
-    (!cfgTrail.neverRedAfterArm || netPnlUsd > 0)
+    (!cfgTrail.neverRedAfterArm || netPnlUsd >= targetUsd)
   ) {
     const detail = `TRAILING STOP · ${input.direction} ${input.coin} · ${formatAnalytics(rec, input.markPrice)}`;
     return {

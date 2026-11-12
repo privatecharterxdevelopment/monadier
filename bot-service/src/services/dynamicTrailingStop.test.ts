@@ -47,8 +47,8 @@ describe('profit SL architecture', () => {
     assert.equal(
       shouldArmBreakevenProtection({
         direction: 'SHORT',
-        pnlUsd: 0.35,
-        markPrice: 99.65,
+        pnlUsd: 0.45,
+        markPrice: 99.55,
         entryPrice: 100,
         absSize: 1,
         feesUsd: fees,
@@ -253,28 +253,30 @@ describe('profit SL architecture', () => {
     assert.equal(red.shouldClose, false);
   });
 
-  it('waits armMinProfitHoldMs before posting profit stop', async () => {
+  it('arms profit SL after ~$0.20 net and 1s green hold', async () => {
     const t0 = 9_000_000;
-    const early = await evaluateDynamicTrail(
+    const warm = await evaluateDynamicTrail(
       shortTick({
         nowMs: t0,
-        pnlUsd: 0.35,
-        markPrice: 99.65,
+        pnlUsd: 0.45,
+        markPrice: 99.55,
         record: null,
         totalHoldMs: 0,
       })
     );
-    assert.equal(early.closeDetail, 'PROFIT_HOLD_ARM');
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 6_000,
-        pnlUsd: 0.35,
-        markPrice: 99.65,
-        record: early.record,
+        nowMs: t0 + 1_200,
+        pnlUsd: 0.45,
+        markPrice: 99.55,
+        record: warm.record,
       })
     );
     assert.ok(armed.record.phase === 'armed' || armed.record.phase === 'trailing');
-    assert.ok(armed.record.timeInProfitMs >= 5_000);
+    assert.ok(
+      (armed.record.currentTrailStop as number) > 99.55,
+      'SHORT profit stop above mark'
+    );
   });
 
   it('keeps a 15% emergency price on the loss side of entry', () => {
