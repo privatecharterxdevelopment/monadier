@@ -32,7 +32,7 @@ export const CAUTIOUS_ALTS = new Set([
   'BRETT',
 ]);
 
-export const MAJOR_COINS = new Set(['BTC', 'ETH']);
+export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE']);
 
 /** Top HL perps by 24h volume — standard technical path, no mandatory news. */
 export const MID_CAP_MIN_DAY_VOLUME_USD = 35_000_000;

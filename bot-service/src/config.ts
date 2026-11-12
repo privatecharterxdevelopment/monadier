@@ -581,7 +581,8 @@ export const config = {
     },
     /** Stricter scan thresholds for mass-driven alts. */
     cautiousScan: {
-      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
+      // Match standard short bar (58–62) — 74% starved mid/small caps vs July book.
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 62),
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
