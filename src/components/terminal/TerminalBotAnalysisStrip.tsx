@@ -61,7 +61,11 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
           detail: 'Deposit again to auto-move to Perps on standard HL accounts.',
         }
     : !botRunning
-      ? { headline: 'Agent stopped', detail: 'Start bot to scan again. Open trades are not closed by this screen.' }
+      ? {
+          headline: 'Agent stopped',
+          detail:
+            'Start bot to scan again. Open trades stay open — profit trail and emergency SL still run on Railway.',
+        }
       : null;
 
   const analysis = useTerminalBotAnalysis({

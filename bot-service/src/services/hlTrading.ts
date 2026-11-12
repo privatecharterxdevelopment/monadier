@@ -45,6 +45,11 @@ import {
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
 import { subscriptionService } from './subscription';
+import {
+  mergePositionMonitorWallets,
+  noteHlOpenPositions,
+  registerHlProtectiveMonitorWallet,
+} from './hlProtectiveMonitorRegistry';
 import type { TradingCycleContext } from './tradingCycleContext';
 import {
   normalizeHlBotStrategy,
@@ -128,6 +133,8 @@ const hlLastCloseAt = new Map<string, number>();
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
+
+const hlProtectiveEnsureAt = new Map<string, number>();
 
 /** Per user+coin — throttle "hold in red" logs. */
 const hlHoldRedLogAt = new Map<string, number>();
@@ -402,9 +409,11 @@ export class HyperliquidTradingService {
     if (!funding.stateLoaded && !state) return 'skip';
 
     const openCoins = state ? hlOpenPerpCoins(state) : [];
+    noteHlOpenPositions(userAddress, openCoins);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
     if (openCoins.length > 0 && state) {
+      registerHlProtectiveMonitorWallet(userAddress);
       await this.monitorOpenPositions(userAddress, state, settings, { fast: false });
     } else {
       markWalletProtectiveReconcile(userAddress, true, 'no open positions');
@@ -1513,12 +1522,14 @@ export class HyperliquidTradingService {
 
     const reconcilePositions: Parameters<typeof reconcileProtectiveFromSnapshot>[0]['positions'] =
       [];
+    const monitoredCoins: string[] = [];
 
     for (const row of state?.assetPositions ?? []) {
       const pos = row.position;
       if (!pos?.coin) continue;
       const size = Number(pos.szi ?? 0);
       if (!Number.isFinite(size) || Math.abs(size) < 1e-12) continue;
+      monitoredCoins.push(String(pos.coin));
 
       const entry = Number(pos.entryPx ?? 0);
       const pnl = Number(pos.unrealizedPnl ?? 0);
@@ -1737,6 +1748,8 @@ export class HyperliquidTradingService {
       }
     }
 
+    noteHlOpenPositions(userAddress, monitoredCoins);
+
     if (openOrders != null) {
       reconcileProtectiveFromSnapshot({
         wallet: userAddress,
@@ -1753,7 +1766,7 @@ export class HyperliquidTradingService {
     fastPositionMonitorRunning = true;
     const started = Date.now();
     try {
-      const wallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
+      const wallets = await this.resolvePositionMonitorWallets(config.arbitrum.chainId);
       if (wallets.length === 0) return;
 
       const concurrency = Math.min(32, config.scaling.userProcessConcurrency);
@@ -2148,7 +2161,27 @@ export class HyperliquidTradingService {
   }
 
   async resolvePositionMonitorWallets(chainId?: number): Promise<string[]> {
-    return subscriptionService.getAutoTradeUsers(chainId ?? config.arbitrum.chainId);
+    const auto = await subscriptionService.getAutoTradeUsers(chainId ?? config.arbitrum.chainId);
+    return mergePositionMonitorWallets(auto);
+  }
+
+  /** One-shot protective sync when agent is stopped but perps remain open. */
+  async ensureProtectiveMonitorForWallet(userAddress: `0x${string}`): Promise<void> {
+    const key = userAddress.toLowerCase();
+    const now = Date.now();
+    const last = hlProtectiveEnsureAt.get(key) ?? 0;
+    registerHlProtectiveMonitorWallet(userAddress);
+    if (now - last < 25_000) return;
+    hlProtectiveEnsureAt.set(key, now);
+    const state = await fetchHlClearinghouseState(userAddress);
+    const openCoins = state ? hlOpenPerpCoins(state) : [];
+    noteHlOpenPositions(userAddress, openCoins);
+    if (!state || openCoins.length === 0) return;
+    const settings = await subscriptionService.getUserTradingSettings(
+      userAddress,
+      config.arbitrum.chainId
+    );
+    await this.monitorOpenPositions(userAddress, state, settings, { fast: true });
   }
 
   async refreshOpenPositionMonitorFromApprovals(): Promise<void> {

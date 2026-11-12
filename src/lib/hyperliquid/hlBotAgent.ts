@@ -406,4 +406,13 @@ export async function disableHlBotExecution(walletAddress: string): Promise<void
   );
   if (error) throw new Error(error.message);
   await clearSiblingChainAutoTrade(wallet);
+
+  if (getBotApiBase()) {
+    void fetchBotApi('/api/hl-protective-ensure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet }),
+      retries: 2,
+    }).catch(() => undefined);
+  }
 }

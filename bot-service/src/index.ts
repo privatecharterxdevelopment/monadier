@@ -39,6 +39,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
+import { registerHlProtectiveMonitorWallet } from './services/hlProtectiveMonitorRegistry';
 import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
@@ -670,6 +671,30 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  // Keep profit-SL / emergency SL on Hyperliquid when auto-trade is OFF but perps remain open.
+  if (url.pathname === '/api/hl-protective-ensure' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      const userAddress = wallet as `0x${string}`;
+      registerHlProtectiveMonitorWallet(userAddress);
+      await hyperliquidTradingService.ensureProtectiveMonitorForWallet(userAddress);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, protectiveMonitor: true }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('API: hl-protective-ensure failed', { error: msg });
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg || 'hl-protective-ensure failed' }));
+    }
+    return;
+  }
+
   // API: Manual perp leverage via Monadier HL agent
   if (url.pathname === '/api/hl-leverage' && req.method === 'POST') {
     try {
@@ -901,6 +926,20 @@ const healthServer = http.createServer(async (req, res) => {
       const feeSummary = await getHlFeeSummary(userAddress);
       const hlOpenCoins = hlOpenPerpCoins(hlState);
       const hlDustCoins = hlResidualDustPositions(hlState).map((d) => d.coin);
+
+      if (hlOpenCoins.length > 0 && hlAgentOk) {
+        registerHlProtectiveMonitorWallet(userAddress);
+        if (!dbSettings.autoTradeEnabled) {
+          void hyperliquidTradingService
+            .ensureProtectiveMonitorForWallet(userAddress)
+            .catch((err) => {
+              logger.debug('HL protective ensure from bot-status skipped', {
+                user: userAddress.slice(0, 10),
+                error: err instanceof Error ? err.message : String(err),
+              });
+            });
+        }
+      }
 
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
