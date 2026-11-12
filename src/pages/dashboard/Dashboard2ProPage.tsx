@@ -906,6 +906,24 @@ const Dashboard2ProPageContent: React.FC = () => {
         <ProTradeBotPanelSlot
           onOpenHistory={() => setBotDockTab('tradeHistory')}
           onRequireSignIn={promptSignIn}
+          manualTradeCoin={perpCoin}
+          manualMarkPx={perpMarkPx}
+          manualMaxLeverage={
+            perpMarket.snapshot && 'maxLeverage' in perpMarket.snapshot
+              ? perpMarket.snapshot.maxLeverage
+              : 40
+          }
+          manualTradableUsd={Math.max(
+            toNum(account?.withdrawable),
+            perpMarket.snapshot &&
+              'tradablePerpUsd' in perpMarket.snapshot &&
+              typeof perpMarket.snapshot.tradablePerpUsd === 'number'
+              ? perpMarket.snapshot.tradablePerpUsd
+              : 0,
+            toNum(account?.marginSummary?.accountValue)
+          )}
+          manualMarketOptions={perpMarkets.map((m) => m.name)}
+          onManualTradeCoinChange={selectChartCoin}
         />
       </div>
 

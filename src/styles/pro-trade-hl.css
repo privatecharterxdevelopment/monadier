@@ -11389,6 +11389,109 @@ html[dir='rtl'] .hl-book {
   padding: 10px;
 }
 
+.hl-bot-panel-wrap .term-agent-manual-trade {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-warn {
+  color: var(--hl-warn, #e8a317);
+}
+
+.hl-bot-panel-wrap .term-agent-manual-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  font-size: 11px;
+  color: var(--hl-text-muted);
+}
+
+.hl-bot-panel-wrap .term-agent-manual-field input,
+.hl-bot-panel-wrap .term-agent-manual-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: var(--hl-bg-hover);
+  color: var(--hl-text);
+  font-size: 13px;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-side {
+  display: flex;
+  gap: 4px;
+}
+
+.hl-bot-panel-wrap .term-agent-side-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--hl-border);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hl-bot-panel-wrap .term-agent-side-btn--long.term-agent-side-btn--on {
+  color: #3dcc8c;
+  border-color: #3dcc8c55;
+  background: #3dcc8c18;
+}
+
+.hl-bot-panel-wrap .term-agent-side-btn--short.term-agent-side-btn--on {
+  color: #ef5350;
+  border-color: #ef535055;
+  background: #ef535018;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  font-size: 10px;
+}
+
+.hl-bot-panel-wrap .term-agent-manual-summary dt {
+  color: var(--hl-text-faint);
+}
+
+.hl-bot-panel-wrap .term-agent-manual-summary dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--hl-text);
+}
+
+.hl-bot-panel-wrap .term-agent-manual-submit--long {
+  background: linear-gradient(180deg, #2a9d6a, #1f7a52);
+}
+
+.hl-bot-panel-wrap .term-agent-manual-submit--short {
+  background: linear-gradient(180deg, #c44545, #9c3333);
+}
+
 .hl-bot-panel-wrap .term-panel-card {
   background: var(--hl-bg);
   border: 1px solid var(--hl-border);

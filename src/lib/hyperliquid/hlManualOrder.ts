@@ -39,6 +39,8 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
   leverage?: number;
   marginMode?: MarginMode;
   reduceOnly?: boolean;
+  /** Counts as agent position (profit trail, dock, chart markers). */
+  botManaged?: boolean;
 }): Promise<void> {
   await postHlTradeApi('/api/hl-order', {
     wallet: opts.walletAddress.toLowerCase(),
@@ -51,6 +53,8 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
     leverage: opts.leverage,
     marginMode: opts.marginMode ?? 'isolated',
     reduceOnly: opts.reduceOnly ?? false,
+    botManaged: opts.botManaged === true,
+    scope: opts.botManaged ? 'bot' : 'manual',
   });
 }
 

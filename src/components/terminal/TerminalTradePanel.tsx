@@ -76,9 +76,10 @@ import { BRAND_NAME } from '../../lib/brand';
 import { fmtClosedPnl } from '../../lib/hyperliquid/format';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import TerminalHlOpenPositions from './TerminalHlOpenPositions';
+import ProTradeAgentManualTrade from './ProTradeAgentManualTrade';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { toNum } from '../../lib/hyperliquid/parse';
-type PanelTab = 'bot' | 'lvrg' | 'funds';
+type PanelTab = 'bot' | 'manual' | 'lvrg' | 'funds';
 
 type Props = {
   metrics: Dashboard2Metrics;
@@ -93,6 +94,13 @@ type Props = {
   onRequireSignIn?: (reason: string) => void;
   /** Pro Trade app — one shared HL funds modal in the page header shell. */
   useGlobalFundsModal?: boolean;
+  /** Chart / manual agent trade context */
+  manualTradeCoin?: string;
+  manualMarkPx?: number;
+  manualMaxLeverage?: number;
+  manualTradableUsd?: number;
+  manualMarketOptions?: string[];
+  onManualTradeCoinChange?: (coin: string) => void;
 };
 
 function fmt(n: number) {
@@ -111,6 +119,12 @@ const TerminalTradePanel: React.FC<Props> = ({
   onFundsActionHandled = onVaultActionHandled,
   onRequireSignIn,
   useGlobalFundsModal = false,
+  manualTradeCoin = 'BTC',
+  manualMarkPx = 0,
+  manualMaxLeverage = 40,
+  manualTradableUsd,
+  manualMarketOptions,
+  onManualTradeCoinChange,
 }) => {
   const { t } = useTranslation();
   const { open } = useMonadierAppKit();
@@ -186,6 +200,10 @@ const TerminalTradePanel: React.FC<Props> = ({
       : 0;
   const hlEquityUsd = Math.max(hlFundingUsd, hlSetup.accountUsd, 0);
   const hlPerpUsd = hlSetup.perpUsd;
+  const manualTradable =
+    manualTradableUsd != null && manualTradableUsd > 0
+      ? manualTradableUsd
+      : Math.max(hlPerpUsd, metrics.hlBalanceUsd ?? 0, hlFundingUsd);
   const hlSpotUsd = hlSetup.spotUsdcUsd;
   const hlUnifiedAccount = hlSetup.unifiedAccount;
   const hlWithdrawableLive = Math.max(0, hlSetup.withdrawableUsd);
@@ -723,6 +741,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         {(
           [
             { id: 'bot' as const, label: t('tradePanel.tabBot') },
+            { id: 'manual' as const, label: t('tradePanel.tabManual', { defaultValue: 'Manual' }) },
             { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
             { id: 'funds' as const, label: t('tradePanel.tabFunds') },
           ] as const
@@ -956,6 +975,37 @@ const TerminalTradePanel: React.FC<Props> = ({
             ) : null}
 
             {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
+          </div>
+        )}
+
+        {panelTab === 'manual' && (
+          <div className="term-panel-stack">
+            {!walletReady ? (
+              <p className="term-hint">{t('tradePanel.connectWallet')}</p>
+            ) : wallet ? (
+              <ProTradeAgentManualTrade
+                wallet={wallet}
+                coin={manualTradeCoin}
+                markPx={manualMarkPx}
+                maxLeverage={manualMaxLeverage}
+                tradableUsd={manualTradable}
+                agentApproved={hlSetup.agentApproved}
+                marketOptions={manualMarketOptions}
+                onCoinChange={onManualTradeCoinChange}
+                onSuccess={() => {
+                  showToast(
+                    t('tradePanel.manualAgentSuccess', {
+                      defaultValue: 'Market order sent — check Agent positions.',
+                    }),
+                    4000,
+                    'ok'
+                  );
+                  void refreshAll();
+                  onRefresh();
+                }}
+                onError={(msg) => showToast(msg, 5000, 'err')}
+              />
+            ) : null}
           </div>
         )}
 
