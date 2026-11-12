@@ -62,6 +62,7 @@ import DockCountBadge from './DockCountBadge';
 import PositionStopEditModal from './PositionStopEditModal';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { fetchHlUserFills } from '../../lib/hyperliquid/user';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
@@ -367,12 +368,35 @@ const ProTradeDock: React.FC<Props> = ({
   }, [botNeedsDepositRaw]);
   const botNeedsDeposit = botUnderfunded;
 
+  const [dockFillsFallback, setDockFillsFallback] = useState<HlUserFill[]>([]);
+  useEffect(() => {
+    if (!dockWallet || !isBotMode) {
+      setDockFillsFallback([]);
+      return;
+    }
+    const needFills = tab === 'tradeHistory' || fills.length === 0;
+    if (!needFills) return;
+    let cancelled = false;
+    void fetchHlUserFills(dockWallet, 2000)
+      .then((list) => {
+        if (!cancelled && list.length > 0) setDockFillsFallback(list);
+      })
+      .catch(() => {
+        /* parent fills or retry on next tab visit */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dockWallet, isBotMode, tab, fills.length, reasonRefreshKey]);
+
+  const dockFills = fills.length > 0 ? fills : dockFillsFallback;
+
   const closeFills = useMemo(
-    () => aggregateHlCloseFills(isBotMode ? fills : scopedFills),
-    [isBotMode, fills, scopedFills]
+    () => aggregateHlCloseFills(isBotMode ? dockFills : scopedFills),
+    [isBotMode, dockFills, scopedFills]
   );
   /** Wallet-wide closes — Zwischenbalance must track real equity, not bot-scoped subset. */
-  const allCloseFills = useMemo(() => aggregateHlCloseFills(fills), [fills]);
+  const allCloseFills = useMemo(() => aggregateHlCloseFills(dockFills), [dockFills]);
   const accountOpenUpnl = useMemo(
     () =>
       (account?.positions ?? []).reduce((sum, p) => sum + toNum(p.unrealizedPnl), 0),
@@ -1008,7 +1032,7 @@ const ProTradeDock: React.FC<Props> = ({
             <p className="hl-dock-empty">{t('dock.noOpenOrders')}</p>
           )
         ) : tab === 'tradeHistory' ? (
-          fillsLoading && closeFills.length === 0 ? (
+          fillsLoading && closeFills.length === 0 && dockFillsFallback.length === 0 ? (
             <p className="hl-dock-empty">
               <Loader2 size={14} className="animate-spin inline" /> {t('dock.syncing')}
             </p>
