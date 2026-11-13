@@ -1574,6 +1574,23 @@ export class HyperliquidTradingService {
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
 
+      if (isExcludedHlCoin(String(pos.coin))) {
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          'excluded_coin_flat',
+          {
+            entryPx: entry,
+            unrealizedPnlUsd: pnl,
+            size,
+            leverage: pos.leverage?.value ?? 10,
+          },
+          `Hard-excluded coin ${pos.coin} — auto flat`
+        );
+        continue;
+      }
+
       if (!fast && meta) {
         const targetLev = Math.min(configuredLev, maxLeverageForCoin(meta, pos.coin));
         const marginCross = pos.leverage?.type === 'cross';
