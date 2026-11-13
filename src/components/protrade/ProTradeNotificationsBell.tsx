@@ -3,7 +3,7 @@ import { Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTradeNotifications } from '../../contexts/TradeNotificationsContext';
 import type { ActivityNotification } from '../../lib/activityNotifications';
-import { fmtClosedPnl } from '../../lib/hyperliquid/format';
+import { fmtClosedPnl, pnlToneClass } from '../../lib/hyperliquid/format';
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
@@ -111,17 +111,19 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
                             n.headline
                           )}
                         </span>
-                        {!isCommunity && !isFollow ? (
-                          <span className={n.profitLoss >= 0 ? 'hl-up' : 'hl-down'}>
+                        {!isCommunity && !isFollow && n.eventType !== 'open' ? (
+                          <span className={pnlToneClass(n.profitLoss)}>
                             {fmtClosedPnl(n.profitLoss)}
                             {n.profitLossPercent != null && Number.isFinite(n.profitLossPercent) ? (
                               <span className="hl-notif-roi">
                                 {' '}
-                                · {n.profitLossPercent >= 0 ? '+' : ''}
+                                · {n.profitLossPercent > 0 ? '+' : n.profitLossPercent < 0 ? '' : ''}
                                 {n.profitLossPercent.toFixed(2)}%
                               </span>
                             ) : null}
                           </span>
+                        ) : !isCommunity && !isFollow && n.eventType === 'open' ? (
+                          <span className="hl-pnl-zero">Opened</span>
                         ) : null}
                       </span>
                       <span className="hl-notif-item-meta">

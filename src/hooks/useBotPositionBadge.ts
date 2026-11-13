@@ -4,6 +4,8 @@ import { useMonadierWallet } from './useMonadierWallet';
 import { fetchUserPositions } from '../lib/userPositions';
 import { calcPositionPnl, fetchLiveTokenPrices } from '../lib/positionLivePnl';
 import { devWarn } from '../lib/devLog';
+import { toNum } from '../lib/hyperliquid/parse';
+import { fetchHlAccountState, livePositionUpnl, type HlPosition } from '../lib/hyperliquid/user';
 
 export type BotPositionBadge = {
   count: number;
@@ -35,19 +37,32 @@ export function useBotPositionBadge(refreshKey = 0) {
         connectedAddress: address,
       });
       const rows = all.filter((p) => p.status === 'open' || p.status === 'closing');
-      if (rows.length === 0) {
+      const prices = await fetchLiveTokenPrices();
+      let count = rows.length;
+      let netPnl = rows.reduce((sum, row) => sum + calcPositionPnl(row, prices), 0);
+
+      if (!isDemoUser && isConnected && address) {
+        const account = await fetchHlAccountState(address);
+        const hlOpen = (account.positions ?? []).filter((p) => Math.abs(toNum(p.szi)) > 1e-12);
+        if (hlOpen.length > 0) {
+          count = Math.max(count, hlOpen.length);
+          const hlUpnl = hlOpen.reduce((sum, p: HlPosition) => {
+            const mark = prices[p.coin] ?? 0;
+            return sum + livePositionUpnl(p, mark);
+          }, 0);
+          if (rows.length === 0) netPnl = hlUpnl;
+        }
+      }
+
+      if (count === 0) {
         setBadge({ count: 0, netPnl: 0, tone: null, loading: false });
         return;
       }
 
-      const prices = await fetchLiveTokenPrices();
-      const netPnl = rows.reduce((sum, row) => sum + calcPositionPnl(row, prices), 0);
-      const count = rows.length;
-
       setBadge({
         count,
         netPnl,
-        tone: count > 0 ? (netPnl >= 0 ? 'pos' : 'neg') : null,
+        tone: netPnl > 0 ? 'pos' : netPnl < 0 ? 'neg' : null,
         loading: false,
       });
     } catch (e) {

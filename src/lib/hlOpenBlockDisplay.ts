@@ -68,7 +68,7 @@ export function pickFreshOpenBlock(
     const match = fresh.find(
       (b) => String(b.coin || '').replace(/USDT$/i, '').toUpperCase() === want
     );
-    if (match) return match;
+    return match ?? null;
   }
   return fresh[0] ?? null;
 }

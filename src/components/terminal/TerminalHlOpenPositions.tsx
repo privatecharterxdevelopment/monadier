@@ -1,6 +1,13 @@
 import React from 'react';
 import type { HlPosition } from '../../lib/hyperliquid/user';
-import { fmtLeverage, fmtPrice, fmtSize, fmtTradeUsdSymbol, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import {
+  fmtLeverage,
+  fmtPrice,
+  fmtSize,
+  fmtTradeUsdSymbol,
+  fmtUsdSymbol,
+  pnlToneClass,
+} from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
@@ -135,7 +142,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                 <td>{fmtPx(entry)}</td>
                 <td>{fmtPx(mark)}</td>
                 <td>{lev}x</td>
-                <td className={upnl >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'}>
+                <td className={pnlToneClass(upnl, 'term')}>
                   {upnl >= 0 ? '+' : ''}
                   {fmtUsd(upnl)}
                 </td>
@@ -205,7 +212,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                 <span className={isLong ? 'hl-up' : 'hl-down'}>
                   {isLong ? 'LONG' : 'SHORT'} · {fmtLeverage(lev)}
                 </span>
-                <span className={upnl >= 0 ? 'hl-up' : 'hl-down'}>{fmtTradeUsdSymbol(upnl)}</span>
+                <span className={pnlToneClass(upnl)}>{fmtTradeUsdSymbol(upnl)}</span>
               </header>
               <dl className="hl-pos-card__grid">
                 <div>

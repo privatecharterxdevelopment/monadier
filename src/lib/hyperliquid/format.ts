@@ -54,6 +54,24 @@ export function hlFillResultLabel(value: unknown): 'Win' | 'Loss' | 'Breakeven' 
   return 'Breakeven';
 }
 
+/** P/L row color — $0 is neutral (not green). */
+export function pnlToneClass(
+  value: unknown,
+  variant: 'hl' | 'term' = 'hl'
+): 'hl-up' | 'hl-down' | 'hl-pnl-zero' | 'term-pnl-pos' | 'term-pnl-neg' | 'term-pnl-zero' {
+  const n = toNum(value);
+  const pos = n > 0;
+  const neg = n < 0;
+  if (variant === 'term') {
+    if (pos) return 'term-pnl-pos';
+    if (neg) return 'term-pnl-neg';
+    return 'term-pnl-zero';
+  }
+  if (pos) return 'hl-up';
+  if (neg) return 'hl-down';
+  return 'hl-pnl-zero';
+}
+
 export function fmtFillAction(dir?: unknown): string {
   const d = typeof dir === 'string' ? dir.trim() : '';
   if (!d) return '—';

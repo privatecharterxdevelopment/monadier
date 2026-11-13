@@ -7,7 +7,7 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { isHlBotEnabled } from '../../lib/hlBotGates';
 import type { ProTradePanelMode } from './ProTradeTopNav';
 import type { HlOpenOrder, HlPosition } from '../../lib/hyperliquid/user';
-import { fmtTradeUsdSymbol, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtTradeUsdSymbol, fmtUsdSymbol, pnlToneClass } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { BRAND_NAME } from '../../lib/brand';
@@ -95,7 +95,6 @@ const ProTradeStatusBar: React.FC<Props> = ({
   }, [positions]);
 
   const upnl = totalUpnl;
-  const up = upnl >= 0;
 
   if (mode === 'bot' && botMetrics) {
     const running = liveConnected && botRunning;
@@ -129,7 +128,7 @@ const ProTradeStatusBar: React.FC<Props> = ({
           </span>
           <span>HL {fmtUsd(hlBal)}</span>
           <span>Open {openCount}</span>
-          <span className={botUpnl >= 0 ? 'hl-up' : 'hl-down'}>
+          <span className={pnlToneClass(botUpnl)}>
             uPnL {fmtUpnl(botUpnl)}
           </span>
         </div>
@@ -157,8 +156,8 @@ const ProTradeStatusBar: React.FC<Props> = ({
         <span className={positionStats.delta >= 0 ? 'hl-up' : 'hl-down'}>
           Delta {liveConnected ? `${positionStats.delta >= 0 ? '+' : ''}${fmtUsdSymbol(positionStats.delta)}` : fmtUsdSymbol(0)}
         </span>
-        <span className={up ? 'hl-up' : 'hl-down'}>
-          uPnL {liveConnected ? `${up ? '+' : ''}${fmtTradeUsdSymbol(upnl)}` : fmtTradeUsdSymbol(0)}
+        <span className={pnlToneClass(liveConnected ? upnl : 0)}>
+          uPnL {liveConnected ? `${upnl > 0 ? '+' : ''}${fmtTradeUsdSymbol(upnl)}` : fmtTradeUsdSymbol(0)}
         </span>
       </div>
       <div className="hl-status-mid">

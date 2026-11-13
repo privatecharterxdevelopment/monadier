@@ -686,8 +686,18 @@ export function useTerminalBotAnalysis({
   }, [vaultWallet, botRunning, vaultUsd, feeExempt, openPositionCoins.length]);
 
   const appendLiveStatus = (row: { canEnter: boolean; headline: string; detail: string }) => {
+    const scanCoin = (
+      scanCandidate?.coin ??
+      globalBest?.coin ??
+      currentlyScanningCoin
+    )
+      ?.replace(/USDT$/i, '')
+      .toUpperCase();
+    const diagCoin = executionDiagnostic?.coin?.replace(/USDT$/i, '').toUpperCase();
+    const scopedDiagnostic =
+      diagCoin && scanCoin && diagCoin !== scanCoin ? null : executionDiagnostic;
     const extra = [
-      formatExecutionDiagnosticLine(executionDiagnostic),
+      formatExecutionDiagnosticLine(scopedDiagnostic),
       ...livePositions.map(formatLiveSlLine),
     ].filter(Boolean);
     if (extra.length === 0) return row;

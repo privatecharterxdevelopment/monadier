@@ -10,7 +10,7 @@ import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
-import { fmtClosedPnl, fmtUsdSymbol } from '../../lib/hyperliquid/format';
+import { fmtClosedPnl, fmtUsdSymbol, pnlToneClass } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 
@@ -163,7 +163,11 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
             </strong>
             <span
               className={
-                betStats.unrealizedPnlUsd >= 0 ? 'hl-topnav-bet-pnl hl-pos' : 'hl-topnav-bet-pnl hl-neg'
+                pnlToneClass(betStats.unrealizedPnlUsd) === 'hl-up'
+                  ? 'hl-topnav-bet-pnl hl-pos'
+                  : pnlToneClass(betStats.unrealizedPnlUsd) === 'hl-down'
+                    ? 'hl-topnav-bet-pnl hl-neg'
+                    : 'hl-topnav-bet-pnl hl-pnl-zero'
               }
             >
               {fmtClosedPnl(betStats.unrealizedPnlUsd)}
@@ -214,9 +218,13 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
           <span className="hl-topnav-bet-label">Open</span>
           <strong>{openCount}</strong>
           <span
-            className={
-              unrealizedPnlUsd >= 0 ? 'hl-topnav-bet-pnl hl-pos' : 'hl-topnav-bet-pnl hl-neg'
-            }
+            className={`hl-topnav-bet-pnl ${
+              pnlToneClass(unrealizedPnlUsd) === 'hl-up'
+                ? 'hl-pos'
+                : pnlToneClass(unrealizedPnlUsd) === 'hl-down'
+                  ? 'hl-neg'
+                  : 'hl-pnl-zero'
+            }`}
           >
             {fmtClosedPnl(unrealizedPnlUsd)}
           </span>

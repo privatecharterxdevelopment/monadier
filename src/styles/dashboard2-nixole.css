@@ -1289,6 +1289,10 @@
   color: #b91c1c !important;
 }
 
+.term-pnl-zero {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
 .term-stat-value.term-pnl-pos,
 .term-stat-value.term-pnl-neg {
   font-weight: 400;

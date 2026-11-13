@@ -2879,6 +2879,7 @@ html[dir='rtl'] .hl-book {
 }
 
 .hl-up { color: var(--hl-green-bright) !important; }
+.hl-pnl-zero { color: var(--hl-muted, rgba(255, 255, 255, 0.55)) !important; }
 .hl-down { color: var(--hl-red) !important; }
 
 .hl-coin-link {

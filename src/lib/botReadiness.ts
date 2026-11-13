@@ -277,18 +277,23 @@ export function evaluateBotReadiness(
 
   if (strong && label) {
     const execLine = opts.execution?.reason;
+    const execCoin = opts.execution?.coin?.replace(/USDT$/i, '').toUpperCase();
+    const nextCoin = next?.coin?.replace(/USDT$/i, '').toUpperCase();
+    const blockedForThisSetup =
+      opts.execution?.state === 'BLOCKED' &&
+      (!execCoin || !nextCoin || execCoin === nextCoin);
     return {
       canEnter: false,
       headline:
         opts.execution?.state === 'WAITING_CONFIRMATION'
           ? 'Waiting confirmation'
-          : opts.execution?.state === 'BLOCKED'
+          : blockedForThisSetup
             ? 'Setup blocked'
             : openCount > 0
               ? `Slot ${openCount + 1}: ${next?.coin ?? 'signal'}`
               : 'Candidate',
       detail:
-        execLine && !isBotScanNoiseDetail(execLine)
+        blockedForThisSetup && execLine && !isBotScanNoiseDetail(execLine)
           ? execLine
           : openCount > 0
             ? `${label} — independent pair, ${cycleHint}`

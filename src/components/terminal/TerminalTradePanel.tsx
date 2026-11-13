@@ -73,7 +73,7 @@ import { useLegalAcceptance } from '../../contexts/LegalAcceptanceContext';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
-import { fmtClosedPnl } from '../../lib/hyperliquid/format';
+import { fmtClosedPnl, pnlToneClass } from '../../lib/hyperliquid/format';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
 import TerminalHlOpenPositions from './TerminalHlOpenPositions';
 import ProTradeAgentManualTrade from './ProTradeAgentManualTrade';
@@ -1051,11 +1051,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </div>
                 <div className="term-field-row">
                   <span>{t('tradePanel.upnl')}</span>
-                  <strong
-                    className={
-                      metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-                    }
-                  >
+                  <strong className={pnlToneClass(metrics.unrealizedPnlUsd, 'term')}>
                     {fmtClosedPnl(metrics.unrealizedPnlUsd)}
                   </strong>
                 </div>
@@ -1168,11 +1164,7 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
         <div className="term-field-row">
           <span>{t('tradePanel.upnl')}</span>
-          <strong
-            className={
-              metrics.unrealizedPnlUsd >= 0 ? 'term-pnl-pos' : 'term-pnl-neg'
-            }
-          >
+          <strong className={pnlToneClass(metrics.unrealizedPnlUsd, 'term')}>
             {fmtClosedPnl(metrics.unrealizedPnlUsd)}
           </strong>
         </div>
