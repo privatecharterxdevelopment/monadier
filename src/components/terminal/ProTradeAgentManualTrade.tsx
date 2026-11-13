@@ -57,10 +57,11 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
   const [limitPrice, setLimitPrice] = useState('');
   const [busy, setBusy] = useState(false);
 
+  /** Always include the active chart coin so the market dropdown matches the chart (excluded coins too). */
   const coinSelect = useMemo(() => {
     const opts = marketOptions.length > 0 ? marketOptions : [coin];
     const unique = [...new Set([coinLabel, ...opts.map((c) => c.toUpperCase())])].filter(
-      (c) => !isBotExcludedHlCoin(c)
+      (c) => !isBotExcludedHlCoin(c) || c === coinLabel
     );
     return unique.slice(0, 64);
   }, [coin, coinLabel, marketOptions]);
@@ -86,6 +87,13 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
       setLimitPrice(String(markPx));
     }
   }, [coinLabel, markPx, kind, limitPrice]);
+
+  useEffect(() => {
+    setSize('');
+    setAmountUsd('');
+    setSizePct(0);
+    setLimitPrice(markPx > 0 ? String(markPx) : '');
+  }, [coinLabel]);
 
   const sizeInCoin = useMemo(() => {
     const raw = toNum(size);
@@ -293,6 +301,15 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
           <p className="hl-entry-hint hl-entry-hint--warn" role="status">
             {t('tradePanel.manualAgentNeedsApproval', {
               defaultValue: 'Approve the trading agent first (Agent tab).',
+            })}
+          </p>
+        ) : null}
+
+        {isBotExcludedHlCoin(coinLabel) ? (
+          <p className="hl-entry-hint hl-entry-hint--warn" role="status">
+            {t('tradePanel.manualChartExcluded', {
+              coin: coinLabel,
+              defaultValue: `${coinLabel} matches the chart but new bot/manual opens are disabled for this market.`,
             })}
           </p>
         ) : null}
