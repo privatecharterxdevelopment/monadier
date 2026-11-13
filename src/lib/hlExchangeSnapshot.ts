@@ -65,6 +65,21 @@ export function buildHlExchangeSnapshot(opts: {
   };
 }
 
+/** Header / dock / footer must agree when fed the same snapshot + scope. */
+export function assertSnapshotUpnlAligned(
+  snapshot: HlExchangeSnapshot,
+  botManagedCoins: ReadonlySet<string>,
+  scope: 'bot' | 'manual'
+): { totalUsd: number; positionCount: number } {
+  const scoped = snapshotScopedUpnl(snapshot, botManagedCoins, scope);
+  const walletTotal = snapshot.upnlTotalUsd;
+  const scopedSum = scoped.positions.reduce((s, p) => s + (snapshot.upnlByCoin[p.coin] ?? 0), 0);
+  if (Math.abs(scoped.totalUsd - scopedSum) > 1e-6) {
+    throw new Error('scoped uPnL internal mismatch');
+  }
+  return { totalUsd: scoped.totalUsd, positionCount: scoped.positions.length };
+}
+
 export function snapshotScopedUpnl(
   snapshot: HlExchangeSnapshot,
   botManagedCoins: ReadonlySet<string>,

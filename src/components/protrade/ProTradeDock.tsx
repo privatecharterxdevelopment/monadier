@@ -58,6 +58,7 @@ import {
 import { fetchHlLetRunPrefs, setHlLetRunPref } from '../../lib/hyperliquid/hlLetRun';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
+import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
 import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
 import TradeReasonHint from '../terminal/TradeReasonHint';
 import DockCountBadge from './DockCountBadge';
@@ -491,9 +492,21 @@ const ProTradeDock: React.FC<Props> = ({
   }, [filteredPositions, markPrices]);
 
   const peakPnlFor = useHlPositionPeakPnl(filteredPositions, livePnlByCoin);
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+  const trailRefreshKey = useMemo(() => {
+    if (!exchangeSnapshot) return 0;
+    const oids = exchangeSnapshot.openOrders.map((o) => o.oid).join(',');
+    return (
+      exchangeSnapshot.positionsAsOfMs ^
+      Number(exchangeSnapshot.upnlTotalUsd.toFixed(4) * 10_000) ^
+      oids.length
+    );
+  }, [exchangeSnapshot]);
   const botTrailByCoin = useHlBotTrailSnapshots(
     isBotMode ? walletAddress : null,
-    isBotMode && Boolean(walletAddress)
+    isBotMode && Boolean(walletAddress),
+    3_000,
+    trailRefreshKey
   );
 
   const [letRunPrefs, setLetRunPrefs] = useState<Record<string, boolean>>({});

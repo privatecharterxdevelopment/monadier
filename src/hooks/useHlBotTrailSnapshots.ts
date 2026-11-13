@@ -5,10 +5,12 @@ import {
 } from '../lib/hlBotTrailStatus';
 
 /** Bot-side profit trail truth (peak, stop, close trigger). */
+/** Refresh when open orders / positions change (from exchange snapshot). */
 export function useHlBotTrailSnapshots(
   wallet: string | null | undefined,
   enabled = true,
-  pollMs = 8_000
+  pollMs = 3_000,
+  refreshKey = 0
 ): Record<string, HlBotTrailSnapshot> {
   const [byCoin, setByCoin] = useState<Record<string, HlBotTrailSnapshot>>({});
 
@@ -34,7 +36,7 @@ export function useHlBotTrailSnapshots(
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [wallet, enabled, pollMs]);
+  }, [wallet, enabled, pollMs, refreshKey]);
 
   return byCoin;
 }

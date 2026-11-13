@@ -581,13 +581,39 @@ export function useHyperliquidMarket(
     const px = pendingMidRef.current;
     if (px == null || px <= 0) return;
     pendingMidRef.current = null;
-    setState((prev) => ({
-      ...prev,
-      snapshot: prev.snapshot
-        ? { ...prev.snapshot, markPx: String(px) }
-        : prev.snapshot,
-      wsConnected: true,
-    }));
+  const mk = marketKeyRef.current;
+    setState((prev) => {
+      let candles = prev.candles;
+      if (
+        historyReadyRef.current &&
+        candles.length >= MIN_HISTORY_BARS &&
+        mk === marketKeyRef.current
+      ) {
+        const last = candles[candles.length - 1];
+        const nextBar = {
+          ...last,
+          close: px,
+          high: Math.max(last.high, px),
+          low: Math.min(last.low, px),
+        };
+        if (
+          nextBar.close !== last.close ||
+          nextBar.high !== last.high ||
+          nextBar.low !== last.low
+        ) {
+          candles = [...candles.slice(0, -1), nextBar];
+          candleCacheRef.current.set(mk, candles);
+        }
+      }
+      return {
+        ...prev,
+        candles,
+        snapshot: prev.snapshot
+          ? { ...prev.snapshot, markPx: String(px) }
+          : prev.snapshot,
+        wsConnected: true,
+      };
+    });
   }, []);
 
   const scheduleMid = useCallback(
