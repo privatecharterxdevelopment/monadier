@@ -8,7 +8,45 @@ export type HlTradeReasonMarker = {
   reason: string;
   eventTs: string;
   eventMs: number;
+  entryPx?: number | null;
 };
+
+function pickOpenReasonForPosition(
+  markers: HlTradeReasonMarker[],
+  coin: string,
+  entryPx: number,
+  openedMs?: number
+): string | undefined {
+  const coinUpper = coin.toUpperCase();
+  const opens = markers.filter((m) => m.eventType === 'open' && m.coin === coinUpper);
+  if (opens.length === 0) return undefined;
+
+  const entryTol = Math.max(entryPx * 0.004, 1e-8);
+  let best: HlTradeReasonMarker | undefined;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const row of opens) {
+    let score = 0;
+    if (row.entryPx != null && entryPx > 0) {
+      const pxDiff = Math.abs(row.entryPx - entryPx);
+      if (pxDiff > entryTol * 4) continue;
+      score += pxDiff / Math.max(entryTol, 1e-12);
+    }
+    if (openedMs != null && openedMs > 0 && row.eventMs > 0) {
+      const tDiff = Math.abs(row.eventMs - openedMs);
+      if (tDiff > 6 * 3_600_000) continue;
+      score += tDiff / 60_000;
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+
+  if (best?.reason?.trim()) return best.reason.trim();
+  const fallback = opens.find((o) => o.reason?.trim());
+  return fallback?.reason.trim();
+}
 
 /** Bot open/close reasons from hl_bot_chart_markers (open reason stored in close_reason column). */
 export function useHlTradeReasonMarkers(
@@ -35,7 +73,7 @@ export function useHlTradeReasonMarkers(
       const [markerRes, auditRes] = await Promise.all([
         supabase
           .from('hl_bot_chart_markers')
-          .select('coin, event_type, direction, close_reason, event_ts')
+          .select('coin, event_type, direction, close_reason, event_ts, price')
           .eq('wallet_address', walletLower)
           .in('coin', coinList)
           .in('event_type', ['open', 'close'])
@@ -43,11 +81,11 @@ export function useHlTradeReasonMarkers(
           .limit(120),
         supabase
           .from('hl_open_audits')
-          .select('coin, direction, analysis_text, recorded_at')
+          .select('coin, direction, analysis_text, recorded_at, entry_px')
           .eq('wallet_address', walletLower)
           .in('coin', coinList)
           .order('recorded_at', { ascending: false })
-          .limit(80),
+          .limit(120),
       ]);
 
       if (markerRes.error) throw markerRes.error;
@@ -61,10 +99,12 @@ export function useHlTradeReasonMarkers(
           reason: String(r.close_reason),
           eventTs: String(r.event_ts),
           eventMs: Date.parse(String(r.event_ts)) || 0,
+          entryPx: Number(r.price) > 0 ? Number(r.price) : null,
         }));
 
       for (const row of auditRes.data ?? []) {
         if (!row.analysis_text?.trim()) continue;
+        const entryPx = Number(row.entry_px);
         mapped.push({
           coin: String(row.coin).toUpperCase(),
           eventType: 'open',
@@ -72,6 +112,7 @@ export function useHlTradeReasonMarkers(
           reason: String(row.analysis_text),
           eventTs: String(row.recorded_at),
           eventMs: Date.parse(String(row.recorded_at)) || 0,
+          entryPx: Number.isFinite(entryPx) && entryPx > 0 ? entryPx : null,
         });
       }
 
@@ -90,9 +131,40 @@ export function useHlTradeReasonMarkers(
 
   useEffect(() => {
     if (!wallet || coins.length === 0) return undefined;
-    const id = setInterval(() => void refresh(), 45_000);
+    const id = setInterval(() => void refresh(), 12_000);
     return () => clearInterval(id);
   }, [wallet, coinKey, refresh]);
+
+  useEffect(() => {
+    if (!wallet) return undefined;
+    const walletLower = wallet.toLowerCase();
+    const channel = supabase
+      .channel(`hl-reason-markers-${walletLower.slice(0, 12)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'hl_bot_chart_markers',
+          filter: `wallet_address=eq.${walletLower}`,
+        },
+        () => void refresh()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'hl_open_audits',
+          filter: `wallet_address=eq.${walletLower}`,
+        },
+        () => void refresh()
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [wallet, refresh]);
 
   const openByCoin = useMemo(() => {
     const map = new Map<string, HlTradeReasonMarker>();
@@ -124,5 +196,11 @@ export function useHlTradeReasonMarkers(
     [markers]
   );
 
-  return { openByCoin, closeReasonForFill, refresh };
+  const openReasonForPosition = useCallback(
+    (coin: string, entryPx: number, openedMs?: number) =>
+      pickOpenReasonForPosition(markers, coin, entryPx, openedMs),
+    [markers]
+  );
+
+  return { openByCoin, openReasonForPosition, closeReasonForFill, refresh };
 }

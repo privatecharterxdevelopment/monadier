@@ -39,7 +39,13 @@ const TradeReasonHint: React.FC<Props> = ({
       : kind === 'close'
         ? formatHlBotCloseReason(raw)
         : raw;
-  const displayRaw = raw || (emptyFallback ? 'No bot reason recorded for this fill.' : '');
+  const displayRaw =
+    raw ||
+    (emptyFallback
+      ? kind === 'open'
+        ? 'No stored open reason for this position.'
+        : 'No bot reason recorded for this fill.'
+      : '');
   const sections = parseTradeReasonSections(displayRaw);
   const displaySections =
     sections.length > 0 && formatted
@@ -47,7 +53,14 @@ const TradeReasonHint: React.FC<Props> = ({
       : formatted
         ? [{ text: formatted }]
         : emptyFallback
-          ? [{ text: 'No bot reason recorded for this fill.' }]
+          ? [
+              {
+                text:
+                  kind === 'open'
+                    ? 'No stored open reason for this position — often a manual open, a restart before audit logging, or the marker still syncing (refresh in ~15s).'
+                    : 'No bot reason recorded for this fill.',
+              },
+            ]
           : [];
 
   const updatePos = useCallback(() => {

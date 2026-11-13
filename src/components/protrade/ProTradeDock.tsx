@@ -325,7 +325,7 @@ const ProTradeDock: React.FC<Props> = ({
     }
     return [...set];
   }, [positionCoins, scopedFills]);
-  const { closeReasonForFill, openByCoin } = useHlTradeReasonMarkers(
+  const { closeReasonForFill, openReasonForPosition } = useHlTradeReasonMarkers(
     isBotMode ? (walletAddress ?? undefined) : undefined,
     historyCoins,
     reasonRefreshKey
@@ -799,7 +799,11 @@ const ProTradeDock: React.FC<Props> = ({
                       {isBotMode ? (
                         <td className="term-hl-open-reason-col">
                           <TradeReasonHint
-                            reason={openByCoin.get(p.coin.toUpperCase())?.reason}
+                            reason={openReasonForPosition(
+                              p.coin,
+                              toNum(p.entryPx),
+                              positionOpenSinceRef.current.get(p.coin)
+                            )}
                             kind="open"
                           />
                         </td>
