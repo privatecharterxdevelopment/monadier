@@ -96,7 +96,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
           {positions.map((p) => {
             const szi = Number.parseFloat(p.szi || '0');
             const isLong = szi >= 0;
-            const upnl = Number.parseFloat(p.unrealizedPnl || '0') || 0;
+            const upnl = livePnlByCoin[p.coin] ?? 0;
             const notional = Math.abs(Number.parseFloat(p.positionValue || '0') || 0);
             const entry = Number.parseFloat(p.entryPx || '0');
             const mark = markPrices[p.coin] ?? 0;
@@ -177,9 +177,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
           const szi = toNum(p.szi);
           const isLong = szi >= 0;
           const mark = markPrices[p.coin] ?? 0;
-          const upnl =
-            toNum(p.unrealizedPnl) ||
-            (mark > 0 && szi ? (mark - toNum(p.entryPx)) * szi : 0);
+          const upnl = livePnlByCoin[p.coin] ?? 0;
           const lev = resolveDisplayLeverage(configuredLeverage, p.leverage?.value);
           const isClosing = closingCoin === p.coin;
           const peakPnl = peakPnlFor(p.coin, toNum(p.entryPx), szi, upnl);

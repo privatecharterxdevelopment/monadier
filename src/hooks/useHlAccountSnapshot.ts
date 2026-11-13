@@ -163,7 +163,12 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
 
     snapshot = next;
     const equityForInterval = Math.max(funding.accountEquityUsd, next.totalUsd);
-    const nextInterval = equityForInterval < MIN_HL_BOT_USD ? 4_000 : 8_000;
+    const nextInterval =
+      openCount > 0
+        ? 2_500
+        : equityForInterval < MIN_HL_BOT_USD
+          ? 4_000
+          : 8_000;
     if (nextInterval !== pollIntervalMs) {
       pollIntervalMs = nextInterval;
       if (pollTimer && activeWallet === wallet) {

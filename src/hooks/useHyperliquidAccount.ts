@@ -30,7 +30,7 @@ type State = {
   error: string | null;
 };
 
-const POSITION_POLL_MS = 6_000;
+const POSITION_POLL_MS = 2_500;
 /** Background fills poll — closes still force an immediate heavy refresh. */
 const HEAVY_REFRESH_MS = 60_000;
 const FILLS_LIMIT = 2000;
@@ -162,16 +162,22 @@ export function useHyperliquidAccount(address: string | undefined) {
     ];
 
     let debounce: ReturnType<typeof setTimeout> | null = null;
+    let heavyScheduled = false;
     const off = client.addListener((channel) => {
       if (channel !== 'userFills' && channel !== 'orderUpdates') return;
       if (!isTabVisible()) return;
       if (debounce) clearTimeout(debounce);
-      // Force fills — plain refresh() used to skip heavy for up to HEAVY_REFRESH_MS.
       debounce = setTimeout(() => {
         void refreshCore(address);
-        // userFills = close/open — refresh history immediately for dock + toasts.
-        void refreshHeavy(address);
-      }, 300);
+        const staleHeavy = Date.now() - lastHeavyAtRef.current > HEAVY_REFRESH_MS;
+        if (staleHeavy && !heavyScheduled) {
+          heavyScheduled = true;
+          window.setTimeout(() => {
+            heavyScheduled = false;
+            void refreshHeavy(address);
+          }, 1_500);
+        }
+      }, 200);
     });
 
     return () => {

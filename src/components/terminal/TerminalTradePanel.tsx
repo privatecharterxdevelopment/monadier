@@ -75,6 +75,7 @@ import { useWithdrawFeeGate } from '../../hooks/useWithdrawFeeGate';
 import { BRAND_NAME } from '../../lib/brand';
 import { fmtClosedPnl, pnlToneClass } from '../../lib/hyperliquid/format';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { useHlLiveUnrealizedPnl } from '../../hooks/useHlLiveUnrealizedPnl';
 import TerminalHlOpenPositions from './TerminalHlOpenPositions';
 import ProTradeAgentManualTrade from './ProTradeAgentManualTrade';
 import type { HlPosition } from '../../lib/hyperliquid/user';
@@ -159,6 +160,12 @@ const TerminalTradePanel: React.FC<Props> = ({
     hlBalanceWallet?.toLowerCase()
   );
   const openHlPositions = hlOpenSnap?.positions ?? [];
+  const { totalUsd: liveOpenUpnl } = useHlLiveUnrealizedPnl(openHlPositions);
+  const openPositionsCountLive = openHlPositions.length;
+  const displayUpnl =
+    openPositionsCountLive > 0 ? liveOpenUpnl : metrics.unrealizedPnlUsd;
+  const displayOpenCount =
+    openPositionsCountLive > 0 ? openPositionsCountLive : metrics.openPositionsCount;
   const botEffSettings = effectiveHlBotSettings(botSettingsSnapshot);
   const [closingHlCoin, setClosingHlCoin] = useState<string | null>(null);
   const builderConfig = getHlBuilderConfig();
@@ -1047,12 +1054,12 @@ const TerminalTradePanel: React.FC<Props> = ({
                 </div>
                 <div className="term-field-row">
                   <span>{t('tradePanel.open')}</span>
-                  <strong>{metrics.openPositionsCount}</strong>
+                  <strong>{displayOpenCount}</strong>
                 </div>
                 <div className="term-field-row">
                   <span>{t('tradePanel.upnl')}</span>
-                  <strong className={pnlToneClass(metrics.unrealizedPnlUsd, 'term')}>
-                    {fmtClosedPnl(metrics.unrealizedPnlUsd)}
+                  <strong className={pnlToneClass(displayUpnl, 'term')}>
+                    {fmtClosedPnl(displayUpnl)}
                   </strong>
                 </div>
                 {hlMarginUsedUsd > 0.005 ? (
@@ -1160,12 +1167,12 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
         <div className="term-field-row">
           <span>{t('tradePanel.open')}</span>
-          <strong>{metrics.openPositionsCount}</strong>
+          <strong>{displayOpenCount}</strong>
         </div>
         <div className="term-field-row">
           <span>{t('tradePanel.upnl')}</span>
-          <strong className={pnlToneClass(metrics.unrealizedPnlUsd, 'term')}>
-            {fmtClosedPnl(metrics.unrealizedPnlUsd)}
+          <strong className={pnlToneClass(displayUpnl, 'term')}>
+            {fmtClosedPnl(displayUpnl)}
           </strong>
         </div>
         {hlWithdrawableLive + 0.5 < hlEquityUsd ? (

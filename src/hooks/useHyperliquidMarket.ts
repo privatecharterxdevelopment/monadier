@@ -42,7 +42,7 @@ type State = {
   fetchAttempts: number;
 };
 
-const SNAPSHOT_POLL_MS = 4_000;
+const SNAPSHOT_POLL_MS = 2_500;
 const BOOK_FALLBACK_POLL_MS = 2_000;
 const EMPTY_CANDLE_RETRY_MS = 700;
 /** Keep retrying — never “give up” into WS-only (1 bar = blank chart with a single spike). */
@@ -51,7 +51,7 @@ const MAX_EMPTY_CANDLE_RETRIES = 40;
 const MIN_HISTORY_BARS = 12;
 const BOOK_THROTTLE_MS = 16;
 const TRADES_THROTTLE_MS = 48;
-const CANDLE_THROTTLE_MS = 50;
+const CANDLE_THROTTLE_MS = 32;
 const MIDS_THROTTLE_MS = 48;
 const MAX_TAPE_TRADES = 50;
 /** Must match ProTradeOrderBook DEPTH — dedup ignored deeper levels otherwise. */

@@ -3,8 +3,7 @@ import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
-import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
-import { livePositionUpnl } from '../../lib/hyperliquid/user';
+import { useHlLiveUnrealizedPnl } from '../../hooks/useHlLiveUnrealizedPnl';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import type { HlBotDockTab } from '../protrade/ProTradeHlBotDock';
 import TerminalTradePanel from '../terminal/TerminalTradePanel';
@@ -155,16 +154,7 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
     walletConnected && tradingWallet ? tradingWallet : undefined
   );
   const positions = snapshot?.positions ?? [];
-  const coins = useMemo(() => positions.map((p) => p.coin), [positions]);
-  const { prices: markPrices } = useHyperliquidMarkPrices(coins, 5000);
-  const liveUpnl = useMemo(
-    () =>
-      positions.reduce(
-        (sum, p) => sum + livePositionUpnl(p, markPrices[p.coin] ?? 0),
-        0
-      ),
-    [positions, markPrices]
-  );
+  const { totalUsd: liveUpnl } = useHlLiveUnrealizedPnl(positions, 800);
   return (
     <ProTradeStatusBar
       mode="bot"

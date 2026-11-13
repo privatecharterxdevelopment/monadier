@@ -10,6 +10,7 @@ import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
+import { useHlLiveUnrealizedPnl } from '../../hooks/useHlLiveUnrealizedPnl';
 import { fmtClosedPnl, fmtUsdSymbol, pnlToneClass } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
@@ -64,9 +65,9 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   }, [account?.positions, botManagedCoins, section]);
 
   const scopedOpenCount = scopedHlPositions.length;
-  const scopedUnrealizedPnlUsd = useMemo(
-    () => scopedHlPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
-    [scopedHlPositions]
+  const { totalUsd: scopedUnrealizedPnlUsd } = useHlLiveUnrealizedPnl(
+    scopedHlPositions,
+    800
   );
 
   /**
