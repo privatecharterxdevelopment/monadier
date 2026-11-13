@@ -18,4 +18,9 @@ describe('profileDirectionGate', () => {
     assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'SHORT'), false);
     assert.match(profileDirectionBlockReason(BULL_MARKET, 'SHORT'), /allowShortOpens=false/);
   });
+
+  it('BEAR allows both directions at profile level', () => {
+    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'LONG'), true);
+    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'SHORT'), true);
+  });
 });

@@ -40,6 +40,8 @@ let cachedAt = 0;
 let committed: HlDirectionProfileName | null = null;
 let pending: HlDirectionProfileName | null = null;
 let pendingHits = 0;
+/** Last closed 1h bar open time used for hysteresis — avoids counting duplicate cycles. */
+let lastHysteresisClosed1hMs = 0;
 
 function avg(xs: number[]): number {
   if (xs.length === 0) return 0;
@@ -80,6 +82,7 @@ function scoreBtc(opts: {
 async function detectRaw(): Promise<
   Omit<BtcRegimeSnapshot, 'sticky' | 'checkedAt' | 'regime' | 'dataSource'> & {
     regime: HlDirectionProfileName;
+    lastClosed1hMs: number;
   }
 > {
   const [c4h, c1h] = await Promise.all([
@@ -102,6 +105,8 @@ async function detectRaw(): Promise<
   const change7dPct = ((last - closed4[j7]!.close) / closed4[j7]!.close) * 100;
   const scored = scoreBtc({ last, sma20, change24hPct, change7dPct });
 
+  const lastClosed1hMs = closed1[closed1.length - 1]!.time;
+
   return {
     regime: scored.regime,
     reason: scored.reason,
@@ -111,23 +116,40 @@ async function detectRaw(): Promise<
     change7dPct,
     aboveSma4h: last > sma20,
     bullScore: scored.bullScore,
+    lastClosed1hMs,
   };
 }
 
-function applyHysteresis(raw: HlDirectionProfileName): {
+function applyHysteresis(
+  raw: HlDirectionProfileName,
+  closed1hMs: number
+): {
   regime: HlDirectionProfileName;
   sticky: boolean;
+  signalAdvanced: boolean;
 } {
+  if (closed1hMs > 0 && closed1hMs === lastHysteresisClosed1hMs) {
+    const sticky = Boolean(pending && pending !== committed);
+    return {
+      regime: committed ?? raw,
+      sticky,
+      signalAdvanced: false,
+    };
+  }
+  if (closed1hMs > 0) {
+    lastHysteresisClosed1hMs = closed1hMs;
+  }
+
   if (committed == null) {
     committed = raw;
     pending = null;
     pendingHits = 0;
-    return { regime: committed, sticky: false };
+    return { regime: committed, sticky: false, signalAdvanced: true };
   }
   if (raw === committed) {
     pending = null;
     pendingHits = 0;
-    return { regime: committed, sticky: false };
+    return { regime: committed, sticky: false, signalAdvanced: true };
   }
   if (pending !== raw) {
     pending = raw;
@@ -143,15 +165,39 @@ function applyHysteresis(raw: HlDirectionProfileName): {
         ? FLIP_CONFIRM_LEAVE_BULL
         : FLIP_CONFIRM;
     if (pendingHits < need) {
-      return { regime: committed, sticky: true };
+      return { regime: committed, sticky: true, signalAdvanced: true };
     }
     committed = raw;
     pending = null;
     pendingHits = 0;
     logger.info('BTC market regime flipped', { from, to: committed });
-    return { regime: committed, sticky: false };
+    return { regime: committed, sticky: false, signalAdvanced: true };
   }
-  return { regime: committed, sticky: true };
+  return { regime: committed, sticky: true, signalAdvanced: true };
+}
+
+export type BtcHysteresisState = {
+  committed: HlDirectionProfileName | null;
+  pending: HlDirectionProfileName | null;
+  pendingHits: number;
+  lastClosed1hMs: number;
+};
+
+export function getBtcHysteresisStateForTests(): BtcHysteresisState {
+  return {
+    committed,
+    pending,
+    pendingHits,
+    lastClosed1hMs: lastHysteresisClosed1hMs,
+  };
+}
+
+/** Test-only: advance hysteresis as if a new closed 1h bar arrived with this raw regime. */
+export function advanceBtcRegimeHysteresisForTests(
+  raw: HlDirectionProfileName,
+  closed1hMs: number
+): { regime: HlDirectionProfileName; sticky: boolean } {
+  return applyHysteresis(raw, closed1hMs);
 }
 
 /** Fresh BTC regime (cached ~60s). */
@@ -161,7 +207,7 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
   }
   try {
     const raw = await detectRaw();
-    const { regime, sticky } = applyHysteresis(raw.regime);
+    const { regime, sticky } = applyHysteresis(raw.regime, raw.lastClosed1hMs);
     regimeEverDetectedSuccessfully = true;
     cached = {
       ...raw,
@@ -235,5 +281,6 @@ export function _resetBtcRegimeStateForTests(): void {
   committed = null;
   pending = null;
   pendingHits = 0;
+  lastHysteresisClosed1hMs = 0;
   regimeEverDetectedSuccessfully = false;
 }

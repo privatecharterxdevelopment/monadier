@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { describe, it } from 'node:test';
-import { parseDirectionProfileBoot } from './liveDirectionProfile';
+import { afterEach, describe, it } from 'node:test';
+import { BEAR_MARKET } from '../config/profiles/bearMarketShort';
+import { BULL_MARKET } from '../config/profiles/bullMarketLong';
+import {
+  applyOpsDirectionOverridesToProfile,
+  parseDirectionProfileBoot,
+} from './liveDirectionProfile';
+import { isDirectionOpenAllowedForProfile } from './profileDirectionGate';
 
 describe('parseDirectionProfileBoot', () => {
   it('auto and btc enable AUTO mode', () => {
@@ -32,6 +38,40 @@ describe('parseDirectionProfileBoot', () => {
   });
 });
 
+describe('ops kill switches HL_ALLOW_*', () => {
+  const prevShort = process.env.HL_ALLOW_SHORT_OPENS;
+  const prevLong = process.env.HL_ALLOW_LONG_OPENS;
+
+  afterEach(() => {
+    if (prevShort === undefined) delete process.env.HL_ALLOW_SHORT_OPENS;
+    else process.env.HL_ALLOW_SHORT_OPENS = prevShort;
+    if (prevLong === undefined) delete process.env.HL_ALLOW_LONG_OPENS;
+    else process.env.HL_ALLOW_LONG_OPENS = prevLong;
+  });
+
+  it('SHORT kill-switch applies in BEAR', () => {
+    process.env.HL_ALLOW_SHORT_OPENS = 'false';
+    const p = applyOpsDirectionOverridesToProfile(BEAR_MARKET);
+    assert.equal(p.allowShortOpens, false);
+    assert.equal(isDirectionOpenAllowedForProfile(p, 'SHORT'), false);
+    assert.equal(isDirectionOpenAllowedForProfile(p, 'LONG'), true);
+  });
+
+  it('SHORT kill-switch applies in BULL', () => {
+    process.env.HL_ALLOW_SHORT_OPENS = 'false';
+    const p = applyOpsDirectionOverridesToProfile(BULL_MARKET);
+    assert.equal(p.allowShortOpens, false);
+  });
+
+  it('LONG kill-switch applies in BEAR and BULL', () => {
+    process.env.HL_ALLOW_LONG_OPENS = 'false';
+    const bear = applyOpsDirectionOverridesToProfile(BEAR_MARKET);
+    const bull = applyOpsDirectionOverridesToProfile(BULL_MARKET);
+    assert.equal(bear.allowLongOpens, false);
+    assert.equal(bull.allowLongOpens, false);
+  });
+});
+
 describe('AUTO wiring in entry path (static)', () => {
   it('hlTrading enforces profile direction and AUTO regime gate', () => {
     const src = readFileSync(new URL('./hlTrading.ts', import.meta.url), 'utf8');
@@ -48,5 +88,15 @@ describe('AUTO wiring in entry path (static)', () => {
   it('trading cycle refreshes live direction profile each pass', () => {
     const src = readFileSync(new URL('../index.ts', import.meta.url), 'utf8');
     assert.match(src, /await refreshLiveDirectionProfile\(\)/);
+  });
+
+  it('force-open and manual paths use openMarketPosition (direction_profile gate)', () => {
+    const src = readFileSync(new URL('./hlTrading.ts', import.meta.url), 'utf8');
+    const force = src.slice(src.indexOf('admin force-open'));
+    assert.match(force, /openMarketPosition\(/);
+    const manual = src.slice(src.indexOf('placeManualPerpOrder'));
+    assert.match(manual, /openMarketPosition\(/);
+    const openFn = src.slice(src.indexOf('async openMarketPosition'));
+    assert.match(openFn, /isProfileDirectionOpenAllowed\(opts.direction\)/);
   });
 });

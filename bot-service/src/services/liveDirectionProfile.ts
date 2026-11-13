@@ -64,19 +64,19 @@ function parseBoolEnv(raw: string | undefined): boolean | null {
 function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionProfile {
   const allowShort = parseBoolEnv(process.env.HL_ALLOW_SHORT_OPENS);
   const allowLong = parseBoolEnv(process.env.HL_ALLOW_LONG_OPENS);
-  if (profile.name === 'bear_market') {
-    return {
-      ...profile,
-      allowShortOpens: true,
-      allowLongOpens: allowLong ?? profile.allowLongOpens,
-    };
-  }
   if (allowShort === null && allowLong === null) return profile;
   return {
     ...profile,
     allowShortOpens: allowShort ?? profile.allowShortOpens,
     allowLongOpens: allowLong ?? profile.allowLongOpens,
   };
+}
+
+/** Exported for ops kill-switch tests (HL_ALLOW_* env). */
+export function applyOpsDirectionOverridesToProfile(
+  profile: HlDirectionProfile
+): HlDirectionProfile {
+  return applyOpsDirectionOverrides(profile);
 }
 
 const boot = parseDirectionProfileBoot(process.env.HL_DIRECTION_PROFILE);
