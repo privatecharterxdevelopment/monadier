@@ -31,6 +31,10 @@ export type HlUserAbstraction =
 type ClearinghouseCacheEntry = { at: number; data: HlClearinghouseState };
 const clearinghouseCache = new Map<string, ClearinghouseCacheEntry>();
 
+export function invalidateHlClearinghouseCache(userAddress: string): void {
+  clearinghouseCache.delete(userAddress.toLowerCase());
+}
+
 export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
   if (raw == null) return null;
   let mode = typeof raw === 'string' ? raw.trim() : String(raw);
@@ -104,16 +108,23 @@ export async function fetchHlUserAbstraction(
 
 export async function fetchHlClearinghouseState(
   userAddress: string,
-  opts?: { critical?: boolean }
+  opts?: { critical?: boolean; forceRefresh?: boolean }
 ): Promise<HlClearinghouseState | null> {
   const user = userAddress.toLowerCase();
-  const ttlMs = opts?.critical ? 1_500 : 3_000;
-  const attempts = opts?.critical ? 6 : 3;
+  const ttlMs = opts?.critical ? 800 : 3_000;
+  const attempts = opts?.critical ? 8 : 3;
+
+  if (opts?.forceRefresh) {
+    invalidateHlClearinghouseCache(user);
+  }
 
   const hit = clearinghouseCache.get(user);
-  if (hit && Date.now() - hit.at < ttlMs) {
+  const cacheFresh = hit != null && Date.now() - hit.at < ttlMs;
+  if (cacheFresh && !opts?.critical) {
     return hit.data;
   }
+
+  let lastErr: string | null = null;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
@@ -124,19 +135,22 @@ export async function fetchHlClearinghouseState(
       clearinghouseCache.set(user, { at: Date.now(), data });
       return data;
     } catch (err: unknown) {
+      lastErr = err instanceof Error ? err.message : String(err);
       if (hit && attempt >= attempts - 1) {
         logger.warn('HL clearinghouse error — serving stale', {
           user: user.slice(0, 10),
-          error: err instanceof Error ? err.message : String(err),
+          error: lastErr,
         });
         return hit.data;
       }
       if (attempt < attempts - 1) {
-        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+        const base = opts?.critical ? 350 : 300;
+        await new Promise((r) => setTimeout(r, base * (attempt + 1) + Math.floor(Math.random() * 120)));
       } else {
-        logger.debug('HL clearinghouseState failed', {
+        logger.warn('HL clearinghouseState failed', {
           user: user.slice(0, 10),
-          error: err instanceof Error ? err.message : String(err),
+          error: lastErr,
+          critical: Boolean(opts?.critical),
         });
       }
     }

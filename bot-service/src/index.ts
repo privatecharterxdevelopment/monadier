@@ -517,7 +517,15 @@ const healthServer = http.createServer(async (req, res) => {
       const reasonNote = String(body.reason ?? '').trim();
       const reason = 'manual';
       const sizeAbs = Number(body.size);
-      const isLongBody = body.isLong;
+      const isLongRaw = body.isLong;
+      const isLongBody =
+        typeof isLongRaw === 'boolean'
+          ? isLongRaw
+          : isLongRaw === true || isLongRaw === 'true'
+            ? true
+            : isLongRaw === false || isLongRaw === 'false'
+              ? false
+              : undefined;
       const entryPxBody = Number(body.entryPx);
       const unrealizedPnlBody = Number(body.unrealizedPnlUsd);
 

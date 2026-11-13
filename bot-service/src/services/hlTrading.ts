@@ -41,6 +41,7 @@ import {
   coinToAssetIndex,
   maxLeverageForCoin,
   fetchHlClearinghouseState,
+  invalidateHlClearinghouseCache,
   fetchHlPerpFundingSnapshot,
   hlTradableFreeMarginUsd,
   describeHlPerpBalanceBlocker,
@@ -1917,8 +1918,12 @@ export class HyperliquidTradingService {
           isLong,
         });
       } else {
+        if (reason === 'manual') {
+          invalidateHlClearinghouseCache(userAddress);
+        }
         const state = await fetchHlClearinghouseState(userAddress, {
           critical: reason === 'manual',
+          forceRefresh: reason === 'manual',
         });
         const row = state?.assetPositions?.find(
           (p) => p.position?.coin?.toUpperCase() === coinUpper
@@ -1947,7 +1952,7 @@ export class HyperliquidTradingService {
           return {
             success: false,
             error:
-              'Hyperliquid account sync busy — wait a few seconds and tap Close again.',
+              'Could not read your HL position (API timeout). Tap Close again — order will retry automatically.',
           };
         } else {
           return { success: true, alreadyClosed: true };
@@ -2078,9 +2083,10 @@ export class HyperliquidTradingService {
 
       let result: Awaited<ReturnType<typeof submitClose>> | undefined;
       let status: { filled?: unknown; error?: string } | undefined;
-      const maxAttempts = reason === 'manual' ? 5 : 2;
+      let lastSubmitErr: string | null = null;
+      const maxAttempts = reason === 'manual' ? 8 : 2;
       const retryDelayMs = (attempt: number) =>
-        reason === 'manual' ? 250 + attempt * 200 : 1200 * (attempt + 1);
+        reason === 'manual' ? 400 + attempt * 350 : 1200 * (attempt + 1);
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (pnlUsd > 0 && instantManual && attempt === 1 && !closeBuilder) {
@@ -2097,8 +2103,13 @@ export class HyperliquidTradingService {
             | undefined;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          const rateLimited = /429|rate limit|too many/i.test(msg);
+          lastSubmitErr = msg;
+          const rateLimited = /429|rate limit|too many|busy|timeout/i.test(msg);
           if (rateLimited && attempt < maxAttempts - 1) {
+            await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
+            continue;
+          }
+          if (reason === 'manual' && attempt < maxAttempts - 1) {
             await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
             continue;
           }
@@ -2133,7 +2144,12 @@ export class HyperliquidTradingService {
       if (!result) {
         return {
           success: false,
-          error: 'Hyperliquid busy — wait a few seconds and retry close.',
+          error:
+            lastSubmitErr && /429|rate limit|too many/i.test(lastSubmitErr)
+              ? 'Hyperliquid rate limit — close is retrying; tap once more in ~10s if needed.'
+              : lastSubmitErr
+                ? `Close failed — ${lastSubmitErr}`
+                : 'Close could not reach Hyperliquid — tap Close again.',
         };
       }
 

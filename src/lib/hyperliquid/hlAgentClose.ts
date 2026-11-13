@@ -10,7 +10,10 @@ function closeAgentError(res: Response, json: { error?: string | null }): Error 
       : '');
   const cleaned = raw.replace(/\s*-\s*null\s*$/i, '').trim();
   if (res.status === 429 || isHlRateLimitError(cleaned) || /429|too many requests/i.test(cleaned)) {
-    return new Error('Hyperliquid busy — close is retrying automatically.');
+    return new Error('Hyperliquid rate limit — closing, please wait…');
+  }
+  if (/account sync|could not read your hl position|api timeout/i.test(cleaned)) {
+    return new Error(cleaned);
   }
   if (cleaned) return new Error(cleaned);
   return new Error('Close failed — try again.');
@@ -22,6 +25,12 @@ function isNetworkCloseError(err: unknown): boolean {
   return (
     /failed to fetch|network changed|load failed|networkerror|err_network/i.test(msg) ||
     (err instanceof TypeError && /fetch/i.test(msg))
+  );
+}
+
+function isRetryableCloseError(msg: string): boolean {
+  return /rate limit|busy|429|too many|account sync|api timeout|could not read your hl position|could not reach hyperliquid/i.test(
+    msg
   );
 }
 
@@ -56,7 +65,8 @@ export async function closeHlPositionViaAgent(params: {
   }
 
   let lastErr: Error | null = null;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  const maxAttempts = 6;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let res: Response;
     try {
       res = await fetch(`${getBotApiBase()}/api/hl-close`, {
@@ -67,8 +77,8 @@ export async function closeHlPositionViaAgent(params: {
     } catch (err) {
       if (isNetworkCloseError(err)) {
         lastErr = new Error('Network error — check Wi‑Fi/VPN, then retry close.');
-        if (attempt < 3) {
-          await sleep(400 + attempt * 300);
+        if (attempt < maxAttempts - 1) {
+          await sleep(500 + attempt * 400);
           continue;
         }
         throw lastErr;
@@ -89,8 +99,8 @@ export async function closeHlPositionViaAgent(params: {
       };
     } catch {
       lastErr = closeAgentError(res, json);
-      if (attempt < 3) {
-        await sleep(400 + attempt * 300);
+      if (attempt < maxAttempts - 1) {
+        await sleep(500 + attempt * 400);
         continue;
       }
       throw lastErr;
@@ -111,10 +121,9 @@ export async function closeHlPositionViaAgent(params: {
 
     lastErr = closeAgentError(res, json);
     const retryable =
-      res.status === 429 ||
-      /rate limit|busy|429|too many/i.test(lastErr.message);
-    if (retryable && attempt < 3) {
-      await sleep(350 + attempt * 350);
+      res.status === 429 || isRetryableCloseError(lastErr.message);
+    if (retryable && attempt < maxAttempts - 1) {
+      await sleep(600 + attempt * 500);
       continue;
     }
     throw lastErr;
