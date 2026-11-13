@@ -15,6 +15,7 @@ import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
   getDirectionProfileMode,
   getLiveBtcRegime,
+  getAutoNewEntriesBlockReason,
   refreshLiveDirectionProfile,
 } from './services/liveDirectionProfile';
 import {
@@ -171,6 +172,17 @@ const healthServer = http.createServer(async (req, res) => {
           name: config.hyperliquid.directionProfile.name,
           allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
           allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
+          autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
+          btcRegime: (() => {
+            const r = getLiveBtcRegime();
+            if (!r) return null;
+            return {
+              regime: r.regime,
+              sticky: r.sticky,
+              dataSource: r.dataSource,
+              checkedAt: r.checkedAt,
+            };
+          })(),
         },
       },
       lastCycle: lastCycleStats,
@@ -2043,6 +2055,8 @@ async function runTradingCycle(): Promise<void> {
         processing: wallets.length,
         roundRobinOffset: offset,
       });
+
+      await refreshLiveDirectionProfile();
 
       const ctx = await Promise.race([
         buildTradingCycleContext(),

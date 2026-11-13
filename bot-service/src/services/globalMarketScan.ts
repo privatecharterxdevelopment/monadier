@@ -12,6 +12,7 @@ import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { isLongAllowedCoin } from './longAllowlist';
+import { isProfileDirectionOpenAllowed } from './profileDirectionGate';
 import {
   evaluateBearLongOpportunity,
   votesFromTfMap,
@@ -505,6 +506,7 @@ export function globalSignalsForBotMode(
     minVol > 0 ? rows.filter((s) => s.dayVolumeUsd >= minVol) : rows;
 
   const standard = liquid(scan.standard).filter((s) => {
+    if (!isProfileDirectionOpenAllowed(s.direction)) return false;
     if (s.direction === 'SHORT') return true;
     return isOpenableLongCandidate(s);
   });
@@ -521,6 +523,7 @@ export function globalSignalsForBotMode(
   if (borrow) {
     for (const s of liquid(scan.aggressive)) {
       if (s.direction !== 'SHORT') continue;
+      if (!isProfileDirectionOpenAllowed('SHORT')) continue;
       if (reversalCoins.has(s.coin.toUpperCase())) continue;
       if (!h1AllowsShort(s.h1Trend)) continue;
       const key = `${s.coin.toUpperCase()}:${s.direction}`;

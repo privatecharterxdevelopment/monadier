@@ -6,6 +6,8 @@ import { signalEngine } from './signalEngine';
 import { logger } from '../utils/logger';
 import type { HlDirectionProfileName } from '../config/profiles/types';
 
+export type BtcRegimeDataSource = 'detect' | 'cache' | 'fallback';
+
 export type BtcRegimeSnapshot = {
   regime: HlDirectionProfileName;
   reason: string;
@@ -17,7 +19,12 @@ export type BtcRegimeSnapshot = {
   bullScore: number;
   sticky: boolean;
   checkedAt: string;
+  dataSource: BtcRegimeDataSource;
 };
+
+let regimeEverDetectedSuccessfully = false;
+
+const STALE_MS = Number(process.env.HL_BTC_REGIME_STALE_MS || 15 * 60_000);
 
 const CACHE_MS = Number(process.env.HL_BTC_REGIME_CACHE_MS || 60_000);
 /** Consecutive opposite readings required before flipping (anti-whipsaw). */
@@ -70,9 +77,11 @@ function scoreBtc(opts: {
   return { regime, bullScore, reason };
 }
 
-async function detectRaw(): Promise<Omit<BtcRegimeSnapshot, 'sticky' | 'checkedAt' | 'regime'> & {
-  regime: HlDirectionProfileName;
-}> {
+async function detectRaw(): Promise<
+  Omit<BtcRegimeSnapshot, 'sticky' | 'checkedAt' | 'regime' | 'dataSource'> & {
+    regime: HlDirectionProfileName;
+  }
+> {
   const [c4h, c1h] = await Promise.all([
     signalEngine.fetchCandles('BTCUSDT', '4h', 50),
     signalEngine.fetchCandles('BTCUSDT', '1h', 50),
@@ -147,14 +156,18 @@ function applyHysteresis(raw: HlDirectionProfileName): {
 
 /** Fresh BTC regime (cached ~60s). */
 export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSnapshot> {
-  if (!force && cached && Date.now() - cachedAt < CACHE_MS) return cached;
+  if (!force && cached && Date.now() - cachedAt < CACHE_MS) {
+    return { ...cached, dataSource: cached.dataSource === 'detect' ? 'cache' : cached.dataSource };
+  }
   try {
     const raw = await detectRaw();
     const { regime, sticky } = applyHysteresis(raw.regime);
+    regimeEverDetectedSuccessfully = true;
     cached = {
       ...raw,
       regime,
       sticky,
+      dataSource: 'detect',
       reason: sticky
         ? `${raw.reason} (holding ${committed} until ${
             committed === 'bull_market' && raw.regime === 'bear_market'
@@ -169,11 +182,20 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn('BTC regime detect failed — keep last', { error: msg });
-    if (cached) return cached;
-    // Safe default when BTC data is down: LONG-primary (don't short blind).
+    if (cached && regimeEverDetectedSuccessfully) {
+      const age = Date.now() - cachedAt;
+      if (age <= STALE_MS) {
+        return { ...cached, dataSource: 'cache' };
+      }
+      logger.error('BTC regime stale — detect failed beyond stale window', {
+        staleMs: STALE_MS,
+        ageMs: age,
+      });
+      return { ...cached, dataSource: 'cache', reason: `${cached.reason} (stale ${Math.round(age / 1000)}s)` };
+    }
     const fallback: BtcRegimeSnapshot = {
       regime: 'bull_market',
-      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — default bull_market`,
+      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — no prior detect`,
       btcLast: 0,
       sma20_4h: 0,
       change24hPct: 0,
@@ -181,15 +203,37 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
       aboveSma4h: true,
       bullScore: 0,
       sticky: false,
+      dataSource: 'fallback',
       checkedAt: new Date().toISOString(),
     };
-    cached = fallback;
-    cachedAt = Date.now();
-    committed = 'bull_market';
+    logger.error('BTC regime unavailable — no committed snapshot for AUTO', { error: msg });
     return fallback;
   }
 }
 
 export function getLastBtcMarketRegime(): BtcRegimeSnapshot | null {
   return cached;
+}
+
+export function btcRegimeHasSuccessfulDetect(): boolean {
+  return regimeEverDetectedSuccessfully;
+}
+
+export function btcRegimeCacheAgeMs(): number {
+  if (!cachedAt) return Number.POSITIVE_INFINITY;
+  return Date.now() - cachedAt;
+}
+
+export function btcRegimeStaleMaxMs(): number {
+  return STALE_MS;
+}
+
+/** For tests — reset module state. */
+export function _resetBtcRegimeStateForTests(): void {
+  cached = null;
+  cachedAt = 0;
+  committed = null;
+  pending = null;
+  pendingHits = 0;
+  regimeEverDetectedSuccessfully = false;
 }

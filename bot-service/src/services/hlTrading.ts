@@ -11,6 +11,15 @@ import {
   type GlobalSignalCandidate,
 } from './globalMarketScan';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
+import {
+  getAutoNewEntriesBlockReason,
+  shouldBlockNewEntriesForAutoRegime,
+  getLiveDirectionProfile,
+} from './liveDirectionProfile';
+import {
+  isProfileDirectionOpenAllowed,
+  profileDirectionBlockReason,
+} from './profileDirectionGate';
 import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
 import {
   isOpenCooldownBlocked,
@@ -503,6 +512,7 @@ export class HyperliquidTradingService {
       if (!isBotTradeCoin(signal.coin)) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
       if (!isOpenDirectionAllowed(signal.direction)) continue;
+      if (!isProfileDirectionOpenAllowed(signal.direction)) continue;
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
@@ -583,6 +593,14 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     await warmCoinCloseCacheForWallet(userAddress);
+    if (shouldBlockNewEntriesForAutoRegime()) {
+      logger.info('HL open skip: AUTO BTC regime not ready', {
+        user: userAddress.slice(0, 10),
+        reason: getAutoNewEntriesBlockReason(),
+      });
+      return openCoins.length > 0 ? 'ok' : 'skip';
+    }
+
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
@@ -786,6 +804,7 @@ export class HyperliquidTradingService {
     try {
       const { meta, mids } = opts.ctx;
       const coin = opts.coin.toUpperCase();
+
       const assetIndex = coinToAssetIndex(meta, coin);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
       let effectiveLeverage = Math.min(opts.leverage, maxLeverageForCoin(meta, coin));
@@ -815,6 +834,11 @@ export class HyperliquidTradingService {
         });
         return { success: false as const, error };
       };
+
+      if (!isProfileDirectionOpenAllowed(opts.direction)) {
+        const profile = getLiveDirectionProfile();
+        return failOpen(profileDirectionBlockReason(profile, opts.direction), 'direction_profile');
+      }
 
       patchExecutionDiagnostic(opts.userAddress, {
         coin,
@@ -1133,6 +1157,7 @@ export class HyperliquidTradingService {
                 pricePosition: 0.5,
                 resistanceTouches: 0,
                 resistanceRejections: 0,
+                recentResistanceRejections: 0,
                 supportTouches: 0,
                 supportRejections: 0,
                 confirmedBreakoutUp: false,
