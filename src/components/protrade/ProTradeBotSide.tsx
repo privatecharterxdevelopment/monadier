@@ -3,7 +3,7 @@ import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { useDashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
-import { useHlLiveUnrealizedPnl } from '../../hooks/useHlLiveUnrealizedPnl';
+import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import type { HlBotDockTab } from '../protrade/ProTradeHlBotDock';
 import TerminalTradePanel from '../terminal/TerminalTradePanel';
@@ -150,11 +150,15 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
   const { address, isConnected } = useMonadierWallet();
   const { wallet: hlWallet } = useHlActiveWallet();
   const tradingWallet = (hlWallet ?? address)?.toLowerCase();
-  const { snapshot } = useHlAccountSnapshot(
+  const { snapshot: hlSnap } = useHlAccountSnapshot(
     walletConnected && tradingWallet ? tradingWallet : undefined
   );
-  const positions = snapshot?.positions ?? [];
-  const { totalUsd: liveUpnl } = useHlLiveUnrealizedPnl(positions, 800);
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+  const positions = exchangeSnapshot?.positions ?? hlSnap?.positions ?? [];
+  const liveUpnl = exchangeSnapshot?.upnlTotalUsd ?? positions.reduce(
+    (s, p) => s + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
+    0
+  );
   return (
     <ProTradeStatusBar
       mode="bot"
@@ -167,9 +171,9 @@ export const ProTradeBotStatusBar: React.FC<StatusProps> = ({
         ...metrics,
         hlBalanceUsd: Math.max(
           metrics.hlBalanceUsd,
-          snapshot?.totalUsd ?? 0,
-          snapshot?.tradablePerpUsd ?? 0,
-          snapshot?.spotUsdcUsd ?? 0
+          hlSnap?.totalUsd ?? 0,
+          hlSnap?.tradablePerpUsd ?? 0,
+          hlSnap?.spotUsdcUsd ?? 0
         ),
       }}
       botWallet={tradingWallet ?? address}

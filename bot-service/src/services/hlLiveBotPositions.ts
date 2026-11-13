@@ -33,7 +33,9 @@ export type LiveBotPositionView = {
   emergencySlConfirmed: boolean;
   profitSlPx: number | null;
   profitSlConfirmed: boolean;
-  profitSlStatus: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  /** In-memory / computed px — never treated as exchange-confirmed. */
+  profitSlMemoryPx: number | null;
+  profitSlStatus: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED' | 'PROFIT_SL_UNVERIFIED';
   trailPhase: 'idle' | 'pending' | 'armed' | 'trailing' | null;
   computedTrailStopPx: number | null;
   source: 'hyperliquid';
@@ -100,11 +102,12 @@ export async function buildLiveBotPositionViews(opts: {
         }
       }
     }
+    let profitSlMemoryPx: number | null = null;
     if (!profitSlConfirmed) {
       const mem = lastConfirmedProfitStopPx(opts.wallet, coin);
       if (mem != null && mem > 0) {
-        profitSlPx = mem;
-        profitSlConfirmed = true;
+        profitSlMemoryPx = mem;
+        if (profitSlPx == null) profitSlPx = mem;
       }
     }
 
@@ -120,9 +123,11 @@ export async function buildLiveBotPositionViews(opts: {
         !trail);
     const profitSlStatus: LiveBotPositionView['profitSlStatus'] = profitSlConfirmed
       ? 'PROFIT_SL_CONFIRMED'
-      : pending
-        ? 'PROFIT_SL_PENDING'
-        : 'idle';
+      : profitSlMemoryPx != null
+        ? 'PROFIT_SL_UNVERIFIED'
+        : pending
+          ? 'PROFIT_SL_PENDING'
+          : 'idle';
 
     out.push({
       coin,
@@ -138,6 +143,7 @@ export async function buildLiveBotPositionViews(opts: {
       emergencySlConfirmed,
       profitSlPx,
       profitSlConfirmed,
+      profitSlMemoryPx,
       profitSlStatus,
       trailPhase: trail?.phase ?? null,
       computedTrailStopPx: trail?.currentTrailStop ?? null,

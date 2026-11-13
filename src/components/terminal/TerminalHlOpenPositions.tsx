@@ -10,7 +10,8 @@ import {
 } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
-import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
+import { livePositionUpnl } from '../../lib/hyperliquid/user';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { HL_DEFAULT_STOP_LOSS_PERCENT } from '../../lib/hlBotConstants';
@@ -53,17 +54,16 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
   closingCoin = null,
   closeBusy = false,
 }) => {
-  const coins = positions.map((p) => p.coin);
-  const { prices: markPrices } = useHyperliquidMarkPrices(coins);
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+  const markPrices = exchangeSnapshot?.marks ?? {};
+  const dataStale = exchangeSnapshot?.stale ?? false;
 
   const livePnlByCoin = Object.fromEntries(
     positions.map((p) => {
       const mark = markPrices[p.coin] ?? 0;
-      const szi = Number.parseFloat(p.szi || '0');
-      const entry = Number.parseFloat(p.entryPx || '0');
       const upnl =
-        Number.parseFloat(p.unrealizedPnl || '0') ||
-        (mark > 0 && szi ? (mark - entry) * szi : 0);
+        exchangeSnapshot?.upnlByCoin[p.coin] ??
+        livePositionUpnl(p, mark);
       return [p.coin, upnl];
     })
   );
@@ -114,6 +114,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
               peakPnlUsd: peakPnl,
               stopLossMarginPct,
               serverTrail: toBotTrailServerTruth(botTrail),
+              dataStale,
             });
             return (
               <tr key={p.coin}>
@@ -192,6 +193,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
             peakPnlUsd: peakPnl,
             stopLossMarginPct,
             serverTrail: toBotTrailServerTruth(botTrail),
+            dataStale,
           });
           return (
             <article key={`card-${p.coin}`} className="hl-pos-card">

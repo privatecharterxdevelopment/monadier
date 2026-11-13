@@ -145,6 +145,8 @@ type Props = {
   positionScope?: 'manual' | 'bot';
   botManagedCoins?: ReadonlySet<string>;
   botManagedCoinsLoading?: boolean;
+  /** Exchange snapshot STALE — SL labels show stale/unverified state. */
+  exchangeDataStale?: boolean;
 };
 
 const ProTradeDock: React.FC<Props> = ({
@@ -186,6 +188,7 @@ const ProTradeDock: React.FC<Props> = ({
   positionScope,
   botManagedCoins,
   botManagedCoinsLoading = false,
+  exchangeDataStale = false,
 }) => {
   const { t } = useTranslation();
   const { user, profile, isAuthenticated } = useAuth();
@@ -726,6 +729,7 @@ const ProTradeDock: React.FC<Props> = ({
                     stopLossMarginPct,
                     holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                     serverTrail: toBotTrailServerTruth(botTrail),
+                    dataStale: exchangeDataStale,
                   });
                   return (
                     <tr key={p.coin} className={isDust ? 'hl-pos-row--dust' : undefined}>
@@ -745,7 +749,17 @@ const ProTradeDock: React.FC<Props> = ({
                       </td>
                       <td className="hl-col-optional">{fmtLeverage(lev)}</td>
                       {isBotMode ? (
-                        <td className={`hl-active-sl hl-active-sl--${activeSl.kind}`}>
+                        <td
+                          className={`hl-active-sl hl-active-sl--${activeSl.kind}${
+                            activeSl.verification === 'unverified'
+                              ? ' hl-active-sl--unverified'
+                              : activeSl.verification === 'stale'
+                                ? ' hl-active-sl--stale'
+                                : activeSl.verification === 'pending'
+                                  ? ' hl-active-sl--pending'
+                                  : ''
+                          }`}
+                        >
                           {onSaveStopLoss ? (
                             <button
                               type="button"
@@ -846,6 +860,7 @@ const ProTradeDock: React.FC<Props> = ({
                   stopLossMarginPct,
                   holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                   serverTrail: toBotTrailServerTruth(botTrail),
+                  dataStale: exchangeDataStale,
                 });
                 return (
                   <article

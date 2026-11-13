@@ -71,7 +71,12 @@ export type LiveBotPositionView = {
   emergencySlConfirmed: boolean;
   profitSlPx: number | null;
   profitSlConfirmed: boolean;
-  profitSlStatus: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  profitSlMemoryPx?: number | null;
+  profitSlStatus:
+    | 'idle'
+    | 'PROFIT_SL_PENDING'
+    | 'PROFIT_SL_CONFIRMED'
+    | 'PROFIT_SL_UNVERIFIED';
   trailPhase?: string | null;
   computedTrailStopPx?: number | null;
 };
@@ -103,9 +108,11 @@ export function formatLiveSlLine(p: LiveBotPositionView): string {
     : 'Emergency-SL not confirmed';
   const profit = p.profitSlConfirmed
     ? `Profit-SL ${p.profitSlPx ?? '—'} (HL confirmed)`
-    : p.profitSlStatus === 'PROFIT_SL_PENDING'
-      ? 'Profit-SL PENDING'
-      : 'Profit-SL idle';
+    : p.profitSlStatus === 'PROFIT_SL_UNVERIFIED'
+      ? `Profit-SL ${p.profitSlPx ?? '—'} UNVERIFIED`
+      : p.profitSlStatus === 'PROFIT_SL_PENDING'
+        ? 'Profit-SL PENDING'
+        : 'Profit-SL idle';
   return `${p.coin} ${e} · ${profit}`;
 }
 

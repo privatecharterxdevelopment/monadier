@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
-import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlActiveWallet } from '../../hooks/useHlActiveWallet';
@@ -140,9 +140,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       : fallbackAccount
         ? fallbackWallet ?? hlWallet
         : hlWallet;
-  const positions = dockAccount?.positions ?? [];
-  const positionCoins = useMemo(() => positions.map((p) => p.coin), [positions]);
-  const { prices: markPrices } = useHyperliquidMarkPrices(positionCoins, 5000);
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+  const positions = exchangeSnapshot?.positions ?? dockAccount?.positions ?? [];
+  const markPrices = exchangeSnapshot?.marks ?? {};
+  const exchangeDataStale = exchangeSnapshot?.stale ?? false;
   const { closePosition, busy: closeBusy, error: closeError } =
     useHyperliquidTrading();
   const [closeNotice, setCloseNotice] = useState<string | null>(null);
@@ -287,6 +288,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         funding={funding}
         orderHistory={orderHistory}
         markPrices={markPrices}
+        exchangeDataStale={exchangeDataStale}
         loading={accountLoading}
         fillsLoading={fillsLoading}
         connected={connected}

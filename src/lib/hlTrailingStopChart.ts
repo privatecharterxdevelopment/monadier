@@ -242,6 +242,8 @@ export function marginPctFromStopPrice(
   return Number.isFinite(pct) && pct > 0 ? pct : null;
 }
 
+export type SlVerification = 'verified' | 'unverified' | 'pending' | 'stale' | 'none';
+
 export type ActiveSlDisplay = {
   stopPx: number | null;
   armed: boolean;
@@ -249,6 +251,7 @@ export type ActiveSlDisplay = {
   label: string;
   sublabel?: string;
   title?: string;
+  verification?: SlVerification;
 };
 
 export type BotTrailServerTruth = {
@@ -261,7 +264,11 @@ export type BotTrailServerTruth = {
   stateTracked?: boolean;
   profitSlPx?: number | null;
   profitSlConfirmed?: boolean;
-  profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  profitSlStatus?:
+    | 'idle'
+    | 'PROFIT_SL_PENDING'
+    | 'PROFIT_SL_CONFIRMED'
+    | 'PROFIT_SL_UNVERIFIED';
   emergencySlPx?: number | null;
   emergencySlConfirmed?: boolean;
 };
@@ -318,6 +325,7 @@ export function trailStopForOpenPosition(opts: {
   stopLossMarginPct?: number;
   holdMs?: number;
   serverTrail?: BotTrailServerTruth;
+  dataStale?: boolean;
 }): ActiveSlDisplay {
   const absSize = Math.abs(opts.szi);
   if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
@@ -337,43 +345,68 @@ export function trailStopForOpenPosition(opts: {
       ? server.emergencySlPx
       : null;
 
+  const stale = Boolean(opts.dataStale);
+  const staleNote = stale ? ' · data STALE' : '';
+
   if (exchangeProfit != null) {
     const breached = side === 'long' ? opts.markPx <= exchangeProfit : opts.markPx >= exchangeProfit;
+    const emer =
+      exchangeEmergency != null
+        ? `E-SL ${fmtStopPx(exchangeEmergency)}${server?.emergencySlConfirmed ? '' : ' (unverified)'}`
+        : undefined;
     return {
       stopPx: exchangeProfit,
       armed: true,
       kind: breached ? 'close_now' : 'profit',
       label: fmtStopPx(exchangeProfit),
-      sublabel: exchangeEmergency
-        ? `E-SL ${fmtStopPx(exchangeEmergency)}`
-        : server?.profitSlStatus === 'PROFIT_SL_PENDING'
-          ? undefined
-          : 'Profit-SL HL',
-      title: `Profit-SL (HL confirmed) ${fmtStopPx(exchangeProfit)}${
-        exchangeEmergency ? ` · Emergency-SL ${fmtStopPx(exchangeEmergency)}` : ''
+      sublabel: emer ?? 'VERIFIED · Profit-SL HL',
+      verification: stale ? 'stale' : 'verified',
+      title: `Profit-SL VERIFIED on Hyperliquid ${fmtStopPx(exchangeProfit)}${staleNote}${
+        exchangeEmergency ? ` · Emergency ${fmtStopPx(exchangeEmergency)}` : ''
       }`,
     };
   }
 
-  if (opts.unrealizedPnlUsd > 0) {
+  const memoryPx =
+    server?.profitSlPx != null && server.profitSlPx > 0 && !server?.profitSlConfirmed
+      ? server.profitSlPx
+      : null;
+  if (memoryPx != null || server?.profitSlStatus === 'PROFIT_SL_UNVERIFIED') {
+    const px = memoryPx ?? server?.profitSlPx ?? null;
+    return {
+      stopPx: px,
+      armed: false,
+      kind: 'arming',
+      label: px != null ? fmtStopPx(px) : 'UNVERIFIED',
+      sublabel: 'UNVERIFIED · no HL order',
+      verification: stale ? 'stale' : 'unverified',
+      title: `Stop px from bot memory only — NOT confirmed on Hyperliquid${staleNote}`,
+    };
+  }
+
+  if (opts.unrealizedPnlUsd > 0 || server?.profitSlStatus === 'PROFIT_SL_PENDING') {
     return {
       stopPx: exchangeEmergency,
       armed: false,
       kind: 'arming',
-      label: 'P-SL pending',
-      sublabel: exchangeEmergency ? `E-SL ${fmtStopPx(exchangeEmergency)}` : undefined,
-      title: 'Profit-SL PENDING — waiting for an exchange-confirmed profit-side stop.',
+      label: 'PENDING',
+      sublabel: exchangeEmergency
+        ? `E-SL ${fmtStopPx(exchangeEmergency)}`
+        : 'Profit-SL pending',
+      verification: stale ? 'stale' : 'pending',
+      title: `Profit-SL PENDING — waiting for exchange-confirmed order${staleNote}`,
     };
   }
 
   if (exchangeEmergency != null) {
     return {
       stopPx: exchangeEmergency,
-      armed: false,
+      armed: true,
       kind: 'loss_cap',
       label: fmtStopPx(exchangeEmergency),
-      sublabel: 'Emergency-SL',
-      title: `Emergency-SL (HL confirmed) ${fmtStopPx(exchangeEmergency)}`,
+      sublabel: 'VERIFIED · Emergency-SL',
+      verification: stale ? 'stale' : 'verified',
+      title: `Emergency-SL VERIFIED on Hyperliquid ${fmtStopPx(exchangeEmergency)}${staleNote}`,
     };
   }
 
@@ -383,7 +416,9 @@ export function trailStopForOpenPosition(opts: {
       armed: false,
       kind: 'loss_cap',
       label: `E-SL ${slPct}%`,
-      title: `User emergency SL ${slPct}% of margin — not yet confirmed on Hyperliquid.`,
+      sublabel: 'UNVERIFIED',
+      verification: 'unverified',
+      title: `Configured emergency ${slPct}% margin — not confirmed on Hyperliquid${staleNote}`,
     };
   }
 
@@ -391,7 +426,8 @@ export function trailStopForOpenPosition(opts: {
     stopPx: null,
     armed: false,
     kind: 'idle',
-    label: '—',
-    title: 'No max loss configured.',
+    label: stale ? 'STALE' : '—',
+    verification: stale ? 'stale' : 'none',
+    title: stale ? `Position data stale${staleNote}` : 'No protective stop configured.',
   };
 }

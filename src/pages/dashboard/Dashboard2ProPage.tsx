@@ -48,7 +48,11 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { setLastKnownHlBotAutoTrade } from '../../lib/hlBotRunningStore';
 import { useHyperliquidTrading } from '../../hooks/useHyperliquidTrading';
 import { useHyperliquidMarkets } from '../../hooks/useHyperliquidMarkets';
-import { useHyperliquidMarkPrices } from '../../hooks/useHyperliquidMarkPrices';
+import {
+  HlExchangeSnapshotProvider,
+  useHlExchangeSnapshot,
+} from '../../contexts/HlExchangeSnapshotContext';
+import { snapshotScopedUpnl } from '../../lib/hlExchangeSnapshot';
 import { useHyperliquidSpotPrices } from '../../hooks/useHyperliquidSpotPrices';
 import {
   DEFAULT_PRO_COIN,
@@ -212,11 +216,8 @@ const Dashboard2ProPageContent: React.FC = () => {
     botSyncTick + perpFills.length,
     interval
   );
-  const positionCoins = useMemo(
-    () => (account?.positions ?? []).map((p) => p.coin),
-    [account?.positions]
-  );
-  const { prices: positionMarkPrices } = useHyperliquidMarkPrices(positionCoins, 5000);
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+  const positionMarkPrices = exchangeSnapshot?.marks ?? {};
   const spotTokens = useMemo(() => spotBalances.map((b) => b.coin), [spotBalances]);
   const { prices: spotTokenPrices } = useHyperliquidSpotPrices(spotTokens);
 
@@ -254,10 +255,12 @@ const Dashboard2ProPageContent: React.FC = () => {
     [twapOrders, perpCoin]
   );
 
-  const totalUpnl = useMemo(
-    () => manualPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0),
-    [manualPositions]
-  );
+  const totalUpnl = useMemo(() => {
+    if (exchangeSnapshot) {
+      return snapshotScopedUpnl(exchangeSnapshot, botManagedCoins, 'manual').totalUsd;
+    }
+    return manualPositions.reduce((s, p) => s + toNum(p.unrealizedPnl), 0);
+  }, [exchangeSnapshot, botManagedCoins, manualPositions]);
 
   const botOpenPosition = useMemo(() => botPositions[0] ?? null, [botPositions]);
 
@@ -928,7 +931,10 @@ const Dashboard2ProPageContent: React.FC = () => {
         />
       </div>
 
-      <ProTradeBotStatusBar walletConnected={walletReady} wsLive={perpMarket.wsConnected} />
+      <ProTradeBotStatusBar
+        walletConnected={walletReady}
+        wsLive={perpMarket.wsConnected && (exchangeSnapshot?.marksWsLive ?? false)}
+      />
     </div>
   );
 
@@ -1112,11 +1118,24 @@ const Dashboard2ProPageContent: React.FC = () => {
   );
 };
 
+function Dashboard2ProSnapshotBridge({ children }: { children: React.ReactNode }) {
+  const { address, isConnected } = useMonadierWallet();
+  const { wallet: hlActiveWallet } = useHlActiveWallet();
+  const wallet = (hlActiveWallet ?? address)?.toLowerCase();
+  return (
+    <HlExchangeSnapshotProvider wallet={wallet} enabled={isConnected || Boolean(hlActiveWallet)}>
+      {children}
+    </HlExchangeSnapshotProvider>
+  );
+}
+
 const Dashboard2ProPage: React.FC = () => (
   <ProTradeShell>
     <LegalAcceptanceProvider>
       <BettingUiProvider>
-        <Dashboard2ProPageContent />
+        <Dashboard2ProSnapshotBridge>
+          <Dashboard2ProPageContent />
+        </Dashboard2ProSnapshotBridge>
         <MonadierWalletAccountSheet />
       </BettingUiProvider>
     </LegalAcceptanceProvider>

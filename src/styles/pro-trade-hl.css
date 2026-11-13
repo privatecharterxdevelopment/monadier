@@ -1923,6 +1923,21 @@ html[dir='rtl'] .hl-book {
   line-height: 1.2;
 }
 
+.hl-active-sl--unverified .hl-active-sl__roe {
+  color: var(--hl-warning, #f59e0b);
+}
+
+.hl-active-sl--stale .hl-active-sl__price,
+.hl-active-sl--stale .hl-active-sl__roe {
+  opacity: 0.75;
+  color: var(--hl-warning, #f59e0b);
+}
+
+.hl-active-sl--pending .hl-active-sl__roe {
+  color: var(--hl-text-muted);
+  font-style: italic;
+}
+
 .hl-active-sl--profit .hl-active-sl__price {
   color: #22c55e;
 }

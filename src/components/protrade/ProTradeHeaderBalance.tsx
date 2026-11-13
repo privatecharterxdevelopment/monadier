@@ -10,7 +10,8 @@ import { useHlBotManagedCoins } from '../../hooks/useHlBotManagedCoins';
 import { useHyperliquidAccount } from '../../hooks/useHyperliquidAccount';
 import { useMonadierWallet } from '../../hooks/useMonadierWallet';
 import { filterHlPositions } from '../../lib/hyperliquid/splitHlPositions';
-import { useHlLiveUnrealizedPnl } from '../../hooks/useHlLiveUnrealizedPnl';
+import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
+import { snapshotScopedUpnl } from '../../lib/hlExchangeSnapshot';
 import { fmtClosedPnl, fmtUsdSymbol, pnlToneClass } from '../../lib/hyperliquid/format';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
@@ -58,17 +59,26 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
   const betStats = useBettingHeaderBalance(walletAddress, enabled && section === 'betting');
   const platformFees = usePlatformFeeGate();
 
+  const { snapshot: exchangeSnapshot } = useHlExchangeSnapshot();
+
   const scopedHlPositions = useMemo(() => {
     if (section === 'betting') return [];
     const scope = section === 'bot' ? 'bot' : 'manual';
-    return filterHlPositions(account?.positions, botManagedCoins, scope);
-  }, [account?.positions, botManagedCoins, section]);
+    const positions = exchangeSnapshot?.positions ?? account?.positions;
+    return filterHlPositions(positions, botManagedCoins, scope);
+  }, [account?.positions, botManagedCoins, section, exchangeSnapshot?.positions]);
 
   const scopedOpenCount = scopedHlPositions.length;
-  const { totalUsd: scopedUnrealizedPnlUsd } = useHlLiveUnrealizedPnl(
-    scopedHlPositions,
-    800
-  );
+  const scopedUnrealizedPnlUsd = useMemo(() => {
+    if (exchangeSnapshot && (section === 'perps' || section === 'bot')) {
+      const scope = section === 'bot' ? 'bot' : 'manual';
+      return snapshotScopedUpnl(exchangeSnapshot, botManagedCoins, scope).totalUsd;
+    }
+    return scopedHlPositions.reduce(
+      (s, p) => s + (Number.parseFloat(p.unrealizedPnl || '0') || 0),
+      0
+    );
+  }, [exchangeSnapshot, section, botManagedCoins, scopedHlPositions]);
 
   /**
    * Account equity for the pill — same number Funds/footer use.
@@ -205,6 +215,10 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
       : snapshot?.unrealizedPnlUsd ?? 0;
   const openTitle =
     section === 'bot' ? 'Open bot positions' : 'Open manual perp positions';
+  const staleHint =
+    exchangeSnapshot?.stale && (section === 'perps' || section === 'bot')
+      ? ` · STALE (pos ${exchangeSnapshot.positionAgeMs}ms / mark ${exchangeSnapshot.markAgeMs}ms)`
+      : '';
 
   const feesOwed = platformFees.accruedUsd;
   const showFees =
@@ -215,7 +229,11 @@ const ProTradeHeaderBalance: React.FC<Props> = ({
     <div className="hl-topnav-betting-balance" aria-label="Hyperliquid balance">
       {balancePill}
       {openCount > 0 ? (
-        <button type="button" className="hl-topnav-bet-stat hl-topnav-bet-stat--btn" title={openTitle}>
+        <button
+          type="button"
+          className="hl-topnav-bet-stat hl-topnav-bet-stat--btn"
+          title={`${openTitle}${staleHint}`}
+        >
           <span className="hl-topnav-bet-label">Open</span>
           <strong>{openCount}</strong>
           <span

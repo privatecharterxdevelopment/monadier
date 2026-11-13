@@ -19,7 +19,11 @@ export type HlBotTrailSnapshot = {
   stateTracked: boolean;
   profitSlPx?: number | null;
   profitSlConfirmed?: boolean;
-  profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
+  profitSlStatus?:
+    | 'idle'
+    | 'PROFIT_SL_PENDING'
+    | 'PROFIT_SL_CONFIRMED'
+    | 'PROFIT_SL_UNVERIFIED';
   emergencySlPx?: number | null;
   emergencySlConfirmed?: boolean;
   computedStopPx?: number | null;
