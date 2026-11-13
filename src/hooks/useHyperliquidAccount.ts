@@ -169,9 +169,9 @@ export function useHyperliquidAccount(address: string | undefined) {
       // Force fills — plain refresh() used to skip heavy for up to HEAVY_REFRESH_MS.
       debounce = setTimeout(() => {
         void refreshCore(address);
-        const staleHeavy = Date.now() - lastHeavyAtRef.current > 12_000;
-        if (staleHeavy) void refreshHeavy(address);
-      }, 600);
+        // userFills = close/open — refresh history immediately for dock + toasts.
+        void refreshHeavy(address);
+      }, 300);
     });
 
     return () => {

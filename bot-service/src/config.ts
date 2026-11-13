@@ -171,6 +171,7 @@ export const config = {
         'TRUMP',
         'WLFI',
         'PONS',
+        'USELESS',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())

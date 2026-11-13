@@ -37,8 +37,11 @@ import { syncBettingTradesToSupabase } from '../lib/betting/syncBettingTrades';
 import { fetchHlOutcomeCatalog } from '../lib/hyperliquid/outcomes/meta';
 import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 import { devError, isHlRateLimitError } from '../lib/devLog';
+import { getHlWsClient } from '../lib/hyperliquid/ws';
+import { fetchHlUserFills } from '../lib/hyperliquid/user';
+import { fillPositionDirection, fmtClosedPnl, isHlFillClose } from '../lib/hyperliquid/format';
 
-const NOTIFICATION_POLL_MS = 20_000;
+const NOTIFICATION_POLL_MS = 4_000;
 const BETTING_SYNC_MS = 5 * 60_000;
 
 type TradeNotificationsContextValue = {
@@ -93,6 +96,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
   const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
   const [wallets, setWallets] = useState<string[]>([]);
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const knownHlCloseFillKeysRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
   const lastBettingSyncAtRef = useRef(0);
   const storageKey = storageKeyForUser(user?.id, isDemoUser);
@@ -101,6 +105,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     setLastSeenAt(loadLastSeenAt(storageKey));
     bootstrappedRef.current = false;
     knownIdsRef.current = new Set();
+    knownHlCloseFillKeysRef.current = new Set();
   }, [storageKey]);
 
   useEffect(() => {
@@ -208,6 +213,63 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     }, NOTIFICATION_POLL_MS);
     return () => clearInterval(poll);
   }, [load]);
+
+  useEffect(() => {
+    if (!user?.id || isDemoUser || wallets.length === 0) return;
+    const hlWallet = wallets.find(Boolean)?.toLowerCase();
+    if (!hlWallet) return;
+
+    let cancelled = false;
+    void fetchHlUserFills(hlWallet, 80).then((fills) => {
+      if (cancelled) return;
+      for (const f of fills) {
+        if (!isHlFillClose(f.dir, f.closedPnl)) continue;
+        knownHlCloseFillKeysRef.current.add(`${f.coin}|${f.time}|${f.tid ?? 0}`);
+      }
+    });
+
+    const client = getHlWsClient();
+    const unsubs = [client.subscribe({ type: 'userFills', user: hlWallet })];
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const off = client.addListener((channel) => {
+      if (channel !== 'userFills') return;
+      if (document.visibilityState === 'hidden') return;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        void (async () => {
+          try {
+            const fills = await fetchHlUserFills(hlWallet, 40);
+            for (const f of fills) {
+              if (!isHlFillClose(f.dir, f.closedPnl)) continue;
+              const key = `${f.coin}|${f.time}|${f.tid ?? 0}`;
+              if (knownHlCloseFillKeysRef.current.has(key)) continue;
+              knownHlCloseFillKeysRef.current.add(key);
+              if (key.length > 0 && knownHlCloseFillKeysRef.current.size > 800) {
+                const first = knownHlCloseFillKeysRef.current.values().next().value;
+                if (first) knownHlCloseFillKeysRef.current.delete(first);
+              }
+              if (!bootstrappedRef.current) continue;
+              const dir = fillPositionDirection(f);
+              showToast(
+                `Closed ${f.coin} ${dir} · ${fmtClosedPnl(f.closedPnl)}`,
+                6_000
+              );
+              void load(true);
+            }
+          } catch (e) {
+            if (!isHlRateLimitError(e)) devError('[TradeNotifications] HL fill close', e);
+          }
+        })();
+      }, 250);
+    });
+
+    return () => {
+      cancelled = true;
+      for (const u of unsubs) u();
+      off();
+      if (debounce) clearTimeout(debounce);
+    };
+  }, [user?.id, isDemoUser, wallets, showToast, load]);
 
   useEffect(() => {
     if (!user?.id || isDemoUser) return;
