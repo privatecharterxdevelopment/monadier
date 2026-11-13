@@ -4,11 +4,11 @@ import { HL_INFO_URL } from './constants';
 type CacheEntry = { at: number; data: unknown };
 
 const META_TTL_MS = 15_000;
-const CANDLE_TTL_MS = 45_000;
+const CANDLE_TTL_MS = 12_000;
 const CANDLE_STALE_MS = 15 * 60_000;
 const DEFAULT_TTL_MS = 4_000;
 const USER_STATE_TTL_MS = 2_500;
-const USER_FILLS_TTL_MS = 45_000;
+const USER_FILLS_TTL_MS = 8_000;
 const MAX_RETRIES = 4;
 const MIN_REQUEST_GAP_MS = 90;
 const RATE_LIMIT_PAUSE_MS = 6_000;
@@ -48,6 +48,7 @@ function cacheKey(body: Record<string, unknown>): string {
       type === 'openOrders' ||
       type === 'frontendOpenOrders' ||
       type === 'userAbstraction' ||
+      type === 'userNonFundingLedgerUpdates' ||
       type === 'extraAgents')
   ) {
     return JSON.stringify({ type, user });

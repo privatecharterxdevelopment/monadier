@@ -29,7 +29,7 @@ type Listener = (snapshot: HlAccountSnapshot | null) => void;
 let activeWallet: string | null = null;
 let snapshot: HlAccountSnapshot | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
-let pollIntervalMs = 15_000;
+let pollIntervalMs = 8_000;
 let inFlight = false;
 /** Require 2 consecutive empty reads before wiping a previously funded snapshot. */
 let emptyEquityStreak = 0;
@@ -163,7 +163,7 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
 
     snapshot = next;
     const equityForInterval = Math.max(funding.accountEquityUsd, next.totalUsd);
-    const nextInterval = equityForInterval < MIN_HL_BOT_USD ? 5_000 : 15_000;
+    const nextInterval = equityForInterval < MIN_HL_BOT_USD ? 4_000 : 8_000;
     if (nextInterval !== pollIntervalMs) {
       pollIntervalMs = nextInterval;
       if (pollTimer && activeWallet === wallet) {
@@ -197,7 +197,7 @@ function startPoll(wallet: string): void {
     if (snapshot?.wallet !== wallet) {
       snapshot = null;
       emptyEquityStreak = 0;
-      pollIntervalMs = 15_000;
+      pollIntervalMs = 8_000;
     }
   }
   stopPoll();

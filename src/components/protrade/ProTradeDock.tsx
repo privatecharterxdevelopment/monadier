@@ -36,7 +36,9 @@ import {
   aggregateHlCloseFills,
   aggregatedCloseFillKey,
   balanceAfterByCloseFill,
+  equityDeltaFromHlLedgerRow,
   type AggregatedHlCloseFill,
+  type EquityLedgerFlow,
 } from '../../lib/hyperliquid/hlFillAggregate';
 import { resolveDisplayLeverage } from '../../lib/hyperliquid/displayLeverage';
 import { toNum } from '../../lib/hyperliquid/parse';
@@ -62,7 +64,7 @@ import DockCountBadge from './DockCountBadge';
 import PositionStopEditModal from './PositionStopEditModal';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
-import { fetchHlUserFills } from '../../lib/hyperliquid/user';
+import { fetchHlNonFundingLedger, fetchHlUserFills } from '../../lib/hyperliquid/user';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
@@ -397,22 +399,51 @@ const ProTradeDock: React.FC<Props> = ({
   );
   /** Wallet-wide closes — Zwischenbalance must track real equity, not bot-scoped subset. */
   const allCloseFills = useMemo(() => aggregateHlCloseFills(dockFills), [dockFills]);
-  const accountOpenUpnl = useMemo(
-    () =>
-      (account?.positions ?? []).reduce((sum, p) => sum + toNum(p.unrealizedPnl), 0),
-    [account?.positions]
+  const walletOpenUpnl = useMemo(() => {
+    const positions =
+      hlSnap?.positions?.length ? hlSnap.positions : account?.positions ?? [];
+  return positions.reduce(
+    (sum, p) => sum + livePositionPnl(p, markPrices[p.coin] ?? 0),
+    0
   );
+  }, [hlSnap?.positions, account?.positions, markPrices]);
   const flatEquityNow = useMemo(() => {
-    const accountValue = toNum(account?.margin?.accountValue);
-    if (!Number.isFinite(accountValue) || accountValue <= 0) return null;
-    return accountValue - accountOpenUpnl;
-  }, [account?.margin?.accountValue, accountOpenUpnl]);
+    if (!balanceKnown || hlEquityUsd <= 0) return null;
+    return hlEquityUsd - walletOpenUpnl;
+  }, [balanceKnown, hlEquityUsd, walletOpenUpnl]);
+
+  const [equityLedgerFlows, setEquityLedgerFlows] = useState<EquityLedgerFlow[]>([]);
+  useEffect(() => {
+    if (!dockWallet || tab !== 'tradeHistory') return;
+    let cancelled = false;
+    const load = () => {
+      void fetchHlNonFundingLedger(dockWallet)
+        .then((rows) => {
+          if (cancelled) return;
+          setEquityLedgerFlows(
+            rows
+              .map((r) => ({ time: r.time, deltaUsd: equityDeltaFromHlLedgerRow(r) }))
+              .filter((r) => r.deltaUsd !== 0)
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setEquityLedgerFlows([]);
+        });
+    };
+    load();
+    const id = window.setInterval(load, 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [dockWallet, tab, reasonRefreshKey]);
+
   const balanceAfterByFill = useMemo(
     () =>
       flatEquityNow == null
         ? new Map<string, number>()
-        : balanceAfterByCloseFill(allCloseFills, flatEquityNow),
-    [allCloseFills, flatEquityNow]
+        : balanceAfterByCloseFill(allCloseFills, flatEquityNow, equityLedgerFlows),
+    [allCloseFills, flatEquityNow, equityLedgerFlows]
   );
 
   const tabSuffix = (id: TabId) => {

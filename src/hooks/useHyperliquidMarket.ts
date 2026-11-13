@@ -42,7 +42,7 @@ type State = {
   fetchAttempts: number;
 };
 
-const SNAPSHOT_POLL_MS = 10_000;
+const SNAPSHOT_POLL_MS = 4_000;
 const BOOK_FALLBACK_POLL_MS = 2_000;
 const EMPTY_CANDLE_RETRY_MS = 700;
 /** Keep retrying — never “give up” into WS-only (1 bar = blank chart with a single spike). */

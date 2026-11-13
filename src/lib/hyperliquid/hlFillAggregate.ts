@@ -76,17 +76,64 @@ export function aggregateHlCloseFills(fills: HlUserFill[]): AggregatedHlCloseFil
  *
  * Deposits/withdrawals between fills make older rows approximate.
  */
+export type EquityLedgerFlow = { time: number; deltaUsd: number };
+
+/**
+ * Net USDC equity change from HL non-funding ledger rows (deposits, withdrawals, spot↔perp).
+ * Positive = wallet equity increased (e.g. deposit to perp).
+ */
+export function equityDeltaFromHlLedgerRow(row: {
+  time: number;
+  delta: Record<string, unknown>;
+}): number {
+  const d = row.delta;
+  const type = String(d.type ?? '');
+  const usdc = toNum(d.usdc);
+  if (!Number.isFinite(usdc) || usdc === 0) return 0;
+  if (type === 'deposit') return usdc;
+  if (type === 'withdraw' || type === 'withdrawal') return -usdc;
+  if (type === 'accountClassTransfer') {
+    return d.toPerp === true ? usdc : -usdc;
+  }
+  if (type === 'internalTransfer') {
+    const fee = toNum(d.fee);
+    return usdc - fee;
+  }
+  if (type === 'spotTransfer') {
+    return usdc;
+  }
+  return 0;
+}
+
 export function balanceAfterByCloseFill(
   closesNewestFirst: AggregatedHlCloseFill[],
-  flatEquityNow: number
+  flatEquityNow: number,
+  ledgerFlowsNewestFirst: EquityLedgerFlow[] = []
 ): Map<string, number> {
   const map = new Map<string, number>();
   if (!Number.isFinite(flatEquityNow)) return map;
 
+  const flows = ledgerFlowsNewestFirst
+    .filter((f) => Number.isFinite(f.time) && Number.isFinite(f.deltaUsd) && f.deltaUsd !== 0)
+    .slice()
+    .sort((a, b) => b.time - a.time);
+
   let running = flatEquityNow;
-  for (const f of closesNewestFirst) {
+  let flowIdx = 0;
+  for (let i = 0; i < closesNewestFirst.length; i += 1) {
+    const f = closesNewestFirst[i]!;
+    const newerCloseTime = i === 0 ? Number.POSITIVE_INFINITY : closesNewestFirst[i - 1]!.time;
+
+    while (
+      flowIdx < flows.length &&
+      flows[flowIdx]!.time > f.time &&
+      flows[flowIdx]!.time <= newerCloseTime
+    ) {
+      running -= flows[flowIdx]!.deltaUsd;
+      flowIdx += 1;
+    }
+
     map.set(aggregatedCloseFillKey(f), running);
-    // Undo this close: equity previously excluded its realized pnl and still held its fee.
     running = running - toNum(f.closedPnl) + toNum(f.fee);
   }
   return map;

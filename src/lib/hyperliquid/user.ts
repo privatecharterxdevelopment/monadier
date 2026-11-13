@@ -376,6 +376,34 @@ export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | nu
   return null;
 }
 
+export type HlNonFundingLedgerRow = {
+  time: number;
+  delta: Record<string, unknown>;
+};
+
+export async function fetchHlNonFundingLedger(
+  user: string,
+  opts?: { startTime?: number }
+): Promise<HlNonFundingLedgerRow[]> {
+  const startTime = opts?.startTime ?? Date.now() - 400 * 86_400_000;
+  const rows = await hlInfoPost<Array<Record<string, unknown>>>({
+    type: 'userNonFundingLedgerUpdates',
+    user: user.toLowerCase(),
+    startTime,
+  });
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r) => ({
+      time: toNum(r.time),
+      delta:
+        r.delta && typeof r.delta === 'object'
+          ? (r.delta as Record<string, unknown>)
+          : (r as Record<string, unknown>),
+    }))
+    .filter((r) => r.time > 0)
+    .sort((a, b) => b.time - a.time);
+}
+
 export async function fetchHlUserFunding(user: string, limit = 50): Promise<HlFundingPayment[]> {
   const rows = await hlInfo<Array<Record<string, unknown>>>({ type: 'userFunding', user });
   if (!Array.isArray(rows)) return [];
