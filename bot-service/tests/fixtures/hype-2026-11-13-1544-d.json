@@ -1,0 +1,58 @@
+{
+  "trade": {
+    "coin": "HYPE",
+    "direction": "SHORT",
+    "entryPx": 72.316,
+    "absSize": 3.93,
+    "leverage": 40
+  },
+  "events": [
+    {
+      "kind": "exchange",
+      "tUtc": "2026-11-13T15:44:07.269Z",
+      "type": "fill",
+      "detail": "Open Short 72.316 sz 3.93 oid 604118894393"
+    },
+    {
+      "kind": "exchange",
+      "tUtc": "2026-11-13T15:45:05.879Z",
+      "type": "order",
+      "detail": "Stop triggered triggerPx 72.257 (production A)"
+    },
+    {
+      "kind": "exchange",
+      "tUtc": "2026-11-13T15:45:09.522Z",
+      "type": "fill",
+      "detail": "Close 72.249 net ~0.008"
+    },
+    {
+      "kind": "exchange",
+      "tUtc": "2026-11-13T15:44:00Z",
+      "type": "candle1m",
+      "low": 72.145,
+      "mfeUsdApprox": 0.672
+    },
+    {
+      "kind": "simulated",
+      "tUtc": "2026-11-13T15:44:09Z",
+      "type": "trail_arm",
+      "markPx": 72.22,
+      "peakPnlUsd": 0.45,
+      "expectedStructuralStopPxApprox": 72.24
+    },
+    {
+      "kind": "simulated",
+      "tUtc": "2026-11-13T15:44:20Z",
+      "type": "trail_ratchet",
+      "markPx": 72.145,
+      "peakPnlUsd": 0.672,
+      "expectedStructuralStopPxApprox": 72.205
+    }
+  ],
+  "assertions": {
+    "productionStopPx": 72.257,
+    "variantDFirstStructuralMin": 72.238,
+    "variantDFirstStructuralMax": 72.242,
+    "glueOnlyRejectedAsStructural": true
+  }
+}

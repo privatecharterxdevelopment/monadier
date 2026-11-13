@@ -11,8 +11,10 @@ import {
   profitStopMarketCapPx,
   profitStopSafeToPost,
   protectiveSideOk,
+  resolveExchangeProfitPostPx,
   shouldDeferTrailSync,
   simulateTriggeredProfitFill,
+  verifyExchangeProfitStopOpen,
 } from './hlProfitStopSync';
 
 const entry = 86.45;
@@ -395,5 +397,198 @@ describe('capped profit stop-market vs stop-limit fills', () => {
     assert.ok((plan.mergedProfitPx as number) <= 86.2);
     assert.equal(plan.existingProfitKind, 'market');
     assert.equal(plan.firstProfitPlacement, false);
+  });
+});
+
+describe('Variant D protective sync (HL POST semantics)', () => {
+  const profitMarket = (
+    oid: number,
+    triggerPx: string
+  ): {
+    coin: string;
+    oid: number;
+    reduceOnly: true;
+    isTrigger: true;
+    orderType: string;
+    triggerPx: string;
+    limitPx: string;
+    sz: string;
+  } => ({
+    coin: 'SOL',
+    oid,
+    reduceOnly: true,
+    isTrigger: true,
+    orderType: 'Stop Market',
+    triggerPx,
+    limitPx: String(Number(triggerPx) + 0.24),
+    sz: String(size),
+  });
+
+  it('resolveExchangeProfitPostPx prefers structural over glue (T-D-10)', () => {
+    const mark = be - 0.25;
+    const structural = be - 0.02;
+    const resolved = resolveExchangeProfitPostPx({
+      direction: 'SHORT',
+      structuralPx: structural,
+      markPx: mark,
+      entryPx: entry,
+      absSize: size,
+      minLockUsd: 0.2,
+      breakevenPx: be,
+      tickSize: 0.001,
+    });
+    assert.equal(resolved.mode, 'structural');
+    assert.equal(resolved.postPx, structural);
+  });
+
+  it('glue fallback is POST-only — structural stays tighter than glue on SHORT', () => {
+    const mark = be - 0.05;
+    const structural = be - 0.15;
+    const resolved = resolveExchangeProfitPostPx({
+      direction: 'SHORT',
+      structuralPx: structural,
+      markPx: mark,
+      entryPx: entry,
+      absSize: size,
+      minLockUsd: 0,
+      breakevenPx: be,
+      tickSize: 0.001,
+    });
+    if (resolved.mode === 'glue_fallback' && resolved.postPx != null) {
+      assert.ok(resolved.postPx > structural);
+    }
+  });
+
+  it('verifyExchangeProfitStopOpen matches trigger within tick', () => {
+    const trigger = 86.2;
+    assert.equal(
+      verifyExchangeProfitStopOpen({
+        orders: [profitMarket(1, String(trigger))],
+        coin: 'SOL',
+        direction: 'SHORT',
+        entryPx: entry,
+        breakevenPx: be,
+        expectedTriggerPx: trigger,
+        tickSize: 0.001,
+      }),
+      true
+    );
+    assert.equal(
+      verifyExchangeProfitStopOpen({
+        orders: [profitMarket(1, '86.35')],
+        coin: 'SOL',
+        direction: 'SHORT',
+        entryPx: entry,
+        breakevenPx: be,
+        expectedTriggerPx: trigger,
+        tickSize: 0.001,
+      }),
+      false
+    );
+  });
+
+  it('tighten schedules cancelProfitAfterPost, not cancelOids (T-D-DUP)', () => {
+    const plan = planProtectiveSync({
+      direction: 'SHORT',
+      entryPx: entry,
+      markPx: 86.05,
+      absSize: size,
+      orders: [profitMarket(9, '86.20'), profitMarket(10, '86.19')],
+      coin: 'SOL',
+      desiredStopPx: 86.1,
+      armed: true,
+      emergencyStopPx: 88.1,
+      minLockUsd: 0,
+      tickSize: 0.001,
+      breakevenPx: be,
+      nowMs: 10_000,
+      lastTrailSyncAt: 0,
+    });
+    assert.ok(plan.postProfit);
+    assert.deepEqual(
+      [...plan.cancelProfitAfterPost].sort((a, b) => a - b),
+      [9, 10]
+    );
+    assert.ok(!plan.cancelOids.includes(9));
+    assert.ok(!plan.cancelOids.includes(10));
+  });
+
+  it('looser desired defers trail — no POST, no profit cancel list (T-D-REJ / never loosen)', () => {
+    const plan = planProtectiveSync({
+      direction: 'SHORT',
+      entryPx: entry,
+      markPx: 86.1,
+      absSize: size,
+      orders: [profitMarket(9, '86.15')],
+      coin: 'SOL',
+      desiredStopPx: 86.25,
+      armed: true,
+      emergencyStopPx: 88.1,
+      minLockUsd: 0,
+      tickSize: 0.001,
+      breakevenPx: be,
+      nowMs: 10_000,
+      lastTrailSyncAt: 0,
+    });
+    assert.equal(plan.mergedProfitPx, 86.15);
+    assert.equal(plan.postProfit, null);
+    assert.deepEqual(plan.cancelProfitAfterPost, []);
+    assert.ok(
+      plan.deferTrail || plan.mergedProfitPx === plan.reconstructedProfitPx
+    );
+  });
+
+  it('emergency and profit both post when missing (T-D-EM)', () => {
+    const plan = planProtectiveSync({
+      direction: 'SHORT',
+      entryPx: entry,
+      markPx: be - 0.25,
+      absSize: size,
+      orders: [],
+      coin: 'SOL',
+      desiredStopPx: be,
+      armed: true,
+      emergencyStopPx: 88.1,
+      minLockUsd: 0,
+      tickSize: 0.001,
+      breakevenPx: be,
+      nowMs: 1,
+      lastTrailSyncAt: 0,
+    });
+    assert.equal(plan.postEmergencyPx, 88.1);
+    assert.ok(plan.postProfit);
+    assert.equal(plan.emergencyMissing, true);
+  });
+
+  it('smaller absSize changes resolved POST px for same USD lock (T-D-PF)', () => {
+    const mark = be - 0.25;
+    const lockUsd = 0.5;
+    const notPlaceableStructural = be + 0.05;
+    const full = resolveExchangeProfitPostPx({
+      direction: 'SHORT',
+      structuralPx: notPlaceableStructural,
+      markPx: mark,
+      entryPx: entry,
+      absSize: size,
+      minLockUsd: lockUsd,
+      breakevenPx: be,
+      tickSize: 0.001,
+    });
+    const half = resolveExchangeProfitPostPx({
+      direction: 'SHORT',
+      structuralPx: notPlaceableStructural,
+      markPx: mark,
+      entryPx: entry,
+      absSize: size / 2,
+      minLockUsd: lockUsd,
+      breakevenPx: be,
+      tickSize: 0.001,
+    });
+    assert.ok(full.postPx != null && half.postPx != null);
+    assert.notEqual(full.postPx, half.postPx);
+    assert.ok(
+      (half.postPx as number) < (full.postPx as number),
+      'half size posts a tighter SHORT stop for the same minLockUsd'
+    );
   });
 });

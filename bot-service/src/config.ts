@@ -227,6 +227,8 @@ export const config = {
     minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.2),
     /** Dynamic price-based trailing stop (21 Jun ATR/% trail). */
     dynamicTrail: {
+      /** false when HL_TRAIL_LEGACY=true — restores pre-D glue ratchet. */
+      consolidatedVariantD: process.env.HL_TRAIL_LEGACY !== 'true',
       /** Min continuous ms in profit before arming the profit SL. */
       armMinProfitHoldMs: Math.max(
         1_000,

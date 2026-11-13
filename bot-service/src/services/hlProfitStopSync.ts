@@ -31,8 +31,10 @@ import {
 } from './hlInfo';
 import {
   breakevenPlusFeesStopPx,
+  isConsolidatedTrailVariantD,
   lockedPnlAtStopPx,
   minProfitTrailGapPx,
+  profitStopPxForLockedUsd,
   profitStopPlaceable,
   ratchetStop,
 } from './dynamicTrailingStop';
@@ -266,9 +268,119 @@ export function simulateTriggeredProfitFill(opts: {
   return realizedLoss ? 'would_realize_loss' : 'filled';
 }
 
-function samePx(a: number, b: number, tick: number): boolean {
+export function samePx(a: number, b: number, tick: number): boolean {
   const tol = Math.max(tick, Math.abs(b) * 1e-6, 1e-8);
   return Math.abs(a - b) <= tol * 1.5;
+}
+
+export type ProfitPostMode =
+  | 'structural'
+  | 'glue_fallback'
+  | 'min_lock_fallback'
+  | 'none';
+
+/** Exchange POST price — glue only when structural/min-lock are not placeable (never trails). */
+export function resolveExchangeProfitPostPx(opts: {
+  direction: 'LONG' | 'SHORT';
+  structuralPx: number;
+  markPx: number;
+  entryPx: number;
+  absSize: number;
+  minLockUsd: number;
+  breakevenPx: number;
+  tickSize: number;
+}): { postPx: number | null; mode: ProfitPostMode } {
+  const base = {
+    direction: opts.direction,
+    markPx: opts.markPx,
+    entryPx: opts.entryPx,
+    absSize: opts.absSize,
+    minLockUsd: opts.minLockUsd,
+    breakevenPx: opts.breakevenPx,
+    tickSize: opts.tickSize,
+    isMarket: true as const,
+  };
+  if (
+    profitStopSafeToPost({ ...base, stopPx: opts.structuralPx }) &&
+    profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: opts.structuralPx,
+      markPx: opts.markPx,
+      entryPx: opts.entryPx,
+      tickSize: opts.tickSize,
+    })
+  ) {
+    return { postPx: opts.structuralPx, mode: 'structural' };
+  }
+
+  const minPx = profitStopPxForLockedUsd({
+    direction: opts.direction,
+    entryPrice: opts.entryPx,
+    absSize: opts.absSize,
+    lockUsd: Math.max(0, opts.minLockUsd),
+    markPrice: opts.markPx,
+    tickSize: opts.tickSize,
+  });
+  if (
+    minPx != null &&
+    profitStopSafeToPost({ ...base, stopPx: minPx }) &&
+    profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: minPx,
+      markPx: opts.markPx,
+      entryPx: opts.entryPx,
+      tickSize: opts.tickSize,
+    })
+  ) {
+    return { postPx: minPx, mode: 'min_lock_fallback' };
+  }
+
+  const gap = minProfitTrailGapPx(opts.markPx, opts.tickSize);
+  const gluePx =
+    opts.direction === 'LONG' ? opts.markPx - gap : opts.markPx + gap;
+  if (
+    profitStopSafeToPost({ ...base, stopPx: gluePx }) &&
+    profitStopPlaceable({
+      direction: opts.direction,
+      stopPx: gluePx,
+      markPx: opts.markPx,
+      entryPx: opts.entryPx,
+      tickSize: opts.tickSize,
+    })
+  ) {
+    return { postPx: gluePx, mode: 'glue_fallback' };
+  }
+
+  return { postPx: null, mode: 'none' };
+}
+
+export function verifyExchangeProfitStopOpen(opts: {
+  orders: FrontendOrder[];
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  entryPx: number;
+  breakevenPx: number;
+  expectedTriggerPx: number;
+  tickSize: number;
+}): boolean {
+  const classified = opts.orders
+    .filter((o) => Number(o.oid) > 0)
+    .map((o) => ({
+      order: o,
+      kind: classifyHlTriggerOrder(
+        o,
+        opts.coin,
+        opts.direction,
+        opts.entryPx,
+        opts.breakevenPx
+      ),
+    }));
+  for (const row of classified) {
+    if (!isProfitTriggerKind(row.kind)) continue;
+    const px = Number(row.order.triggerPx ?? row.order.limitPx ?? 0);
+    if (px > 0 && samePx(px, opts.expectedTriggerPx, opts.tickSize)) return true;
+  }
+  return false;
 }
 
 export function shouldDeferTrailSync(opts: {
@@ -295,8 +407,11 @@ export type ProtectiveSyncPlan = {
   upgradeLimitToMarket: boolean;
   deferTrail: boolean;
   cancelOids: number[];
+  /** Profit replaces — cancel only after verified POST (HL has no atomic replace). */
+  cancelProfitAfterPost: number[];
   postEmergencyPx: number | null;
   postProfit: { triggerPx: number; capPx: number } | null;
+  postProfitMode?: ProfitPostMode;
 };
 
 export function planProtectiveSync(opts: {
@@ -420,17 +535,57 @@ export function planProtectiveSync(opts: {
     cancelOids.push(...profitOrders.map((x) => Number(x.order.oid)).filter((id) => id > 0));
   }
   let postProfit: ProtectiveSyncPlan['postProfit'] = null;
-  if (wantProfit && !matchingMarket && !deferTrail) {
-    cancelOids.push(...profitOrders.map((x) => Number(x.order.oid)));
-    postProfit = {
-      triggerPx: mergedProfitPx as number,
-      capPx: profitStopMarketCapPx(
-        opts.direction,
-        mergedProfitPx as number,
-        opts.entryPx,
-        opts.tickSize
-      ),
-    };
+  let postProfitMode: ProfitPostMode = 'none';
+  const cancelProfitAfterPost: number[] = [];
+  if (wantProfit && !matchingMarket && !deferTrail && mergedProfitPx != null) {
+    cancelProfitAfterPost.push(
+      ...profitOrders.map((x) => Number(x.order.oid)).filter((id) => id > 0)
+    );
+    let triggerPx = mergedProfitPx;
+    if (isConsolidatedTrailVariantD()) {
+      const resolved = resolveExchangeProfitPostPx({
+        direction: opts.direction,
+        structuralPx: mergedProfitPx,
+        markPx: opts.markPx,
+        entryPx: opts.entryPx,
+        absSize: opts.absSize,
+        minLockUsd: opts.minLockUsd ?? 0,
+        breakevenPx: opts.breakevenPx,
+        tickSize: opts.tickSize,
+      });
+      postProfitMode = resolved.mode;
+      if (resolved.postPx != null) {
+        triggerPx = resolved.postPx;
+        if (resolved.mode === 'glue_fallback') {
+          logger.info('TRAIL_POST_GLUE_FALLBACK', {
+            coin: opts.coin,
+            structural: mergedProfitPx,
+            glue: triggerPx,
+          });
+        } else if (resolved.mode === 'min_lock_fallback') {
+          logger.info('TRAIL_POST_MINLOCK_FALLBACK', {
+            coin: opts.coin,
+            structural: mergedProfitPx,
+            post: triggerPx,
+          });
+        }
+      } else {
+        triggerPx = 0;
+      }
+    } else {
+      postProfitMode = 'structural';
+    }
+    if (triggerPx > 0) {
+      postProfit = {
+        triggerPx,
+        capPx: profitStopMarketCapPx(
+          opts.direction,
+          triggerPx,
+          opts.entryPx,
+          opts.tickSize
+        ),
+      };
+    }
   }
 
   return {
@@ -443,8 +598,10 @@ export function planProtectiveSync(opts: {
     upgradeLimitToMarket,
     deferTrail,
     cancelOids: [...new Set(cancelOids.filter((id) => id > 0))],
+    cancelProfitAfterPost: [...new Set(cancelProfitAfterPost)],
     postEmergencyPx: emergencyMissing ? opts.emergencyStopPx : null,
     postProfit,
+    postProfitMode,
   };
 }
 
@@ -813,6 +970,7 @@ export async function syncHlProfitStopOrder(opts: {
         }
       }
     }
+    const profitOidsToRetire = plan.cancelProfitAfterPost ?? [];
 
     // Emergency first — never wait for the trail throttle.
     if (plan.postEmergencyPx != null) {
@@ -884,24 +1042,59 @@ export async function syncHlProfitStopOrder(opts: {
           error: lastErr,
         });
       } else {
-        lastSyncAt.set(key, nowMs);
-        rememberConfirmedStops(
-          opts.userAddress,
-          opts.coin,
-          plan.postProfit.triggerPx,
-          plan.reconstructedEmergencyPx
-        );
-        logger.info('HL capped profit stop-market posted', {
-          user: opts.userAddress.slice(0, 10),
-          coin: opts.coin,
-          direction: opts.direction,
-          stopPx: plan.postProfit.triggerPx,
-          capPx: plan.postProfit.capPx,
-          first: plan.firstProfitPlacement,
-          isMarket: true,
-          tpsl: 'sl',
-          grouping: 'na',
-        });
+        const ordersAfter =
+          opts.openOrders !== undefined
+            ? opts.openOrders
+            : await fetchFrontendOpenOrders(opts.userAddress);
+        const verified =
+          ordersAfter != null &&
+          verifyExchangeProfitStopOpen({
+            orders: ordersAfter,
+            coin: opts.coin,
+            direction: opts.direction,
+            entryPx: opts.entryPrice,
+            breakevenPx: be,
+            expectedTriggerPx: plan.postProfit.triggerPx,
+            tickSize: tick,
+          });
+        if (!verified) {
+          logger.warn('TRAIL_POST_VERIFY_FAILED', {
+            user: opts.userAddress.slice(0, 10),
+            coin: opts.coin,
+            stopPx: plan.postProfit.triggerPx,
+          });
+        } else {
+          lastSyncAt.set(key, nowMs);
+          rememberConfirmedStops(
+            opts.userAddress,
+            opts.coin,
+            plan.postProfit.triggerPx,
+            plan.reconstructedEmergencyPx
+          );
+          if (profitOidsToRetire.length > 0) {
+            try {
+              await cancelOids(opts.userAddress, opts.coin, profitOidsToRetire);
+            } catch (err) {
+              logger.warn('HL profit stop retire cancel failed — duplicate may linger', {
+                user: opts.userAddress.slice(0, 10),
+                coin: opts.coin,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+          logger.info('HL capped profit stop-market posted', {
+            user: opts.userAddress.slice(0, 10),
+            coin: opts.coin,
+            direction: opts.direction,
+            stopPx: plan.postProfit.triggerPx,
+            capPx: plan.postProfit.capPx,
+            first: plan.firstProfitPlacement,
+            postMode: plan.postProfitMode ?? 'structural',
+            isMarket: true,
+            tpsl: 'sl',
+            grouping: 'na',
+          });
+        }
       }
     } else if (!plan.deferTrail && !plan.firstProfitPlacement) {
       lastSyncAt.set(key, nowMs);

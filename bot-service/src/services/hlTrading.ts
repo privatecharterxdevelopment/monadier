@@ -1724,23 +1724,13 @@ export class HyperliquidTradingService {
           netPnlUsd >= profitTargetUsd
             ? Math.min(1_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs)
             : config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
-        const desiredProfitStopPx = resolveDesiredProfitStopPx({
-          direction: positionDirection,
-          entryPrice: entry,
-          markPrice,
-          absSize,
-          feesUsd,
-          fundingUsd,
-          tickSize: tickSizeForTrail,
-          currentTrailStop: trailResult.record.currentTrailStop,
-        });
         const armFloor = profitArmFloorUsd(minLockUsd, netPnlUsd, pnl);
         const lockUsdAtStop = Math.min(
           profitTargetUsd,
           Math.max(armFloor, netPnlUsd * 0.9)
         );
         const desiredWithLock =
-          desiredProfitStopPx ??
+          trailResult.record.currentTrailStop ??
           resolveDesiredProfitStopPx({
             direction: positionDirection,
             entryPrice: entry,
@@ -1755,7 +1745,8 @@ export class HyperliquidTradingService {
           pnl > 0 &&
           netPnlUsd >= armFloor &&
           desiredWithLock != null &&
-          trailResult.record.timeInProfitMs >= armHoldMs;
+          trailResult.record.timeInProfitMs >= armHoldMs &&
+          trailResult.record.phase !== 'pending';
 
         const plan = await syncHlProfitStopOrder({
           userAddress,

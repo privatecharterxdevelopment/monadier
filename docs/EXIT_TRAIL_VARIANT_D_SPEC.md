@@ -378,4 +378,70 @@ Längeres HYPE-Halten in D hätte in **diesem** Fenster nur die USELESS-Re-Open 
 - [ ] Emergency-Tests unverändert grün  
 - [ ] Fallback-Logs in Staging sichtbar (`TRAIL_POST_*`)
 
-**Dokumentversion:** 2026-11-14 (Variante D, Post-HYPE-Forensik)
+---
+
+## 14. Sicherheitsanforderungen (Exchange, verbindlich)
+
+### 14.1 Kein atomares Replace (HL-API)
+
+Hyperliquid ersetzt Stop-Orders **nicht** atomar. Gültiges Muster:
+
+1. **POST** neue reduce-only Trigger-Order (`grouping: na`).
+2. Nach **bestätigtem** Open/Resting die alte Profit-Order **canceln** (nur dann).
+3. Bei POST-Fehler: **kein Cancel** bestehender Profit-Orders (Regel 3).
+
+Emergency-POST bleibt **unabhängig** und **vor** Profit-POST; niemals `positionTpsl`-Grouping für Profit (nur ein SL/Position).
+
+### 14.2 Bestätigung nach jedem Stop-Update
+
+Nach jedem erfolgreichen Profit-POST:
+
+- `frontendOpenOrders` erneut lesen.
+- Profit-Trigger per `classifyHlTriggerOrder` + `samePx(tick)` gegen **geposteten** `triggerPx` prüfen.
+- `rememberConfirmedStops` nur bei Verifikation; sonst Log `TRAIL_POST_VERIFY_FAILED` und **alter** Exchange-Stop bleibt maßgeblich (`seedTrailFromConfirmedProfitStop`).
+
+### 14.3 Fehlerpfad — Schutz behalten
+
+| Fehler | Aktion |
+|--------|--------|
+| POST reject / timeout | Profit-Orders **nicht** canceln |
+| Cancel fail (vor POST) | `postProfit = null` (bestehend) |
+| Verify fail nach POST | Alte Orders **nicht** canceln; ggf. Duplikat manuell per nächstem tighten-Zyklus bereinigen |
+
+### 14.4 D-FB-2 Glue — nur POST, nie Trail
+
+- `currentTrailStop` im Record = **nur** `structuralPx` (Stages/ATR/BE).
+- Glue erscheint **ausschließlich** in `resolveExchangeProfitPostPx()` für `postProfit.triggerPx`.
+- Fallback-Posts loggen `TRAIL_POST_GLUE_FALLBACK`; **kein** `ratchetStop(..., gluePx)` im Monitor.
+
+### 14.5 Niemals lockern (Restart / Recovery)
+
+- `mergedProfitPx = ratchetStop(direction, reconstructedProfitPx, desiredStopPx)` — gewünschter Stop darf Exchange-Stop nur **verschärfen** (LONG höher, SHORT niedriger).
+- Bei `desired` lockerer als Exchange: **`deferTrail`**, kein Cancel/POST.
+- `seedTrailFromConfirmedProfitStop` beim Restart: confirmed floor für Record-Ratchet.
+
+### 14.6 Gebühren, Tick, Slippage, Size
+
+- Arm/Close: `netPnlForProfitArm`, `netPnlAfterCosts` (+ `slippageBufferBps`).
+- Stop-Preise: `profitStopPxForLockedUsd`, `breakevenPlusFeesStopPx`, `hlTickSize` / `formatHlPrice` vor POST.
+- `profitStopSafeToPost` inkl. `minLockUsd` aus **aktueller** `absSize` (Partial Fills).
+
+### 14.7 HYPE 15:44 Golden (Fixture)
+
+Datei: `bot-service/tests/fixtures/hype-2026-11-13-1544-d.json`  
+Trennung: `events[].kind === "exchange"` vs `"simulated"`.  
+Assert: erster platzierbarer **structural** Stop ≈ **72,240** (S1 · `stage1PeakKeepFrac` × Peak ~0,45 USD), nicht Production-Glue **72,257**; POST-Fallback Glue nur wenn structural nicht placeable.
+
+### 14.8 Zusätzliche Testmatrix
+
+| ID | Thema |
+|----|--------|
+| T-D-PF | Partial fill → kleinere `absSize`, Min-Lock neu |
+| T-D-RS | Restart mit `confirmedExchangeStopPx` — kein Lockern |
+| T-D-REJ | Exchange reject → Profit-Order bleibt |
+| T-D-DUP | Zwei Profit-Trigger → tighten bereinigt nach verify |
+| T-D-EM | Emergency + Profit parallel, Emergency unverändert |
+
+**Legacy-Ausweg:** `HL_TRAIL_LEGACY=true` → altes Glue-Ratchet (nur Tests/Rollback).
+
+**Dokumentversion:** 2026-11-14 (Variante D + Sicherheitsanforderungen)

@@ -490,6 +490,151 @@ function formatAnalytics(rec: DynamicTrailRecord, mark: number): string {
   ].join(' · ');
 }
 
+export function isConsolidatedTrailVariantD(): boolean {
+  return config.hyperliquid.dynamicTrail.consolidatedVariantD !== false;
+}
+
+export type ConsolidateStopInput = {
+  direction: 'LONG' | 'SHORT';
+  entryPrice: number;
+  markPrice: number;
+  absSize: number;
+  tickSize: number;
+  feesUsd: number;
+  fundingUsd?: number;
+  notionalUsd: number;
+  highestPriceSinceEntry: number;
+  maxRunup: number;
+  highestPnlSinceEntry: number;
+  currentTrailStop: number | null;
+  trailDistPx: number;
+  stage2Active: boolean;
+  leverage?: number;
+};
+
+export type ConsolidateStopResult = {
+  structuralPx: number | null;
+};
+
+function stopPxFromPeakLockUsd(
+  direction: 'LONG' | 'SHORT',
+  entryPrice: number,
+  absSize: number,
+  lockUsd: number,
+  markPrice: number,
+  tickSize: number
+): number | null {
+  return profitStopPxForLockedUsd({
+    direction,
+    entryPrice,
+    absSize,
+    lockUsd: Math.max(0, lockUsd),
+    markPrice,
+    tickSize,
+  });
+}
+
+/** Variant D — structural stop from stages/ATR; glue excluded. */
+export function consolidateProfitStopPx(input: ConsolidateStopInput): ConsolidateStopResult {
+  const cfg = config.hyperliquid.dynamicTrail;
+  const peakPnl = Math.max(input.maxRunup, input.highestPnlSinceEntry, 0);
+  const be = breakevenPlusFeesStopPx(
+    input.direction,
+    input.entryPrice,
+    input.absSize,
+    input.feesUsd,
+    input.fundingUsd ?? 0,
+    input.notionalUsd,
+    input.tickSize
+  );
+  const minLockUsd = minProfitLockUsd(input.notionalUsd, input.leverage ?? 1);
+  const minLockPx = stopPxFromPeakLockUsd(
+    input.direction,
+    input.entryPrice,
+    input.absSize,
+    minLockUsd,
+    input.markPrice,
+    input.tickSize
+  );
+
+  const candidates: number[] = [be];
+  if (minLockPx != null) candidates.push(minLockPx);
+
+  if (peakPnl > 0) {
+    const s1 = stopPxFromPeakLockUsd(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      peakPnl * cfg.stage1PeakKeepFrac,
+      input.markPrice,
+      input.tickSize
+    );
+    const stall = stopPxFromPeakLockUsd(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      peakPnl * (1 - cfg.stallFloorPeakDropFrac),
+      input.markPrice,
+      input.tickSize
+    );
+    if (s1 != null) candidates.push(s1);
+    if (stall != null) candidates.push(stall);
+
+    if (input.stage2Active) {
+      const floorFrac =
+        input.direction === 'LONG'
+          ? cfg.longProfitFloorPeakDropFrac ?? cfg.profitFloorPeakDropFrac
+          : cfg.profitFloorPeakDropFrac;
+      const floor = stopPxFromPeakLockUsd(
+        input.direction,
+        input.entryPrice,
+        input.absSize,
+        peakPnl * (1 - floorFrac),
+        input.markPrice,
+        input.tickSize
+      );
+      const s2 = stopPxFromPeakLockUsd(
+        input.direction,
+        input.entryPrice,
+        input.absSize,
+        peakPnl * cfg.stage2PeakKeepFrac,
+        input.markPrice,
+        input.tickSize
+      );
+      if (floor != null) candidates.push(floor);
+      if (s2 != null) candidates.push(s2);
+
+      const trailCandidate =
+        input.direction === 'LONG'
+          ? input.highestPriceSinceEntry - input.trailDistPx
+          : input.highestPriceSinceEntry + input.trailDistPx;
+      if (trailCandidate > 0) candidates.push(trailCandidate);
+    }
+  }
+
+  const finite = candidates.filter((px) => px != null && Number.isFinite(px) && px > 0);
+  if (finite.length === 0) return { structuralPx: null };
+
+  let structural =
+    input.direction === 'LONG'
+      ? Math.max(...finite)
+      : Math.min(...finite);
+
+  structural = clampStopToProfitSideOfEntry(
+    input.direction,
+    structural,
+    input.entryPrice
+  );
+  structural = ratchetStop(input.direction, input.currentTrailStop, structural);
+  structural = clampStopToProfitSideOfEntry(
+    input.direction,
+    structural,
+    input.entryPrice
+  );
+
+  return { structuralPx: structural };
+}
+
 export function seedTrailFromConfirmedProfitStop(
   rec: DynamicTrailRecord,
   direction: 'LONG' | 'SHORT',
@@ -598,18 +743,39 @@ export async function evaluateDynamicTrail(
     };
   }
 
-  if (placeable == null && rec.currentTrailStop == null) {
-    const fallback = resolveDesiredProfitStopPx({
+  const trailDistFixed = await resolveTrailDistancePx(input.coin, input.markPrice, {
+    pctOnly: input.pctOnlyTrail,
+    leverage: input.leverage,
+    collateralUsd: input.collateralUsd,
+    pnlUsd: input.pnlUsd,
+  });
+  rec.lastTrailDistancePx = trailDistFixed;
+
+  const collateral = input.collateralUsd > 0 ? input.collateralUsd : 1;
+  const roe = (input.pnlUsd / collateral) * 100;
+  const stage2Active =
+    roe >= (cfgTrail.armMinRoePct ?? 0) || rec.phase === 'trailing';
+  const justArmed = rec.currentTrailStop == null;
+
+  if (isConsolidatedTrailVariantD()) {
+    const { structuralPx } = consolidateProfitStopPx({
       direction: input.direction,
       entryPrice: input.entryPrice,
       markPrice: input.markPrice,
       absSize: input.absSize,
-      feesUsd,
-      fundingUsd: input.fundingUsd ?? 0,
       tickSize: tick,
-      currentTrailStop: null,
+      feesUsd,
+      fundingUsd: input.fundingUsd,
+      notionalUsd: input.notionalUsd,
+      highestPriceSinceEntry: rec.highestPriceSinceEntry,
+      maxRunup: rec.maxRunup,
+      highestPnlSinceEntry: rec.highestPnlSinceEntry,
+      currentTrailStop: rec.currentTrailStop,
+      trailDistPx: trailDistFixed,
+      stage2Active,
+      leverage: input.leverage,
     });
-    if (fallback == null) {
+    if (structuralPx == null) {
       rec.phase = 'pending';
       return {
         record: rec,
@@ -618,56 +784,91 @@ export async function evaluateDynamicTrail(
         closeDetail: 'PROFIT_SL_PENDING',
       };
     }
-    rec.currentTrailStop = fallback;
-  }
+  const placeableStructural = profitStopPlaceable({
+      direction: input.direction,
+      stopPx: structuralPx,
+      markPx: input.markPrice,
+      entryPx: input.entryPrice,
+      tickSize: tick,
+    });
+    rec.currentTrailStop = structuralPx;
+    if (!placeableStructural) {
+      rec.phase = 'pending';
+    } else if (stage2Active) {
+      rec.phase = 'trailing';
+    } else {
+      rec.phase = 'armed';
+    }
+  } else {
+    if (placeable == null && rec.currentTrailStop == null) {
+      const fallback = resolveDesiredProfitStopPx({
+        direction: input.direction,
+        entryPrice: input.entryPrice,
+        markPrice: input.markPrice,
+        absSize: input.absSize,
+        feesUsd,
+        fundingUsd: input.fundingUsd ?? 0,
+        tickSize: tick,
+        currentTrailStop: null,
+      });
+      if (fallback == null) {
+        rec.phase = 'pending';
+        return {
+          record: rec,
+          shouldClose: false,
+          exitReason: '',
+          closeDetail: 'PROFIT_SL_PENDING',
+        };
+      }
+      rec.currentTrailStop = fallback;
+    }
 
-  const justArmed = rec.currentTrailStop == null;
-  if (placeable != null) {
+    if (placeable != null) {
+      rec.currentTrailStop = clampStopToProfitSideOfEntry(
+        input.direction,
+        ratchetStop(input.direction, rec.currentTrailStop, placeable),
+        input.entryPrice
+      );
+    }
+
+    const gapPx = minProfitTrailGapPx(input.markPrice, tick);
+    const markTrail =
+      input.direction === 'LONG'
+        ? input.markPrice - gapPx
+        : input.markPrice + gapPx;
+    const trailCandidate =
+      input.direction === 'LONG'
+        ? rec.highestPriceSinceEntry - trailDistFixed
+        : rec.highestPriceSinceEntry + trailDistFixed;
     rec.currentTrailStop = clampStopToProfitSideOfEntry(
       input.direction,
-      ratchetStop(input.direction, rec.currentTrailStop, placeable),
+      ratchetStop(input.direction, rec.currentTrailStop, markTrail),
       input.entryPrice
     );
-  }
-  if (justArmed || rec.phase === 'idle' || rec.phase === 'pending') {
-    rec.phase = 'armed';
-    rec.trailArmedAt = rec.trailArmedAt ?? input.nowMs;
-    logger.info('HL profit SL armed', {
-      coin: input.coin,
-      direction: input.direction,
-      entry: input.entryPrice.toFixed(6),
-      stop: rec.currentTrailStop!.toFixed(6),
-      pnlUsd: input.pnlUsd.toFixed(4),
-    });
+    rec.currentTrailStop = clampStopToProfitSideOfEntry(
+      input.direction,
+      ratchetStop(input.direction, rec.currentTrailStop, trailCandidate),
+      input.entryPrice
+    );
+    rec.phase = 'trailing';
   }
 
-  const trailDistFixed = await resolveTrailDistancePx(input.coin, input.markPrice, {
-    pctOnly: input.pctOnlyTrail,
-    leverage: input.leverage,
-    collateralUsd: input.collateralUsd,
-    pnlUsd: input.pnlUsd,
-  });
-  rec.lastTrailDistancePx = trailDistFixed;
-  const gapPx = minProfitTrailGapPx(input.markPrice, tick);
-  const markTrail =
-    input.direction === 'LONG'
-      ? input.markPrice - gapPx
-      : input.markPrice + gapPx;
-  const trailCandidate =
-    input.direction === 'LONG'
-      ? rec.highestPriceSinceEntry - trailDistFixed
-      : rec.highestPriceSinceEntry + trailDistFixed;
-  rec.currentTrailStop = clampStopToProfitSideOfEntry(
-    input.direction,
-    ratchetStop(input.direction, rec.currentTrailStop, markTrail),
-    input.entryPrice
-  );
-  rec.currentTrailStop = clampStopToProfitSideOfEntry(
-    input.direction,
-    ratchetStop(input.direction, rec.currentTrailStop, trailCandidate),
-    input.entryPrice
-  );
-  rec.phase = 'trailing';
+  if (justArmed || rec.phase === 'idle' || rec.phase === 'pending') {
+    if (rec.currentTrailStop != null && rec.phase !== 'pending') {
+      rec.phase = rec.phase === 'trailing' ? 'trailing' : 'armed';
+      rec.trailArmedAt = rec.trailArmedAt ?? input.nowMs;
+      logger.info('HL profit SL armed', {
+        coin: input.coin,
+        direction: input.direction,
+        entry: input.entryPrice.toFixed(6),
+        stop: rec.currentTrailStop.toFixed(6),
+        pnlUsd: input.pnlUsd.toFixed(4),
+        variant: isConsolidatedTrailVariantD() ? 'D' : 'legacy',
+      });
+    }
+  } else if (rec.currentTrailStop != null && rec.trailArmedAt == null) {
+    rec.trailArmedAt = input.nowMs;
+  }
 
   const lockAtStop =
     rec.currentTrailStop != null
