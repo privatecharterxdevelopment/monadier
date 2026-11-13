@@ -5,7 +5,7 @@ import { toNum } from '../lib/hyperliquid/parse';
 import type { HlUserFill } from '../lib/hyperliquid/user';
 import { supabase } from '../lib/supabase';
 
-type LatestMarker = { type: 'open' | 'close'; ms: number };
+type LatestMarker = { type: 'open' | 'close'; ms: number; source?: string };
 
 /**
  * Coins the bot is managing for live Positions.
@@ -32,7 +32,7 @@ export function useHlBotManagedCoins(
     try {
       const { data, error } = await supabase
         .from('hl_bot_chart_markers')
-        .select('coin, event_type, event_ts')
+        .select('coin, event_type, event_ts, source')
         .eq('wallet_address', wallet.toLowerCase())
         .in('event_type', ['open', 'close'])
         .order('event_ts', { ascending: false })
@@ -48,6 +48,7 @@ export function useHlBotManagedCoins(
         latest.set(coin, {
           type: row.event_type as 'open' | 'close',
           ms,
+          source: row.source != null ? String(row.source) : undefined,
         });
       }
       setLatestByCoin(latest);
@@ -72,7 +73,10 @@ export function useHlBotManagedCoins(
   const coins = useMemo(() => {
     const open = new Set<string>();
     for (const [coin, row] of latestByCoin) {
-      if (row.type === 'open') open.add(coin);
+      if (row.type !== 'open') continue;
+      const src = (row.source ?? 'bot').toLowerCase();
+      if (src === 'manual') continue;
+      open.add(coin);
     }
 
     // Reconcile live HL size with markers so bot Positions never goes empty while
@@ -81,9 +85,8 @@ export function useHlBotManagedCoins(
       const coin = normalizeHlPerpCoin(raw);
       if (!coin || open.has(coin)) continue;
       const latest = latestByCoin.get(coin);
-      // No open/close marker at all — still live on HL (force-open, residual, etc.).
+      // No open/close marker — live size may be user manual or untagged bot; count in bot dock only when bot opened elsewhere.
       if (!latest) {
-        open.add(coin);
         continue;
       }
       if (latest.type !== 'close' || latest.ms <= 0) continue;

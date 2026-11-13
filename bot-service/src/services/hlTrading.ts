@@ -68,7 +68,11 @@ import {
 } from './hlBotStrategy';
 import { resolveHlOrderBuilder, estimateCollectedSuccessFee } from './hlBuilderFee';
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
-import { recordHlBotOpenMarker } from './hlChartMarkers';
+import { recordHlChartMarker, recordHlBotOpenMarker } from './hlChartMarkers';
+import {
+  invalidateHlPositionScopeCache,
+  isUserManualHlPosition,
+} from './hlPositionScope';
 import { validateEntryLocation } from './entryLocationGate';
 import { validateMacroBetaAlignment } from './macroBetaGate';
 import { validateEntryMomentum } from './entryMomentumGate';
@@ -809,6 +813,8 @@ export class HyperliquidTradingService {
     stopLossPercent: number;
     /** Ops desk / manual — skip SCAN entry gates; still posts fill + emergency SL. */
     skipOpenGates?: boolean;
+    /** manual = Perps tab (slot counts, bot never auto-closes). bot = agent / auto. */
+    positionScope?: 'bot' | 'manual';
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -1427,13 +1433,27 @@ export class HyperliquidTradingService {
       }
 
       const fillEntry = protectedOpen.avgPx ?? markPx;
-      await recordHlBotOpenMarker({
-        walletAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        entryPx: fillEntry,
-        reason: openReasonFull,
-      });
+      const scope = opts.positionScope === 'manual' ? 'manual' : 'bot';
+      if (scope === 'bot') {
+        await recordHlBotOpenMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          entryPx: fillEntry,
+          reason: openReasonFull,
+        });
+      } else {
+        await recordHlChartMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          eventType: 'open',
+          direction: opts.direction,
+          price: fillEntry,
+          closeReason: openReasonFull,
+          source: 'manual',
+        });
+      }
+      invalidateHlPositionScopeCache(opts.userAddress);
 
       await recordHlOpenAudit({
         walletAddress: opts.userAddress,
@@ -1588,6 +1608,15 @@ export class HyperliquidTradingService {
       const holdMs = nowMs - (hlPositionOpenedAt.get(lockKey) ?? nowMs);
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
+
+      const userManual = await isUserManualHlPosition(userAddress, String(pos.coin));
+      if (userManual) {
+        logger.debug('HL monitor — user manual position (no bot auto-close)', {
+          user: userAddress.slice(0, 10),
+          coin: pos.coin,
+        });
+        continue;
+      }
 
       if (isExcludedHlCoin(String(pos.coin))) {
         clearTrailState(lockKey);
@@ -2242,6 +2271,7 @@ export class HyperliquidTradingService {
       } else {
         await postClose();
       }
+      invalidateHlPositionScopeCache(userAddress);
       return { success: true };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2430,6 +2460,7 @@ export class HyperliquidTradingService {
       ctx,
       stopLossPercent: settings.stopLossPercent,
       skipOpenGates: true,
+      positionScope: opts.botManaged ? 'bot' : 'manual',
     });
   }
 }
