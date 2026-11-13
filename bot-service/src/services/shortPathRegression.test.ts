@@ -31,15 +31,15 @@ describe('SHORT path regression vs prior bear engine', () => {
     assert.equal(s.bypassEntryLocationWhenTrusted, false);
   });
 
-  it('wallet-wide 10m still blocks a SHORT 3m after any close', () => {
+  it('wallet-wide 1h blocks a SHORT on another coin minutes after any close', () => {
     const wallet = '0x2222222222222222222222222222222222222222';
     rememberCoinClose(wallet, 'SOL', 'LONG', Date.now() - 3 * 60_000);
     const r = isOpenCooldownBlocked(wallet, 'BTC', 'SHORT');
-    assert.equal(r.blocked, false);
-    assert.equal(r.guard, 'none');
+    assert.equal(r.blocked, true);
+    assert.equal(r.guard, 'wallet');
     const wait = evaluateWalletReentry(Date.now() - 3 * 60_000);
-    assert.equal(wait.blocked, false);
-    assert.equal(config.hyperliquid.reentryCooldownMs, 0);
+    assert.equal(wait.blocked, true);
+    assert.ok(config.hyperliquid.reentryCooldownMs >= 60 * 60 * 1000);
     const sameSol = isOpenCooldownBlocked(wallet, 'SOL', 'LONG');
     assert.equal(sameSol.blocked, true);
     assert.equal(sameSol.guard, 'same-coin');

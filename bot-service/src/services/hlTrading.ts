@@ -22,10 +22,12 @@ import {
 } from './profileDirectionGate';
 import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
 import {
-  isOpenCooldownBlocked,
+  isOpenCooldownBlockedAsync,
   rememberCoinClose,
+  resolveWalletLastCloseMs,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
+import { syncVanishedHlOpens } from './hlOpenPositionSnapshot';
 import {
   evaluateEntryLocationQuality,
   logEntryLocationRecord,
@@ -138,9 +140,6 @@ const transport = new HttpTransport();
 
 /** First time we saw an open position — min-hold before thesis loss close. */
 const hlPositionOpenedAt = new Map<string, number>();
-
-/** Last close timestamp per wallet — anti-churn cooldown before next open. */
-const hlLastCloseAt = new Map<string, number>();
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
@@ -420,6 +419,14 @@ export class HyperliquidTradingService {
     if (!funding.stateLoaded && !state) return 'skip';
 
     const openCoins = state ? hlOpenPerpCoins(state) : [];
+    if (state?.assetPositions?.length) {
+      syncVanishedHlOpens(
+        userAddress,
+        state.assetPositions.map((row) => row.position ?? row)
+      );
+    } else {
+      syncVanishedHlOpens(userAddress, []);
+    }
     noteHlOpenPositions(userAddress, openCoins);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
@@ -613,13 +620,14 @@ export class HyperliquidTradingService {
     }
 
     const cooldownMs = config.hyperliquid.reentryCooldownMs;
-    const lastClose = hlLastCloseAt.get(userAddress.toLowerCase()) ?? 0;
-    if (openCoins.length === 0 && cooldownMs > 0 && Date.now() - lastClose < cooldownMs) {
-      logger.debug('HL open skip: reentry cooldown', {
+    const lastClose = await resolveWalletLastCloseMs(userAddress);
+    if (cooldownMs > 0 && lastClose > 0 && Date.now() - lastClose < cooldownMs) {
+      logger.info('HL open skip: wallet reentry cooldown after close', {
         user: userAddress.slice(0, 10),
         waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
+        openSlotsInUse: openCoins.length,
       });
-      return 'skip';
+      return openCoins.length > 0 ? 'ok' : 'skip';
     }
 
     let stateRef = state;
@@ -686,7 +694,7 @@ export class HyperliquidTradingService {
       let openedThisSlot = false;
 
       for (const pick of picks) {
-        const cooldown = isOpenCooldownBlocked(userAddress, pick.coin, pick.direction, {
+        const cooldown = await isOpenCooldownBlockedAsync(userAddress, pick.coin, pick.direction, {
           reversalLong: pick.longClass === 'REVERSAL_LONG',
         });
         if (cooldown.blocked) {
@@ -2198,7 +2206,6 @@ export class HyperliquidTradingService {
         viaHlBuilder,
         instantManual,
       });
-      hlLastCloseAt.set(userAddress.toLowerCase(), Date.now());
       rememberCoinClose(userAddress, coinUpper, isLong ? 'LONG' : 'SHORT');
       lastProtectSyncAt.delete(positionKey(userAddress, coinUpper));
       clearTrailState(positionKey(userAddress, coinUpper));
@@ -2236,6 +2243,14 @@ export class HyperliquidTradingService {
     hlProtectiveEnsureAt.set(key, now);
     const state = await fetchHlClearinghouseState(userAddress);
     const openCoins = state ? hlOpenPerpCoins(state) : [];
+    if (state?.assetPositions?.length) {
+      syncVanishedHlOpens(
+        userAddress,
+        state.assetPositions.map((row) => row.position ?? row)
+      );
+    } else {
+      syncVanishedHlOpens(userAddress, []);
+    }
     noteHlOpenPositions(userAddress, openCoins);
     if (!state || openCoins.length === 0) return;
     const settings = await subscriptionService.getUserTradingSettings(

@@ -372,18 +372,21 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     /**
-     * After any bot close, wait before the next open — even if other slots
-     * are still filled. Floor 10 minutes (never lower via env).
+     * After any close on this wallet, wait before the next open (any coin/slot).
+     * Default 1h. Set HL_REENTRY_COOLDOWN_MS=0 to disable (not recommended).
      */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
-    reentryCooldownMs: Number(process.env.HL_REENTRY_COOLDOWN_MS || 0),
+    reentryCooldownMs: (() => {
+      const raw = process.env.HL_REENTRY_COOLDOWN_MS;
+      if (raw === '0') return 0;
+      return Math.max(3_600_000, Number(raw || 3_600_000));
+    })(),
     /**
-     * Same-coin reentry after close. Floor 10 minutes so the pair is
-     * re-analyzed instead of instantly re-opened.
+     * Same coin + same direction after close. Default 1h (no instant re-SHORT).
      */
     sameCoinReentryMinMs: Math.max(
-      10 * 60 * 1000,
-      Number(process.env.HL_SAME_COIN_REENTRY_MS || 10 * 60 * 1000)
+      3_600_000,
+      Number(process.env.HL_SAME_COIN_REENTRY_MS || 3_600_000)
     ),
     /**
      * Opposite-direction same-coin block. Floor 10 minutes (anti-flip).

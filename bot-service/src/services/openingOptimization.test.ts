@@ -45,7 +45,7 @@ describe('opening optimization defaults', () => {
     assert.equal(isVolumeRankOpenable(13, 12), false);
     assert.equal(isVolumeRankOpenable(12, 12), true);
     assert.equal(config.hyperliquid.scalpOpen.minConfirm1mCandles, 1);
-    assert.equal(config.hyperliquid.reentryCooldownMs, 0);
+    assert.ok(config.hyperliquid.reentryCooldownMs >= 60 * 60 * 1000);
   });
 
   it('aggressive SHORTs still hit every open-time safety gate', () => {
