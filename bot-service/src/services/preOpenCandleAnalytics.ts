@@ -217,8 +217,15 @@ export function evaluatePreOpenCandleWindow(opts: {
   const minRatio = cfg.minDirectionalCandleRatio;
   const minNet = cfg.minNetMovePct;
   const dir = opts.direction;
-  /** Skip 1m floor vetoes only — never skip bullish-tape / structure-up / volume-fade. */
-  const skipFloorVeto = dir === 'SHORT' && confirmed;
+  /**
+   * Skip low-range vetoes only when breakdown is confirmed AND price is still
+   * pressing lower (not pausing on support after one red spike).
+   */
+  const skipFloorVeto =
+    dir === 'SHORT' &&
+    confirmed &&
+    recent5 <= -Math.max(0.04, cfg.breakoutRecentMovePct * 0.45) &&
+    structure !== 'up';
 
   if (dir === 'LONG') {
     const greenRatio = greens / window.length;

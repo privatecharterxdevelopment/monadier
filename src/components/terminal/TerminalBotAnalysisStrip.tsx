@@ -149,6 +149,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         maxConcurrentPositions={slotCount}
         pumpSweepLines={[]}
         entryWaitReason={null}
+        execution={null}
       />
     );
   }
@@ -178,6 +179,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
       pumpSweepLines={analysis.pumpSweepLines}
       entryWaitReason={analysis.entryWaitReason}
       bestLong={analysis.bestLong}
+      execution={analysis.execution}
     />
   );
 };

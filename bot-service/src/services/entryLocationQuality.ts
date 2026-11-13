@@ -275,6 +275,25 @@ export function scoreEntryLocationQuality(opts: {
       blockedBy.push('EXTREME_LOCATION');
       notes.push(`1h range pos ${rangePosition1h.toFixed(2)} ≤ 0.12 with 4h still low`);
     }
+    if (sr.nearSupport) {
+      blockedBy.push('INTO_SUPPORT');
+      notes.push(
+        lowerWickRejection
+          ? 'at/near support with lower-wick rejection — no confirmed breakdown hold'
+          : 'at/near support without confirmed breakdown hold'
+      );
+    }
+    if (
+      downsideRoomATR != null &&
+      upsideRoomATR != null &&
+      downsideRoomATR <= 0.35 &&
+      upsideRoomATR >= 1.2
+    ) {
+      blockedBy.push('POOR_DOWNSIDE_ROOM');
+      notes.push(
+        `downside ${downsideRoomATR.toFixed(2)}×ATR vs upside ${upsideRoomATR.toFixed(2)}×ATR`
+      );
+    }
   }
 
   const chasingCompletedMove = blockedBy.includes('CHASING_COMPLETED_MOVE');

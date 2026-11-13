@@ -139,7 +139,7 @@ describe('P1 SHORT breakdown vs 1m range-low', () => {
     assert.ok(result.recentMovePct > -0.06, `recent5 ${result.recentMovePct}`);
   });
 
-  it('same 1m pause PASSES pre-open when 5m/15m breakdown is confirmed', () => {
+  it('1m pause at lows stays blocked even when 5m/15m breakdown is confirmed (no fresh push)', () => {
     const window = breakdownThen1mPause();
     assert.equal(
       isConfirmedShortBreakdown({
@@ -154,8 +154,11 @@ describe('P1 SHORT breakdown vs 1m range-low', () => {
       candles: window,
       shortBreakdownConfirmed: true,
     });
-    assert.equal(result.ok, true, result.reason);
-    assert.equal(result.code, 'PRE_OPEN_PASS');
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.code === 'PRE_OPEN_SHORTING_LOWS' || result.code === 'PRE_OPEN_LOW_REJECTIONS',
+      result.code
+    );
   });
 
   it('entry_location and HTF quality allow the confirmed breakdown', () => {

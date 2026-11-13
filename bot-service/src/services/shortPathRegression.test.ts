@@ -29,6 +29,7 @@ describe('SHORT path regression vs prior bear engine', () => {
     assert.equal(s.bypassMacroBetaWhenTrusted, true);
     assert.equal(s.bypassPumpShortWhenTrusted, true);
     assert.equal(s.bypassEntryLocationWhenTrusted, false);
+    assert.equal(s.bypassScalpAlignWhenTrusted, false);
   });
 
   it('wallet-wide 1h blocks a SHORT on another coin minutes after any close', () => {

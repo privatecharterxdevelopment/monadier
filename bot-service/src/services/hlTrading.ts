@@ -832,10 +832,15 @@ export class HyperliquidTradingService {
           leverage: effectiveLeverage,
           code,
         });
+        const scalpWaiting =
+          code != null &&
+          (code.startsWith('SCALP_') ||
+            code === 'TREND_LONG_ENTRY_UNCONFIRMED' ||
+            code === 'REVERSAL_WAITING_RECLAIM');
         setHlExecutionState(opts.userAddress, {
-          state: 'BLOCKED',
+          state: scalpWaiting ? 'WAITING_CONFIRMATION' : 'BLOCKED',
           longClass: opts.pick.longClass ?? 'NONE',
-          code: null,
+          code: (code as import('./hlExecutionState').LongBlockCode | null) ?? null,
           reason: error,
           coin,
           direction: opts.direction,
@@ -1202,8 +1207,9 @@ export class HyperliquidTradingService {
 
       const bypassHtfLocation =
         !hardEntryLocation &&
-        (reversalLong ||
-          (relaxSecondary && shortRules.bypassEntryLocationWhenTrusted));
+        relaxSecondary &&
+        shortRules.bypassEntryLocationWhenTrusted &&
+        opts.direction === 'SHORT';
       const htfLocation = bypassHtfLocation
         ? {
             coin,

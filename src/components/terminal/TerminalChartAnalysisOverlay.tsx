@@ -8,6 +8,10 @@ import type { UnifiedSignal } from '../../lib/signalService';
 import type { EngineTfChip } from '../../lib/engineOpenTimeframes';
 import { ENGINE_OPEN_TIMEFRAMES } from '../../lib/engineOpenTimeframes';
 import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
+import {
+  executionHeadline,
+  type BotExecutionSnapshot,
+} from '../../lib/hlExecutionDisplay';
 
 type DbAnalysis = {
   signal: string;
@@ -42,7 +46,20 @@ type Props = {
   entryWaitReason?: string | null;
   engineTfChips?: EngineTfChip[];
   tfRevealComplete?: boolean;
+  execution?: BotExecutionSnapshot | null;
 };
+
+function analyzerPhaseLabel(
+  execution: BotExecutionSnapshot | null | undefined,
+  waitOpen: boolean
+): 'SIGNAL' | 'WAITING' | 'BLOCKED' | 'EXECUTING' | null {
+  const headline = executionHeadline(execution);
+  if (headline === 'Opening trade') return 'EXECUTING';
+  if (headline === 'Waiting confirmation' || waitOpen) return 'WAITING';
+  if (headline === 'Setup blocked' || headline === 'Order failed') return 'BLOCKED';
+  if (headline === 'Candidate') return 'SIGNAL';
+  return null;
+}
 
 function TfChip({ chip }: { chip: EngineTfChip }) {
   if (!chip.revealed || !chip.direction) {
@@ -89,6 +106,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   entryWaitReason,
   engineTfChips,
   tfRevealComplete = false,
+  execution = null,
 }) => {
   const compact = placement === 'dock';
 
@@ -100,6 +118,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     : 0;
   const hasTfConflict = Boolean(signal?.warnings?.some((w) => /conflict/i.test(w)));
   const waitOpen = Boolean(entryWaitReason) && action !== 'HOLD' && conf >= 52;
+  const phase = analyzerPhaseLabel(execution, waitOpen);
   const signalClass = waitOpen
     ? 'term-hint--warn'
     : action === 'LONG'
@@ -210,6 +229,24 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 ) : null}
               </span>
             </div>
+            {phase ? (
+              <div className="hl-bot-analyzer-pill">
+                <span className="hl-bot-analyzer-pill__label">Phase</span>
+                <span
+                  className={`hl-bot-analyzer-pill__value ${
+                    phase === 'BLOCKED'
+                      ? 'term-pnl-neg'
+                      : phase === 'WAITING'
+                        ? 'term-hint--warn'
+                        : phase === 'EXECUTING'
+                          ? 'term-pnl-pos'
+                          : ''
+                  }`}
+                >
+                  {phase}
+                </span>
+              </div>
+            ) : null}
             <div className="hl-bot-analyzer-pill">
               <span className="hl-bot-analyzer-pill__label">{waitOpen ? 'Wait' : 'Signal'}</span>
               <span className={`hl-bot-analyzer-pill__value ${tfRevealComplete ? signalClass : ''}`}>

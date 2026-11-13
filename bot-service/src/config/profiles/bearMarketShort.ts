@@ -63,7 +63,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
     /** Never — shorts at 1h lows with full lev wiped sessions (BTC 40× chase). */
     bypassEntryLocationWhenTrusted: false,
     bypassPreOpenWhenTrusted: false,
-    bypassScalpAlignWhenTrusted: true,
+    /** Never skip live 1m/5m at open — MTF scan lag caused SHORTs at support (USELESS/WLFI). */
+    bypassScalpAlignWhenTrusted: false,
     bypassEntryMomentumWhenTrusted: true,
     bypassSrLocationWhenTrusted: false,
   },

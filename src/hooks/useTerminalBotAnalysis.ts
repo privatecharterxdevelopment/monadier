@@ -856,6 +856,7 @@ export function useTerminalBotAnalysis({
     scanRotationCoins,
     pumpSweepLines,
     livePositions,
+    execution,
     executionDiagnostic,
     entryWaitReason: (() => {
       const coin =
