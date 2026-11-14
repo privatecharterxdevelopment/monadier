@@ -40,6 +40,7 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
+import { resolveHlEntryBlockReason } from './services/hlEntryBlockers';
 import { registerHlProtectiveMonitorWallet } from './services/hlProtectiveMonitorRegistry';
 import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
@@ -1280,6 +1281,7 @@ const healthServer = http.createServer(async (req, res) => {
           lastVerdict: getLastLlmTradeConfirmVerdict(),
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
+        entryBlockedReason: await resolveHlEntryBlockReason(userAddress),
         execution: getHlExecutionState(userAddress),
         executionDiagnostic: getExecutionDiagnostic(userAddress),
         livePositions,

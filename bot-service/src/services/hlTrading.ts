@@ -29,7 +29,7 @@ import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
 import {
   isOpenCooldownBlockedAsync,
   rememberCoinClose,
-  resolveWalletLastCloseMs,
+  resolveWalletLastBotCloseMs,
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
 import { syncVanishedHlOpens } from './hlOpenPositionSnapshot';
@@ -167,6 +167,20 @@ const hlHoldRedLogAt = new Map<string, number>();
 
 /** Last HL open error per wallet — ops logs only; client API filters diagnostics. */
 const lastHlOpenError = new Map<string, { at: string; coin?: string; error: string }>();
+
+export function noteHlOpenSkipReason(
+  wallet: string,
+  error: string,
+  coin?: string
+): void {
+  const msg = error.trim();
+  if (!msg) return;
+  lastHlOpenError.set(wallet.toLowerCase(), {
+    at: new Date().toISOString(),
+    coin,
+    error: msg,
+  });
+}
 
 function isInternalOpenDiagnostic(error: string): boolean {
   return (
@@ -485,8 +499,16 @@ export class HyperliquidTradingService {
     }
 
     if (blockNewEntriesUntilReconciled(userAddress)) {
+      const { getWalletProtectiveReconcileStatus } = await import('./hlProtectiveReconcile');
+      const prot = getWalletProtectiveReconcileStatus(userAddress);
+      const detail = prot?.reason ?? 'protective stops not reconciled';
+      noteHlOpenSkipReason(
+        userAddress,
+        `Emergency SL reconcile — ${detail} (fix open position stops before new entries)`
+      );
       logger.info('HL skip new entries until protective reconcile', {
         user: userAddress.slice(0, 10),
+        reason: detail,
       });
       return 'ok';
     }
@@ -637,9 +659,14 @@ export class HyperliquidTradingService {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     await warmCoinCloseCacheForWallet(userAddress);
     if (shouldBlockNewEntriesForAutoRegime()) {
+      const autoReason = getAutoNewEntriesBlockReason();
+      noteHlOpenSkipReason(
+        userAddress,
+        `BTC regime gate — new entries paused (${autoReason ?? 'regime not ready'})`
+      );
       logger.info('HL open skip: AUTO BTC regime not ready', {
         user: userAddress.slice(0, 10),
-        reason: getAutoNewEntriesBlockReason(),
+        reason: autoReason,
       });
       return openCoins.length > 0 ? 'ok' : 'skip';
     }
@@ -648,6 +675,10 @@ export class HyperliquidTradingService {
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
     if (signals.length === 0) {
+      noteHlOpenSkipReason(
+        userAddress,
+        'No scan candidates passed gates for your bot mode (see scan board / hl_open_blocks)'
+      );
       logger.debug('HL open skip: no signals for mode', {
         user: userAddress.slice(0, 10),
         strategy,
@@ -656,11 +687,17 @@ export class HyperliquidTradingService {
     }
 
     const cooldownMs = config.hyperliquid.reentryCooldownMs;
-    const lastClose = await resolveWalletLastCloseMs(userAddress);
+    const lastClose = await resolveWalletLastBotCloseMs(userAddress);
     if (cooldownMs > 0 && lastClose > 0 && Date.now() - lastClose < cooldownMs) {
+      const waitSec = Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000);
+      const waitMin = Math.max(1, Math.ceil(waitSec / 60));
+      noteHlOpenSkipReason(
+        userAddress,
+        `Wallet re-entry pause — ~${waitMin}m left after last bot/manual close (HL profit-SL alone does not start this)`
+      );
       logger.info('HL open skip: wallet reentry cooldown after close', {
         user: userAddress.slice(0, 10),
-        waitSec: Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000),
+        waitSec,
         openSlotsInUse: openCoins.length,
       });
       return openCoins.length > 0 ? 'ok' : 'skip';
@@ -1739,18 +1776,22 @@ export class HyperliquidTradingService {
       const liveCoins = (state?.assetPositions ?? [])
         .map((row) => row.position?.coin)
         .filter((c): c is string => Boolean(c));
-      const remembered = liveCoins.filter(
-        (coin) => lastConfirmedEmergencyStopPx(userAddress, coin) != null
-      );
-      const keep = liveCoins.length > 0 && remembered.length === liveCoins.length;
-      markWalletProtectiveReconcile(
-        userAddress,
-        keep,
-        keep
-          ? 'orders query failed — using last confirmed emergency SL'
-          : 'frontendOpenOrders unreachable',
-        nowMs
-      );
+      if (liveCoins.length === 0) {
+        markWalletProtectiveReconcile(userAddress, true, 'no open positions', nowMs);
+      } else {
+        const remembered = liveCoins.filter(
+          (coin) => lastConfirmedEmergencyStopPx(userAddress, coin) != null
+        );
+        const keep = remembered.length === liveCoins.length;
+        markWalletProtectiveReconcile(
+          userAddress,
+          keep,
+          keep
+            ? 'orders query failed — using last confirmed emergency SL'
+            : 'frontendOpenOrders unreachable',
+          nowMs
+        );
+      }
     }
 
     const reconcilePositions: Parameters<typeof reconcileProtectiveFromSnapshot>[0]['positions'] =

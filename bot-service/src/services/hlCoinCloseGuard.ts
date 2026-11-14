@@ -10,26 +10,38 @@ const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 export type CoinCloseMem = { direction: 'LONG' | 'SHORT'; at: number };
 
 const hlLastCloseByCoin = new Map<string, CoinCloseMem>();
-const hlLastCloseByWallet = new Map<string, number>();
+/** Wallet-wide pause — bot / manual closes only (not HL exchange triggers). */
+const hlLastBotCloseByWallet = new Map<string, number>();
+
+const EXCHANGE_CLOSE_REASON =
+  /^(profit_sl_exchange|stop_loss_exchange|emergency_sl_exchange|exchange_close_|liquidation)/i;
+
+export function isExchangeTriggeredCloseReason(reason: string | null | undefined): boolean {
+  const r = String(reason ?? '').trim();
+  if (!r) return false;
+  const stem = r.toLowerCase().split(' ‖ ')[0]?.trim() ?? r.toLowerCase();
+  return EXCHANGE_CLOSE_REASON.test(stem);
+}
 
 function coinCloseKey(wallet: string, coin: string): string {
   return `${wallet.toLowerCase()}:${coin.toUpperCase()}`;
 }
 
-function rememberWalletClose(wallet: string, atMs: number): void {
+function rememberWalletBotClose(wallet: string, atMs: number): void {
   const key = wallet.toLowerCase();
-  const prev = hlLastCloseByWallet.get(key) ?? 0;
-  if (atMs > prev) hlLastCloseByWallet.set(key, atMs);
+  const prev = hlLastBotCloseByWallet.get(key) ?? 0;
+  if (atMs > prev) hlLastBotCloseByWallet.set(key, atMs);
 }
 
 export function rememberCoinClose(
   wallet: string,
   coin: string,
   direction: 'LONG' | 'SHORT',
-  atMs = Date.now()
+  atMs = Date.now(),
+  opts?: { skipWalletReentry?: boolean }
 ): void {
   hlLastCloseByCoin.set(coinCloseKey(wallet, coin), { direction, at: atMs });
-  rememberWalletClose(wallet, atMs);
+  if (!opts?.skipWalletReentry) rememberWalletBotClose(wallet, atMs);
 }
 
 async function lastCoinCloseFromDb(
@@ -55,20 +67,23 @@ async function lastCoinCloseFromDb(
   return { direction: dir, at };
 }
 
-async function lastWalletCloseFromDb(wallet: string): Promise<number> {
+async function lastWalletBotCloseFromDb(wallet: string): Promise<number> {
   const { data, error } = await supabase
     .from('trade_history')
-    .select('closed_at')
+    .select('closed_at, close_reason')
     .eq('wallet_address', wallet.toLowerCase())
     .eq('execution_venue', 'hyperliquid')
     .not('closed_at', 'is', null)
     .order('closed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(24);
 
-  if (error || !data?.closed_at) return 0;
-  const at = new Date(data.closed_at).getTime();
-  return Number.isFinite(at) ? at : 0;
+  if (error || !data?.length) return 0;
+  for (const row of data) {
+    if (isExchangeTriggeredCloseReason(String(row.close_reason ?? ''))) continue;
+    const at = new Date(String(row.closed_at)).getTime();
+    if (Number.isFinite(at)) return at;
+  }
+  return 0;
 }
 
 async function resolveCoinCloseMem(
@@ -82,7 +97,7 @@ async function resolveCoinCloseMem(
   const fromDb = await lastCoinCloseFromDb(wallet, coin);
   if (fromDb) {
     hlLastCloseByCoin.set(key, fromDb);
-    rememberWalletClose(wallet, fromDb.at);
+    rememberWalletBotClose(wallet, fromDb.at);
     return fromDb;
   }
   return null;
@@ -119,7 +134,7 @@ export function isOpenCooldownBlocked(
   if (coinGate.blocked) {
     return { blocked: true, reason: coinGate.reason, guard: 'same-coin' };
   }
-  const walletTs = hlLastCloseByWallet.get(wallet.toLowerCase()) ?? 0;
+  const walletTs = hlLastBotCloseByWallet.get(wallet.toLowerCase()) ?? 0;
   const walletGate = evaluateWalletReentry(walletTs);
   if (!walletGate.blocked) {
     return { blocked: false, guard: 'none' };
@@ -172,16 +187,22 @@ export function evaluateWalletReentry(lastCloseAt: number, now = Date.now()): {
   };
 }
 
-export async function resolveWalletLastCloseMs(wallet: string): Promise<number> {
+/** Bot/manual close — drives wallet-wide HL_REENTRY_COOLDOWN_MS. */
+export async function resolveWalletLastBotCloseMs(wallet: string): Promise<number> {
   const key = wallet.toLowerCase();
-  const mem = hlLastCloseByWallet.get(key) ?? 0;
+  const mem = hlLastBotCloseByWallet.get(key) ?? 0;
   if (mem > 0) return mem;
-  const fromDb = await lastWalletCloseFromDb(wallet);
+  const fromDb = await lastWalletBotCloseFromDb(wallet);
   if (fromDb > 0) {
-    hlLastCloseByWallet.set(key, fromDb);
+    hlLastBotCloseByWallet.set(key, fromDb);
     return fromDb;
   }
   return 0;
+}
+
+/** @deprecated use resolveWalletLastBotCloseMs */
+export async function resolveWalletLastCloseMs(wallet: string): Promise<number> {
+  return resolveWalletLastBotCloseMs(wallet);
 }
 
 function evaluateBlock(
@@ -239,7 +260,7 @@ export async function isOpenCooldownBlockedAsync(
       return { blocked: true, reason: coinGate.reason, guard: 'same-coin' };
     }
   }
-  const walletTs = await resolveWalletLastCloseMs(wallet);
+  const walletTs = await resolveWalletLastBotCloseMs(wallet);
   const walletGate = evaluateWalletReentry(walletTs);
   if (!walletGate.blocked) {
     return { blocked: false, guard: 'none' };
@@ -273,7 +294,7 @@ export async function warmCoinCloseCacheForWallet(wallet: string): Promise<void>
 
   const { data, error } = await supabase
     .from('trade_history')
-    .select('token_symbol, direction, closed_at')
+    .select('token_symbol, direction, closed_at, close_reason')
     .eq('wallet_address', wallet.toLowerCase())
     .eq('execution_venue', 'hyperliquid')
     .gte('closed_at', since)
@@ -282,17 +303,15 @@ export async function warmCoinCloseCacheForWallet(wallet: string): Promise<void>
   if (error || !data?.length) return;
 
   const seen = new Set<string>();
-  let latest = 0;
   for (const row of data) {
     const at = new Date(String(row.closed_at)).getTime();
-    if (Number.isFinite(at) && at > latest) latest = at;
     const coin = String(row.token_symbol ?? '').toUpperCase();
     if (!coin || seen.has(coin)) continue;
     seen.add(coin);
     const dir = String(row.direction ?? '').toUpperCase();
     if (dir !== 'LONG' && dir !== 'SHORT') continue;
     if (!Number.isFinite(at)) continue;
-    rememberCoinClose(wallet, coin, dir, at);
+    const exchange = isExchangeTriggeredCloseReason(String(row.close_reason ?? ''));
+    rememberCoinClose(wallet, coin, dir, at, { skipWalletReentry: exchange });
   }
-  if (latest > 0) rememberWalletClose(wallet, latest);
 }

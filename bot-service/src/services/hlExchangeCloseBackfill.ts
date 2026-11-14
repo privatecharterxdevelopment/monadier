@@ -182,7 +182,7 @@ async function recordExchangeVanishedClose(opts: {
     closedAt,
   });
 
-  rememberCoinClose(wallet, coin, opts.direction, best.t);
+  rememberCoinClose(wallet, coin, opts.direction, best.t, { skipWalletReentry: true });
 
   logger.info('HL exchange-trigger close recorded', {
     user: wallet.slice(0, 10),
@@ -231,7 +231,7 @@ async function recordFillCloseIfMissing(
     },
     closedAt,
   });
-  rememberCoinClose(wallet, coin, direction, t);
+  rememberCoinClose(wallet, coin, direction, t, { skipWalletReentry: true });
   return true;
 }
 
@@ -260,8 +260,6 @@ export async function syncWalletMissingExchangeCloses(
     if (!isCloseDir(dir, pnl)) continue;
     const direction = fillDirection(f);
     if (!direction) continue;
-    const marker = await import('./hlChartMarkers');
-    void marker;
     const did = await recordFillCloseIfMissing(wallet, f, direction);
     if (did) recorded += 1;
   }

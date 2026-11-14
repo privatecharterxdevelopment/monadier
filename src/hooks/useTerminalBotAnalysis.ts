@@ -556,6 +556,7 @@ export function useTerminalBotAnalysis({
           };
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
+          entryBlockedReason?: string | null;
           execution?: BotExecutionSnapshot | null;
           executionDiagnostic?: BotExecutionDiagnostic | null;
           livePositions?: LiveBotPositionView[];
@@ -613,6 +614,9 @@ export function useTerminalBotAnalysis({
           openCoins,
           liveUniverse
         );
+        if (data.entryBlockedReason?.trim()) {
+          blockers.push(data.entryBlockedReason.trim());
+        }
         if (data.lastOpenError?.error) {
           const hideLastOpen = shouldHideLastOpenError(
             data.lastOpenError.error,

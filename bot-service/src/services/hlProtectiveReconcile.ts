@@ -41,8 +41,16 @@ export function isWalletProtectiveReconciled(wallet: string): boolean {
 
 export function blockNewEntriesUntilReconciled(wallet: string): boolean {
   const row = walletStatus.get(wallet.toLowerCase());
-  if (!row) return true;
+  if (!row) return false;
   return !row.ok;
+}
+
+export function getWalletProtectiveReconcileStatus(
+  wallet: string
+): { ok: boolean; reason: string; at: number } | null {
+  const row = walletStatus.get(wallet.toLowerCase());
+  if (!row) return null;
+  return row;
 }
 
 export function markWalletProtectiveReconcile(

@@ -488,6 +488,6 @@ describe('restart + multi-user + throttle', () => {
     assert.equal(first.deferTrail, false);
     assert.ok(first.postProfit);
     assert.equal(first.postEmergencyPx, EMERGENCY);
-    assert.equal(blockNewEntriesUntilReconciled('0xneverreconciled'), true);
+    assert.equal(blockNewEntriesUntilReconciled('0xneverreconciled'), false);
   });
 });
