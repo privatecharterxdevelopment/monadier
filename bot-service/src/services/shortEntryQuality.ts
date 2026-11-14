@@ -8,6 +8,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { fetchHlAllMids } from './hlInfo';
 import { analyzeSrZones } from './entryLocationGate';
 import { calculateATR } from './dynamicTrailingStop';
 import {
@@ -458,20 +459,103 @@ export function scoreShortEntryQuality(opts: {
   };
 }
 
+function closed1mAgeMs(candles1m: Candle[], nowMs = Date.now()): number | null {
+  const win = closed(candles1m);
+  const last = win[win.length - 1];
+  if (!last) return null;
+  return nowMs - (last.time + 60_000);
+}
+
+async function loadShortQualityCandles(coin: string): Promise<{
+  candles1m: Candle[];
+  candles5m: Candle[];
+  candles15m: Candle[];
+  candles1h: Candle[];
+}> {
+  const cfg = config.hyperliquid.shortEntryQuality;
+  const symbol = hlCoinToBinanceSymbol(coin.toUpperCase());
+  const [candles1m, candles5m, candles15m, candles1h] = await Promise.all([
+    signalEngine.fetchCandles(symbol, '1m', cfg.fetch1m),
+    signalEngine.fetchCandles(symbol, '5m', cfg.fetch5m),
+    signalEngine.fetchCandles(symbol, '15m', cfg.fetch15m),
+    signalEngine.fetchCandles(symbol, '1h', cfg.fetch1h),
+  ]);
+  return { candles1m, candles5m, candles15m, candles1h };
+}
+
+/**
+ * Immediately before HL order: fresh candles + mark; block on stale data or fail quality after drift.
+ */
+export async function evaluateShortEntryQualityPreSubmit(opts: {
+  coin: string;
+  markPxAtGate: number;
+}): Promise<ShortEntryQualityResult & { markPx: number; reevaluated: boolean; candleAgeMs: number | null }> {
+  const cfg = config.hyperliquid.shortEntryQuality;
+  const coin = opts.coin.toUpperCase();
+  const mids = await fetchHlAllMids();
+  const liveMark = Number(mids[coin] ?? mids[`${coin}-PERP`] ?? 0);
+  const markPx =
+    liveMark > 0 && Number.isFinite(liveMark) ? liveMark : opts.markPxAtGate;
+  const driftPct =
+    opts.markPxAtGate > 0
+      ? (Math.abs(markPx - opts.markPxAtGate) / opts.markPxAtGate) * 100
+      : 0;
+  const reevaluated = driftPct > cfg.maxMarkDriftPct;
+
+  const { candles1m, candles5m, candles15m, candles1h } = await loadShortQualityCandles(coin);
+  const candleAgeMs = closed1mAgeMs(candles1m);
+  if (candleAgeMs != null && candleAgeMs > cfg.maxCandleStaleMs1m) {
+    const measuredAt = new Date().toISOString();
+    const record: ShortEntryQualityRecord = {
+      coin,
+      entryPrice: markPx,
+      decision: 'BLOCK',
+      entryType: 'NONE',
+      distanceSupportAtr: null,
+      distanceResistanceAtr: null,
+      dumpExtensionAtr: null,
+      reversalRiskScore: 0,
+      reversalHardVeto: false,
+      reversalSignals: [],
+      blockCode: 'SHORT_QUALITY_DATA',
+      blockReason: `SHORT blocked — stale 1m candles (${Math.round(candleAgeMs / 1000)}s old, max ${Math.round(cfg.maxCandleStaleMs1m / 1000)}s)`,
+      measuredAt,
+      freshnessOk: false,
+      structuralRefPx: null,
+    };
+    return {
+      ok: false,
+      code: 'SHORT_QUALITY_DATA',
+      reason: record.blockReason,
+      record,
+      markPx,
+      reevaluated,
+      candleAgeMs,
+    };
+  }
+
+  const scored = scoreShortEntryQuality({
+    coin,
+    price: markPx,
+    candles1m,
+    candles5m,
+    candles15m,
+    candles1h,
+  });
+  if (reevaluated && scored.ok) {
+    scored.reason = `${scored.reason} · mark drift ${driftPct.toFixed(3)}% re-checked at ${markPx}`;
+    scored.record.blockReason = scored.reason;
+  }
+  return { ...scored, markPx, reevaluated, candleAgeMs };
+}
+
 export async function evaluateShortEntryQualityFinal(opts: {
   coin: string;
   markPx: number;
 }): Promise<ShortEntryQualityResult> {
   const coin = opts.coin.toUpperCase();
-  const symbol = hlCoinToBinanceSymbol(coin);
-  const cfg = config.hyperliquid.shortEntryQuality;
   try {
-    const [candles1m, candles5m, candles15m, candles1h] = await Promise.all([
-      signalEngine.fetchCandles(symbol, '1m', cfg.fetch1m),
-      signalEngine.fetchCandles(symbol, '5m', cfg.fetch5m),
-      signalEngine.fetchCandles(symbol, '15m', cfg.fetch15m),
-      signalEngine.fetchCandles(symbol, '1h', cfg.fetch1h),
-    ]);
+    const { candles1m, candles5m, candles15m, candles1h } = await loadShortQualityCandles(coin);
     const price = opts.markPx > 0 ? opts.markPx : candles15m[candles15m.length - 1]?.close ?? 0;
     return scoreShortEntryQuality({
       coin,

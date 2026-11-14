@@ -87,7 +87,7 @@ import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import {
-  evaluateShortEntryQualityFinal,
+  evaluateShortEntryQualityPreSubmit,
   logShortEntryQualityRecord,
 } from './shortEntryQuality';
 import {
@@ -1351,35 +1351,52 @@ export class HyperliquidTradingService {
       });
       }
 
-      /** Final SHORT quality — fresh candles, no bypass (aggressive / trusted MTF included). */
+      const client = createAgentClient(opts.userAddress);
+      await client.updateLeverage({
+        asset: assetIndex,
+        isCross: false,
+        leverage: effectiveLeverage,
+      });
+
+      const builder = resolveHlOrderBuilder({
+        notionalUsd: opts.notionalUsd,
+        isClose: false,
+      });
+
+      /** Final SHORT quality — immediately before submit; no bypass (force/aggressive included). */
+      let submitMarkPx = markPx;
       if (opts.direction === 'SHORT') {
-        const shortQuality = await evaluateShortEntryQualityFinal({
+        const shortQuality = await evaluateShortEntryQualityPreSubmit({
           coin,
-          markPx,
+          markPxAtGate: markPx,
         });
-        logShortEntryQualityRecord(shortQuality.record);
-        if (!skipOpenGates) {
-          logOpenGate(
-            {
-              userAddress: opts.userAddress,
-              coin,
-              direction: opts.direction,
-              gate: 'short_entry_quality',
-              ok: shortQuality.ok,
-              code: shortQuality.code,
-              reason: shortQuality.reason,
-              metrics: {
-                entryType: shortQuality.record.entryType,
-                distanceSupportAtr: shortQuality.record.distanceSupportAtr,
-                distanceResistanceAtr: shortQuality.record.distanceResistanceAtr,
-                dumpExtensionAtr: shortQuality.record.dumpExtensionAtr,
-                reversalRiskScore: shortQuality.record.reversalRiskScore,
-                reversalHardVeto: shortQuality.record.reversalHardVeto,
-              },
-            },
-            gatesPassed
-          );
+        submitMarkPx = shortQuality.markPx;
+        if (submitMarkPx > 0 && Math.abs(submitMarkPx - markPx) / markPx > 0.0001) {
+          size = notionalUsd / submitMarkPx;
         }
+        logShortEntryQualityRecord(shortQuality.record);
+        logOpenGate(
+          {
+            userAddress: opts.userAddress,
+            coin,
+            direction: opts.direction,
+            gate: 'short_entry_quality',
+            ok: shortQuality.ok,
+            code: shortQuality.code,
+            reason: shortQuality.reason,
+            metrics: {
+              entryType: shortQuality.record.entryType,
+              distanceSupportAtr: shortQuality.record.distanceSupportAtr,
+              distanceResistanceAtr: shortQuality.record.distanceResistanceAtr,
+              dumpExtensionAtr: shortQuality.record.dumpExtensionAtr,
+              reversalRiskScore: shortQuality.record.reversalRiskScore,
+              reversalHardVeto: shortQuality.record.reversalHardVeto,
+              markDriftReevaluated: shortQuality.reevaluated,
+              candleAgeMs: shortQuality.candleAgeMs,
+            },
+          },
+          skipOpenGates ? [] : gatesPassed
+        );
         if (!shortQuality.ok) {
           return failOpen(shortQuality.reason, shortQuality.code);
         }
@@ -1393,21 +1410,6 @@ export class HyperliquidTradingService {
         }
       }
 
-      const client = createAgentClient(opts.userAddress);
-      await client.updateLeverage({
-        asset: assetIndex,
-        isCross: false,
-        leverage: effectiveLeverage,
-      });
-
-      const isLong = opts.direction === 'LONG';
-      const limitPx = isLong ? markPx * 1.05 : markPx * 0.95;
-
-      const builder = resolveHlOrderBuilder({
-        notionalUsd: opts.notionalUsd,
-        isClose: false,
-      });
-
       setHlExecutionState(opts.userAddress, {
         state: 'ORDER_SUBMITTED',
         longClass: opts.pick.longClass ?? 'NONE',
@@ -1418,12 +1420,15 @@ export class HyperliquidTradingService {
       });
       patchExecutionDiagnostic(opts.userAddress, { orderSent: true, coin, direction: opts.direction });
 
+      const isLongSubmit = opts.direction === 'LONG';
+      const limitPxSubmit = isLongSubmit ? submitMarkPx * 1.05 : submitMarkPx * 0.95;
+
       const result = await client.order({
         orders: [
           {
             a: assetIndex,
-            b: isLong,
-            p: formatHlPrice(limitPx, szDecimals),
+            b: isLongSubmit,
+            p: formatHlPrice(limitPxSubmit, szDecimals),
             s: formatHlSize(size, szDecimals),
             r: false,
             t: { limit: { tif: 'FrontendMarket' } },

@@ -604,6 +604,10 @@ export const config = {
       poorDownsideRoomUpsideAtr: Number(
         process.env.HL_SHORT_QUALITY_POOR_DOWN_UPSIDE_ATR || 1.15
       ),
+      /** Re-run / fail if live mark drifts more than this vs gate mark (percent). */
+      maxMarkDriftPct: Number(process.env.HL_SHORT_QUALITY_MAX_MARK_DRIFT_PCT || 0.12),
+      /** Last closed 1m must be newer than this at pre-submit (ms). */
+      maxCandleStaleMs1m: Number(process.env.HL_SHORT_QUALITY_MAX_1M_STALE_MS || 120_000),
     },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
