@@ -80,7 +80,12 @@ import TerminalHlOpenPositions from './TerminalHlOpenPositions';
 import ProTradeAgentManualTrade from './ProTradeAgentManualTrade';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { toNum } from '../../lib/hyperliquid/parse';
-type PanelTab = 'bot' | 'manual' | 'lvrg' | 'funds';
+import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
+import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
+import type { TradePanelTab } from '../protrade/tradePanelTypes';
+import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
+
+type PanelTab = TradePanelTab;
 
 type Props = {
   metrics: Dashboard2Metrics;
@@ -102,6 +107,8 @@ type Props = {
   manualTradableUsd?: number;
   manualMarketOptions?: string[];
   onManualTradeCoinChange?: (coin: string) => void;
+  panelTab?: PanelTab;
+  onPanelTabChange?: (tab: PanelTab) => void;
 };
 
 function fmt(n: number) {
@@ -126,15 +133,20 @@ const TerminalTradePanel: React.FC<Props> = ({
   manualTradableUsd,
   manualMarketOptions,
   onManualTradeCoinChange,
+  panelTab: panelTabProp,
+  onPanelTabChange,
 }) => {
   const { t } = useTranslation();
+  const botAnalysisCtx = useBotTerminalAnalysisOptional();
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
   const { transferUsdClass, closePosition, busy: hlCloseBusy } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
-  const [panelTab, setPanelTab] = useState<PanelTab>('bot');
+  const [panelTabInternal, setPanelTabInternal] = useState<PanelTab>('bot');
+  const panelTab = panelTabProp ?? panelTabInternal;
+  const setPanelTab = onPanelTabChange ?? setPanelTabInternal;
   const {
     botRunning,
     settings: botSettingsSnapshot,
@@ -744,10 +756,14 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
       </div>
 
+      <BotPanelTabBridge panelTab={panelTab} setPanelTab={setPanelTab} />
       <div className="term-panel-tabs">
         {(
           [
             { id: 'bot' as const, label: t('tradePanel.tabBot') },
+            ...(botAnalysisCtx
+              ? [{ id: 'analysis' as const, label: t('tradePanel.tabAnalysis', { defaultValue: 'Analysis' }) }]
+              : []),
             { id: 'manual' as const, label: t('tradePanel.tabManual', { defaultValue: 'Manual' }) },
             { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
             { id: 'funds' as const, label: t('tradePanel.tabFunds') },
@@ -757,7 +773,9 @@ const TerminalTradePanel: React.FC<Props> = ({
             key={tab.id}
             type="button"
             className={`term-panel-tab ${panelTab === tab.id ? 'term-panel-tab--on' : ''}`}
-            onClick={() => (tab.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(tab.id))}
+            onClick={() =>
+              tab.id === 'lvrg' ? requestLvrgAccess() : setPanelTab(tab.id as PanelTab)
+            }
           >
             {tab.label}
           </button>
@@ -984,6 +1002,12 @@ const TerminalTradePanel: React.FC<Props> = ({
             {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
           </div>
         )}
+
+        {panelTab === 'analysis' && botAnalysisCtx ? (
+          <div className="term-panel-stack term-panel-stack--analysis">
+            <TerminalBotAnalysisPanel />
+          </div>
+        ) : null}
 
         {panelTab === 'manual' && (
           <div className="term-panel-stack term-panel-stack--manual-trade">

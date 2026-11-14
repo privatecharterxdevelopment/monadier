@@ -1,0 +1,1 @@
+export type TradePanelTab = 'bot' | 'analysis' | 'manual' | 'lvrg' | 'funds';

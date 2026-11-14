@@ -10,7 +10,6 @@ import {
   executionHeadline,
   type BotExecutionSnapshot,
 } from '../../lib/hlExecutionDisplay';
-import ProTradeScanCyclePanel from '../protrade/ProTradeScanCyclePanel';
 import type { HlScanSkip, ScanCycleCandidate } from '../../lib/hlScanCycleDisplay';
 
 type DbAnalysis = {
@@ -259,16 +258,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               ))}
             </div>
           </div>
-          <ProTradeScanCyclePanel
-            universe={scanUniverseCoins}
-            candidates={scanBoardCandidates}
-            skips={scanSkips}
-            openCoins={openPositionCoins}
-            currentlyScanning={currentlyScanningCoin}
-            scannedAt={scanScannedAt}
-            coinsScanned={globalCoinsScanned}
-            scanComplete={scanComplete}
-          />
         </div>
       </div>
     );

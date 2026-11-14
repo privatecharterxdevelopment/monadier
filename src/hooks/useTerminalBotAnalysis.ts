@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
-import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import type {
   BotExecutionDiagnostic,
   BotExecutionSnapshot,
@@ -43,6 +42,12 @@ import {
   type HlOpenBlockLike,
 } from '../lib/hlOpenBlockDisplay';
 import { nextPollDelayMs } from '../lib/pollBackoff';
+import {
+  appendJournalEntry,
+  buildBotAnalysisNarrative,
+  journalVerdict,
+  type BotAnalysisJournalEntry,
+} from '../lib/botAnalysisJournal';
 
 export const ANALYSIS_STEPS = [
   { label: 'Reading 1m', progress: 20 },
@@ -815,6 +820,70 @@ export function useTerminalBotAnalysis({
     [rawReadiness]
   );
 
+  const liveNarrative = useMemo(
+    () =>
+      buildBotAnalysisNarrative({
+        coin: currentlyScanningCoin,
+        signalDirection: engineUnified?.direction,
+        signalConfidence: engineUnified?.confidence,
+        entryWaitReason: (() => {
+          const coin =
+            scanCandidate?.coin ?? globalBest?.coin ?? currentlyScanningCoin ?? undefined;
+          const block = pickFreshOpenBlock(recentOpenBlocks, coin);
+          if (block) return formatOpenBlockReason(block);
+          if (lastOpenErrorText) {
+            return formatOpenBlockReason({
+              coin,
+              reason: lastOpenErrorText,
+              gate: 'other',
+              confidence: scanCandidate?.confidence ?? globalBest?.confidence,
+            });
+          }
+          return null;
+        })(),
+        blockers: serverBlockers,
+        candidateReason: scanCandidate?.reason ?? globalBest?.reason ?? null,
+        candidateCoin: scanCandidate?.coin ?? globalBest?.coin ?? null,
+        candidateDirection: scanCandidate?.direction ?? globalBest?.direction ?? null,
+        candidateConfidence: scanCandidate?.confidence ?? globalBest?.confidence ?? null,
+        readinessHeadline: rawReadiness.headline,
+        readinessDetail: rawReadiness.detail,
+        scanSkips,
+        lastOpenError: lastOpenErrorText,
+      }),
+    [
+      currentlyScanningCoin,
+      engineUnified?.direction,
+      engineUnified?.confidence,
+      serverBlockers,
+      scanCandidate,
+      globalBest,
+      rawReadiness,
+      scanSkips,
+      lastOpenErrorText,
+      recentOpenBlocks,
+    ]
+  );
+
+  const [journalHistory, setJournalHistory] = useState<BotAnalysisJournalEntry[]>([]);
+
+  useEffect(() => {
+    if (!botRunning) {
+      setJournalHistory([]);
+      return;
+    }
+    const detail = liveNarrative.trim();
+    if (!detail) return;
+    const lines = detail.split('\n');
+    setJournalHistory((prev) =>
+      appendJournalEntry(prev, {
+        coin: currentlyScanningCoin,
+        verdict: journalVerdict(lines),
+        detail,
+      })
+    );
+  }, [botRunning, liveNarrative, currentlyScanningCoin]);
+
   const displaySymbol = useMemo(() => {
     if (scanCandidate?.coin) return hlCoinToBotSymbol(scanCandidate.coin);
     return hlCoinToBotSymbol(currentlyScanningCoin);
@@ -832,6 +901,7 @@ export function useTerminalBotAnalysis({
     !combinedReady || String(displaySignal?.direction).toUpperCase() === 'SHORT';
 
   return {
+    botRunning,
     scanning,
     analyzerActive,
     entryBlocked,
@@ -873,6 +943,9 @@ export function useTerminalBotAnalysis({
     livePositions,
     execution,
     executionDiagnostic,
+    liveNarrative,
+    journalHistory,
+    rawReadiness,
     entryWaitReason: (() => {
       const coin =
         scanCandidate?.coin ?? globalBest?.coin ?? currentlyScanningCoin ?? undefined;

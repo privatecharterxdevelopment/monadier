@@ -1326,6 +1326,7 @@
   "tradePanel": {
     "title": "{{brand}} agent",
     "tabBot": "Agent",
+    "tabAnalysis": "Analysis",
     "tabManual": "Manual",
     "tabSettings": "Settings",
     "tabFunds": "Funds",

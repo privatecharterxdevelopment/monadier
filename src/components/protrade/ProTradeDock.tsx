@@ -70,7 +70,7 @@ import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
-import ProTradeBotScanInsights from './ProTradeBotScanInsights';
+import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
 
 /** Match bot HL_SUCCESS_FEE_BPS (default 10%). */
 const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_HL_BOT_SUCCESS_FEE_BPS || 1000);
@@ -193,6 +193,7 @@ const ProTradeDock: React.FC<Props> = ({
   exchangeDataStale = false,
 }) => {
   const { t } = useTranslation();
+  const botAnalysisCtx = useBotTerminalAnalysisOptional();
   const { user, profile, isAuthenticated } = useAuth();
   const shareDisplayName = profile?.username?.trim()
     ? `@${profile.username.trim()}`
@@ -1019,25 +1020,18 @@ const ProTradeDock: React.FC<Props> = ({
             !botNeedsDeposit &&
             hlOpenPositionCount === 0 &&
             (hlSnap?.openPositionsCount ?? 0) === 0 ? (
-            <div className="hl-dock-empty hl-dock-empty--bot-scan" role="status">
-              {botScanMetrics ? (
-                <ProTradeBotScanInsights
-                  walletConnected={Boolean(walletAddress)}
-                  metrics={botScanMetrics}
-                  vaultWallet={botScanWallet ?? walletAddress ?? null}
-                  symbol={botScanSymbol}
-                  openPositionCoins={botOpenPositionCoins}
-                  botRunning={botRunning || Boolean(botScanMetrics?.autoTradeEnabled)}
-                />
-              ) : (
-                <>
-                  <div className="hl-dock-bot-scan-row">
-                    <Loader2 size={14} className="hl-dock-bot-scan-loader animate-spin" aria-hidden />
-                    <span className="hl-dock-bot-scan-title">Bot is reading market…</span>
-                  </div>
-                  <p className="hl-dock-bot-scan-sub">Loading analyzer…</p>
-                </>
-              )}
+            <div className="hl-dock-empty hl-dock-empty--compact" role="status">
+              <p className="hl-dock-empty-title">No open positions</p>
+              <p className="hl-dock-empty-hint">Scan status lives in the Agent panel → Analysis tab.</p>
+              {botAnalysisCtx ? (
+                <button
+                  type="button"
+                  className="hl-dock-open-analysis"
+                  onClick={() => botAnalysisCtx.openAnalysisTab()}
+                >
+                  Open analysis
+                </button>
+              ) : null}
             </div>
           ) : (
             <p className="hl-dock-empty">

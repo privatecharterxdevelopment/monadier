@@ -106,7 +106,6 @@ export function formatHlBotOpenReason(_raw: string | null | undefined): string |
 export function isActionableBotScanDetail(detail: string): boolean {
   const d = detail.trim();
   if (!d) return false;
-  if (/Emergency-SL|Profit-SL idle|meets entry rules|no HL pair/i.test(d)) return false;
   return (
     /insufficient margin/i.test(d) ||
     /trading agent/i.test(d) ||
@@ -149,6 +148,7 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     / ‖ /.test(d) ||
     /No HL pair meets entry rules/i.test(d) ||
     /no HL pair passed the global scan/i.test(d) ||
+    /meets entry rules/i.test(d) ||
     /Emergency-SL not confirmed/i.test(d) ||
     /Profit-SL idle/i.test(d) ||
     /(\d+)\+% confidence,\s*\d+\/3 timeframes aligned/i.test(d) ||

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useTerminalBotAnalysis } from '../../hooks/useTerminalBotAnalysis';
+import { useBotTerminalAnalysis } from '../../contexts/BotTerminalAnalysisContext';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -69,19 +69,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         }
       : null;
 
-  const analysis = useTerminalBotAnalysis({
-    walletConnected: hasWallet,
-    metrics,
-    openPositionsCount,
-    maxConcurrentPositions: maxSlots,
-    vaultUsd: Math.max(hlBalanceUsd, hlSetup.perpUsd, hlSetup.spotUsdcUsd),
-    vaultWallet: effectiveVaultWallet,
-    openPositionCoins,
-    symbol,
-    analysisActive: hasWallet && botRunning,
-    botRunning,
-    hlBotStrategy: botSettings.hlBotStrategy,
-  });
+  const analysis = useBotTerminalAnalysis();
 
   const slotsFull = analysis.slotsFull;
   const marginBlocked = analysis.marginBlocked;
