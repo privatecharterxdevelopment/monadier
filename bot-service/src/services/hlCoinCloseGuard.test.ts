@@ -11,23 +11,29 @@ import {
 const ONE_HOUR = 60 * 60 * 1000;
 const TEN_MIN = 10 * 60 * 1000;
 
-describe('post-close cooldown (default 1h wallet, 1h same-coin)', () => {
-  it('config floors are at least 1 hour for re-entry', () => {
-    assert.ok(config.hyperliquid.reentryCooldownMs >= ONE_HOUR);
+describe('post-close cooldown (wallet-wide off by default, 1h same-coin)', () => {
+  it('config: wallet re-entry off; same-coin floors remain', () => {
+    assert.equal(config.hyperliquid.reentryCooldownMs, 0);
     assert.ok(config.hyperliquid.sameCoinReentryMinMs >= ONE_HOUR);
     assert.ok(config.hyperliquid.blockOppositeSameCoinMs >= TEN_MIN);
   });
 
-  it('blocks a new open 30 minutes after the last wallet close', () => {
+  it('wallet-wide re-entry does not block when cooldown is 0', () => {
     const now = Date.now();
     const r = evaluateWalletReentry(now - 30 * 60_000, now);
-    assert.equal(r.blocked, true);
+    assert.equal(r.blocked, false);
   });
 
-  it('allows a new open 61 minutes after the last wallet close', () => {
+  it('wallet-wide re-entry blocks only when HL_REENTRY_COOLDOWN_MS is set', () => {
+    const prev = config.hyperliquid.reentryCooldownMs;
+    (config.hyperliquid as { reentryCooldownMs: number }).reentryCooldownMs = ONE_HOUR;
     const now = Date.now();
-    const r = evaluateWalletReentry(now - 61 * 60_000, now);
-    assert.equal(r.blocked, false);
+    try {
+      assert.equal(evaluateWalletReentry(now - 30 * 60_000, now).blocked, true);
+      assert.equal(evaluateWalletReentry(now - 61 * 60_000, now).blocked, false);
+    } finally {
+      (config.hyperliquid as { reentryCooldownMs: number }).reentryCooldownMs = prev;
+    }
   });
 
   it('does not wait when the wallet has never closed', () => {

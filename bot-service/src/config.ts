@@ -374,14 +374,15 @@ export const config = {
     /** Bars (excl. last 3) used for swing high/low in sweep detection. */
     sweepLookbackBars: Number(process.env.HL_SWEEP_LOOKBACK_BARS || 15),
     /**
-     * After any close on this wallet, wait before the next open (any coin/slot).
-     * Default 1h. Set HL_REENTRY_COOLDOWN_MS=0 to disable (not recommended).
+     * Optional wallet-wide pause after bot/manual close (any coin). Default **off**.
+     * Same-coin anti-churn uses sameCoinReentryMinMs / blockOppositeSameCoinMs instead.
      */
     fridayShortOnlyUtcHour: Number(process.env.HL_FRIDAY_SHORT_ONLY_UTC_HOUR || 18),
     reentryCooldownMs: (() => {
       const raw = process.env.HL_REENTRY_COOLDOWN_MS;
-      if (raw === '0') return 0;
-      return Math.max(3_600_000, Number(raw || 3_600_000));
+      if (raw === undefined || raw === '' || raw === '0') return 0;
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : 0;
     })(),
     /**
      * Same coin + same direction after close. Default 1h (no instant re-SHORT).

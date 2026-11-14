@@ -693,7 +693,7 @@ export class HyperliquidTradingService {
       const waitMin = Math.max(1, Math.ceil(waitSec / 60));
       noteHlOpenSkipReason(
         userAddress,
-        `Wallet re-entry pause — ~${waitMin}m left after last bot/manual close (HL profit-SL alone does not start this)`
+        `Wallet re-entry pause — ~${waitMin}m left (set HL_REENTRY_COOLDOWN_MS=0 on Railway to disable)`
       );
       logger.info('HL open skip: wallet reentry cooldown after close', {
         user: userAddress.slice(0, 10),

@@ -30,7 +30,7 @@ export async function resolveHlEntryBlockReason(wallet: string): Promise<string 
     const gate = evaluateWalletReentry(lastBotClose);
     if (gate.blocked && gate.reason) {
       const waitMin = Math.max(1, Math.ceil(gate.waitMs / 60_000));
-      return `Wallet re-entry pause — ~${waitMin}m left after your last bot/manual close (other coins can wait). Exchange profit-SL fills do not start this timer.`;
+      return `Wallet re-entry pause — ~${waitMin}m left (HL_REENTRY_COOLDOWN_MS is set on the server).`;
     }
   }
 
