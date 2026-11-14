@@ -1027,7 +1027,7 @@ const ProTradeHlLightweightChart: React.FC<Props> = ({
 
   return (
     <div className="hl-chart-canvas-wrap">
-      {loading && candles.length === 0 ? (
+      {loading && candles.length === 0 && !chartError ? (
         <div className="hl-chart-empty">Loading chart…</div>
       ) : null}
       {isBlank ? (
