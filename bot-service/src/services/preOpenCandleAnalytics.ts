@@ -224,6 +224,7 @@ export function evaluatePreOpenCandleWindow(opts: {
    * pressing lower (not pausing on support after one red spike).
    */
   const skipFloorVeto =
+    !opts.aggressiveScalp &&
     dir === 'SHORT' &&
     confirmed &&
     recent5 <= -Math.max(0.04, cfg.breakoutRecentMovePct * 0.45) &&

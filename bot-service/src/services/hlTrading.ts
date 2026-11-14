@@ -91,7 +91,8 @@ import {
   volumeRankForCoin,
 } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
-import { validateScalpAlignment } from './scalpAlignGate';
+import { signalEngine } from './signalEngine';
+import { tapeStillPumping, validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import {
   evaluateShortEntryQualityPreSubmit,
@@ -1042,6 +1043,43 @@ export class HyperliquidTradingService {
       }
 
       if (!skipOpenGates) {
+      if (opts.direction === 'SHORT') {
+        try {
+          const btc1m = await signalEngine.fetchCandles('BTCUSDT', '1m', 12);
+          const btc5m = await signalEngine.fetchCandles('BTCUSDT', '5m', 10);
+          const btcLivePump =
+            tapeStillPumping(btc1m) || tapeStillPumping(btc5m);
+          if (btcLivePump) {
+            const reason =
+              coin === 'BTC'
+                ? 'Open blocked — BTC SHORT refused while 1m/5m still pumping'
+                : 'Open blocked — BTC live bullish tape; no alt SHORT while BTC pumps';
+            logOpenGate(
+              {
+                userAddress: opts.userAddress,
+                coin,
+                direction: opts.direction,
+                gate: 'live_tape',
+                ok: false,
+                code: 'BTC_LIVE_PUMP_BLOCK',
+                reason,
+              },
+              gatesPassed
+            );
+            return failOpen(reason, 'BTC_LIVE_PUMP_BLOCK');
+          }
+        } catch (err) {
+          logger.warn('BTC live tape check failed — blocking SHORT (fail closed)', {
+            coin,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return failOpen(
+            'Open blocked — BTC live tape check failed (fail closed)',
+            'BTC_LIVE_PUMP_BLOCK'
+          );
+        }
+      }
+
       const freshPumpGate =
         relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
           ? { ok: true as const, reason: 'Fresh pump bypass — trusted MTF scan' }
@@ -1153,7 +1191,7 @@ export class HyperliquidTradingService {
       markGatePassed(opts.userAddress, 'scalp_align');
 
       const macroGate =
-        relaxSecondary && shortRules.bypassMacroBetaWhenTrusted
+        relaxSecondary && shortRules.bypassMacroBetaWhenTrusted && !aggShort
           ? {
               ok: true as const,
               reason: 'Macro beta bypass — trusted MTF scan',
@@ -1187,7 +1225,7 @@ export class HyperliquidTradingService {
       markGatePassed(opts.userAddress, 'macro_beta');
 
       const pumpShortGate =
-        relaxSecondary && shortRules.bypassPumpShortWhenTrusted
+        relaxSecondary && shortRules.bypassPumpShortWhenTrusted && !aggShort
           ? {
               ok: true as const,
               reason: 'Alt pump-short bypass — trusted MTF',

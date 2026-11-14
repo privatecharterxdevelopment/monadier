@@ -103,7 +103,7 @@ export function isExplosive1mBullishImpulse(candles: Candle[]): boolean {
   return false;
 }
 
-function tapeStillPumping(candles: Candle[], lookback = 5): boolean {
+export function tapeStillPumping(candles: Candle[], lookback = 5): boolean {
   const closed = closedCandles(candles);
   if (closed.length < lookback) return false;
   const slice = closed.slice(-lookback);
