@@ -3315,19 +3315,24 @@ html[dir='rtl'] .hl-book {
 
 .term-analytic-hero__stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(0, 0.65fr);
+  gap: 4px 6px;
   margin-top: 10px;
   padding-top: 8px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .term-analytic-stat {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .term-analytic-stat__clip {
   display: block;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3344,13 +3349,26 @@ html[dir='rtl'] .hl-book {
 }
 
 .term-analytic-stat__value {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
   font-weight: 700;
   color: var(--hl-text);
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.hl-bot-panel-wrap .term-analytic-stat__value {
+  font-size: 10px;
+}
+
+.hl-bot-panel-wrap .term-analytic-stat__value .term-analysis-pulse {
+  flex-shrink: 0;
 }
 
 .term-analytic-stat__value--pos {

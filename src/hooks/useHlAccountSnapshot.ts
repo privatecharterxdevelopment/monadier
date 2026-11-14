@@ -29,7 +29,7 @@ type Listener = (snapshot: HlAccountSnapshot | null) => void;
 let activeWallet: string | null = null;
 let snapshot: HlAccountSnapshot | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
-let pollIntervalMs = 8_000;
+let pollIntervalMs = 12_000;
 let inFlight = false;
 /** Require 2 consecutive empty reads before wiping a previously funded snapshot. */
 let emptyEquityStreak = 0;
@@ -202,7 +202,7 @@ function startPoll(wallet: string): void {
     if (snapshot?.wallet !== wallet) {
       snapshot = null;
       emptyEquityStreak = 0;
-      pollIntervalMs = 8_000;
+      pollIntervalMs = 12_000;
     }
   }
   stopPoll();

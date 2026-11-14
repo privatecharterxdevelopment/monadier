@@ -1,11 +1,8 @@
-import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import type { HlMarketKind } from '../../hooks/useHyperliquidMarket';
 import type { OrderSide } from './orders';
 import { getHlBuilderConfig } from './builderConfig';
+import { hlInfoPost } from './hlInfoClient';
 import { parseMaxBuilderTenthsBps, successFeeToCloseBuilderTenthsBps } from './proTradeBuilderFee';
-
-const transport = new HttpTransport();
-const info = new InfoClient({ transport });
 
 const maxBuilderFeeCache = new Map<string, { at: number; fee: number }>();
 const MAX_BUILDER_FEE_TTL_MS = 90_000;
@@ -23,7 +20,8 @@ export async function fetchMaxBuilderFee(
   const hit = maxBuilderFeeCache.get(key);
   if (hit && Date.now() - hit.at < MAX_BUILDER_FEE_TTL_MS) return hit.fee;
   try {
-    const fee = await info.maxBuilderFee({
+    const fee = await hlInfoPost<number>({
+      type: 'maxBuilderFee',
       user: user as `0x${string}`,
       builder: builder as `0x${string}`,
     });

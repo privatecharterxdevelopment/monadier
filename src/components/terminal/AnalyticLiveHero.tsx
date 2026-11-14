@@ -17,6 +17,18 @@ type Props = {
 
 const BAR_COUNT = 28;
 
+function compactStatusLabel(label: string): string {
+  const compact: Record<string, string> = {
+    'Waiting confirmation': 'Waiting',
+    'Opening trade': 'Opening',
+    'Setup blocked': 'Blocked',
+    'Order failed': 'Failed',
+    'Unprotected position': 'No SL',
+    'Position closed': 'Closed',
+  };
+  return compact[label] ?? label;
+}
+
 function barHeight(active: boolean, progress: number, index: number): string {
   if (!active) return '12%';
   const wave = Math.sin((progress / 100) * Math.PI * 2 + index * 0.55);
@@ -36,6 +48,7 @@ const AnalyticLiveHero: React.FC<Props> = ({
   focusConf,
   tfChips,
 }) => {
+  const statusShort = useMemo(() => compactStatusLabel(statusLabel), [statusLabel]);
   const bars = useMemo(
     () =>
       Array.from({ length: BAR_COUNT }, (_, i) => ({
@@ -85,8 +98,8 @@ const AnalyticLiveHero: React.FC<Props> = ({
             className={`term-analytic-stat__value term-analytic-stat__value--${statusTone}`}
             title={statusLabel}
           >
-            {scanning ? <Activity size={12} className="term-analysis-pulse" aria-hidden /> : null}
-            <span className="term-analytic-stat__clip">{statusLabel}</span>
+            {scanning ? <Activity size={11} className="term-analysis-pulse" aria-hidden /> : null}
+            <span className="term-analytic-stat__clip">{statusShort}</span>
           </span>
         </div>
         <div className="term-analytic-stat">

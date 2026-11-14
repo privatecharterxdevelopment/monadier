@@ -30,7 +30,8 @@ type State = {
   error: string | null;
 };
 
-const POSITION_POLL_MS = 2_500;
+/** Keep in sync with useHlAccountSnapshot — avoids duplicate HL clearinghouse stamps. */
+const POSITION_POLL_MS = 6_000;
 /** Background fills poll — closes still force an immediate heavy refresh. */
 const HEAVY_REFRESH_MS = 60_000;
 const FILLS_LIMIT = 2000;

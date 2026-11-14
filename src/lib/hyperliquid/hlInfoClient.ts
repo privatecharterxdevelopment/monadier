@@ -9,9 +9,9 @@ const CANDLE_STALE_MS = 15 * 60_000;
 const DEFAULT_TTL_MS = 4_000;
 const USER_STATE_TTL_MS = 2_500;
 const USER_FILLS_TTL_MS = 8_000;
-const MAX_RETRIES = 4;
-const MIN_REQUEST_GAP_MS = 90;
-const RATE_LIMIT_PAUSE_MS = 6_000;
+const MAX_RETRIES = 2;
+const MIN_REQUEST_GAP_MS = 110;
+const RATE_LIMIT_PAUSE_MS = 8_000;
 
 type HlInfoError = Error & { status?: number; retryable?: boolean };
 
@@ -56,6 +56,13 @@ function cacheKey(body: Record<string, unknown>): string {
   if (type === 'activeAssetData' && user && typeof body.coin === 'string') {
     return JSON.stringify({ type, user, coin: body.coin.trim().toUpperCase() });
   }
+  if (type === 'maxBuilderFee' && user && typeof body.builder === 'string') {
+    return JSON.stringify({
+      type,
+      user,
+      builder: String(body.builder).toLowerCase(),
+    });
+  }
   return JSON.stringify(body);
 }
 
@@ -73,9 +80,10 @@ function ttlFor(body: Record<string, unknown>): number {
     t === 'userAbstraction' ||
     t === 'extraAgents'
   ) {
-    return USER_STATE_TTL_MS;
+    return 5_000;
   }
-  if (t === 'activeAssetData') return 5_000;
+  if (t === 'activeAssetData') return 8_000;
+  if (t === 'maxBuilderFee') return 90_000;
   return DEFAULT_TTL_MS;
 }
 
@@ -191,6 +199,11 @@ export async function hlInfoPost<T>(body: Record<string, unknown>): Promise<T> {
         lastErr = err;
         const staleEarly = readCache<T>(key, ttl, true, staleMs);
         if (staleEarly != null) return staleEarly;
+        const status = err && typeof err === 'object' ? (err as HlInfoError).status : undefined;
+        if (status === 429) {
+          const stale429 = readCache<T>(key, ttl, true, staleMs * 3);
+          if (stale429 != null) return stale429;
+        }
         const retryable =
           !err ||
           typeof err !== 'object' ||

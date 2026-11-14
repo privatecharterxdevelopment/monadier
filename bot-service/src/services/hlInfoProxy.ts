@@ -27,6 +27,9 @@ const ALLOWED = new Set([
   'userTwapHistory',
   'recentTrades',
   'outcomeMeta',
+  'activeAssetData',
+  'meta',
+  'maxBuilderFee',
 ]);
 
 function ttlMs(type: string): number {
@@ -40,8 +43,10 @@ function ttlMs(type: string): number {
     type === 'spotClearinghouseState' ||
     type === 'userAbstraction'
   ) {
-    return 2_500;
+    return 5_000;
   }
+  if (type === 'activeAssetData') return 8_000;
+  if (type === 'maxBuilderFee') return 60_000;
   if (type === 'userFills') return 30_000;
   return 4_000;
 }
@@ -59,6 +64,9 @@ function cacheKey(body: Record<string, unknown>): string {
       interval: req.interval,
       startBucket,
     });
+  }
+  if (type === 'activeAssetData' && user && typeof body.coin === 'string') {
+    return JSON.stringify({ type, user, coin: String(body.coin).trim().toUpperCase() });
   }
   if (user) return JSON.stringify({ type, user });
   return JSON.stringify(body);
