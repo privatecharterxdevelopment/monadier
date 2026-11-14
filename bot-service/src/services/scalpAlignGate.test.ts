@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   evaluateTrendLongScalp1m,
   evaluateTrendShortScalp1m,
+  isExplosive1mBullishImpulse,
   type TrendLongScalpInputs,
   type TrendShortScalpInputs,
 } from './scalpAlignGate';
@@ -264,6 +265,112 @@ describe('MTF SHORT scalp 1m relaxation', () => {
     );
     assert.equal(r.ok, false);
     assert.equal(r.code, 'SCALP_SHORT_HTF_BLOCK');
+  });
+});
+
+describe('1m live pump vs pullback (scalp SHORT)', () => {
+  function quiet1m(n = 8, base = 100): Candle[] {
+    const out: Candle[] = [];
+    for (let i = 0; i < n; i++) {
+      out.push(holdCandle(i * 60_000, base - i * 0.02));
+    }
+    return out;
+  }
+
+  it('1m HOLD without pump → MTF SHORT passes scalp', () => {
+    const r = evaluateTrendShortScalp1m(baseTrendShort());
+    assert.equal(r.ok, true);
+    assert.equal(r.code, 'SCALP_PASS');
+  });
+
+  it('early strong pump inside forming 1m → SHORT blocked at scalp', () => {
+    const forming: Candle = {
+      time: 8 * 60_000,
+      open: 100,
+      high: 100.72,
+      low: 99.98,
+      close: 100.68,
+      volume: 8000,
+    };
+    const c1m = [...quiet1m(8), forming];
+    assert.equal(isExplosive1mBullishImpulse(c1m), true);
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'HOLD', 'DOWN', 50),
+        c1m,
+      })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'SCALP_SHORT_PUMP_BLOCK');
+    assert.match(r.reason, /live 1m bullish impulse/);
+  });
+
+  it('explosive pump before two closed green 1m bars → SHORT blocked', () => {
+    const c1m = [
+      ...quiet1m(6),
+      holdCandle(6 * 60_000, 99.88),
+      {
+        time: 7 * 60_000,
+        open: 99.88,
+        high: 100.85,
+        low: 99.85,
+        close: 100.8,
+        volume: 12_000,
+      },
+    ];
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'LONG', 'UP', 58),
+        c1m,
+      })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'SCALP_SHORT_PUMP_BLOCK');
+  });
+
+  it('normal weak pullback without bullish momentum → SHORT scalp pass', () => {
+    const c1m = [
+      ...quiet1m(7),
+      bullCandle(7 * 60_000, 99.9, 99.94),
+      {
+        time: 8 * 60_000,
+        open: 99.94,
+        high: 99.97,
+        low: 99.92,
+        close: 99.95,
+        volume: 1100,
+      },
+    ];
+    assert.equal(isExplosive1mBullishImpulse(c1m), false);
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'HOLD', 'UP', 52),
+        c1m,
+      })
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.code, 'SCALP_PASS');
+  });
+
+  it('bullish 5m structure break → SHORT blocked (unchanged)', () => {
+    const c5m: Candle[] = [];
+    let p = 100;
+    for (let i = 0; i < 22; i++) {
+      p *= 0.9995;
+      c5m.push(bearCandle(i * 300_000, p / 0.9995, p));
+    }
+    const ceiling = Math.max(...c5m.slice(0, -3).map((c) => c.high));
+    const close = ceiling * 1.002;
+    c5m.push(bullCandle(22 * 300_000, ceiling * 0.999, close));
+    c5m.push(bullCandle(23 * 300_000, close, ceiling * 1.003));
+    c5m.push(bearCandle(24 * 300_000, ceiling * 1.002, ceiling * 1.001));
+    assert.equal(confirmedBreakoutThroughPriorResistance(c5m), true);
+    const r = evaluateTrendShortScalp1m(baseTrendShort({ c5m }));
+    assert.equal(r.ok, false);
+    assert.ok(
+      r.code === 'SCALP_SHORT_STRUCTURE_BREAK' || r.code === 'SCALP_SHORT_PUMP_BLOCK',
+      `expected structure/pump block, got ${r.code}`
+    );
   });
 });
 

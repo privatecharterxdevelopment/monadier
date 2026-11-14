@@ -57,6 +57,52 @@ function closedCandles(candles: Candle[]): Candle[] {
   return candles.slice(0, -1);
 }
 
+/**
+ * Explosive bullish move on the **forming** 1m bar (or last closed + live sprint).
+ * Complements fresh_pump (15m/1h) and pre_open (closed window only) — no duplicate cooldown.
+ */
+export function isExplosive1mBullishImpulse(candles: Candle[]): boolean {
+  if (candles.length < 3) return false;
+  const forming = candles[candles.length - 1]!;
+  const closed = closedCandles(candles);
+  if (forming.open <= 0) return false;
+
+  const liveMovePct = ((forming.close - forming.open) / forming.open) * 100;
+  const liveHighPct = ((forming.high - forming.open) / forming.open) * 100;
+  const rangePct = ((forming.high - forming.low) / forming.open) * 100;
+
+  const volWindow = closed.slice(-8);
+  const avgVol =
+    volWindow.length > 0
+      ? volWindow.reduce((s, c) => s + c.volume, 0) / volWindow.length
+      : forming.volume;
+  const volSpike = avgVol > 0 && forming.volume >= avgVol * 2.2;
+
+  const strongLiveBody =
+    forming.close >= forming.open &&
+    liveMovePct >= 0.28 &&
+    forming.close >= forming.high - (forming.high - forming.low) * 0.15;
+
+  if (volSpike && (liveHighPct >= 0.22 || liveMovePct >= 0.18)) return true;
+  if (liveHighPct >= 0.55 || liveMovePct >= 0.45) return true;
+  if (strongLiveBody && rangePct >= 0.35) return true;
+
+  const lastClosed = closed[closed.length - 1];
+  if (lastClosed?.open && lastClosed.open > 0) {
+    const sprintPct = ((forming.close - lastClosed.open) / lastClosed.open) * 100;
+    if (sprintPct >= 0.65 && forming.close >= forming.open) return true;
+    if (sprintPct >= 0.9) return true;
+  }
+
+  const microBreak = confirmedBreakoutThroughPriorResistance(candles, {
+    confirmBars: 1,
+    excludeLastClosed: 2,
+  });
+  if (microBreak && forming.close > forming.open && liveMovePct >= 0.12) return true;
+
+  return false;
+}
+
 function tapeStillPumping(candles: Candle[], lookback = 5): boolean {
   const closed = closedCandles(candles);
   if (closed.length < lookback) return false;
@@ -239,15 +285,26 @@ export function evaluateTrendShortScalp1m(inputs: TrendShortScalpInputs): ScalpA
   const label1m = labelTf(inputs.tf1m);
   const label5m = labelTf(inputs.tf5m);
 
+  if (isExplosive1mBullishImpulse(inputs.c1m)) {
+    return {
+      ok: false,
+      code: 'SCALP_SHORT_PUMP_BLOCK',
+      reason: `Scalp blocked — ${coin} SHORT: live 1m bullish impulse (forming candle / sprint)`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
   const activePump =
     isLongRallyContinuation({ candles15m: inputs.c15m, candles5m: inputs.c5m }) ||
+    tapeStillPumping(inputs.c1m) ||
     tapeStillPumping(inputs.c5m) ||
     tapeStillPumping(inputs.c15m);
   if (activePump) {
     return {
       ok: false,
       code: 'SCALP_SHORT_PUMP_BLOCK',
-      reason: `Scalp blocked — ${coin} SHORT: active rally / bullish tape on 5m–15m`,
+      reason: `Scalp blocked — ${coin} SHORT: active rally / bullish tape on 1m–15m`,
       tf1m: label1m,
       tf5m: label5m,
     };
