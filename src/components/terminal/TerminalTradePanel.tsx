@@ -1042,13 +1042,16 @@ const TerminalTradePanel: React.FC<Props> = ({
                 onSuccess={() => {
                   showToast(
                     t('tradePanel.manualAgentSuccess', {
-                      defaultValue: 'Order filled — see Agent positions.',
+                      defaultValue: 'Order submitted — position updates in a moment.',
                     }),
                     4000,
                     'ok'
                   );
-                  void refreshAll();
                   onRefresh();
+                  window.setTimeout(() => {
+                    onRefresh();
+                    void hlSetup.refresh();
+                  }, 1200);
                 }}
                 onError={(msg) => showToast(msg, 5000, 'err')}
               />

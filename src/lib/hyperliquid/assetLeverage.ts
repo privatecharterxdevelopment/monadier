@@ -1,12 +1,13 @@
-import { HttpTransport, InfoClient } from '@nktkas/hyperliquid';
 import type { MarginMode } from '../../hooks/useHyperliquidTrading';
-
-const transport = new HttpTransport();
-const info = new InfoClient({ transport });
+import { hlInfoPost } from './hlInfoClient';
 
 export type HlAssetLeverageState = {
   leverage: number;
   marginMode: MarginMode;
+};
+
+type ActiveAssetDataResponse = {
+  leverage?: { value?: number; type?: string };
 };
 
 export async function fetchHlAssetLeverage(
@@ -14,7 +15,8 @@ export async function fetchHlAssetLeverage(
   coin: string
 ): Promise<HlAssetLeverageState | null> {
   try {
-    const data = await info.activeAssetData({
+    const data = await hlInfoPost<ActiveAssetDataResponse>({
+      type: 'activeAssetData',
       user: user as `0x${string}`,
       coin,
     });

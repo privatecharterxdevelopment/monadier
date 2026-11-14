@@ -7,6 +7,9 @@ import { parseMaxBuilderTenthsBps, successFeeToCloseBuilderTenthsBps } from './p
 const transport = new HttpTransport();
 const info = new InfoClient({ transport });
 
+const maxBuilderFeeCache = new Map<string, { at: number; fee: number }>();
+const MAX_BUILDER_FEE_TTL_MS = 90_000;
+
 export type HlBuilderOrderParam = {
   b: `0x${string}`;
   f: number;
@@ -16,14 +19,19 @@ export async function fetchMaxBuilderFee(
   user: string,
   builder: string
 ): Promise<number> {
+  const key = `${user.toLowerCase()}:${builder.toLowerCase()}`;
+  const hit = maxBuilderFeeCache.get(key);
+  if (hit && Date.now() - hit.at < MAX_BUILDER_FEE_TTL_MS) return hit.fee;
   try {
     const fee = await info.maxBuilderFee({
       user: user as `0x${string}`,
       builder: builder as `0x${string}`,
     });
-    return Number(fee) || 0;
+    const n = Number(fee) || 0;
+    maxBuilderFeeCache.set(key, { at: Date.now(), fee: n });
+    return n;
   } catch {
-    return 0;
+    return hit?.fee ?? 0;
   }
 }
 

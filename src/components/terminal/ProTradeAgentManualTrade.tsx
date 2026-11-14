@@ -5,10 +5,7 @@ import type { MarginMode, OrderSide } from '../../hooks/useHyperliquidTrading';
 import { leverageOptionsForMax, fetchHlAssetLeverage } from '../../lib/hyperliquid/assetLeverage';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import { humanizeHlTradeError } from '../../lib/hyperliquid/orders';
-import {
-  placeHlManualPerpOrderViaAgent,
-  updateHlManualPerpLeverageViaAgent,
-} from '../../lib/hyperliquid/hlManualOrder';
+import { placeHlManualPerpOrderViaAgent } from '../../lib/hyperliquid/hlManualOrder';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { isBotExcludedHlCoin } from '../../lib/botTradingPairs';
 
@@ -191,12 +188,6 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
     }
     setBusy(true);
     try {
-      await updateHlManualPerpLeverageViaAgent({
-        walletAddress: wallet,
-        coin: coinLabel,
-        leverage,
-        marginMode,
-      });
       await placeHlManualPerpOrderViaAgent({
         walletAddress: wallet,
         coin: coinLabel,

@@ -53,6 +53,9 @@ function cacheKey(body: Record<string, unknown>): string {
   ) {
     return JSON.stringify({ type, user });
   }
+  if (type === 'activeAssetData' && user && typeof body.coin === 'string') {
+    return JSON.stringify({ type, user, coin: body.coin.trim().toUpperCase() });
+  }
   return JSON.stringify(body);
 }
 
@@ -72,6 +75,7 @@ function ttlFor(body: Record<string, unknown>): number {
   ) {
     return USER_STATE_TTL_MS;
   }
+  if (t === 'activeAssetData') return 5_000;
   return DEFAULT_TTL_MS;
 }
 

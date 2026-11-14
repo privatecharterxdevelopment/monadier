@@ -872,6 +872,7 @@ export class HyperliquidTradingService {
     skipOpenGates?: boolean;
     /** manual = Perps tab (slot counts, bot never auto-closes). bot = agent / auto. */
     positionScope?: 'bot' | 'manual';
+    marginMode?: 'cross' | 'isolated';
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -1402,9 +1403,10 @@ export class HyperliquidTradingService {
       }
 
       const client = createAgentClient(opts.userAddress);
+      const isCrossMargin = opts.marginMode === 'cross';
       await client.updateLeverage({
         asset: assetIndex,
-        isCross: false,
+        isCross: isCrossMargin,
         leverage: effectiveLeverage,
       });
 
@@ -1413,9 +1415,9 @@ export class HyperliquidTradingService {
         isClose: false,
       });
 
-      /** Final SHORT quality — immediately before submit; no bypass (force/aggressive included). */
+      /** Final SHORT quality — immediately before submit; manual/force skips extra HL polling. */
       let submitMarkPx = markPx;
-      if (opts.direction === 'SHORT') {
+      if (opts.direction === 'SHORT' && !skipOpenGates) {
         const shortQuality = await evaluateShortEntryQualityPreSubmit({
           coin,
           markPxAtGate: markPx,
@@ -1510,6 +1512,9 @@ export class HyperliquidTradingService {
         orderStatus: status ?? null,
         entryTimedOut: false,
         exchange: createHlEntrySlExchangeForCoin(opts.userAddress, coin),
+        ...(skipOpenGates
+          ? { slRetryBudgetMs: 2_000, slRetries: 2, flattenPasses: 2 }
+          : {}),
       });
 
       patchExecutionDiagnostic(opts.userAddress, {
@@ -1582,17 +1587,26 @@ export class HyperliquidTradingService {
       });
 
       if (slPct > 0 && !protectedOpen.slConfirmed) {
-        logger.error('HL open not marked success — emergency SL unconfirmed', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          reason: protectedOpen.reason,
-          critical: protectedOpen.critical,
-          slPct,
-        });
-        return {
-          success: false,
-          error: protectedOpen.reason || 'Emergency SL not exchange-confirmed',
-        };
+        if (skipOpenGates && protectedOpen.fillProven) {
+          logger.warn('HL manual open — fill ok, SL still pending (monitor will retry)', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            reason: protectedOpen.reason,
+            slPct,
+          });
+        } else {
+          logger.error('HL open not marked success — emergency SL unconfirmed', {
+            user: opts.userAddress.slice(0, 10),
+            coin,
+            reason: protectedOpen.reason,
+            critical: protectedOpen.critical,
+            slPct,
+          });
+          return {
+            success: false,
+            error: protectedOpen.reason || 'Emergency SL not exchange-confirmed',
+          };
+        }
       }
 
       logger.info('HL position opened', {
@@ -2519,16 +2533,12 @@ export class HyperliquidTradingService {
     if (!(opts.size > 0) || !(opts.markPx > 0)) {
       return { success: false, error: 'size and markPx required' };
     }
-    const [meta, mids, liquidUniverse] = await Promise.all([
-      fetchHlMeta(),
-      fetchHlAllMids(),
-      fetchHlLiquidUniverse(),
-    ]);
+    const [meta, mids] = await Promise.all([fetchHlMeta(), fetchHlAllMids()]);
     const ctx: TradingCycleContext = {
       startedAt: Date.now(),
       meta,
       mids,
-      liquidUniverse,
+      liquidUniverse: { coins: [], markets: [], fetchedAt: Date.now() },
       globalScan: { standard: [], aggressive: [] },
       globalSignals: [],
     };
@@ -2560,6 +2570,7 @@ export class HyperliquidTradingService {
       stopLossPercent: settings.stopLossPercent,
       skipOpenGates: true,
       positionScope: opts.botManaged ? 'bot' : 'manual',
+      marginMode: opts.marginMode,
     });
   }
 }
