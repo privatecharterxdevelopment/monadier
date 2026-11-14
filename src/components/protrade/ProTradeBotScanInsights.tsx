@@ -5,7 +5,6 @@ import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
-import { isActionableBotScanDetail } from '../../lib/hlBotReasonLabels';
 import { fmtUsdSymbol } from '../../lib/hyperliquid/format';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 
@@ -67,12 +66,8 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
     if (!botRunning && !metrics.autoTradeEnabled) {
       return 'Agent stopped — Start bot to scan again.';
     }
-
-    const detail = analysis.readiness?.detail?.trim();
-    if (detail && isActionableBotScanDetail(detail)) return detail;
-
     return '';
-  }, [botRunning, metrics.autoTradeEnabled, analysis.readiness?.detail]);
+  }, [botRunning, metrics.autoTradeEnabled]);
 
   if (!botRunning && !metrics.autoTradeEnabled) {
     return (
@@ -107,10 +102,10 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
 
   const showSpinner = analysis.analyzerActive && !analysis.slotsFull && !analysis.marginBlocked;
   const scanTitle = analysis.slotsFull
-    ? analysis.readiness.headline
+    ? `${slotOpenCount}/${maxSlots} · monitoring open trades`
     : analysis.marginBlocked
       ? analysis.readiness.headline || 'Insufficient margin'
-      : analysis.readiness.headline || 'Bot is reading market…';
+      : 'Bot is reading market…';
 
   return (
     <>

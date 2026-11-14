@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ARBITRUM_ONE_CHAIN_ID } from '../lib/usdcArbitrum';
 import { evaluateBotReadiness, readinessFromServerBlockers } from '../lib/botReadiness';
+import { isBotScanNoiseDetail } from '../lib/hlBotReasonLabels';
 import type {
   BotExecutionDiagnostic,
   BotExecutionSnapshot,
@@ -368,7 +369,7 @@ export function useTerminalBotAnalysis({
             suggestedEntry: 0,
             suggestedTP: 0,
             suggestedSL: 0,
-            reasons: engineRow.reason ? [engineRow.reason] : [],
+            reasons: [],
             warnings: [],
             timestamp: Date.now(),
           });
@@ -589,9 +590,7 @@ export function useTerminalBotAnalysis({
               )
               .sort((a, b) => b.confidence - a.confidence)
           : [];
-        for (const reason of data.globalScan?.filterReasons ?? []) {
-          if (reason && !blockers.includes(reason)) blockers.push(reason);
-        }
+        // filterReasons are engine diagnostics — never push to user blockers (scan-cycle panel shows skips).
         setGlobalCandidates(candidates);
         if (Array.isArray(data.globalScan?.boardCandidates) && data.globalScan.boardCandidates.length > 0) {
           setBoardCandidates(
@@ -716,11 +715,18 @@ export function useTerminalBotAnalysis({
     // Debounce margin headline the same way we debounce scan-pause — avoid 1–2s $0 flashes.
     if (status.title === 'Insufficient margin' && !marginBlocked) {
       // fall through to normal scanning copy while the raw block is still settling
-    } else if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
+    } else if (status.title === 'Insufficient margin') {
       return {
         canEnter: false,
         headline: status.title,
         detail: status.detail,
+      };
+    }
+    if (status.title === 'Bot waiting') {
+      return {
+        canEnter: false,
+        headline: 'Bot is reading market…',
+        detail: '',
       };
     }
     if (slotsFull) {
@@ -751,7 +757,7 @@ export function useTerminalBotAnalysis({
         return {
           canEnter: false,
           headline: 'Bot is reading market…',
-          detail: rawHint,
+          detail: '',
         };
       }
       return {
@@ -761,21 +767,23 @@ export function useTerminalBotAnalysis({
     }
 
     const server = readinessFromServerBlockers(serverBlockers);
+    const serverDetail =
+      server.detail && !isBotScanNoiseDetail(server.detail) ? server.detail : '';
     if (local.headline === 'Opening trade') {
       return local;
     }
-    if (local.canEnter && server.detail) {
+    if (local.canEnter && serverDetail) {
       return {
         canEnter: false,
         headline: 'Bot is reading market…',
-        detail: server.detail,
+        detail: serverDetail,
       };
     }
-    if (server.detail) {
+    if (serverDetail) {
       return {
         canEnter: false,
         headline: 'Bot is reading market…',
-        detail: server.detail,
+        detail: serverDetail,
       };
     }
     return {

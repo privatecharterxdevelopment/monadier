@@ -129,7 +129,7 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     ? Math.round(signal?.confidence ?? dbAnalysis?.confidence ?? 0)
     : 0;
   const hasTfConflict = Boolean(signal?.warnings?.some((w) => /conflict/i.test(w)));
-  const waitOpen = Boolean(entryWaitReason) && action !== 'HOLD' && conf >= 52;
+  const waitOpen = false;
   const phase = analyzerPhaseLabel(execution, waitOpen);
   const signalClass = waitOpen
     ? 'term-hint--warn'

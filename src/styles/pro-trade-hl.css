@@ -2927,6 +2927,15 @@ html[dir='rtl'] .hl-book {
   color: var(--hl-text-faint);
 }
 
+/* Legacy analyzer copy — never show long engine/scalp paragraphs */
+.hl-bot-analysis .hl-bot-analyzer-wait,
+.hl-bot-analysis .hl-bot-analyzer-subline,
+.hl-bot-analysis .term-analysis-hint--subtle.term-analysis-subline--why,
+.hl-dock-empty--bot-scan .hl-dock-bot-scan-detail,
+.hl-dock-bot-scan-insights .hl-dock-bot-scan-detail {
+  display: none !important;
+}
+
 .hl-table {
   width: 100%;
   /* separate = sticky thead stays aligned (collapse makes th jump on scroll) */

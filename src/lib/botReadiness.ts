@@ -80,11 +80,7 @@ function formatBlocker(blocker: string): string {
     return 'No strong trade setup yet — bot keeps scanning';
   }
   if (/Scalp blocked/i.test(blocker)) {
-    const m = blocker.match(/needs (1m|5m) aligned \(got ([^)]+)\)/i);
-    if (m) {
-      return `Waiting for ${m[1]} ${/SHORT/i.test(blocker) ? 'SHORT' : 'LONG'} — now ${m[2]}`;
-    }
-    return 'Waiting for 1m and 5m to agree with the signal';
+    return '';
   }
   if (/HL max positions/i.test(blocker)) {
     return blocker.replace(/HL max positions/i, 'All bot slots in use');

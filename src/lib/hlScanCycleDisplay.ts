@@ -19,6 +19,19 @@ export type ScanCycleRow = {
   detail?: string;
 };
 
+/** User-facing one-liner — never show raw scalp/MTF engine strings. */
+export function shortScanBlockReason(reason: string): string {
+  const r = reason.trim();
+  if (!r) return 'blocked';
+  if (/6×1m|next3|lower closes|mom -/i.test(r)) return 'scalp bars';
+  if (/1h.*SHORT needs|blocks SHORT/i.test(r)) return '1h blocks SHORT';
+  if (/aligned TFs|trend align/i.test(r)) return 'MTF bars';
+  if (/confidence/i.test(r)) return 'low confidence';
+  if (/Waiting for|now HOLD/i.test(r)) return 'TF mismatch';
+  if (r.length > 56) return `${r.slice(0, 53)}…`;
+  return r;
+}
+
 function latestSkipByCoin(skips: HlScanSkip[]): Map<string, HlScanSkip> {
   const map = new Map<string, HlScanSkip>();
   for (const s of skips) {
@@ -58,8 +71,7 @@ export function buildScanCycleRows(opts: {
       return {
         coin,
         status: 'open',
-        label: 'Open',
-        detail: 'Position already open — scan skips this pair',
+        label: 'open',
       };
     }
     if (scanning === coin) {
@@ -69,7 +81,6 @@ export function buildScanCycleRows(opts: {
           coin,
           status: 'pass',
           label: `${hit.direction} ${Math.round(hit.confidence)}%`,
-          detail: 'Passes scan bars',
         };
       }
       const sk = skipMap.get(coin);
@@ -77,11 +88,11 @@ export function buildScanCycleRows(opts: {
         return {
           coin,
           status: 'blocked',
-          label: 'Blocked',
-          detail: sk.reason,
+          label: 'blocked',
+          detail: shortScanBlockReason(sk.reason),
         };
       }
-      return { coin, status: 'scanning', label: 'Checking…' };
+      return { coin, status: 'scanning', label: '…' };
     }
     const hit = pass.get(coin);
     if (hit) {
@@ -89,7 +100,6 @@ export function buildScanCycleRows(opts: {
         coin,
         status: 'pass',
         label: `${hit.direction} ${Math.round(hit.confidence)}%`,
-        detail: 'On scan board — may still fail open gates',
       };
     }
     const sk = skipMap.get(coin);
@@ -97,15 +107,15 @@ export function buildScanCycleRows(opts: {
       return {
         coin,
         status: 'blocked',
-        label: 'Blocked',
-        detail: sk.reason,
+        label: 'blocked',
+        detail: shortScanBlockReason(sk.reason),
       };
     }
     return {
       coin,
       status: 'blocked',
-      label: 'No setup',
-      detail: 'Not on board this cycle',
+      label: '—',
+      detail: 'no setup',
     };
   });
 
@@ -127,10 +137,7 @@ export function formatScanCycleLine(row: ScanCycleRow): string {
     return `${row.coin} | blocked (${row.detail})`;
   }
   if (row.status === 'pass') {
-    return `${row.coin} | ✓ ${row.label}`;
-  }
-  if (row.status === 'open') {
-    return `${row.coin} | open`;
+    return `${row.coin} | ${row.label}`;
   }
   return `${row.coin} | ${row.label}`;
 }

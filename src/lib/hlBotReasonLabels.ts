@@ -128,6 +128,8 @@ export function isBotScanNoiseDetail(detail: string): boolean {
   const d = detail.trim();
   if (!d) return true;
   if (isActionableBotScanDetail(d)) return false;
+  if (/Waiting for \d+m/i.test(d)) return true;
+  if (/now HOLD|now LONG|now SHORT/i.test(d)) return true;
   const parts = d.split(/\s*·\s*/).map((p) => p.trim()).filter(Boolean);
   if (parts.length > 1 && parts.every((p) => isBotScanNoiseDetail(p))) return true;
   return (
@@ -165,7 +167,10 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /MTF on chart pair/i.test(d) ||
     /macro filters removed/i.test(d) ||
     /Checking \w+:/i.test(d) ||
-    /timeframes disagree/i.test(d)
+    /timeframes disagree/i.test(d) ||
+    /\b[A-Z]{2,10}\s+(LONG|SHORT)\s+\d+%\s*—/i.test(d) ||
+    /·\s*vol\s+[\d.]+x/i.test(d) ||
+    /5m DOWN|5m UP/i.test(d)
   );
 }
 

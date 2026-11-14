@@ -80,7 +80,5 @@ export function botAnalyzerStatusCopy(opts: {
     return { title: 'Bot waiting', detail: hard.join(' · ') };
   }
 
-  const soft = unique.filter((b) => !HARD_BLOCKER.test(b));
-  const detail = soft.join(' · ');
-  return { title: 'Bot is reading market…', detail };
+  return { title: 'Bot is reading market…', detail: '' };
 }

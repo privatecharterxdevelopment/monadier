@@ -80,12 +80,8 @@ const ProTradeScanCyclePanel: React.FC<Props> = ({
               <span className="hl-scan-cycle-coin">{row.coin}</span>
               <span className="hl-scan-cycle-status">
                 {row.status === 'blocked' && row.detail
-                  ? `blocked · ${row.detail}`
-                  : row.status === 'pass'
-                    ? row.label
-                    : row.status === 'open'
-                      ? 'open'
-                      : row.label}
+                  ? row.detail
+                  : row.label}
               </span>
             </li>
           ))}
