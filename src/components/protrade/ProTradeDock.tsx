@@ -540,6 +540,12 @@ const ProTradeDock: React.FC<Props> = ({
   const toggleLetRun = async (coin: string) => {
     if (!walletAddress || letRunBusyCoin) return;
     const next = !effectiveLetRun(coin);
+  if (next === false) {
+      const ok = window.confirm(
+        `Turn profit trail back ON for ${coin.toUpperCase()}? The bot may auto-close this position. Use Close only if you want to exit now.`
+      );
+      if (!ok) return;
+    }
     setLetRunBusyCoin(coin);
     setLetRunPrefs((prev) => ({ ...prev, [coin.toUpperCase()]: next }));
     const res = await setHlLetRunPref(walletAddress, coin, next);
@@ -810,18 +816,21 @@ const ProTradeDock: React.FC<Props> = ({
                         <td>
                           <button
                             type="button"
-                            className={`hl-dock-action hl-let-run-btn${
+                            className={`hl-let-run-btn${
                               effectiveLetRun(p.coin) ? ' hl-let-run-btn--on' : ''
                             }`}
                             disabled={actionBusy || letRunBusyCoin === p.coin}
                             title={
                               effectiveLetRun(p.coin)
-                                ? 'Let run ON — bot will not auto-close (trail off). Click to enable profit trail.'
-                                : 'Let run OFF — profit trail / TP can close. Click to hold until manual Close.'
+                                ? 'Hold ON — no trail auto-close. Click only to allow trail again (not Close).'
+                                : 'Trail active — click Hold ON to stop bot auto-close. Does not close the position.'
                             }
-                            onClick={() => void toggleLetRun(p.coin)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void toggleLetRun(p.coin);
+                            }}
                           >
-                            {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
+                            {effectiveLetRun(p.coin) ? 'Hold' : 'Trail'}
                           </button>
                         </td>
                       ) : null}
@@ -956,18 +965,21 @@ const ProTradeDock: React.FC<Props> = ({
                       {isBotMode ? (
                         <button
                           type="button"
-                          className={`hl-dock-action hl-let-run-btn${
+                          className={`hl-let-run-btn${
                             effectiveLetRun(p.coin) ? ' hl-let-run-btn--on' : ''
                           }`}
                           disabled={actionBusy || letRunBusyCoin === p.coin}
                           title={
                             effectiveLetRun(p.coin)
-                              ? 'Let run ON — bot will not auto-close. Click for profit trail.'
-                              : 'Let run OFF — trail can close. Click to hold.'
+                              ? 'Hold ON — no trail auto-close'
+                              : 'Trail active — tap Hold to stop auto-close (not Close)'
                           }
-                          onClick={() => void toggleLetRun(p.coin)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void toggleLetRun(p.coin);
+                          }}
                         >
-                          Let run {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
+                          {effectiveLetRun(p.coin) ? 'Hold ON' : 'Hold OFF'}
                         </button>
                       ) : null}
                       <button

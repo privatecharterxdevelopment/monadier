@@ -74,6 +74,9 @@ export async function resolvePositionLetRun(opts: {
   longLetRun: boolean;
 }): Promise<{ letRun: boolean; source: string; letRunAll: boolean }> {
   const letRunAll = await getRuntimeLetRunAll();
+  if (letRunAll) {
+    return { letRun: true, source: 'global_all', letRunAll };
+  }
   const prefs = await loadPrefs(opts.wallet);
   const pref = prefs.get(coinKey(opts.coin));
   if (pref === true) return { letRun: true, source: 'user_on', letRunAll };
