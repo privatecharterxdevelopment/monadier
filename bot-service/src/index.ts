@@ -1289,7 +1289,10 @@ const healthServer = http.createServer(async (req, res) => {
           treasury: config.treasuryAddress,
           builderAddress: config.hyperliquid.builderAddress,
           feeCollectionActive: builderGate.feeCollectionActive,
-          note: '10% of profit on winning closes — collected via HL builder fee when platform wallet is funded and user approved.',
+          note:
+            config.hyperliquid.successFeeBps > 0
+              ? `${config.hyperliquid.successFeeBps / 100}% of profit on winning closes — HL builder fee when approved.`
+              : 'Platform success fee off — only Hyperliquid trading fees apply.',
           autoCollect: builderGate.feeCollectionActive,
         },
         timestamp: new Date().toISOString(),
