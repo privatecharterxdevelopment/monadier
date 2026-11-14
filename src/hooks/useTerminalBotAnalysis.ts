@@ -7,7 +7,6 @@ import type {
   BotExecutionSnapshot,
   LiveBotPositionView,
 } from '../lib/hlExecutionDisplay';
-import { formatExecutionDiagnosticLine, formatLiveSlLine } from '../lib/hlExecutionDisplay';
 import { filterUserBlockers } from '../lib/hyperliquid/builderPlatform';
 import { isFeeExemptUser } from '../lib/admin';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +19,7 @@ import {
   shouldHideLastOpenError,
 } from '../lib/hyperliquid/balanceGate';
 import { fetchBotApi } from '../lib/botApiFetch';
-import { fetchTimeframeAnalysis, fetchUnifiedSignal, type Timeframe, type TimeframeAnalysis, type UnifiedSignal } from '../lib/signalService';
+import type { Timeframe, TimeframeAnalysis, UnifiedSignal } from '../lib/signalService';
 import {
   ENGINE_OPEN_TIMEFRAMES,
   engineTfChips,
@@ -294,10 +293,18 @@ export function useTerminalBotAnalysis({
 
     const walk = async () => {
       while (!cancelled) {
-        const coins =
-          scanRotationCoins.length > 0 ? scanRotationCoins : ([currentlyScanningCoin] as string[]);
+        const fromScan = globalCandidates
+          .map((c) => c.coin?.toUpperCase())
+          .filter((c): c is string => Boolean(c));
         const focus = scanCandidate?.coin?.toUpperCase() ?? null;
-        const coin = (focus && coins.includes(focus) ? focus : coins[idx % coins.length]).toUpperCase();
+        const coins = focus
+          ? [focus]
+          : fromScan.length > 0
+            ? fromScan
+            : scanRotationCoins.length > 0
+              ? scanRotationCoins
+              : ([currentlyScanningCoin] as string[]);
+        const coin = coins[idx % coins.length].toUpperCase();
         const coinPos = coins.indexOf(coin);
         if (coinPos >= 0) setCoinRotationIndex(coinPos);
         setTfRows({});
@@ -308,7 +315,7 @@ export function useTerminalBotAnalysis({
         setTfLoading(true);
 
         const engineRow =
-          (focus === coin ? scanCandidate : null) ??
+          (scanCandidate?.coin?.toUpperCase() === coin ? scanCandidate : null) ??
           globalCandidates.find((c) => c.coin.toUpperCase() === coin) ??
           null;
         const fromEngine = parseEngineMtfBreakdown(engineRow?.mtfBreakdown);
@@ -317,17 +324,9 @@ export function useTerminalBotAnalysis({
         for (let i = 0; i < ENGINE_OPEN_TIMEFRAMES.length; i += 1) {
           if (cancelled) return;
           const tf = ENGINE_OPEN_TIMEFRAMES[i];
-          let row = fromEngine[tf] ?? null;
-          if (!row) {
-            const fetched = await fetchTimeframeAnalysis(pairSymbol, tf);
-            if (cancelled) return;
-            if (fetched) {
-              row = { direction: fetched.direction, confidence: fetched.confidence };
-            }
-          } else {
-            await sleep(750);
-            if (cancelled) return;
-          }
+          const row = fromEngine[tf] ?? null;
+          await sleep(row ? 750 : 350);
+          if (cancelled) return;
           if (row) {
             setTfRows((prev) => ({ ...prev, [tf]: row }));
           }
@@ -367,30 +366,15 @@ export function useTerminalBotAnalysis({
             warnings: [],
             timestamp: Date.now(),
           });
-        } else {
-          const unified = await fetchUnifiedSignal(pairSymbol, [...ENGINE_OPEN_TIMEFRAMES]);
-          if (cancelled) return;
-          if (unified) {
-            setEngineUnified(unified);
-            setTfRows((prev) => {
-              const next = { ...prev };
-              for (const t of unified.timeframes) {
-                next[t.timeframe] = {
-                  direction: t.direction,
-                  confidence: t.confidence,
-                };
-              }
-              return next;
-            });
-          }
         }
 
         setTfLoading(false);
         setStep(4);
         setProgress(ANALYSIS_STEPS[4].progress);
-        await sleep(focus ? 2800 : 900);
+        await sleep(focus ? 2800 : 1200);
         if (cancelled) return;
-        if (!focus) idx += 1;
+        if (!focus && coins.length > 1) idx += 1;
+        else idx = 0;
       }
     };
 
@@ -685,28 +669,6 @@ export function useTerminalBotAnalysis({
     };
   }, [vaultWallet, botRunning, vaultUsd, feeExempt, openPositionCoins.length]);
 
-  const appendLiveStatus = (row: { canEnter: boolean; headline: string; detail: string }) => {
-    const scanCoin = (
-      scanCandidate?.coin ??
-      globalBest?.coin ??
-      currentlyScanningCoin
-    )
-      ?.replace(/USDT$/i, '')
-      .toUpperCase();
-    const diagCoin = executionDiagnostic?.coin?.replace(/USDT$/i, '').toUpperCase();
-    const scopedDiagnostic =
-      diagCoin && scanCoin && diagCoin !== scanCoin ? null : executionDiagnostic;
-    const extra = [
-      formatExecutionDiagnosticLine(scopedDiagnostic),
-      ...livePositions.map(formatLiveSlLine),
-    ].filter(Boolean);
-    if (extra.length === 0) return row;
-    return {
-      ...row,
-      detail: row.detail ? `${row.detail} · ${extra.join(' · ')}` : extra.join(' · '),
-    };
-  };
-
   const readiness = useMemo(() => {
     if (!botRunning) {
       return {
@@ -717,7 +679,7 @@ export function useTerminalBotAnalysis({
             ? 'Start bot to scan again. Open trades stay open until an exit or you close them.'
             : `At least $${MIN_HL_BOT_USD} USDC on Hyperliquid to trade.`,
       };
-    } // live SL lines still appended below for running bot only
+    }
 
     const status = botAnalyzerStatusCopy({
       botRunning,
@@ -731,18 +693,18 @@ export function useTerminalBotAnalysis({
     if (status.title === 'Insufficient margin' && !marginBlocked) {
       // fall through to normal scanning copy while the raw block is still settling
     } else if (status.title === 'Insufficient margin' || status.title === 'Bot waiting') {
-      return appendLiveStatus({
+      return {
         canEnter: false,
         headline: status.title,
         detail: status.detail,
-      });
+      };
     }
     if (slotsFull) {
-      return appendLiveStatus({
+      return {
         canEnter: false,
         headline: status.title,
         detail: status.detail,
-      });
+      };
     }
 
     const local = evaluateBotReadiness(engineUnified, {
@@ -762,40 +724,40 @@ export function useTerminalBotAnalysis({
           rawScanCandidateCount === 0
             ? `Scanned ${globalCoinsScanned} HL perps — no pair meets ${HL_MIN_SIGNAL_CONFIDENCE}%+ MTF right now`
             : `Scanned ${globalCoinsScanned} HL perps — macro filters removed all ${rawScanCandidateCount} raw setup(s)`;
-        return appendLiveStatus({
+        return {
           canEnter: false,
           headline: 'Bot is reading market…',
           detail: rawHint,
-        });
+        };
       }
-      return appendLiveStatus({
+      return {
         ...local,
         headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
-      });
+      };
     }
 
     const server = readinessFromServerBlockers(serverBlockers);
     if (local.headline === 'Opening trade') {
-      return appendLiveStatus(local);
+      return local;
     }
     if (local.canEnter && server.detail) {
-      return appendLiveStatus({
+      return {
         canEnter: false,
         headline: 'Bot is reading market…',
         detail: server.detail,
-      });
+      };
     }
     if (server.detail) {
-      return appendLiveStatus({
+      return {
         canEnter: false,
         headline: 'Bot is reading market…',
         detail: server.detail,
-      });
+      };
     }
-    return appendLiveStatus({
+    return {
       ...local,
       headline: local.headline === 'Scanning markets' ? 'Bot is reading market…' : local.headline,
-    });
+    };
   }, [
     engineUnified,
     botRunning,

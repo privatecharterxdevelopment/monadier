@@ -119,7 +119,12 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /HL account equity/i.test(d) ||
     /free margin \$0\.00 · perp/i.test(d) ||
     /Waiting for pullback to buy low/i.test(d) ||
-    / ‖ /.test(d)
+    / ‖ /.test(d) ||
+    /No HL pair meets entry rules/i.test(d) ||
+    /no HL pair passed the global scan/i.test(d) ||
+    /Emergency-SL not confirmed/i.test(d) ||
+    /Profit-SL idle/i.test(d) ||
+    /(\d+)\+% confidence,\s*\d+\/3 timeframes aligned/i.test(d)
   );
 }
 

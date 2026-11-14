@@ -59,11 +59,7 @@ function formatBlocker(blocker: string): string {
     return 'Scanning top HL pairs with slightly relaxed rules';
   }
   if (/no HL perp passed global scan/i.test(blocker)) {
-    const m = blocker.match(/min (\d+)% conf, (\d+) TFs, (\d+)% align/i);
-    if (m) {
-      return `No HL pair meets entry rules yet (${m[1]}%+ confidence, ${m[2]}/3 timeframes aligned, ${m[3]}% trend)`;
-    }
-    return 'No HL pair passed the global scan yet — bot keeps checking all perps';
+    return '';
   }
   if (/Pre-trade gate blocked|volume\/liquidity|volume\/sweep/i.test(blocker)) {
     return 'Volume gate blocked entry — bot retries next cycle';

@@ -61,7 +61,7 @@ export function resolveBotAnalysisWhyLine({
     }
     return 'Chart timeframes on this pair disagree — bot still scans all HL perps for an aligned setup elsewhere.';
   }
-  if (tfSummary && scanningCoin) {
+  if (tfSummary && scanningCoin && globalBest?.coin?.toUpperCase() === scanningCoin.toUpperCase()) {
     return `Checking ${scanningCoin}: ${tfSummary}`;
   }
   return null;
