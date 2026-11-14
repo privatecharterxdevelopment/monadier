@@ -240,8 +240,8 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
       return { ...cached, dataSource: 'cache', reason: `${cached.reason} (stale ${Math.round(age / 1000)}s)` };
     }
     const fallback: BtcRegimeSnapshot = {
-      regime: 'bull_market',
-      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — no prior detect`,
+      regime: 'bear_market',
+      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — default bear until detect`,
       btcLast: 0,
       sma20_4h: 0,
       change24hPct: 0,

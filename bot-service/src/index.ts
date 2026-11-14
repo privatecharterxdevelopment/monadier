@@ -15,6 +15,7 @@ import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
   getDirectionProfileMode,
   getLiveBtcRegime,
+  getLiveDirectionProfile,
   getAutoNewEntriesBlockReason,
   refreshLiveDirectionProfile,
 } from './services/liveDirectionProfile';
@@ -168,23 +169,26 @@ const healthServer = http.createServer(async (req, res) => {
           longMinGreenHoldMs: config.hyperliquid.dynamicTrail.longMinGreenHoldMs,
           longTrailMinActiveMult: config.hyperliquid.dynamicTrail.longTrailMinActiveMult,
         },
-        directionProfile: {
-          mode: getDirectionProfileMode(),
-          name: config.hyperliquid.directionProfile.name,
-          allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
-          allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
-          autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
-          btcRegime: (() => {
-            const r = getLiveBtcRegime();
-            if (!r) return null;
-            return {
-              regime: r.regime,
-              sticky: r.sticky,
-              dataSource: r.dataSource,
-              checkedAt: r.checkedAt,
-            };
-          })(),
-        },
+        directionProfile: (() => {
+          const live = getLiveDirectionProfile();
+          return {
+            mode: getDirectionProfileMode(),
+            name: live.name,
+            allowLongOpens: live.allowLongOpens,
+            allowShortOpens: live.allowShortOpens,
+            autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
+            btcRegime: (() => {
+              const r = getLiveBtcRegime();
+              if (!r) return null;
+              return {
+                regime: r.regime,
+                sticky: r.sticky,
+                dataSource: r.dataSource,
+                checkedAt: r.checkedAt,
+              };
+            })(),
+          };
+        })(),
       },
       lastCycle: lastCycleStats,
     };
@@ -1236,11 +1240,14 @@ const healthServer = http.createServer(async (req, res) => {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
-        directionProfile: {
+        directionProfile: (() => {
+          const live = getLiveDirectionProfile();
+          const cfg = config.hyperliquid.directionProfile;
+          return {
           mode: getDirectionProfileMode(),
-          name: config.hyperliquid.directionProfile.name,
-          description: config.hyperliquid.directionProfile.description,
-          primaryDirection: config.hyperliquid.directionProfile.primaryDirection,
+          name: live.name,
+          description: cfg.description,
+          primaryDirection: live.primaryDirection,
           analysisTimeframes: config.hyperliquid.directionProfile.analysisTimeframes,
           longAnalysisTimeframes: analysisTimeframesForDirection('LONG'),
           shortAnalysisTimeframes: analysisTimeframesForDirection('SHORT'),
@@ -1251,10 +1258,11 @@ const healthServer = http.createServer(async (req, res) => {
             config.hyperliquid.directionProfile.useAggressiveScalpSignals,
           enableHtfSr: config.hyperliquid.directionProfile.enableHtfSr,
           enableLlmConfirm: config.hyperliquid.directionProfile.enableLlmConfirm,
-          allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
-          allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
+          allowLongOpens: live.allowLongOpens,
+          allowShortOpens: live.allowShortOpens,
           shortRelaxSecondaryGates:
             config.hyperliquid.directionProfile.short.relaxSecondaryGates,
+          autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
           btcRegime: (() => {
             const r = getLiveBtcRegime();
             if (!r) return null;
@@ -1268,10 +1276,12 @@ const healthServer = http.createServer(async (req, res) => {
               aboveSma4h: r.aboveSma4h,
               bullScore: r.bullScore,
               sticky: r.sticky,
+              dataSource: r.dataSource,
               checkedAt: r.checkedAt,
             };
           })(),
-        },
+        };
+        })(),
         llmTradeConfirm: {
           enabled: config.hyperliquid.llmTradeConfirm.enabled,
           mode: config.hyperliquid.llmTradeConfirm.mode,

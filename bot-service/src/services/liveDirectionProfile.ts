@@ -83,8 +83,8 @@ const boot = parseDirectionProfileBoot(process.env.HL_DIRECTION_PROFILE);
 let liveProfile: HlDirectionProfile = applyOpsDirectionOverrides(
   boot.mode === 'auto' ? BEAR_MARKET : resolveDirectionProfile(boot.forcedName ?? 'bear_market')
 );
-let autoNewEntriesBlocked: string | null =
-  boot.mode === 'auto' ? 'BTC regime not initialized (awaiting first detect)' : null;
+/** When set, AUTO mode pauses new entries only — never block forced bear/bull profiles. */
+let autoNewEntriesBlocked: string | null = null;
 
 function setLiveProfile(next: HlDirectionProfile): HlDirectionProfile {
   const applied = applyOpsDirectionOverrides(next);
@@ -140,19 +140,19 @@ export async function refreshLiveDirectionProfile(): Promise<HlDirectionProfile>
   const snap = await refreshBtcMarketRegime(true);
 
   if (snap.dataSource === 'fallback' || !btcRegimeHasSuccessfulDetect()) {
-    autoNewEntriesBlocked = snap.reason;
-    logger.error('AUTO direction profile — new entries blocked', {
-      reason: autoNewEntriesBlocked,
+    autoNewEntriesBlocked = null;
+    logger.warn('AUTO BTC regime fallback — using bear_market until detect succeeds', {
+      reason: snap.reason,
       dataSource: snap.dataSource,
     });
-    return liveProfile;
+    return setLiveProfile(BEAR_MARKET);
   }
 
   const age = btcRegimeCacheAgeMs();
   const staleMax = btcRegimeStaleMaxMs();
   if (age > staleMax) {
-    autoNewEntriesBlocked = `BTC regime data stale (${Math.round(age / 1000)}s > ${Math.round(staleMax / 1000)}s) — holding ${liveProfile.name}`;
-    logger.error('AUTO direction profile — stale BTC data, new entries blocked', {
+    autoNewEntriesBlocked = null;
+    logger.warn('AUTO BTC regime stale — keep trading on last profile', {
       ageMs: age,
       staleMaxMs: staleMax,
       dataSource: snap.dataSource,

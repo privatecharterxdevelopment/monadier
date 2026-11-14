@@ -540,6 +540,12 @@ export function useTerminalBotAnalysis({
           userBlockers?: string[];
           marketBlockers?: string[];
           hyperliquid?: { maxConcurrentPositions?: number; openCoins?: string[] };
+          directionProfile?: {
+            name?: string;
+            allowLongOpens?: boolean;
+            allowShortOpens?: boolean;
+            autoNewEntriesBlocked?: string | null;
+          };
           globalScan?: {
             best?: GlobalScanCandidate | null;
             coinsScanned?: number;
@@ -614,6 +620,21 @@ export function useTerminalBotAnalysis({
           openCoins,
           liveUniverse
         );
+        const dp = data.directionProfile;
+        if (dp?.autoNewEntriesBlocked?.trim()) {
+          blockers.push(dp.autoNewEntriesBlocked.trim());
+        }
+        const bestDir = (data.globalScan?.best?.direction ?? '').toUpperCase();
+        if (bestDir === 'SHORT' && dp?.allowShortOpens === false) {
+          blockers.push(
+            `Scan shows SHORT but live profile ${dp.name ?? '—'} has SHORT opens OFF (bull/long mode)`
+          );
+        }
+        if (bestDir === 'LONG' && dp?.allowLongOpens === false) {
+          blockers.push(
+            `Scan shows LONG but live profile ${dp.name ?? '—'} has LONG opens OFF`
+          );
+        }
         if (data.entryBlockedReason?.trim()) {
           blockers.push(data.entryBlockedReason.trim());
         }
