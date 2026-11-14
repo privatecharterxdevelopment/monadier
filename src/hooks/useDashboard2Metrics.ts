@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
 import { useTradingDashboardMetrics } from './useTradingDashboardMetrics';
 
@@ -51,23 +51,40 @@ export function useDashboard2Metrics() {
 
   const isLoading = metrics.isLoading && !metrics.hasHlSnapshot;
 
-  const combined: Dashboard2Metrics = {
-    walletAvailableUsd: totalUsdValue,
-    hlBalanceUsd: metrics.vaultBalanceUsd,
-    vaultUsd: metrics.vaultBalanceUsd,
-    hlWithdrawableUsd: metrics.withdrawableUsd,
-    activeTradeUsd: metrics.openPositionValueUsd,
-    totalPnlUsd: metrics.totalPnl,
-    realizedPnlUsd: metrics.realizedPnl,
-    unrealizedPnlUsd: metrics.unrealizedPnl,
-    withdrawnUsd: 0,
-    openPositionsCount: metrics.openPositionsCount,
-    autoTradeEnabled: metrics.autoTradeEnabled,
-    winRate: metrics.winRate,
-    closedTradesCount: metrics.closedTradesCount,
-    isLoading,
-    hasHlSnapshot: metrics.hasHlSnapshot,
-  };
+  const combined = useMemo<Dashboard2Metrics>(
+    () => ({
+      walletAvailableUsd: totalUsdValue,
+      hlBalanceUsd: metrics.vaultBalanceUsd,
+      vaultUsd: metrics.vaultBalanceUsd,
+      hlWithdrawableUsd: metrics.withdrawableUsd,
+      activeTradeUsd: metrics.openPositionValueUsd,
+      totalPnlUsd: metrics.totalPnl,
+      realizedPnlUsd: metrics.realizedPnl,
+      unrealizedPnlUsd: metrics.unrealizedPnl,
+      withdrawnUsd: 0,
+      openPositionsCount: metrics.openPositionsCount,
+      autoTradeEnabled: metrics.autoTradeEnabled,
+      winRate: metrics.winRate,
+      closedTradesCount: metrics.closedTradesCount,
+      isLoading,
+      hasHlSnapshot: metrics.hasHlSnapshot,
+    }),
+    [
+      totalUsdValue,
+      metrics.vaultBalanceUsd,
+      metrics.withdrawableUsd,
+      metrics.openPositionValueUsd,
+      metrics.totalPnl,
+      metrics.realizedPnl,
+      metrics.unrealizedPnl,
+      metrics.openPositionsCount,
+      metrics.autoTradeEnabled,
+      metrics.winRate,
+      metrics.closedTradesCount,
+      isLoading,
+      metrics.hasHlSnapshot,
+    ]
+  );
 
   return { metrics: combined, refresh, tradingMetrics: metrics };
 }

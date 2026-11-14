@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useBotTerminalAnalysis } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisPulse } from '../../contexts/BotTerminalAnalysisContext';
 import { useHlBotSetup } from '../../hooks/useHlBotSetup';
 import { useHlBotRunning } from '../../hooks/useHlBotRunning';
 import { useTerminalBotSettings } from '../../hooks/useTerminalBotSettings';
@@ -69,7 +69,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         }
       : null;
 
-  const analysis = useBotTerminalAnalysis();
+  const analysis = useBotAnalysisPulse();
 
   const slotsFull = analysis.slotsFull;
   const marginBlocked = analysis.marginBlocked;

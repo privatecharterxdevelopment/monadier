@@ -70,7 +70,7 @@ import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import { usePlatformFees } from '../../hooks/usePlatformFees';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
-import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisActionsOptional } from '../../contexts/BotTerminalAnalysisContext';
 
 /** Match bot HL_SUCCESS_FEE_BPS (default 10%). */
 const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_HL_BOT_SUCCESS_FEE_BPS || 1000);
@@ -193,7 +193,7 @@ const ProTradeDock: React.FC<Props> = ({
   exchangeDataStale = false,
 }) => {
   const { t } = useTranslation();
-  const botAnalysisCtx = useBotTerminalAnalysisOptional();
+  const botAnalysisActions = useBotAnalysisActionsOptional();
   const { user, profile, isAuthenticated } = useAuth();
   const shareDisplayName = profile?.username?.trim()
     ? `@${profile.username.trim()}`
@@ -1025,11 +1025,11 @@ const ProTradeDock: React.FC<Props> = ({
               <p className="hl-dock-empty-hint">
                 Engine detail: Agent panel → Open analytic.
               </p>
-              {botAnalysisCtx ? (
+              {botAnalysisActions ? (
                 <button
                   type="button"
                   className="hl-dock-open-analysis"
-                  onClick={() => botAnalysisCtx.openAnalysisTab()}
+                  onClick={() => botAnalysisActions.openAnalysisTab()}
                 >
                   Open analytic
                 </button>

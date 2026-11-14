@@ -83,7 +83,7 @@ import { toNum } from '../../lib/hyperliquid/parse';
 import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
 import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
 import type { AgentPanelView, TradePanelTab } from '../protrade/tradePanelTypes';
-import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisActionsOptional } from '../../contexts/BotTerminalAnalysisContext';
 
 type PanelTab = TradePanelTab;
 
@@ -137,7 +137,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   onPanelTabChange,
 }) => {
   const { t } = useTranslation();
-  const botAnalysisCtx = useBotTerminalAnalysisOptional();
+  const botAnalysisActions = useBotAnalysisActionsOptional();
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
@@ -789,7 +789,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       </div>
 
       <div className="term-trade-body">
-        {panelTab === 'bot' && agentView === 'analytic' && botAnalysisCtx ? (
+        {panelTab === 'bot' && agentView === 'analytic' && botAnalysisActions ? (
           <div className="term-panel-stack term-panel-stack--analysis">
             <button
               type="button"
@@ -1003,7 +1003,7 @@ const TerminalTradePanel: React.FC<Props> = ({
               </div>
             ) : null}
 
-            {(onOpenHistory || botAnalysisCtx) && (
+            {(onOpenHistory || botAnalysisActions) && (
               <div className="term-bot-agent-nav">
                 {onOpenHistory ? (
                   <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
@@ -1013,7 +1013,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                     </span>
                   </button>
                 ) : null}
-                {botAnalysisCtx ? (
+                {botAnalysisActions ? (
                   <button
                     type="button"
                     className="term-bot-positions-row term-bot-positions-row--analytic"

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisActionsOptional } from '../../contexts/BotTerminalAnalysisContext';
 
 /** Wires dock “Open analysis” to the Agent panel analytic view. */
 export function BotPanelTabBridge({
@@ -7,7 +7,7 @@ export function BotPanelTabBridge({
 }: {
   onOpenAnalytic: () => void;
 }) {
-  const registerOpen = useBotTerminalAnalysisOptional()?.registerOpenAnalysisTab;
+  const registerOpen = useBotAnalysisActionsOptional()?.registerOpenAnalysisTab;
   useEffect(() => {
     if (!registerOpen) return;
     registerOpen(onOpenAnalytic);

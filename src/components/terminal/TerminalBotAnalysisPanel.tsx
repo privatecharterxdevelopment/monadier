@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Activity } from 'lucide-react';
-import { useBotTerminalAnalysis } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisCore } from '../../contexts/BotTerminalAnalysisContext';
 import ProTradeScanCyclePanel from '../protrade/ProTradeScanCyclePanel';
 import { formatJournalTime } from '../../lib/botAnalysisJournal';
 import {
@@ -9,7 +9,7 @@ import {
 } from '../../lib/hlExecutionDisplay';
 
 const TerminalBotAnalysisPanel: React.FC = () => {
-  const analysis = useBotTerminalAnalysis();
+  const analysis = useBotAnalysisCore();
   const {
     liveNarrative,
     journalHistory,
