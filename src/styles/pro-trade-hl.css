@@ -3164,8 +3164,12 @@ html[dir='rtl'] .hl-book {
 .hl-bot-analysis .hl-bot-analyzer-subline,
 .hl-bot-analysis .hl-bot-analyzer-subline--block,
 .hl-bot-analysis .term-analysis-hint--subtle.term-analysis-subline--why,
+.hl-bot-analysis .term-analysis-hint,
+.hl-bot-analysis .term-analysis-subline,
 .hl-dock-empty--bot-scan .hl-dock-bot-scan-detail,
-.hl-dock-bot-scan-insights .hl-dock-bot-scan-detail {
+.hl-dock-bot-scan-insights .hl-dock-bot-scan-detail,
+.hl-bot-dock .hl-dock-body .hl-dock-bot-scan-row,
+.hl-bot-dock .hl-dock-body .hl-dock-bot-scan-insights {
   display: none !important;
 }
 

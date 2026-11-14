@@ -1,6 +1,12 @@
 import { formatUserBlocker } from './botReadiness';
+import {
+  HL_MIN_DIRECTIONAL_TFS,
+  HL_MIN_SIGNAL_CONFIDENCE,
+  HL_MIN_TREND_ALIGNMENT,
+} from './hlBotConstants';
 import { shortScanBlockReason } from './hlScanCycleDisplay';
 import type { HlScanSkip } from './hlScanCycleDisplay';
+import { isBotScanNoiseDetail } from './hlBotReasonLabels';
 import {
   executionHeadline,
   formatExecutionDiagnosticLine,
@@ -16,6 +22,14 @@ export type BotAnalysisJournalEntry = {
 };
 
 const JOURNAL_MS = 10 * 60_000;
+
+/** Shown only in Open analytic — never under the chart or positions dock. */
+export function formatNoHlEntryRulesLine(): string {
+  return (
+    `No HL pair meets entry rules yet (${HL_MIN_SIGNAL_CONFIDENCE}%+ confidence, ` +
+    `${HL_MIN_DIRECTIONAL_TFS}/3 timeframes aligned, ${HL_MIN_TREND_ALIGNMENT}% trend)`
+  );
+}
 
 export function pruneJournal(entries: BotAnalysisJournalEntry[], now = Date.now()): BotAnalysisJournalEntry[] {
   return entries.filter((e) => now - e.at < JOURNAL_MS);
@@ -78,6 +92,16 @@ export function buildBotAnalysisNarrative(input: NarrativeInput): string {
     else if (!friendly && !parts.includes(trimmed)) parts.push(trimmed);
   }
 
+  const globalScanMiss = (input.blockers ?? []).some((b) =>
+    /no HL perp passed global scan/i.test(b)
+  );
+  if (
+    globalScanMiss &&
+    !parts.some((p) => /meets entry rules|no hl pair passed/i.test(p))
+  ) {
+    parts.push(formatNoHlEntryRulesLine());
+  }
+
   if (input.lastOpenError?.trim()) {
     const line = `Last open: ${input.lastOpenError.trim()}`;
     if (!parts.some((p) => p.includes(input.lastOpenError!.trim()))) parts.push(line);
@@ -85,8 +109,13 @@ export function buildBotAnalysisNarrative(input: NarrativeInput): string {
 
   const detail = input.readinessDetail?.trim();
   const headline = input.readinessHeadline?.trim();
-  if (detail && !parts.includes(detail)) parts.push(detail);
-  else if (headline && headline !== 'Bot is reading market…' && !parts.includes(headline)) {
+  if (detail && !isBotScanNoiseDetail(detail) && !parts.includes(detail)) parts.push(detail);
+  else if (
+    headline &&
+    headline !== 'Bot is reading market…' &&
+    !isBotScanNoiseDetail(headline) &&
+    !parts.includes(headline)
+  ) {
     parts.push(headline);
   }
 
