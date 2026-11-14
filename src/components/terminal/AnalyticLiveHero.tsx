@@ -81,35 +81,47 @@ const AnalyticLiveHero: React.FC<Props> = ({
       <div className="term-analytic-hero__stats">
         <div className="term-analytic-stat">
           <span className="term-analytic-stat__label">Status</span>
-          <span className={`term-analytic-stat__value term-analytic-stat__value--${statusTone}`}>
+          <span
+            className={`term-analytic-stat__value term-analytic-stat__value--${statusTone}`}
+            title={statusLabel}
+          >
             {scanning ? <Activity size={12} className="term-analysis-pulse" aria-hidden /> : null}
-            {statusLabel}
+            <span className="term-analytic-stat__clip">{statusLabel}</span>
           </span>
         </div>
         <div className="term-analytic-stat">
           <span className="term-analytic-stat__label">Focus</span>
-          <span className="term-analytic-stat__value">
-            {focusCoin ? (
-              <>
-                {focusCoin}{' '}
-                <span
-                  className={
-                    focusDir === 'LONG'
-                      ? 'term-pnl-pos'
-                      : focusDir === 'SHORT'
-                        ? 'term-pnl-neg'
-                        : ''
-                  }
-                >
-                  {focusDir}
-                </span>
-                {focusConf != null ? ` ${focusConf}%` : ''}
-              </>
-            ) : coin ? (
-              coin.toUpperCase()
-            ) : (
-              '—'
-            )}
+          <span
+            className="term-analytic-stat__value"
+            title={
+              focusCoin
+                ? `${focusCoin} ${focusDir ?? ''} ${focusConf != null ? `${focusConf}%` : ''}`
+                : coin?.toUpperCase()
+            }
+          >
+            <span className="term-analytic-stat__clip">
+              {focusCoin ? (
+                <>
+                  {focusCoin}{' '}
+                  <span
+                    className={
+                      focusDir === 'LONG'
+                        ? 'term-pnl-pos'
+                        : focusDir === 'SHORT'
+                          ? 'term-pnl-neg'
+                          : ''
+                    }
+                  >
+                    {focusDir === 'LONG' ? 'L' : focusDir === 'SHORT' ? 'S' : focusDir}
+                  </span>
+                  {focusConf != null ? ` ${focusConf}` : ''}
+                </>
+              ) : coin ? (
+                coin.toUpperCase()
+              ) : (
+                '—'
+              )}
+            </span>
           </span>
         </div>
         <div className="term-analytic-stat">
@@ -132,17 +144,25 @@ const AnalyticLiveHero: React.FC<Props> = ({
 function TfBadge({ chip }: { chip: EngineTfChip }) {
   if (!chip.revealed || !chip.direction) {
     return (
-      <span className="term-analytic-tf term-analytic-tf--pending">
-        {chip.timeframe}
+      <span className="term-analytic-tf term-analytic-tf--pending" title={`${chip.timeframe} pending`}>
+        <span className="term-analytic-tf__tf">{chip.timeframe}</span>
+        <span className="term-analytic-tf__dir">—</span>
       </span>
     );
   }
   const dir = chip.direction.toUpperCase();
   const tone =
     dir === 'LONG' ? 'term-analytic-tf--long' : dir === 'SHORT' ? 'term-analytic-tf--short' : 'term-analytic-tf--flat';
+  const dirLetter = dir === 'LONG' ? 'L' : dir === 'SHORT' ? 'S' : '—';
+  const conf = Math.round(chip.confidence ?? 0);
   return (
-    <span className={`term-analytic-tf ${tone}`}>
-      {chip.timeframe} {dir} {Math.round(chip.confidence ?? 0)}%
+    <span
+      className={`term-analytic-tf ${tone}`}
+      title={`${chip.timeframe} ${dir} ${conf}%`}
+    >
+      <span className="term-analytic-tf__tf">{chip.timeframe}</span>
+      <span className="term-analytic-tf__dir">{dirLetter}</span>
+      <span className="term-analytic-tf__pct">{conf}</span>
     </span>
   );
 }

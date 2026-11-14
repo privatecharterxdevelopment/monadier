@@ -3165,10 +3165,21 @@ html[dir='rtl'] .hl-book {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 2px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.hl-bot-panel-wrap .term-panel-stack--analysis {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .term-analytic-hero {
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 12px 12px 10px;
   border-radius: 10px;
   border: 1px solid var(--hl-border);
@@ -3181,6 +3192,22 @@ html[dir='rtl'] .hl-book {
 
 .hl-root--dark .term-analytic-hero {
   background: linear-gradient(165deg, #141414 0%, #0c0c0c 100%);
+}
+
+.hl-root--light .term-analytic-hero {
+  background: linear-gradient(165deg, #f4f4f6 0%, #ffffff 100%);
+  border-color: #e5e5ea;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.hl-bot-panel-wrap .term-analytic-hero__legend {
+  flex-shrink: 0;
+}
+
+@media (max-width: 400px) {
+  .hl-bot-panel-wrap .term-analytic-hero__legend {
+    display: none;
+  }
 }
 
 .term-analytic-hero__top {
@@ -3288,10 +3315,22 @@ html[dir='rtl'] .hl-book {
 
 .term-analytic-hero__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
   margin-top: 10px;
   padding-top: 8px;
+}
+
+.term-analytic-stat {
+  min-width: 0;
+}
+
+.term-analytic-stat__clip {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .term-analytic-stat__label {
@@ -3332,19 +3371,56 @@ html[dir='rtl'] .hl-book {
 
 .term-analytic-tf-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 4px;
-  margin-top: 10px;
+  margin-top: 8px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.term-analytic-tf-row::-webkit-scrollbar {
+  display: none;
 }
 
 .term-analytic-tf {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 9px;
   font-weight: 700;
-  padding: 3px 7px;
+  padding: 3px 5px;
   border-radius: 4px;
   border: 1px solid var(--hl-border);
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
   animation: term-analytic-tf-in 0.35s ease backwards;
+}
+
+.term-analytic-tf__tf {
+  opacity: 0.75;
+  font-weight: 600;
+}
+
+.term-analytic-tf__dir {
+  font-weight: 800;
+}
+
+.term-analytic-tf__pct {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.term-analytic-tf__pct::after {
+  content: '%';
+  font-size: 8px;
+  opacity: 0.85;
 }
 
 .term-analytic-tf--long {
@@ -3377,9 +3453,25 @@ html[dir='rtl'] .hl-book {
 
 .term-analytic-badges {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.term-analytic-badges::-webkit-scrollbar {
+  display: none;
+}
+
+.term-analytic-badges .term-analytic-badge {
+  flex: 0 0 auto;
+  max-width: min(160px, 72vw);
 }
 
 .term-analytic-badge {
@@ -3583,6 +3675,55 @@ html[dir='rtl'] .hl-book {
 
 .hl-bot-panel-wrap .term-bot-analysis-panel--modern .hl-scan-cycle-head {
   display: none;
+}
+
+/* Light mode — Open analytic */
+.hl-root--light .term-analytic-section {
+  background: #ffffff;
+  border-color: #e5e5ea;
+}
+
+.hl-root--light .term-analytic-badge {
+  background: #f5f5f7;
+  border-color: #e5e5ea;
+  color: #3a3a3c;
+}
+
+.hl-root--light .term-analytic-badge--pass {
+  color: #1b8f4e;
+  border-color: color-mix(in srgb, #1b8f4e 35%, #e5e5ea);
+  background: color-mix(in srgb, #1b8f4e 8%, #fff);
+}
+
+.hl-root--light .term-analytic-badge--fail {
+  color: #c62828;
+  border-color: color-mix(in srgb, #c62828 30%, #e5e5ea);
+  background: color-mix(in srgb, #c62828 6%, #fff);
+}
+
+.hl-root--light .term-analytic-tf--long {
+  background: color-mix(in srgb, #1b8f4e 10%, #fff);
+}
+
+.hl-root--light .term-analytic-tf--short {
+  background: color-mix(in srgb, #c62828 8%, #fff);
+}
+
+.hl-root--light .term-analytic-chip {
+  background: #f5f5f7;
+  border-color: #e5e5ea;
+}
+
+.hl-root--light .term-analytic-bars {
+  border-color: #e5e5ea;
+}
+
+.hl-root--light .term-analytic-stat__value--pos {
+  color: #1b8f4e;
+}
+
+.hl-root--light .term-analytic-stat__value--neg {
+  color: #c62828;
 }
 
 /* Legacy analyzer copy — never show long engine/scalp paragraphs */
