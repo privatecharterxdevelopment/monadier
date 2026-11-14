@@ -3,7 +3,7 @@ import { getHlBuilderConfig } from './builderConfig';
 /** HL perp builder fee cap — 0.1% of notional (100 tenths bps), not % of profit. */
 export const HL_PERP_BUILDER_MAX_TENTHS_BPS = 100;
 
-/** Bot success fee is opt-in only; default off. */
+/** Bot success fee on profitable closes — default 10% unless env overrides. */
 export function hlBotSuccessFeeEnabled(): boolean {
   const cfg = getHlBuilderConfig();
   return cfg.enabled && getHlBotSuccessFeeBps() > 0;
@@ -11,7 +11,7 @@ export function hlBotSuccessFeeEnabled(): boolean {
 
 export function getHlBotSuccessFeeBps(): number {
   const raw = import.meta.env.VITE_HL_BOT_SUCCESS_FEE_BPS;
-  const n = raw != null && raw !== '' ? Number(raw) : 0;
+  const n = raw != null && raw !== '' ? Number(raw) : 1000;
   if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.min(10_000, Math.floor(n));
 }

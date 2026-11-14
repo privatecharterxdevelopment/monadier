@@ -72,8 +72,8 @@ import { usePlatformFees } from '../../hooks/usePlatformFees';
 import { usePlatformFeeGate } from '../../contexts/PlatformFeeContext';
 import ProTradeBotScanInsights from './ProTradeBotScanInsights';
 
-/** Match bot HL_SUCCESS_FEE_BPS — 0 = display gross closedPnl only (no platform cut). */
-const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_HL_SUCCESS_FEE_BPS ?? 0);
+/** Match bot HL_SUCCESS_FEE_BPS (default 10%). */
+const PLATFORM_FEE_BPS = Number(import.meta.env.VITE_HL_BOT_SUCCESS_FEE_BPS || 1000);
 function platformFeeFromPnl(closedPnl: string | number): number {
   const pnl = toNum(closedPnl);
   if (pnl <= 0) return 0;

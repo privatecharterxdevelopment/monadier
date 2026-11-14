@@ -98,7 +98,7 @@ export const config = {
   // Platform fees
   fees: {
     baseBps: 10,      // 0.1% on total position
-    successBps: 0, // legacy label — live: hyperliquid.successFeeBps
+    successBps: 1000, // 10% of profit (legacy label — live: hyperliquid.successFeeBps)
   },
 
   // Leverage limits
@@ -802,8 +802,8 @@ export const config = {
     bettingWinsBeforeBlock: Number(process.env.HL_BETTING_WINS_BEFORE_BLOCK || 1),
     bettingBuyFeeBps: Number(process.env.HL_BETTING_BUY_FEE_BPS || 50),
     bettingCashoutFeeBps: Number(process.env.HL_BETTING_CASHOUT_FEE_BPS || 250),
-    /** Success fee on profitable bot closes — 0 = off (only HL exchange fees). 1000 = 10%. */
-    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS ?? 0),
+    /** Success fee on profitable bot closes — 1000 = 10% of realized profit. */
+    successFeeBps: Number(process.env.HL_SUCCESS_FEE_BPS || 1000),
     minSuccessFeeUsd: Number(process.env.HL_MIN_SUCCESS_FEE_USD || 0.01),
     infoUrl: process.env.HL_INFO_URL || 'https://api.hyperliquid.xyz/info',
     builderAddress: (process.env.HL_BUILDER_ADDRESS ||
