@@ -10,16 +10,8 @@ import MonadierWalletAccountSheet from '../../components/wallet/MonadierWalletAc
 import ProTradeTopNav, { type ProTradeSection } from '../../components/protrade/ProTradeTopNav';
 import ProTradeMobileTradeFab from '../../components/protrade/ProTradeMobileTradeFab';
 import ProTradeProfile from '../../components/protrade/ProTradeProfile';
-import {
-  ProTradeBotDockSlot,
-  ProTradeBotPanelSlot,
-  ProTradeBotProvider,
-  ProTradeBotStatusBar,
-} from '../../components/protrade/ProTradeBotSide';
-import ProTradeBotAnalysis from '../../components/protrade/ProTradeBotAnalysis';
-import { BotTerminalAnalysisProvider } from '../../contexts/BotTerminalAnalysisContext';
-import { useHlBotRunning } from '../../hooks/useHlBotRunning';
-import { useProTradeBot } from '../../components/protrade/ProTradeBotSide';
+import { ProTradeBotProvider } from '../../components/protrade/ProTradeBotSide';
+import ProTradeBotTerminalShell from '../../components/protrade/ProTradeBotTerminalShell';
 import type { HlBotDockTab } from '../../components/protrade/ProTradeHlBotDock';
 import ProTradeTickerStrip from '../../components/protrade/ProTradeTickerStrip';
 import ProTradeMarketBar from '../../components/protrade/ProTradeMarketBar';
@@ -844,130 +836,6 @@ const Dashboard2ProPageContent: React.FC = () => {
     </div>
   );
 
-  const BotTerminalShell: React.FC = () => {
-    const { metrics } = useProTradeBot();
-    const { botRunning } = useHlBotRunning({
-      metricsAutoTrade: metrics.autoTradeEnabled,
-      metricsHasSnapshot: metrics.hasHlSnapshot,
-    });
-    const botMaxSlots =
-      botVaultSettings.maxConcurrentPositions >= 3
-        ? 3
-        : botVaultSettings.maxConcurrentPositions >= 2
-          ? 2
-          : HL_DEFAULT_CONCURRENT_POSITIONS;
-
-    return (
-      <BotTerminalAnalysisProvider
-        walletConnected={walletReady}
-        metrics={metrics}
-        openPositionsCount={botOpenPositionCount}
-        maxConcurrentPositions={botMaxSlots}
-        vaultUsd={botTradableHlUsd}
-        vaultWallet={botTradingWallet ?? hlActiveWallet ?? address ?? null}
-        openPositionCoins={botOpenPositionCoins}
-        symbol={hlCoinToBotSymbol(botScanCoin)}
-        botRunning={botRunning}
-        hlBotStrategy={botVaultSettings.hlBotStrategy}
-      >
-        <div className="hl-terminal hl-terminal--bot">
-          <ProTradeTickerStrip markets={perpMarkets} coin={perpCoin} onCoinChange={setPerpCoin} />
-          <ProTradeMarketBar
-            coin={perpCoin}
-            markets={perpMarkets}
-            marketsLoading={perpMarketsLoading}
-            snapshot={perpMarket.snapshot}
-            loading={perpMarket.loading}
-            onCoinChange={setPerpCoin}
-            variant="perp"
-          />
-
-          {perpMarket.error ? (
-            <div style={{ padding: '8px 12px', color: '#ef5350', fontSize: 12 }} role="alert">
-              {perpMarket.error}
-            </div>
-          ) : null}
-
-          <div className="hl-body">
-            <div className="hl-workspace-main">
-              <div className="hl-chart-row">
-                <div className="hl-bot-chart-stack">
-                  <ProTradeChart
-                    coin={perpCoin}
-                    interval={interval}
-                    candles={perpMarket.candles}
-                    loading={perpMarket.loading}
-                    openOrders={perpOpenOrders}
-                    onIntervalChange={setInterval}
-                    layoutKey={`bot-${perpCoin}`}
-                    markPx={chartMarkPx}
-                    positionOverlay={botChartOverlay}
-                    tradeMarkers={botTradeMarkers}
-                    onChartRetry={() => void perpMarket.refresh()}
-                    wsConnected={perpMarket.wsConnected}
-                    chartError={perpMarket.error}
-                    fetchAttempts={perpMarket.fetchAttempts}
-                  />
-                  <ProTradeBotAnalysis
-                    walletConnected={walletReady}
-                    perpCoin={perpCoin}
-                    scanCoin={botScanCoin}
-                    openPositionCoins={botOpenPositionCoins}
-                  />
-                </div>
-                <ProTradeOrderBook
-                  book={perpMarket.book}
-                  recentTrades={perpMarket.recentTrades}
-                  markPx={perpMarkPx}
-                  coin={perpCoin}
-                  onPriceClick={(px) => setLimitPrice(String(px))}
-                />
-              </div>
-              <ProTradeBotDockSlot
-                dockTab={botDockTab}
-                onDockTabChange={setBotDockTab}
-                analysisSymbol={hlCoinToBotSymbol(botScanCoin)}
-                openPositionCoins={botOpenPositionCoins}
-                botManagedCoins={botManagedCoins}
-                botManagedCoinsLoading={botManagedCoinsLoading}
-                onCoinClick={selectChartCoin}
-                onDeposit={() => setFundsModal('deposit')}
-              />
-            </div>
-
-            <ProTradeBotPanelSlot
-              onOpenHistory={() => setBotDockTab('tradeHistory')}
-              onRequireSignIn={promptSignIn}
-              manualTradeCoin={perpCoin}
-              manualMarkPx={perpMarkPx}
-              manualMaxLeverage={
-                perpMarket.snapshot && 'maxLeverage' in perpMarket.snapshot
-                  ? perpMarket.snapshot.maxLeverage
-                  : 40
-              }
-              manualTradableUsd={Math.max(
-                toNum(account?.withdrawable),
-                perpMarket.snapshot &&
-                  'tradablePerpUsd' in perpMarket.snapshot &&
-                  typeof perpMarket.snapshot.tradablePerpUsd === 'number'
-                  ? perpMarket.snapshot.tradablePerpUsd
-                  : 0,
-                toNum(account?.marginSummary?.accountValue)
-              )}
-              manualMarketOptions={perpMarkets.map((m) => m.name).filter((c) => !isBotExcludedHlCoin(c))}
-              onManualTradeCoinChange={selectChartCoin}
-            />
-          </div>
-
-          <ProTradeBotStatusBar
-            walletConnected={walletReady}
-            wsLive={perpMarket.wsConnected && (exchangeSnapshot?.marksWsLive ?? false)}
-          />
-        </div>
-      </BotTerminalAnalysisProvider>
-    );
-  };
-
   return (
     <PlatformFeeProvider wallet={address ?? null} enabled={isConnected}>
       <BettingFeeProvider wallet={address ?? null} enabled={isConnected}>
@@ -992,7 +860,42 @@ const Dashboard2ProPageContent: React.FC = () => {
       {section === 'perps' || section === 'bot' ? (
         <ProTradeBotProvider>
           {section === 'perps' ? renderPerpTerminal() : null}
-          {section === 'bot' ? <BotTerminalShell /> : null}
+          {section === 'bot' ? (
+            <ProTradeBotTerminalShell
+              walletReady={walletReady}
+              botVaultSettings={botVaultSettings}
+              botOpenPositionCount={botOpenPositionCount}
+              botTradableHlUsd={botTradableHlUsd}
+              botTradingWallet={botTradingWallet}
+              hlActiveWallet={hlActiveWallet}
+              address={address ?? null}
+              botOpenPositionCoins={botOpenPositionCoins}
+              botScanCoin={botScanCoin}
+              perpMarkets={perpMarkets}
+              perpCoin={perpCoin}
+              onPerpCoinChange={setPerpCoin}
+              perpMarketsLoading={perpMarketsLoading}
+              perpMarket={perpMarket}
+              interval={interval}
+              onIntervalChange={setInterval}
+              perpOpenOrders={perpOpenOrders}
+              chartMarkPx={chartMarkPx}
+              botChartOverlay={botChartOverlay}
+              botTradeMarkers={botTradeMarkers}
+              botDockTab={botDockTab}
+              onBotDockTabChange={setBotDockTab}
+              botManagedCoins={botManagedCoins}
+              botManagedCoinsLoading={botManagedCoinsLoading}
+              onChartCoinClick={selectChartCoin}
+              onDeposit={() => setFundsModal('deposit')}
+              onOpenHistory={() => setBotDockTab('tradeHistory')}
+              onRequireSignIn={promptSignIn}
+              accountWithdrawable={toNum(account?.withdrawable)}
+              accountMarginValue={toNum(account?.marginSummary?.accountValue)}
+              exchangeMarksWsLive={exchangeSnapshot?.marksWsLive ?? false}
+              onLimitPriceClick={(px) => setLimitPrice(String(px))}
+            />
+          ) : null}
         </ProTradeBotProvider>
       ) : null}
       {section === 'profile' ? (

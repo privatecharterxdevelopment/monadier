@@ -7,11 +7,11 @@ export function BotPanelTabBridge({
 }: {
   onOpenAnalytic: () => void;
 }) {
-  const ctx = useBotTerminalAnalysisOptional();
+  const registerOpen = useBotTerminalAnalysisOptional()?.registerOpenAnalysisTab;
   useEffect(() => {
-    if (!ctx) return;
-    ctx.registerOpenAnalysisTab(onOpenAnalytic);
-  }, [ctx, onOpenAnalytic]);
+    if (!registerOpen) return;
+    registerOpen(onOpenAnalytic);
+  }, [registerOpen, onOpenAnalytic]);
   return null;
 }
 
