@@ -56,6 +56,10 @@ import {
   type ActiveSlDisplay,
 } from '../../lib/hlTrailingStopChart';
 import { fetchHlLetRunPrefs, setHlLetRunPref } from '../../lib/hyperliquid/hlLetRun';
+import {
+  classifyHlCloseReason,
+  historyCloseWhyShortLabel,
+} from '../../lib/hlBotReasonLabels';
 import { useHlPositionPeakPnl } from '../../hooks/useHlPositionPeakPnl';
 import { useHlBotTrailSnapshots } from '../../hooks/useHlBotTrailSnapshots';
 import { useHlExchangeSnapshot } from '../../contexts/HlExchangeSnapshotContext';
@@ -1204,7 +1208,15 @@ const ProTradeDock: React.FC<Props> = ({
                     </td>
                     {isBotMode ? (
                       <td className="term-hl-open-reason-col">
-                        <TradeReasonHint reason={closeWhy} kind="close" />
+                        <div className="term-hl-close-why">
+                          <span
+                            className={`term-hl-close-why__pill term-hl-close-why__pill--${classifyHlCloseReason(closeWhy)}`}
+                            title={historyCloseWhyShortLabel(closeWhy)}
+                          >
+                            {historyCloseWhyShortLabel(closeWhy)}
+                          </span>
+                          <TradeReasonHint reason={closeWhy} kind="close" />
+                        </div>
                       </td>
                     ) : null}
                     <td>

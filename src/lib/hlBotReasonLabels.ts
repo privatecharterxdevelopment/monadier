@@ -13,16 +13,74 @@ export function isManualCloseReason(code: string | null | undefined): boolean {
   );
 }
 
+export type HlHistoryCloseCategory =
+  | 'manual'
+  | 'bot_trail'
+  | 'profit_sl_exchange'
+  | 'stop_loss_exchange'
+  | 'liquidation'
+  | 'other';
+
+function closeReasonStem(code: string | null | undefined): string {
+  const raw = code?.trim() ?? '';
+  if (!raw) return '';
+  return raw.toLowerCase().split(' ‖ ')[0]?.trim() ?? raw.toLowerCase();
+}
+
+/** Canonical bucket for dock History "Why" column. */
+export function classifyHlCloseReason(code: string | null | undefined): HlHistoryCloseCategory {
+  const key = closeReasonStem(code);
+  if (!key) return 'other';
+  if (isManualCloseReason(code)) return 'manual';
+  if (/liquidat/i.test(key)) return 'liquidation';
+  if (key === 'profit_sl_exchange' || (key.includes('profit') && key.includes('exchange')))
+    return 'profit_sl_exchange';
+  if (
+    key === 'stop_loss_exchange' ||
+    key === 'emergency_sl_exchange' ||
+    (key.includes('stop_loss') && key.includes('exchange'))
+  )
+    return 'stop_loss_exchange';
+  if (
+    key === 'trailing_stop' ||
+    key.startsWith('profit_grab') ||
+    key.startsWith('profit_lock') ||
+    key === 'take_profit' ||
+    key === 'breakeven_scratch' ||
+    key.includes('trailing') ||
+    key === 'signal_reversal' ||
+    key === 'stop_loss' ||
+    key.includes('excluded_coin')
+  )
+    return 'bot_trail';
+  return 'other';
+}
+
+/** One-line label in trade history table. */
+export function historyCloseWhyShortLabel(code: string | null | undefined): string {
+  switch (classifyHlCloseReason(code)) {
+    case 'manual':
+      return 'Manual';
+    case 'bot_trail':
+      return 'Bot trail';
+    case 'profit_sl_exchange':
+      return 'Profit-SL (HL)';
+    case 'stop_loss_exchange':
+      return 'SL (HL)';
+    case 'liquidation':
+      return 'Liquidation';
+    default:
+      return code?.trim() ? 'Other' : '—';
+  }
+}
+
 /** Short leaderboard pill label for a close reason. */
 export function leaderboardCloseLabel(code: string | null | undefined): string | null {
+  const short = historyCloseWhyShortLabel(code);
+  if (short && short !== '—' && short !== 'Other') return short;
   if (!code?.trim()) return null;
-  if (isManualCloseReason(code)) return 'Manual';
-  const key = code.trim().toLowerCase().split(' ‖ ')[0] ?? '';
-  if (key.includes('trailing') || key === 'trailing_stop') return 'Trail';
-  if (key.includes('profit_lock') || key.includes('peak') || key.includes('profit_grab'))
-    return 'Trail';
+  const key = closeReasonStem(code);
   if (key.includes('take_profit')) return 'TP';
-  if (key.includes('stop_loss')) return 'SL';
   if (key.includes('signal_reversal')) return 'Reversal';
   return null;
 }
@@ -53,6 +111,12 @@ export function formatHlBotCloseReason(code: string | null | undefined): string 
     manual: 'Manual close from the app',
     user_requested: 'You closed this position',
     bot_stopped: 'Bot stopped — position closed on next cycle',
+    profit_sl_exchange:
+      'Profit stop on Hyperliquid filled — exchange closed (not bot market order). Often a profit-SL left on HL before Let run ON.',
+    stop_loss_exchange: 'Loss-side protective stop on Hyperliquid filled (exchange trigger).',
+    emergency_sl_exchange: 'Emergency stop-loss on Hyperliquid filled.',
+    exchange_close_long: 'Position closed on Hyperliquid (exchange fill).',
+    exchange_close_short: 'Position closed on Hyperliquid (exchange fill).',
   };
 
   if (map[key]) return map[key];

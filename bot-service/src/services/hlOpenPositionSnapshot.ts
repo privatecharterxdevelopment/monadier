@@ -3,6 +3,7 @@
  * without going through closeMarketPosition — arms same-coin + wallet cooldown.
  */
 import { rememberCoinClose } from './hlCoinCloseGuard';
+import { queueExchangeCloseBackfill } from './hlExchangeCloseBackfill';
 
 type OpenSnap = { direction: 'LONG' | 'SHORT' };
 
@@ -39,6 +40,7 @@ export function syncVanishedHlOpens(
       const snap = lastDirByWalletCoin.get(walletCoinKey(w, coin));
       const dir = snap?.direction ?? 'SHORT';
       rememberCoinClose(wallet, coin, dir);
+      queueExchangeCloseBackfill(wallet, coin, dir);
     }
   }
 

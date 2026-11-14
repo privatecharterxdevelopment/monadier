@@ -70,7 +70,7 @@ export function useHlTradeReasonMarkers(
     const coinList = [...new Set(coins.map((c) => c.toUpperCase()))];
 
     try {
-      const [markerRes, auditRes] = await Promise.all([
+      const [markerRes, auditRes, historyRes] = await Promise.all([
         supabase
           .from('hl_bot_chart_markers')
           .select('coin, event_type, direction, close_reason, event_ts, price')
@@ -85,6 +85,15 @@ export function useHlTradeReasonMarkers(
           .eq('wallet_address', walletLower)
           .in('coin', coinList)
           .order('recorded_at', { ascending: false })
+          .limit(120),
+        supabase
+          .from('trade_history')
+          .select('token_symbol, direction, close_reason, closed_at, entry_price, exit_price')
+          .eq('wallet_address', walletLower)
+          .in('token_symbol', coinList)
+          .not('closed_at', 'is', null)
+          .not('close_reason', 'is', null)
+          .order('closed_at', { ascending: false })
           .limit(120),
       ]);
 
@@ -114,6 +123,28 @@ export function useHlTradeReasonMarkers(
           eventMs: Date.parse(String(row.recorded_at)) || 0,
           entryPx: Number.isFinite(entryPx) && entryPx > 0 ? entryPx : null,
         });
+      }
+
+      if (historyRes.error) {
+        console.warn('[useHlTradeReasonMarkers] trade_history', historyRes.error);
+      } else {
+        for (const row of historyRes.data ?? []) {
+          const reason = String(row.close_reason ?? '').trim();
+          if (!reason) continue;
+          const closedAt = String(row.closed_at ?? '');
+          const exitPx = Number(row.exit_price);
+          mapped.push({
+            coin: String(row.token_symbol).toUpperCase(),
+            eventType: 'close',
+            direction: (String(row.direction ?? 'SHORT').toUpperCase() === 'LONG'
+              ? 'LONG'
+              : 'SHORT') as 'LONG' | 'SHORT',
+            reason,
+            eventTs: closedAt,
+            eventMs: Date.parse(closedAt) || 0,
+            entryPx: Number.isFinite(exitPx) && exitPx > 0 ? exitPx : null,
+          });
+        }
       }
 
       mapped.sort((a, b) => b.eventMs - a.eventMs);
@@ -186,7 +217,7 @@ export function useHlTradeReasonMarkers(
       let bestDelta = Infinity;
       for (const c of closes) {
         const delta = Math.abs(c.eventMs - fillTimeMs);
-        if (delta < bestDelta && delta <= 15 * 60 * 1000) {
+        if (delta < bestDelta && delta <= 3 * 60 * 1000) {
           bestDelta = delta;
           best = c;
         }
