@@ -40,6 +40,19 @@ export function chartMinBarSpacing(): number {
   return 0.5;
 }
 
+/** UTC bar open time (seconds) for the interval that contains `nowMs`. */
+export function currentHlBarOpenTimeSec(interval: HlInterval, nowMs = Date.now()): number {
+  const ms = chartIntervalMs(interval);
+  return Math.floor(Math.floor(nowMs / ms) * ms / 1000);
+}
+
+/** Ms until the next interval boundary (+ small buffer). */
+export function msUntilNextBarBoundary(interval: HlInterval, nowMs = Date.now()): number {
+  const ms = chartIntervalMs(interval);
+  const rem = ms - (nowMs % ms);
+  return Math.max(80, rem + 120);
+}
+
 export function chartIntervalMs(interval: HlInterval): number {
   switch (interval) {
     case '1m':

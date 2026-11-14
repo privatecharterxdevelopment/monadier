@@ -13,7 +13,12 @@ import {
   type HlSpotMarketSnapshot,
 } from '../lib/hyperliquid/spot';
 import { toNum } from '../lib/hyperliquid/parse';
-import { chartLookbackMs } from '../lib/hyperliquid/chartZoom';
+import {
+  chartIntervalMs,
+  chartLookbackMs,
+  currentHlBarOpenTimeSec,
+  msUntilNextBarBoundary,
+} from '../lib/hyperliquid/chartZoom';
 import { chartDebugLog, chartDebugWarn } from '../lib/hyperliquid/chartDebug';
 import { getHlWsClient } from '../lib/hyperliquid/ws';
 import type {
@@ -90,6 +95,34 @@ function sortTapeTrades(trades: HlRecentTrade[]): HlRecentTrade[] {
 
 /** Soft memory cap — primary fetch is ~1 page; WS can grow a bit beyond. */
 const MAX_LIVE_CANDLES = 20_000;
+
+/** When HL WS misses the boundary tick, open the new bar from mark / last close. */
+function rollFormingBarIfNeeded(
+  candles: HlCandleBar[],
+  interval: HlInterval,
+  markPx?: number
+): HlCandleBar[] | null {
+  if (candles.length < MIN_HISTORY_BARS) return null;
+  const last = candles[candles.length - 1];
+  const openSec = currentHlBarOpenTimeSec(interval);
+  if (last.time >= openSec) return null;
+  const refPx =
+    markPx && markPx > 0
+      ? markPx
+      : last.close > 0
+        ? last.close
+        : last.open;
+  if (!(refPx > 0)) return null;
+  const newBar: HlCandleBar = {
+    time: openSec,
+    open: refPx,
+    high: refPx,
+    low: refPx,
+    close: refPx,
+    volume: 0,
+  };
+  return mergeCandle(candles, newBar);
+}
 
 function mergeCandle(candles: HlCandleBar[], bar: HlCandleBar): HlCandleBar[] {
   if (candles.length === 0) return [bar];
@@ -624,7 +657,7 @@ export function useHyperliquidMarket(
     const px = pendingMidRef.current;
     if (px == null || px <= 0) return;
     pendingMidRef.current = null;
-  const mk = marketKeyRef.current;
+    const mk = marketKeyRef.current;
     setState((prev) => {
       let candles = prev.candles;
       if (
@@ -632,6 +665,8 @@ export function useHyperliquidMarket(
         candles.length >= MIN_HISTORY_BARS &&
         mk === marketKeyRef.current
       ) {
+        const rolled = rollFormingBarIfNeeded(candles, interval, px);
+        if (rolled) candles = rolled;
         const last = candles[candles.length - 1];
         const nextBar = {
           ...last,
@@ -642,7 +677,8 @@ export function useHyperliquidMarket(
         if (
           nextBar.close !== last.close ||
           nextBar.high !== last.high ||
-          nextBar.low !== last.low
+          nextBar.low !== last.low ||
+          nextBar.time !== last.time
         ) {
           candles = [...candles.slice(0, -1), nextBar];
           candleCacheRef.current.set(mk, candles);
@@ -657,7 +693,7 @@ export function useHyperliquidMarket(
         wsConnected: true,
       };
     });
-  }, []);
+  }, [interval]);
 
   const scheduleMid = useCallback(
     (px: number) => {
@@ -711,6 +747,66 @@ export function useHyperliquidMarket(
     },
     [flushTrades]
   );
+
+  const syncBarBoundary = useCallback(() => {
+    if (!enabled || !historyReadyRef.current) return;
+    const client = getHlWsClient();
+    const wsStale = !client.isLive(20_000);
+    setState((prev) => {
+      const mk = marketKeyRef.current;
+      if (mk !== marketKey || prev.candles.length < MIN_HISTORY_BARS) return prev;
+      const mark = toNum(prev.snapshot?.markPx);
+      const rolled = rollFormingBarIfNeeded(prev.candles, interval, mark);
+      if (!rolled) return prev;
+      candleCacheRef.current.set(mk, rolled);
+      chartDebugLog('market', 'bar-rollover-synthetic', {
+        coin: normCoin(coin),
+        interval,
+        wsStale,
+        barTime: rolled[rolled.length - 1]?.time,
+      });
+      return {
+        ...prev,
+        candles: rolled,
+        wsConnected: client.isLive(),
+      };
+    });
+    if (wsStale) {
+      void refreshCandles();
+    }
+  }, [coin, enabled, interval, marketKey, refreshCandles]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        syncBarBoundary();
+        void refreshCandles();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [enabled, refreshCandles, syncBarBoundary]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let boundaryTimer: ReturnType<typeof setTimeout> | null = null;
+    let fastTimer: ReturnType<typeof setInterval> | null = null;
+    const scheduleBoundary = () => {
+      if (boundaryTimer) clearTimeout(boundaryTimer);
+      boundaryTimer = setTimeout(() => {
+        syncBarBoundary();
+        scheduleBoundary();
+      }, msUntilNextBarBoundary(interval));
+    };
+    scheduleBoundary();
+    const pollMs = Math.min(5_000, Math.max(1_500, Math.floor(chartIntervalMs(interval) / 12)));
+    fastTimer = setInterval(() => syncBarBoundary(), pollMs);
+    return () => {
+      if (boundaryTimer) clearTimeout(boundaryTimer);
+      if (fastTimer) clearInterval(fastTimer);
+    };
+  }, [enabled, interval, syncBarBoundary]);
 
   useEffect(() => {
     if (!enabled) return undefined;
