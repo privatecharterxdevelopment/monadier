@@ -435,7 +435,10 @@ export class HyperliquidTradingService {
     if (state?.assetPositions?.length) {
       syncVanishedHlOpens(
         userAddress,
-        state.assetPositions.map((row) => row.position ?? row)
+        state.assetPositions.map((row) => ({
+          coin: row.position?.coin,
+          szi: row.position?.szi,
+        }))
       );
     } else {
       syncVanishedHlOpens(userAddress, []);
@@ -2344,7 +2347,10 @@ export class HyperliquidTradingService {
     if (state?.assetPositions?.length) {
       syncVanishedHlOpens(
         userAddress,
-        state.assetPositions.map((row) => row.position ?? row)
+        state.assetPositions.map((row) => ({
+          coin: row.position?.coin,
+          szi: row.position?.szi,
+        }))
       );
     } else {
       syncVanishedHlOpens(userAddress, []);

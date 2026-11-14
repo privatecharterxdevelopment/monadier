@@ -756,6 +756,7 @@ export async function evaluateDynamicTrail(
   const stage2Active =
     roe >= (cfgTrail.armMinRoePct ?? 0) || rec.phase === 'trailing';
   const justArmed = rec.currentTrailStop == null;
+  const phaseBeforeProfitSl = rec.phase;
 
   if (isConsolidatedTrailVariantD()) {
     const { structuralPx } = consolidateProfitStopPx({
@@ -853,7 +854,7 @@ export async function evaluateDynamicTrail(
     rec.phase = 'trailing';
   }
 
-  if (justArmed || rec.phase === 'idle' || rec.phase === 'pending') {
+  if (justArmed || phaseBeforeProfitSl === 'idle' || phaseBeforeProfitSl === 'pending') {
     if (rec.currentTrailStop != null && rec.phase !== 'pending') {
       rec.phase = rec.phase === 'trailing' ? 'trailing' : 'armed';
       rec.trailArmedAt = rec.trailArmedAt ?? input.nowMs;
