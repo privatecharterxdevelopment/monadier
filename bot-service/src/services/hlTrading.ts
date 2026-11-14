@@ -134,6 +134,7 @@ import {
   rememberConfirmedStops,
   snapshotConfirmedStops,
   syncHlProfitStopOrder,
+  cancelProfitStopsForLetRun,
 } from './hlProfitStopSync';
 import {
   blockNewEntriesUntilReconciled,
@@ -157,6 +158,7 @@ const transport = new HttpTransport();
 
 /** First time we saw an open position — min-hold before thesis loss close. */
 const hlPositionOpenedAt = new Map<string, number>();
+const hlManualProfitStripAt = new Map<string, number>();
 
 /** Prevent overlapping fast monitor passes. */
 let fastPositionMonitorRunning = false;
@@ -1627,7 +1629,8 @@ export class HyperliquidTradingService {
         return failOpen(lastOpenErr ?? 'Order submit failed', 'HL_RATE_LIMIT');
       }
 
-      const slPct = Math.max(0, Number(opts.stopLossPercent) || 0);
+      const manualOpen = opts.positionScope === 'manual';
+      const slPct = manualOpen ? 0 : Math.max(0, Number(opts.stopLossPercent) || 0);
       const collateralUsd = opts.notionalUsd / Math.max(1, effectiveLeverage);
       const protectedOpen = await runEntryStopFailSafe({
         wallet: opts.userAddress,
@@ -1872,6 +1875,18 @@ export class HyperliquidTradingService {
 
       const userManual = await isUserManualHlPosition(userAddress, String(pos.coin));
       if (userManual) {
+        const stripKey = lockKey;
+        const lastStrip = hlManualProfitStripAt.get(stripKey) ?? 0;
+        if (nowMs - lastStrip > 45_000) {
+          hlManualProfitStripAt.set(stripKey, nowMs);
+          clearTrailState(lockKey);
+          void cancelProfitStopsForLetRun({
+            userAddress,
+            coin: String(pos.coin),
+            direction: positionDirection,
+            entryPx: entry,
+          });
+        }
         logger.debug('HL monitor — user manual position (no bot auto-close)', {
           user: userAddress.slice(0, 10),
           coin: pos.coin,
@@ -2706,6 +2721,7 @@ export class HyperliquidTradingService {
     );
     const mark = Number(mids[opts.coin] ?? mids[`${opts.coin}-PERP`] ?? opts.markPx);
     const notionalUsd = opts.size * mark;
+    const botManaged = opts.botManaged === true;
     return this.openMarketPosition({
       userAddress: opts.userAddress,
       coin: opts.coin,
@@ -2717,7 +2733,7 @@ export class HyperliquidTradingService {
         symbol: `${opts.coin}-PERP`,
         direction: opts.side,
         confidence: 99,
-        reason: opts.botManaged ? 'manual bot-managed open' : 'manual open',
+        reason: botManaged ? 'manual bot-managed open' : 'manual open',
         dayVolumeUsd: 0,
         openInterestUsd: 0,
         botMode: 'standard',
@@ -2725,9 +2741,9 @@ export class HyperliquidTradingService {
       },
       botModeLabel: 'Std',
       ctx,
-      stopLossPercent: settings.stopLossPercent,
+      stopLossPercent: botManaged ? settings.stopLossPercent : 0,
       skipOpenGates: true,
-      positionScope: opts.botManaged ? 'bot' : 'manual',
+      positionScope: botManaged ? 'bot' : 'manual',
       marginMode: opts.marginMode,
     });
   }

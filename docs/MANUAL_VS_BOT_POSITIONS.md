@@ -8,7 +8,8 @@
 
 ## Implementation
 
-- `placeManualPerpOrder({ botManaged: false })` → marker `manual`, `positionScope: manual`.
+- Default: all agent panel opens are **`botManaged: false`** → marker `manual`, no SL/trail on open.
+- Opt-in: `placeManualPerpOrder({ botManaged: true })` only when you explicitly want agent-managed (profit trail).
 - Auto `openMarketPosition` → marker `bot`.
 - `monitorOpenPositions` calls `isUserManualHlPosition` and skips bot exit logic when true.
 - UI `useHlBotManagedCoins` excludes `source=manual` opens from the bot-managed coin set.

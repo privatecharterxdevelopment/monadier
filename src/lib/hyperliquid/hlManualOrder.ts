@@ -54,7 +54,7 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
   leverage?: number;
   marginMode?: MarginMode;
   reduceOnly?: boolean;
-  /** Counts as agent position (profit trail, dock, chart markers). */
+  /** Default false — manual perp with no AI profit trail. Set true only for bot-managed agent opens. */
   botManaged?: boolean;
 }): Promise<void> {
   await postHlTradeApi('/api/hl-order', {

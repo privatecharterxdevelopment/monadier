@@ -669,7 +669,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
       const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
-      const botManaged = Boolean(body.botManaged ?? body.scope === 'bot');
+      const botManaged = body.botManaged === true || body.scope === 'bot';
 
       const result = await hyperliquidTradingService.placeManualPerpOrder({
         userAddress: wallet as `0x${string}`,

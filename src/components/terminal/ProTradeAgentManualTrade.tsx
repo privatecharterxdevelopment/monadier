@@ -197,7 +197,7 @@ const ProTradeAgentManualTrade: React.FC<Props> = ({
         markPx,
         leverage,
         marginMode,
-        botManaged: true,
+        botManaged: false,
       });
       setSize('');
       setAmountUsd('');
