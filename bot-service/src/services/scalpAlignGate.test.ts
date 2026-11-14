@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { evaluateTrendLongScalp1m, type TrendLongScalpInputs } from './scalpAlignGate';
+import {
+  evaluateTrendLongScalp1m,
+  evaluateTrendShortScalp1m,
+  type TrendLongScalpInputs,
+  type TrendShortScalpInputs,
+} from './scalpAlignGate';
 import type { TimeframeAnalysis, Candle } from './signalEngine';
-import { confirmedBreakdownThroughPriorSupport } from './shortDumpStructure';
+import {
+  confirmedBreakdownThroughPriorSupport,
+  confirmedBreakoutThroughPriorResistance,
+} from './shortDumpStructure';
 
 function tf(
   timeframe: TimeframeAnalysis['timeframe'],
@@ -33,6 +41,10 @@ function bearCandle(t: number, o: number, c = o * 0.998): Candle {
   return { time: t, open: o, high: o * 1.001, low: c * 0.999, close: c, volume: 1000 };
 }
 
+function holdCandle(t: number, o: number): Candle {
+  return { time: t, open: o, high: o * 1.0004, low: o * 0.9996, close: o, volume: 900 };
+}
+
 function rising5mCandles(n = 20): Candle[] {
   const out: Candle[] = [];
   let px = 100;
@@ -40,7 +52,18 @@ function rising5mCandles(n = 20): Candle[] {
     px *= 1.001;
     out.push(bullCandle(i * 300_000, px / 1.001, px));
   }
-  out.push(bullCandle(n * 300_000, px, px)); // forming
+  out.push(bullCandle(n * 300_000, px, px));
+  return out;
+}
+
+function falling5mCandles(n = 20): Candle[] {
+  const out: Candle[] = [];
+  let px = 100;
+  for (let i = 0; i < n; i++) {
+    px *= 0.999;
+    out.push(bearCandle(i * 300_000, px / 0.999, px));
+  }
+  out.push(bearCandle(n * 300_000, px, px));
   return out;
 }
 
@@ -59,6 +82,24 @@ function baseTrendLong(over: Partial<TrendLongScalpInputs> = {}): TrendLongScalp
     minConf: 55,
     minConfirm1mCandles: 1,
     longClass: 'TREND_LONG',
+    ...over,
+  };
+}
+
+function baseTrendShort(over: Partial<TrendShortScalpInputs> = {}): TrendShortScalpInputs {
+  const c5m = falling5mCandles();
+  const c15m = falling5mCandles();
+  return {
+    coin: 'XMR',
+    tf1m: tf('1m', 'HOLD', 'DOWN', 50),
+    tf5m: tf('5m', 'SHORT', 'DOWN', 72),
+    tf15m: tf('15m', 'SHORT', 'DOWN', 68),
+    tf1h: tf('1h', 'SHORT', 'DOWN', 65),
+    c1m: [holdCandle(0, 100), holdCandle(60_000, 99.95)],
+    c5m,
+    c15m,
+    minConf: 55,
+    minConfirm1mCandles: 1,
     ...over,
   };
 }
@@ -142,11 +183,96 @@ describe('TREND_LONG scalp 1m relaxation', () => {
   });
 });
 
-describe('SHORT path unchanged', () => {
-  it('validateScalpAlignment still branches only TREND_LONG into relaxed 1m', () => {
+describe('MTF SHORT scalp 1m relaxation', () => {
+  it('allows 1m HOLD when 5m/15m/1h bearish and 5m structure down', () => {
+    const r = evaluateTrendShortScalp1m(baseTrendShort());
+    assert.equal(r.ok, true);
+    assert.equal(r.code, 'SCALP_PASS');
+    assert.match(r.reason, /MTF SHORT pause|allowed/);
+  });
+
+  it('allows mild 1m LONG pullback without confirming green sequence', () => {
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'LONG', 'UP', 62),
+        c1m: [bullCandle(0, 100, 100.02), holdCandle(60_000, 100.01)],
+      })
+    );
+    assert.equal(r.ok, true);
+    assert.equal(r.code, 'SCALP_PASS');
+  });
+
+  it('blocks 1m LONG bullish follow-through (reversal, not pullback)', () => {
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'LONG', 'UP', 70),
+        c1m: [
+          bullCandle(0, 100, 100.25),
+          bullCandle(60_000, 100.25, 100.45),
+          bullCandle(120_000, 100.45, 100.48),
+        ],
+      })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'SCALP_SHORT_1M_REVERSAL');
+  });
+
+  it('blocks bullish 5m structure break', () => {
+    const c5m: Candle[] = [];
+    let p = 100;
+    for (let i = 0; i < 20; i++) {
+      const o = p;
+      p *= 0.9995;
+      c5m.push(bearCandle(i * 300_000, o, p));
+    }
+    const ceiling = Math.max(...c5m.slice(0, -5).map((c) => c.high));
+    const close = ceiling * 1.004;
+    c5m.push(bullCandle(20 * 300_000, ceiling * 0.998, close));
+    c5m.push(bullCandle(21 * 300_000, close, ceiling * 1.005));
+    c5m.push(bullCandle(22 * 300_000, ceiling * 1.003, ceiling * 1.006));
+    assert.equal(confirmedBreakoutThroughPriorResistance(c5m), true);
+    const r = evaluateTrendShortScalp1m(baseTrendShort({ c5m }));
+    assert.equal(r.ok, false);
+    assert.ok(
+      r.code === 'SCALP_SHORT_STRUCTURE_BREAK' || r.code === 'SCALP_SHORT_PUMP_BLOCK',
+      `expected structure/pump block, got ${r.code}`
+    );
+  });
+
+  it('passes when 1m SHORT is aligned with confirming candles', () => {
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({
+        tf1m: tf('1m', 'SHORT', 'DOWN', 72),
+        c1m: [bearCandle(0, 100), bearCandle(60_000, 99.8)],
+      })
+    );
+    assert.equal(r.ok, true);
+    assert.match(r.reason, /Scalp aligned.*SHORT/);
+  });
+
+  it('still requires 5m SHORT', () => {
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({ tf5m: tf('5m', 'LONG', 'UP', 80) })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'SCALP_5M_MISALIGN');
+  });
+
+  it('blocks when 1h not bearish', () => {
+    const r = evaluateTrendShortScalp1m(
+      baseTrendShort({ tf1h: tf('1h', 'LONG', 'UP', 70) })
+    );
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'SCALP_SHORT_HTF_BLOCK');
+  });
+});
+
+describe('validateScalpAlignment routing', () => {
+  it('branches TREND_LONG and MTF SHORT into relaxed 1m evaluators', () => {
     const src = readFileSync(new URL('./scalpAlignGate.ts', import.meta.url), 'utf8');
     assert.match(src, /longClass === 'TREND_LONG'/);
+    assert.match(src, /isMtfShortBearishStack/);
+    assert.match(src, /evaluateTrendShortScalp1m/);
     assert.match(src, /evaluateStrictScalp/);
-    assert.doesNotMatch(src, /REVERSAL_LONG.*evaluateTrendLongScalp1m/);
   });
 });

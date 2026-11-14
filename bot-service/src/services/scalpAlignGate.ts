@@ -1,6 +1,7 @@
 /**
  * Scalp open gate — 1m + 5m must agree with trade direction (no 1h-only entries).
  * TREND_LONG: 1m pullback allowed when 5m/15m/1h stay bullish and 5m structure holds.
+ * MTF SHORT: 1m HOLD / mild LONG pullback allowed when 5m/15m/1h stay bearish and 5m holds.
  */
 import { config } from '../config';
 import { signalEngine, type Candle, type TimeframeAnalysis } from './signalEngine';
@@ -9,6 +10,8 @@ import type { LongOpportunityClass } from './hlExecutionState';
 import { detectStructure } from './preOpenCandleAnalytics';
 import {
   confirmedBreakdownThroughPriorSupport,
+  confirmedBreakoutThroughPriorResistance,
+  isLongRallyContinuation,
   isShortDumpContinuation,
 } from './shortDumpStructure';
 
@@ -22,7 +25,11 @@ export type ScalpBlockCode =
   | 'SCALP_LONG_DUMP_BLOCK'
   | 'SCALP_LONG_STRUCTURE_BREAK'
   | 'SCALP_LONG_HTF_BLOCK'
-  | 'SCALP_LONG_OVEREXTENDED';
+  | 'SCALP_LONG_OVEREXTENDED'
+  | 'SCALP_SHORT_PUMP_BLOCK'
+  | 'SCALP_SHORT_STRUCTURE_BREAK'
+  | 'SCALP_SHORT_HTF_BLOCK'
+  | 'SCALP_SHORT_1M_REVERSAL';
 
 export type ScalpAlignResult = {
   ok: boolean;
@@ -50,6 +57,18 @@ function closedCandles(candles: Candle[]): Candle[] {
   return candles.slice(0, -1);
 }
 
+function tapeStillPumping(candles: Candle[], lookback = 5): boolean {
+  const closed = closedCandles(candles);
+  if (closed.length < lookback) return false;
+  const slice = closed.slice(-lookback);
+  const green = slice.filter((c) => c.close > c.open).length;
+  const first = slice[0]!;
+  const last = slice[slice.length - 1]!;
+  const netPct = first.open > 0 ? ((last.close - first.open) / first.open) * 100 : 0;
+  const higherHigh = last.high >= Math.max(...slice.map((c) => c.high)) * 0.9999;
+  return (green >= 4 || (green >= 3 && netPct > 0.08) || netPct >= 0.25) && higherHigh;
+}
+
 function tapeStillDumping(candles: Candle[], lookback = 5): boolean {
   const closed = closedCandles(candles);
   if (closed.length < lookback) return false;
@@ -67,6 +86,27 @@ function isHigherTfBullish(tf: TimeframeAnalysis, minConf: number): boolean {
   if (tf.trend === 'DOWN') return false;
   if (tf.confidence < minConf) return false;
   return tf.direction === 'LONG' || tf.trend === 'UP';
+}
+
+function isHigherTfBearish(tf: TimeframeAnalysis, minConf: number): boolean {
+  if (tf.direction === 'LONG') return false;
+  if (tf.trend === 'UP') return false;
+  if (tf.confidence < minConf) return false;
+  return tf.direction === 'SHORT' || tf.trend === 'DOWN';
+}
+
+function isMtfShortBearishStack(
+  tf5m: TimeframeAnalysis,
+  tf15m: TimeframeAnalysis,
+  tf1h: TimeframeAnalysis,
+  minConf: number
+): boolean {
+  return (
+    tf5m.direction === 'SHORT' &&
+    tf5m.confidence >= minConf &&
+    isHigherTfBearish(tf15m, minConf) &&
+    isHigherTfBearish(tf1h, minConf)
+  );
 }
 
 export type TrendLongScalpInputs = {
@@ -180,6 +220,118 @@ export function evaluateTrendLongScalp1m(inputs: TrendLongScalpInputs): ScalpAli
   };
 }
 
+export type TrendShortScalpInputs = {
+  coin: string;
+  tf1m: TimeframeAnalysis;
+  tf5m: TimeframeAnalysis;
+  tf15m: TimeframeAnalysis;
+  tf1h: TimeframeAnalysis;
+  c1m: Candle[];
+  c5m: Candle[];
+  c15m: Candle[];
+  minConf: number;
+  minConfirm1mCandles: number;
+};
+
+/** Pure MTF SHORT scalp rules (unit-tested). */
+export function evaluateTrendShortScalp1m(inputs: TrendShortScalpInputs): ScalpAlignResult {
+  const coin = inputs.coin.toUpperCase();
+  const label1m = labelTf(inputs.tf1m);
+  const label5m = labelTf(inputs.tf5m);
+
+  const activePump =
+    isLongRallyContinuation({ candles15m: inputs.c15m, candles5m: inputs.c5m }) ||
+    tapeStillPumping(inputs.c5m) ||
+    tapeStillPumping(inputs.c15m);
+  if (activePump) {
+    return {
+      ok: false,
+      code: 'SCALP_SHORT_PUMP_BLOCK',
+      reason: `Scalp blocked — ${coin} SHORT: active rally / bullish tape on 5m–15m`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  const bullish5mBreak = confirmedBreakoutThroughPriorResistance(inputs.c5m);
+  const structure5m = detectStructure(closedCandles(inputs.c5m).slice(-12));
+  if (bullish5mBreak || structure5m === 'up') {
+    return {
+      ok: false,
+      code: 'SCALP_SHORT_STRUCTURE_BREAK',
+      reason: bullish5mBreak
+        ? `Scalp blocked — ${coin} SHORT: confirmed bullish 5m structure break`
+        : `Scalp blocked — ${coin} SHORT: 5m structure up`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  if (inputs.tf5m.direction !== 'SHORT' || inputs.tf5m.confidence < inputs.minConf) {
+    return {
+      ok: false,
+      code: 'SCALP_5M_MISALIGN',
+      reason: `Scalp blocked — ${coin} SHORT needs 5m aligned (got ${label5m})`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  if (
+    !isHigherTfBearish(inputs.tf15m, inputs.minConf) ||
+    !isHigherTfBearish(inputs.tf1h, inputs.minConf)
+  ) {
+    return {
+      ok: false,
+      code: 'SCALP_SHORT_HTF_BLOCK',
+      reason: `Scalp blocked — ${coin} SHORT needs 15m/1h bearish (15m ${labelTf(inputs.tf15m)}, 1h ${labelTf(inputs.tf1h)})`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  const tf1mAligned =
+    inputs.tf1m.direction === 'SHORT' && inputs.tf1m.confidence >= inputs.minConf;
+  const tf1mConfirm =
+    tf1mAligned &&
+    lastNCandlesMove(inputs.c1m, inputs.minConfirm1mCandles, 'SHORT');
+
+  if (tf1mConfirm) {
+    return {
+      ok: true,
+      code: 'SCALP_PASS',
+      reason: `Scalp aligned — ${coin} SHORT · 1m ${label1m} · 5m ${label5m}`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  const reversalConfirmBars = Math.max(2, inputs.minConfirm1mCandles);
+  const bullish1mFollow =
+    inputs.tf1m.direction === 'LONG' &&
+    inputs.tf1m.confidence >= inputs.minConf &&
+    lastNCandlesMove(inputs.c1m, reversalConfirmBars, 'LONG');
+  if (bullish1mFollow) {
+    return {
+      ok: false,
+      code: 'SCALP_SHORT_1M_REVERSAL',
+      reason: `Scalp blocked — ${coin} SHORT: 1m bullish follow-through (not a pullback)`,
+      tf1m: label1m,
+      tf5m: label5m,
+    };
+  }
+
+  return {
+    ok: true,
+    code: 'SCALP_PASS',
+    reason:
+      `Scalp MTF SHORT pause — ${coin}: 1m ${label1m} allowed · 5m ${label5m} · ` +
+      `15m/1h bearish · 5m structure ${structure5m}`,
+    tf1m: label1m,
+    tf5m: label5m,
+  };
+}
+
 function evaluateStrictScalp(
   coin: string,
   direction: 'LONG' | 'SHORT',
@@ -270,6 +422,24 @@ export async function validateScalpAlignment(opts: {
         minConf,
         minConfirm1mCandles: cfg.minConfirm1mCandles,
         longClass: opts.longClass,
+      });
+    }
+
+    if (
+      opts.direction === 'SHORT' &&
+      isMtfShortBearishStack(tf5m, tf15m, tf1h, minConf)
+    ) {
+      return evaluateTrendShortScalp1m({
+        coin,
+        tf1m,
+        tf5m,
+        tf15m,
+        tf1h,
+        c1m,
+        c5m,
+        c15m,
+        minConf,
+        minConfirm1mCandles: cfg.minConfirm1mCandles,
       });
     }
 
