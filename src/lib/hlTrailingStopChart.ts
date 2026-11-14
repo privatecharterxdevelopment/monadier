@@ -326,6 +326,8 @@ export function trailStopForOpenPosition(opts: {
   holdMs?: number;
   serverTrail?: BotTrailServerTruth;
   dataStale?: boolean;
+  /** User Let run ON — no profit trail / profit-SL display. */
+  letRunHold?: boolean;
 }): ActiveSlDisplay {
   const absSize = Math.abs(opts.szi);
   if (opts.entryPx <= 0 || absSize <= 0 || opts.markPx <= 0) {
@@ -335,6 +337,26 @@ export function trailStopForOpenPosition(opts: {
   const side = opts.szi >= 0 ? ('long' as const) : ('short' as const);
   const server = opts.serverTrail;
   const slPct = effectiveStopLossPct(opts.stopLossMarginPct ?? 0);
+  const stale = Boolean(opts.dataStale);
+  const staleNote = stale ? ' · data STALE' : '';
+
+  if (opts.letRunHold) {
+    const exchangeEmergency =
+      server?.emergencySlConfirmed && server.emergencySlPx != null && server.emergencySlPx > 0
+        ? server.emergencySlPx
+        : null;
+    return {
+      stopPx: exchangeEmergency,
+      armed: exchangeEmergency != null,
+      kind: 'idle',
+      label: 'Let run',
+      sublabel: exchangeEmergency
+        ? `Hold · E-SL ${fmtStopPx(exchangeEmergency)}`
+        : 'Hold · no profit trail',
+      verification: stale ? 'stale' : 'verified',
+      title: `Let run ON — bot does not trail-close or sync profit-SL${staleNote}`,
+    };
+  }
 
   const exchangeProfit =
     server?.profitSlConfirmed && server.profitSlPx != null && server.profitSlPx > 0
@@ -344,9 +366,6 @@ export function trailStopForOpenPosition(opts: {
     server?.emergencySlConfirmed && server.emergencySlPx != null && server.emergencySlPx > 0
       ? server.emergencySlPx
       : null;
-
-  const stale = Boolean(opts.dataStale);
-  const staleNote = stale ? ' · data STALE' : '';
 
   if (exchangeProfit != null) {
     const breached = side === 'long' ? opts.markPx <= exchangeProfit : opts.markPx >= exchangeProfit;

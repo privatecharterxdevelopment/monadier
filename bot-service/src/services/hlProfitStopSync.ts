@@ -745,6 +745,52 @@ async function cancelOids(
   });
 }
 
+/** Cancel profit-side triggers only (Let run ON — keep emergency SL). Never throws. */
+export async function cancelProfitStopsForLetRun(opts: {
+  userAddress: `0x${string}`;
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  entryPx: number;
+}): Promise<number> {
+  try {
+    const orders = await fetchFrontendOpenOrders(opts.userAddress);
+    if (orders == null || orders.length === 0) return 0;
+    const be = opts.entryPx;
+    const oids = orders
+      .filter((o) => {
+        const kind = classifyHlTriggerOrder(
+          o,
+          opts.coin,
+          opts.direction,
+          opts.entryPx,
+          be
+        );
+        return (
+          kind === 'profit_market' ||
+          kind === 'profit_limit' ||
+          kind === 'legacy_market_profit'
+        );
+      })
+      .map((o) => Number(o.oid))
+      .filter((id) => id > 0);
+    if (oids.length === 0) return 0;
+    await cancelOids(opts.userAddress, opts.coin, oids);
+    logger.info('HL profit stops cancelled (let run ON)', {
+      user: opts.userAddress.slice(0, 10),
+      coin: opts.coin,
+      oids,
+    });
+    return oids.length;
+  } catch (err) {
+    logger.warn('HL profit stop cancel (let run) failed', {
+      user: opts.userAddress.slice(0, 10),
+      coin: opts.coin,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
+}
+
 /** Cancel reduce-only triggers for a coin after a full flatten. Never throws. */
 export async function cancelProtectiveOrdersForCoin(opts: {
   userAddress: `0x${string}`;

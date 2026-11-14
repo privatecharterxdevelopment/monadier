@@ -496,6 +496,10 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: false, error: result.error || 'save failed' }));
         return;
       }
+      if (letRun && /^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        const { applyLetRunHoldSideEffects } = await import('./services/hlLetRunHoldEffects');
+        void applyLetRunHoldSideEffects(wallet as `0x${string}`, coin);
+      }
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({ success: true, wallet, coin, letRun }));
     } catch (err: any) {

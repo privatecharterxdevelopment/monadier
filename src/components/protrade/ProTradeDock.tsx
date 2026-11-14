@@ -759,6 +759,7 @@ const ProTradeDock: React.FC<Props> = ({
                     holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                     serverTrail: toBotTrailServerTruth(botTrail),
                     dataStale: exchangeDataStale,
+                    letRunHold: effectiveLetRun(p.coin),
                   });
                   return (
                     <tr key={p.coin} className={isDust ? 'hl-pos-row--dust' : undefined}>
@@ -893,6 +894,7 @@ const ProTradeDock: React.FC<Props> = ({
                   holdMs: Date.now() - (positionOpenSinceRef.current.get(p.coin) ?? Date.now()),
                   serverTrail: toBotTrailServerTruth(botTrail),
                   dataStale: exchangeDataStale,
+                  letRunHold: effectiveLetRun(p.coin),
                 });
                 return (
                   <article

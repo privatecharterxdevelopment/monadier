@@ -49,6 +49,29 @@ describe('trailStopForOpenPosition verification', () => {
     assert.match(sl.sublabel ?? '', /UNVERIFIED/);
   });
 
+  it('shows Let run instead of profit-SL pending when hold is on', () => {
+    const sl = trailStopForOpenPosition({
+      entryPx: 65132,
+      szi: -0.02167,
+      markPx: 65000,
+      unrealizedPnlUsd: 2.5,
+      leverage: 10,
+      coin: 'BTC',
+      letRunHold: true,
+      serverTrail: {
+        peakPnlUsd: 3,
+        lockPnlUsd: 0,
+        lockRoePct: 0,
+        stopPx: null,
+        profitSlConfirmed: false,
+        profitSlStatus: 'PROFIT_SL_PENDING',
+        emergencySlConfirmed: false,
+      },
+    });
+    assert.equal(sl.label, 'Let run');
+    assert.doesNotMatch(sl.sublabel ?? '', /PENDING/);
+  });
+
   it('marks stale when dataStale', () => {
     const sl = trailStopForOpenPosition({
       entryPx: 100,
