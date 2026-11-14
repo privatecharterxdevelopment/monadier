@@ -7,25 +7,40 @@ async function postHlTradeApi<T>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  const res = await fetch(`${getBotApiBase()}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  let json: { success?: boolean; error?: string | null } = {};
-  try {
-    json = (await res.json()) as { success?: boolean; error?: string | null };
-  } catch {
-    json = {};
-  }
-  if (!res.ok || !json.success) {
-    const raw = (json.error ?? '').replace(/\s*-\s*null\s*$/i, '').trim();
-    if (res.status === 429 || /429|too many requests/i.test(raw)) {
-      throw new Error('Hyperliquid rate limit — wait ~30 seconds and retry.');
+  const maxAttempts = 5;
+  let lastErr = 'Hyperliquid request failed';
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const res = await fetch(`${getBotApiBase()}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    let json: { success?: boolean; error?: string | null } = {};
+    try {
+      json = (await res.json()) as { success?: boolean; error?: string | null };
+    } catch {
+      json = {};
     }
-    throw new Error(raw || 'Hyperliquid request failed');
+    if (res.ok && json.success) {
+      return json as T;
+    }
+    const raw = (json.error ?? '').replace(/\s*-\s*null\s*$/i, '').trim();
+    lastErr = raw || 'Hyperliquid request failed';
+    const rateLimited =
+      res.status === 429 ||
+      /429|too many requests|rate limit|HL_RATE_LIMIT/i.test(raw);
+    if (rateLimited && attempt < maxAttempts - 1) {
+      await new Promise((r) => setTimeout(r, 800 + attempt * 700));
+      continue;
+    }
+    if (rateLimited) {
+      throw new Error(
+        'Hyperliquid busy — order may still land. Check positions in ~15s before tapping again.'
+      );
+    }
+    throw new Error(lastErr);
   }
-  return json as T;
+  throw new Error(lastErr);
 }
 
 export async function placeHlManualPerpOrderViaAgent(opts: {

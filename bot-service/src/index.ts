@@ -1694,7 +1694,7 @@ const healthServer = http.createServer(async (req, res) => {
       const ctx = await Promise.race([
         buildTradingCycleContext(),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('trading context timeout 20s')), 20_000);
+          setTimeout(() => reject(new Error('trading context timeout 35s')), 35_000);
         }),
       ]);
       const result = await hyperliquidTradingService.forceOpenForAutoTradeUsers({
@@ -2071,7 +2071,7 @@ async function runTradingCycle(): Promise<void> {
       const ctx = await Promise.race([
         buildTradingCycleContext(),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('trading context timeout 20s')), 20_000);
+          setTimeout(() => reject(new Error('trading context timeout 35s')), 35_000);
         }),
       ]);
       lastGlobalSignals = ctx.globalSignals;

@@ -1064,22 +1064,36 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'pre_open_candles');
 
+      const highConfMtfScalpPass =
+        opts.direction === 'SHORT' &&
+        shortRules.trustMtfScan &&
+        opts.pick.confidence >= 90 &&
+        (opts.pick.directionalTfCount ?? 0) >= 3;
+
       const scalpGate =
-        relaxSecondary &&
-        shortRules.bypassScalpAlignWhenTrusted &&
-        opts.direction === 'SHORT'
+        highConfMtfScalpPass
           ? {
               ok: true as const,
               code: 'SCALP_PASS' as const,
-              reason: 'Scalp align bypass — trusted MTF scan',
+              reason: `Scalp deferred — ${opts.pick.confidence}% MTF scan (${opts.pick.directionalTfCount ?? '?'} TFs)`,
               tf1m: opts.direction,
               tf5m: opts.direction,
             }
-          : await validateScalpAlignment({
-              coin,
-              direction: opts.direction,
-              longClass: opts.pick.longClass,
-            });
+          : relaxSecondary &&
+              shortRules.bypassScalpAlignWhenTrusted &&
+              opts.direction === 'SHORT'
+            ? {
+                ok: true as const,
+                code: 'SCALP_PASS' as const,
+                reason: 'Scalp align bypass — trusted MTF scan',
+                tf1m: opts.direction,
+                tf5m: opts.direction,
+              }
+            : await validateScalpAlignment({
+                coin,
+                direction: opts.direction,
+                longClass: opts.pick.longClass,
+              });
       logOpenGate({
         userAddress: opts.userAddress,
         coin,
@@ -1475,26 +1489,61 @@ export class HyperliquidTradingService {
       const isLongSubmit = opts.direction === 'LONG';
       const limitPxSubmit = isLongSubmit ? submitMarkPx * 1.05 : submitMarkPx * 0.95;
 
-      const result = await client.order({
-        orders: [
-          {
-            a: assetIndex,
-            b: isLongSubmit,
-            p: formatHlPrice(limitPxSubmit, szDecimals),
-            s: formatHlSize(size, szDecimals),
-            r: false,
-            t: { limit: { tif: 'FrontendMarket' } },
-          },
-        ],
-        grouping: 'na',
-        ...(builder ? { builder } : {}),
-      });
+      const orderLeg = {
+        a: assetIndex,
+        b: isLongSubmit,
+        p: formatHlPrice(limitPxSubmit, szDecimals),
+        s: formatHlSize(size, szDecimals),
+        r: false,
+        t: { limit: { tif: 'FrontendMarket' as const } },
+      };
 
-      const status = result.response?.data?.statuses?.[0] as
-        | { filled?: { totalSz?: string | number; avgPx?: string | number; oid?: number }; error?: string; resting?: { oid?: number } }
+      const maxOpenAttempts = skipOpenGates ? 8 : 3;
+      const openRetryMs = (attempt: number) =>
+        skipOpenGates ? 450 + attempt * 400 : 900 + attempt * 700;
+
+      let result: Awaited<ReturnType<typeof client.order>> | undefined;
+      let status:
+        | {
+            filled?: { totalSz?: string | number; avgPx?: string | number; oid?: number };
+            error?: string;
+            resting?: { oid?: number };
+          }
         | undefined;
-      if (status && 'error' in status && status.error) {
-        return failOpen(String(status.error));
+      let lastOpenErr: string | null = null;
+
+      for (let attempt = 0; attempt < maxOpenAttempts; attempt += 1) {
+        try {
+          result = await client.order({
+            orders: [orderLeg],
+            grouping: 'na',
+            ...(builder ? { builder } : {}),
+          });
+          status = result.response?.data?.statuses?.[0] as typeof status;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          lastOpenErr = msg;
+          const rateLimited = /429|rate limit|too many|busy|timeout/i.test(msg);
+          if (rateLimited && attempt < maxOpenAttempts - 1) {
+            await new Promise((r) => setTimeout(r, openRetryMs(attempt)));
+            continue;
+          }
+          return failOpen(msg, rateLimited ? 'HL_RATE_LIMIT' : undefined);
+        }
+
+        const errText = status && 'error' in status && status.error ? String(status.error) : '';
+        if (/429|rate limit|too many/i.test(errText) && attempt < maxOpenAttempts - 1) {
+          await new Promise((r) => setTimeout(r, openRetryMs(attempt)));
+          continue;
+        }
+        if (errText) {
+          return failOpen(errText, /429|rate limit|too many/i.test(errText) ? 'HL_RATE_LIMIT' : undefined);
+        }
+        break;
+      }
+
+      if (!result) {
+        return failOpen(lastOpenErr ?? 'Order submit failed', 'HL_RATE_LIMIT');
       }
 
       const slPct = Math.max(0, Number(opts.stopLossPercent) || 0);
@@ -1512,9 +1561,9 @@ export class HyperliquidTradingService {
         orderStatus: status ?? null,
         entryTimedOut: false,
         exchange: createHlEntrySlExchangeForCoin(opts.userAddress, coin),
-        ...(skipOpenGates
-          ? { slRetryBudgetMs: 2_000, slRetries: 2, flattenPasses: 2 }
-          : {}),
+        slRetryBudgetMs: skipOpenGates ? 2_500 : 12_000,
+        slRetries: skipOpenGates ? 2 : 4,
+        ...(skipOpenGates ? { flattenPasses: 2 } : {}),
       });
 
       patchExecutionDiagnostic(opts.userAddress, {

@@ -50,35 +50,12 @@ export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
   return true;
 }
 
-/** HL perps — scan universe is all listed coins; open floors are optional. */
-export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
-  const ttl = config.hyperliquid.liquidUniverseCacheMs;
-  if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
-    return cached;
-  }
-
-  const res = await fetch(config.hyperliquid.infoUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
-  });
-  if (!res.ok) {
-    throw new Error('HL metaAndAssetCtxs fetch failed');
-  }
-
-  const raw = (await res.json()) as unknown;
-  if (!Array.isArray(raw) || raw.length < 2) {
-    throw new Error('HL metaAndAssetCtxs invalid response');
-  }
-
-  const meta = raw[0] as { universe?: AssetMeta[] };
-  const ctxs = raw[1] as AssetCtx[];
-  if (!Array.isArray(meta?.universe) || !Array.isArray(ctxs)) {
-    throw new Error('HL metaAndAssetCtxs missing universe');
-  }
-
+function buildUniverseFromMetaCtxs(
+  meta: { universe?: AssetMeta[] },
+  ctxs: AssetCtx[]
+): HlLiquidUniverse {
   const all: HlPerpLiquidity[] = [];
-  meta.universe.forEach((asset, i) => {
+  (meta.universe ?? []).forEach((asset, i) => {
     if (!asset?.name || asset.isDelisted) return;
     const ctx = ctxs[i];
     if (!ctx) return;
@@ -103,24 +80,78 @@ export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniv
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;
   const trimmed = maxScan > 0 ? scannable.slice(0, maxScan) : scannable;
 
-  const universe: HlLiquidUniverse = {
+  return {
     coins: trimmed.map((m) => m.coin),
     markets: trimmed,
     fetchedAt: Date.now(),
   };
+}
 
+/** HL perps — scan universe is all listed coins; open floors are optional. */
+export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
+  const ttl = config.hyperliquid.liquidUniverseCacheMs;
+  const staleMaxMs = Math.max(ttl * 30, 180_000);
+  if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
+    return cached;
+  }
+
+  const prior = cached;
+
+  let res: Response;
+  try {
+    res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
+    });
+  } catch (err) {
+    if (prior && Date.now() - prior.fetchedAt < staleMaxMs) {
+      logger.warn('HL metaAndAssetCtxs network error — stale liquid universe', {
+        error: err instanceof Error ? err.message : String(err),
+        ageMs: Date.now() - prior.fetchedAt,
+      });
+      return prior;
+    }
+    throw err;
+  }
+
+  if (!res.ok) {
+    if (prior && Date.now() - prior.fetchedAt < staleMaxMs) {
+      logger.warn('HL metaAndAssetCtxs fetch failed — stale liquid universe', {
+        status: res.status,
+        ageMs: Date.now() - prior.fetchedAt,
+      });
+      return prior;
+    }
+    throw new Error(`HL metaAndAssetCtxs fetch failed (${res.status})`);
+  }
+
+  const raw = (await res.json()) as unknown;
+  if (!Array.isArray(raw) || raw.length < 2) {
+    throw new Error('HL metaAndAssetCtxs invalid response');
+  }
+
+  const meta = raw[0] as { universe?: AssetMeta[] };
+  const ctxs = raw[1] as AssetCtx[];
+  if (!Array.isArray(meta?.universe) || !Array.isArray(ctxs)) {
+    throw new Error('HL metaAndAssetCtxs missing universe');
+  }
+
+  const universe = buildUniverseFromMetaCtxs(meta, ctxs);
   cached = universe;
 
-  const openEligible = trimmed.filter(passesOpenLiquidityGate).length;
+  const openEligible = universe.markets.filter(passesOpenLiquidityGate).length;
 
   logger.info('HL liquid universe built', {
-    listed: all.length,
-    scanning: trimmed.length,
+    listed: universe.markets.length,
+    scanning: universe.markets.length,
     openEligible,
     minDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
     minOpenInterestUsd: config.hyperliquid.minOpenInterestUsd,
-    topCoin: trimmed[0]?.coin,
-    topVolM: trimmed[0] ? (trimmed[0].dayVolumeUsd / 1e6).toFixed(1) : '0',
+    topCoin: universe.markets[0]?.coin,
+    topVolM: universe.markets[0]
+      ? (universe.markets[0].dayVolumeUsd / 1e6).toFixed(1)
+      : '0',
   });
 
   return universe;
