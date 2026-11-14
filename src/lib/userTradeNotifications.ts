@@ -113,6 +113,24 @@ export function isBellEligibleNotification(row: UserTradeNotificationRow): boole
   return false;
 }
 
+/** Unread badge — not capped by the in-app list limit. */
+export async function fetchUnreadTradeNotificationCount(): Promise<number> {
+  const userId = await getAuthUserId();
+  if (!userId) return 0;
+
+  const { count, error } = await supabase
+    .from('user_trade_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .is('read_at', null);
+
+  if (error) {
+    devError('[fetchUnreadTradeNotificationCount]', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function fetchUserTradeNotifications(limit = 100): Promise<ActivityNotification[]> {
   const userId = await getAuthUserId();
   if (!userId) return [];

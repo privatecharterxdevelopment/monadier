@@ -100,7 +100,11 @@ const Dashboard2Sidebar: React.FC<Props> = ({
               <Bell size={18} />
               {notificationUnread > 0 && (
                 <span className="term-side-badge">
-                  {notificationUnread > 9 ? '9+' : notificationUnread}
+                  {notificationUnread >= 99
+                    ? '99+'
+                    : notificationUnread > 9
+                      ? '9+'
+                      : notificationUnread}
                 </span>
               )}
             </span>

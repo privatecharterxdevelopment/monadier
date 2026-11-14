@@ -51,7 +51,9 @@ const ProTradeNotificationsBell: React.FC<Props> = ({ onViewHistory }) => {
       >
         <Bell size={15} />
         {unreadCount > 0 ? (
-          <span className="hl-notif-bell-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+          <span className="hl-notif-bell-badge">
+            {unreadCount >= 99 ? '99+' : unreadCount > 9 ? '9+' : unreadCount}
+          </span>
         ) : null}
       </button>
 

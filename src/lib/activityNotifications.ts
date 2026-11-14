@@ -71,6 +71,20 @@ export function mergeActivityNotifications(
     .slice(0, limit);
 }
 
+/** Limit toast spam when many rows sync at once (e.g. backfill / reconnect). */
+export function pickFreshNotificationsForToast(
+  fresh: ActivityNotification[],
+  max = 3
+): ActivityNotification[] {
+  const notable = fresh.filter(
+    (n) => n.kind === 'follow' || n.kind === 'bot' || n.kind === 'betting'
+  );
+  if (notable.length <= max) return notable;
+  return [...notable]
+    .sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime())
+    .slice(0, max);
+}
+
 export function isActivityUnread(
   notification: ActivityNotification,
   lastSeenAt: string | null
