@@ -1,1 +1,3 @@
-export type TradePanelTab = 'bot' | 'analysis' | 'manual' | 'lvrg' | 'funds';
+export type TradePanelTab = 'bot' | 'manual' | 'lvrg' | 'funds';
+
+export type AgentPanelView = 'home' | 'analytic';

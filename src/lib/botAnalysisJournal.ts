@@ -1,6 +1,12 @@
 import { formatUserBlocker } from './botReadiness';
 import { shortScanBlockReason } from './hlScanCycleDisplay';
 import type { HlScanSkip } from './hlScanCycleDisplay';
+import {
+  executionHeadline,
+  formatExecutionDiagnosticLine,
+  type BotExecutionDiagnostic,
+  type BotExecutionSnapshot,
+} from './hlExecutionDisplay';
 
 export type BotAnalysisJournalEntry = {
   at: number;
@@ -39,6 +45,8 @@ type NarrativeInput = {
   readinessDetail?: string;
   scanSkips?: HlScanSkip[];
   lastOpenError?: string | null;
+  execution?: BotExecutionSnapshot | null;
+  executionDiagnostic?: BotExecutionDiagnostic | null;
 };
 
 /** Full engine copy for the Analysis side panel — not shown under the chart. */
@@ -80,6 +88,19 @@ export function buildBotAnalysisNarrative(input: NarrativeInput): string {
   if (detail && !parts.includes(detail)) parts.push(detail);
   else if (headline && headline !== 'Bot is reading market…' && !parts.includes(headline)) {
     parts.push(headline);
+  }
+
+  const execHeadline = executionHeadline(input.execution);
+  if (execHeadline) {
+    parts.push(`Execution: ${execHeadline}${input.execution?.reason ? ` — ${input.execution.reason}` : ''}`);
+  }
+  const diag = formatExecutionDiagnosticLine(input.executionDiagnostic);
+  if (diag) parts.push(diag);
+  if (input.executionDiagnostic?.scanPassed === false && input.executionDiagnostic?.scan) {
+    parts.push(`Scan rejected: ${input.executionDiagnostic.scan}`);
+  }
+  if (input.executionDiagnostic?.gatesPassed?.length) {
+    parts.push(`Gates OK: ${input.executionDiagnostic.gatesPassed.join(', ')}`);
   }
 
   const skipLines = (input.scanSkips ?? [])

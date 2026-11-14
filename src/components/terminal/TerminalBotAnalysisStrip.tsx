@@ -88,19 +88,19 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
   const readiness = useMemo(() => {
     if (idleReadiness) return idleReadiness;
     if (slotsFull) {
-      return {
+      return scrubBotReadinessForUi({
         ...analysis.readiness,
         headline: 'Slots full',
         detail: `${openCount}/${slotCount} positions open — monitoring exits`,
-      };
+      });
     }
     if (marginBlocked) {
-      return {
+      return scrubBotReadinessForUi({
         ...analysis.readiness,
         headline: analysis.readiness.headline || 'Insufficient margin',
-      };
+      });
     }
-    return scrubBotReadinessForUi({ ...analysis.readiness, headline: scanHeadline });
+    return scrubBotReadinessForUi({ ...analysis.readiness, headline: scanHeadline, detail: '' });
   }, [
     idleReadiness,
     slotsFull,

@@ -1022,14 +1022,16 @@ const ProTradeDock: React.FC<Props> = ({
             (hlSnap?.openPositionsCount ?? 0) === 0 ? (
             <div className="hl-dock-empty hl-dock-empty--compact" role="status">
               <p className="hl-dock-empty-title">No open positions</p>
-              <p className="hl-dock-empty-hint">Scan status lives in the Agent panel → Analysis tab.</p>
+              <p className="hl-dock-empty-hint">
+                Engine detail: Agent panel → Open analytic.
+              </p>
               {botAnalysisCtx ? (
                 <button
                   type="button"
                   className="hl-dock-open-analysis"
                   onClick={() => botAnalysisCtx.openAnalysisTab()}
                 >
-                  Open analysis
+                  Open analytic
                 </button>
               ) : null}
             </div>

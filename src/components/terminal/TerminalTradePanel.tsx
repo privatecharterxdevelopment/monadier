@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Loader2,
@@ -82,7 +82,7 @@ import type { HlPosition } from '../../lib/hyperliquid/user';
 import { toNum } from '../../lib/hyperliquid/parse';
 import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
 import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
-import type { TradePanelTab } from '../protrade/tradePanelTypes';
+import type { AgentPanelView, TradePanelTab } from '../protrade/tradePanelTypes';
 import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
 
 type PanelTab = TradePanelTab;
@@ -147,6 +147,15 @@ const TerminalTradePanel: React.FC<Props> = ({
   const [panelTabInternal, setPanelTabInternal] = useState<PanelTab>('bot');
   const panelTab = panelTabProp ?? panelTabInternal;
   const setPanelTab = onPanelTabChange ?? setPanelTabInternal;
+  const [agentView, setAgentView] = useState<AgentPanelView>('home');
+  const openAgentAnalytic = useCallback(() => {
+    setPanelTab('bot');
+    setAgentView('analytic');
+  }, [setPanelTab]);
+
+  useEffect(() => {
+    if (panelTab !== 'bot') setAgentView('home');
+  }, [panelTab]);
   const {
     botRunning,
     settings: botSettingsSnapshot,
@@ -756,14 +765,11 @@ const TerminalTradePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      <BotPanelTabBridge panelTab={panelTab} setPanelTab={setPanelTab} />
+      <BotPanelTabBridge onOpenAnalytic={openAgentAnalytic} />
       <div className="term-panel-tabs">
         {(
           [
             { id: 'bot' as const, label: t('tradePanel.tabBot') },
-            ...(botAnalysisCtx
-              ? [{ id: 'analysis' as const, label: t('tradePanel.tabAnalysis', { defaultValue: 'Analysis' }) }]
-              : []),
             { id: 'manual' as const, label: t('tradePanel.tabManual', { defaultValue: 'Manual' }) },
             { id: 'lvrg' as const, label: t('tradePanel.tabSettings') },
             { id: 'funds' as const, label: t('tradePanel.tabFunds') },
@@ -783,7 +789,20 @@ const TerminalTradePanel: React.FC<Props> = ({
       </div>
 
       <div className="term-trade-body">
-        {panelTab === 'bot' && (
+        {panelTab === 'bot' && agentView === 'analytic' && botAnalysisCtx ? (
+          <div className="term-panel-stack term-panel-stack--analysis">
+            <button
+              type="button"
+              className="term-bot-analytic-back"
+              onClick={() => setAgentView('home')}
+            >
+              ← {t('tradePanel.tabBot')}
+            </button>
+            <TerminalBotAnalysisPanel />
+          </div>
+        ) : null}
+
+        {panelTab === 'bot' && agentView === 'home' && (
           <div className="term-panel-stack">
             {!walletReady ? (
               <div className="term-panel-card term-panel-card--muted term-connect-banner">
@@ -981,33 +1000,37 @@ const TerminalTradePanel: React.FC<Props> = ({
                   closingCoin={closingHlCoin}
                   onClose={(p) => void handleCloseHlPosition(p)}
                 />
+              </div>
+            ) : null}
+
+            {(onOpenHistory || botAnalysisCtx) && (
+              <div className="term-bot-agent-nav">
                 {onOpenHistory ? (
                   <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
-                    <span>Full trade history</span>
+                    <span>{t('tradePanel.tradeHistory', { defaultValue: 'Trade history' })}</span>
+                    <span className="term-bot-positions-chevron" aria-hidden>
+                      ›
+                    </span>
+                  </button>
+                ) : null}
+                {botAnalysisCtx ? (
+                  <button
+                    type="button"
+                    className="term-bot-positions-row term-bot-positions-row--analytic"
+                    onClick={openAgentAnalytic}
+                  >
+                    <span>{t('tradePanel.openAnalytic', { defaultValue: 'Open analytic' })}</span>
                     <span className="term-bot-positions-chevron" aria-hidden>
                       ›
                     </span>
                   </button>
                 ) : null}
               </div>
-            ) : onOpenHistory ? (
-              <button type="button" className="term-bot-positions-row" onClick={onOpenHistory}>
-                <span>{t('tradePanel.openPositions')}</span>
-                <span className="term-bot-positions-chevron" aria-hidden>
-                  ›
-                </span>
-              </button>
-            ) : null}
+            )}
 
             {stopNotice && <p className="term-hint term-hint--ok">{stopNotice}</p>}
           </div>
         )}
-
-        {panelTab === 'analysis' && botAnalysisCtx ? (
-          <div className="term-panel-stack term-panel-stack--analysis">
-            <TerminalBotAnalysisPanel />
-          </div>
-        ) : null}
 
         {panelTab === 'manual' && (
           <div className="term-panel-stack term-panel-stack--manual-trade">

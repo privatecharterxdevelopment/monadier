@@ -1282,7 +1282,8 @@
   "tradePanel": {
     "title": "{{brand}} Agent",
     "tabBot": "Agent",
-    "tabAnalysis": "Analyse",
+    "tradeHistory": "Trade-Historie",
+    "openAnalytic": "Analyse öffnen",
     "tabManual": "Manuell",
     "tabSettings": "Einstellungen",
     "tabFunds": "Guthaben",

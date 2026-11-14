@@ -3078,6 +3078,81 @@ html[dir='rtl'] .hl-book {
   margin-top: auto;
 }
 
+.term-bot-agent-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--hl-border);
+}
+
+.term-bot-positions-row--analytic span:first-child {
+  font-weight: 600;
+}
+
+.term-bot-analytic-back {
+  align-self: flex-start;
+  margin: 0 0 4px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--hl-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.term-bot-analytic-back:hover {
+  color: var(--hl-green-bright);
+}
+
+.term-bot-analysis-pipeline {
+  flex-shrink: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hl-border);
+}
+
+.term-bot-analysis-pipeline-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.term-bot-analysis-pipeline-grid dt {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--hl-text-faint);
+}
+
+.term-bot-analysis-pipeline-grid dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.term-bot-analysis-pipeline-span {
+  grid-column: 1 / -1;
+}
+
+.term-bot-analysis-focus-reason,
+.term-bot-analysis-exec-reason {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hl-text-muted);
+  white-space: pre-wrap;
+}
+
+.hl-bot-analysis .term-dock-analysis p,
+.hl-bot-analysis .hl-dock-bot-scan-detail {
+  display: none !important;
+}
+
 .hl-bot-panel-wrap .term-bot-analysis-panel .hl-scan-cycle-panel {
   display: flex;
   flex-shrink: 0;

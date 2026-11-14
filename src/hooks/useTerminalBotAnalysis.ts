@@ -850,6 +850,8 @@ export function useTerminalBotAnalysis({
         readinessDetail: rawReadiness.detail,
         scanSkips,
         lastOpenError: lastOpenErrorText,
+        execution,
+        executionDiagnostic,
       }),
     [
       currentlyScanningCoin,
@@ -862,6 +864,8 @@ export function useTerminalBotAnalysis({
       scanSkips,
       lastOpenErrorText,
       recentOpenBlocks,
+      execution,
+      executionDiagnostic,
     ]
   );
 

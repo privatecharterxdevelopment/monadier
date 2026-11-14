@@ -1,21 +1,17 @@
 import { useEffect } from 'react';
-import type { TradePanelTab } from './tradePanelTypes';
 import { useBotTerminalAnalysisOptional } from '../../contexts/BotTerminalAnalysisContext';
 
-/** Wires the right-hand Agent panel tab switcher to “Open analysis”. */
+/** Wires dock “Open analysis” to the Agent panel analytic view. */
 export function BotPanelTabBridge({
-  panelTab,
-  setPanelTab,
+  onOpenAnalytic,
 }: {
-  panelTab: TradePanelTab;
-  setPanelTab: (tab: TradePanelTab) => void;
+  onOpenAnalytic: () => void;
 }) {
   const ctx = useBotTerminalAnalysisOptional();
   useEffect(() => {
     if (!ctx) return;
-    ctx.registerOpenAnalysisTab(() => setPanelTab('analysis'));
-  }, [ctx, setPanelTab]);
-  void panelTab;
+    ctx.registerOpenAnalysisTab(onOpenAnalytic);
+  }, [ctx, onOpenAnalytic]);
   return null;
 }
 
