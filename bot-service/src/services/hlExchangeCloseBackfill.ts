@@ -194,6 +194,86 @@ async function recordExchangeVanishedClose(opts: {
   });
 }
 
+const walletSweepAt = new Map<string, number>();
+const SWEEP_MS = 12 * 60_000;
+
+async function recordFillCloseIfMissing(
+  wallet: string,
+  fill: HlFill,
+  direction: 'LONG' | 'SHORT'
+): Promise<boolean> {
+  const coin = String(fill.coin ?? '').toUpperCase();
+  const t = Number(fill.time ?? 0);
+  const pnl = Number(fill.closedPnl ?? 0);
+  const exitPx = Number(fill.px ?? 0);
+  const size = Math.abs(Number(fill.sz ?? 0));
+  if (!coin || !Number.isFinite(t) || !(exitPx > 0) || !(size > 0)) return false;
+  if (await closeAlreadyKnown({ wallet, coin, closedAtMs: t, pnl })) return false;
+
+  const entryPx = entryFromClose({ direction, exitPx, size, pnl });
+  const reason = inferExchangeCloseReason(pnl, direction);
+  const closedAt = new Date(t).toISOString();
+  const leverage = 10;
+  const collateralUsd = entryPx > 0 ? (size * entryPx) / leverage : 0;
+
+  await recordHlBotClose({
+    walletAddress: wallet,
+    reason,
+    snapshot: {
+      coin,
+      direction,
+      entryPx,
+      exitPx,
+      size,
+      leverage,
+      unrealizedPnlUsd: pnl,
+      collateralUsd,
+    },
+    closedAt,
+  });
+  rememberCoinClose(wallet, coin, direction, t);
+  return true;
+}
+
+/** Periodic sweep — fills missing rows for exchange fills (incl. before this deploy). */
+export async function syncWalletMissingExchangeCloses(
+  walletRaw: string,
+  opts: { lookbackMs?: number; throttle?: boolean } = {}
+): Promise<number> {
+  const wallet = walletRaw.toLowerCase();
+  const lookbackMs = opts.lookbackMs ?? 72 * 60 * 60 * 1000;
+  const throttle = opts.throttle !== false;
+  const now = Date.now();
+  if (throttle) {
+    const prev = walletSweepAt.get(wallet) ?? 0;
+    if (now - prev < SWEEP_MS) return 0;
+  }
+  walletSweepAt.set(wallet, now);
+
+  const fills = await fetchRecentFills(wallet);
+  let recorded = 0;
+  for (const f of fills) {
+    const t = Number(f.time ?? 0);
+    if (!Number.isFinite(t) || t < now - lookbackMs) continue;
+    const pnl = Number(f.closedPnl ?? 0);
+    const dir = String(f.dir ?? '');
+    if (!isCloseDir(dir, pnl)) continue;
+    const direction = fillDirection(f);
+    if (!direction) continue;
+    const marker = await import('./hlChartMarkers');
+    void marker;
+    const did = await recordFillCloseIfMissing(wallet, f, direction);
+    if (did) recorded += 1;
+  }
+  if (recorded > 0) {
+    logger.info('HL exchange close sweep recorded', {
+      user: wallet.slice(0, 10),
+      recorded,
+    });
+  }
+  return recorded;
+}
+
 /** Fire-and-forget after syncVanishedHlOpens detects a flat coin. */
 export function queueExchangeCloseBackfill(
   wallet: string,
