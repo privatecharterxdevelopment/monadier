@@ -1077,6 +1077,7 @@ export class HyperliquidTradingService {
           : await validateScalpAlignment({
               coin,
               direction: opts.direction,
+              longClass: opts.pick.longClass,
             });
       logOpenGate({
         userAddress: opts.userAddress,

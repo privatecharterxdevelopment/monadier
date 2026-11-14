@@ -86,7 +86,7 @@ function countRejections(candles: Candle[], side: 'high' | 'low'): number {
   return n;
 }
 
-function detectStructure(candles: Candle[]): 'up' | 'down' | 'chop' {
+export function detectStructure(candles: Candle[]): 'up' | 'down' | 'chop' {
   if (candles.length < 6) return 'chop';
   const mid = Math.floor(candles.length / 2);
   const firstHalf = candles.slice(0, mid);
