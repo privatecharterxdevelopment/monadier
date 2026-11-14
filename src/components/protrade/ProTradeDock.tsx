@@ -65,6 +65,7 @@ import DockCountBadge from './DockCountBadge';
 import PositionStopEditModal from './PositionStopEditModal';
 import { getAppQueryLink } from '../../lib/appUrls';
 import { useHlAccountSnapshot } from '../../hooks/useHlAccountSnapshot';
+import { clearHlUserInfoCache } from '../../lib/hyperliquid/hlInfoClient';
 import { fetchHlNonFundingLedger, fetchHlUserFills } from '../../lib/hyperliquid/user';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
@@ -385,9 +386,10 @@ const ProTradeDock: React.FC<Props> = ({
     const needFills = tab === 'tradeHistory' || fills.length === 0;
     if (!needFills) return;
     let cancelled = false;
+    clearHlUserInfoCache(dockWallet);
     void fetchHlUserFills(dockWallet, 2000)
       .then((list) => {
-        if (!cancelled && list.length > 0) setDockFillsFallback(list);
+        if (!cancelled) setDockFillsFallback(list);
       })
       .catch(() => {
         /* parent fills or retry on next tab visit */
@@ -400,8 +402,8 @@ const ProTradeDock: React.FC<Props> = ({
   const dockFills = fills.length > 0 ? fills : dockFillsFallback;
 
   const closeFills = useMemo(
-    () => aggregateHlCloseFills(isBotMode ? dockFills : scopedFills),
-    [isBotMode, dockFills, scopedFills]
+    () => aggregateHlCloseFills(dockFills),
+    [dockFills]
   );
   /** Wallet-wide closes — Zwischenbalance must track real equity, not bot-scoped subset. */
   const allCloseFills = useMemo(() => aggregateHlCloseFills(dockFills), [dockFills]);
@@ -483,6 +485,18 @@ const ProTradeDock: React.FC<Props> = ({
     if (!q) return list;
     return list.filter((p) => p.coin.toLowerCase().includes(q));
   }, [scopedPositions, search]);
+
+  /** When HL has opens but scoped list is empty (stale tags / rate limit), still show the live book. */
+  const positionsForTable = useMemo(() => {
+    if (filteredPositions.length > 0) return filteredPositions;
+    if (!isBotMode || hlOpenPositionCount <= 0) return filteredPositions;
+    const fallback = liveAccountPositions.filter(
+      (p) => isMeaningfulHlPosition(p.szi, p.entryPx) || isHlDustPosition(p.szi, p.entryPx)
+    );
+    const q = search.trim().toLowerCase();
+    if (!q) return fallback;
+    return fallback.filter((p) => p.coin.toLowerCase().includes(q));
+  }, [filteredPositions, isBotMode, hlOpenPositionCount, liveAccountPositions, search]);
 
   const livePnlByCoin = useMemo(() => {
     const map: Record<string, number> = {};
@@ -698,7 +712,7 @@ const ProTradeDock: React.FC<Props> = ({
                 cleaning it up automatically. This is not a real trade.
               </div>
             ) : null}
-            {filteredPositions.length > 0 ? (
+            {positionsForTable.length > 0 ? (
             <>
             <div className="hl-dock-table-scroll">
             <table className="hl-table hl-table--positions">
@@ -723,7 +737,7 @@ const ProTradeDock: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredPositions.map((p) => {
+                {positionsForTable.map((p) => {
                   const isLong = toNum(p.szi) >= 0;
                   const isDust = isHlDustPosition(p.szi, p.entryPx);
                   const mark = markPrices[p.coin] ?? 0;
@@ -816,15 +830,15 @@ const ProTradeDock: React.FC<Props> = ({
                             disabled={actionBusy || letRunBusyCoin === p.coin}
                             title={
                               effectiveLetRun(p.coin)
-                                ? 'Hold ON — no trail auto-close. Click only to allow trail again (not Close).'
-                                : 'Trail active — click Hold ON to stop bot auto-close. Does not close the position.'
+                                ? 'Let run ON — bot will not auto-close'
+                                : 'Let run OFF — trail / profit SL can close again'
                             }
                             onClick={(e) => {
                               e.stopPropagation();
                               void toggleLetRun(p.coin);
                             }}
                           >
-                            {effectiveLetRun(p.coin) ? 'Hold' : 'Trail'}
+                            {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
                           </button>
                         </td>
                       ) : null}
@@ -857,7 +871,7 @@ const ProTradeDock: React.FC<Props> = ({
             </table>
             </div>
             <div className="hl-pos-cards" aria-hidden={false}>
-              {filteredPositions.map((p) => {
+              {positionsForTable.map((p) => {
                 const isLong = toNum(p.szi) >= 0;
                 const isDust = isHlDustPosition(p.szi, p.entryPx);
                 const mark = markPrices[p.coin] ?? 0;
@@ -965,15 +979,15 @@ const ProTradeDock: React.FC<Props> = ({
                           disabled={actionBusy || letRunBusyCoin === p.coin}
                           title={
                             effectiveLetRun(p.coin)
-                              ? 'Hold ON — no trail auto-close'
-                              : 'Trail active — tap Hold to stop auto-close (not Close)'
+                              ? 'Let run ON — bot will not auto-close'
+                              : 'Let run OFF — trail can close again'
                           }
                           onClick={(e) => {
                             e.stopPropagation();
                             void toggleLetRun(p.coin);
                           }}
                         >
-                          {effectiveLetRun(p.coin) ? 'Hold ON' : 'Hold OFF'}
+                          Let run {effectiveLetRun(p.coin) ? 'ON' : 'OFF'}
                         </button>
                       ) : null}
                       <button

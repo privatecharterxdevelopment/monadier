@@ -1,7 +1,7 @@
 import { getBotApiBase } from '../signalService';
 import { isHlRateLimitError } from '../devLog';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
-import { clearHlInfoCache } from './hlInfoClient';
+import { clearHlInfoCache, clearHlUserInfoCache } from './hlInfoClient';
 
 function closeAgentError(res: Response, json: { error?: string | null }): Error {
   const raw =
@@ -111,12 +111,14 @@ export async function closeHlPositionViaAgent(params: {
       json.alreadyClosed ||
       (!json.success && isAlreadyFlatCloseError(String(json.error ?? '')))
     ) {
+      clearHlUserInfoCache(wallet);
       clearHlInfoCache();
       requestTradeNotificationRefresh();
       return;
     }
 
     if (res.ok && json.success) {
+      clearHlUserInfoCache(wallet);
       clearHlInfoCache();
       requestTradeNotificationRefresh();
       return;

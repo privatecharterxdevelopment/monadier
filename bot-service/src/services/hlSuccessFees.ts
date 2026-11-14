@@ -85,6 +85,8 @@ export async function recordHlBotClose(params: {
     .select('id')
     .single();
 
+  const markerSource =
+    /^manual$/i.test(String(params.reason ?? '').trim()) ? 'manual' : 'bot';
   await recordHlChartMarker({
     walletAddress: wallet,
     coin: snapshot.coin,
@@ -94,7 +96,7 @@ export async function recordHlBotClose(params: {
     eventTs: closedAt,
     pnlUsd: profitUsd,
     closeReason: params.reason,
-    source: 'bot',
+    source: markerSource,
   });
 
   if (tradeErr) {
