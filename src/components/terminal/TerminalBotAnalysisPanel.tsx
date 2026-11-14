@@ -1,15 +1,19 @@
 import React, { useMemo } from 'react';
-import { Activity } from 'lucide-react';
-import { useBotAnalysisCore } from '../../contexts/BotTerminalAnalysisContext';
+import { useBotAnalysisCore, useBotAnalysisPulse } from '../../contexts/BotTerminalAnalysisContext';
 import ProTradeScanCyclePanel from '../protrade/ProTradeScanCyclePanel';
 import { formatJournalTime } from '../../lib/botAnalysisJournal';
 import {
   executionHeadline,
   formatExecutionDiagnosticLine,
 } from '../../lib/hlExecutionDisplay';
+import AnalyticLiveHero from './AnalyticLiveHero';
+import AnalyticAccordionSection from './AnalyticAccordionSection';
+import { shortScanBlockReason } from '../../lib/hlScanCycleDisplay';
+import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 
 const TerminalBotAnalysisPanel: React.FC = () => {
-  const analysis = useBotAnalysisCore();
+  const core = useBotAnalysisCore();
+  const pulse = useBotAnalysisPulse();
   const {
     liveNarrative,
     journalHistory,
@@ -28,15 +32,13 @@ const TerminalBotAnalysisPanel: React.FC = () => {
     executionDiagnostic,
     scanCandidate,
     globalBest,
-  } = analysis;
+  } = core;
 
   const candidates = [...(boardCandidates ?? []), ...(globalCandidates ?? [])].map((c) => ({
     coin: c.coin,
     direction: c.direction,
     confidence: c.confidence,
   }));
-
-  const lines = liveNarrative.split('\n').filter(Boolean);
 
   const pipeline = useMemo(() => {
     const headline = executionHeadline(execution);
@@ -64,154 +66,250 @@ const TerminalBotAnalysisPanel: React.FC = () => {
     pipeline.fillConfirmed ||
     headlineIsOpening(pipeline.headline);
 
-  return (
-    <div className="term-bot-analysis-panel">
-      <motionHeader botRunning={botRunning} scanning={scanning} coin={currentlyScanningCoin} />
+  const statusTone = opening
+    ? 'pos'
+    : pipeline.blockedBy
+      ? 'neg'
+      : scanning
+        ? 'warn'
+        : 'muted';
 
-      <div className="term-bot-analysis-pipeline">
-        <h3 className="term-bot-analysis-section-title">Engine</h3>
-        <dl className="term-bot-analysis-pipeline-grid">
-          <div>
-            <dt>Status</dt>
-            <dd className={opening ? 'term-pnl-pos' : pipeline.blockedBy ? 'term-pnl-neg' : ''}>
-              {pipeline.headline ?? (botRunning ? 'Scanning' : 'Idle')}
-            </dd>
-          </div>
-          {pipeline.focusCoin ? (
-            <div>
-              <dt>Focus</dt>
-              <dd>
-                {pipeline.focusCoin} {pipeline.focusDir} {pipeline.focusConf != null ? `${pipeline.focusConf}%` : ''}
-              </dd>
-            </div>
-          ) : null}
-          {pipeline.scanPassed === false ? (
-            <div className="term-bot-analysis-pipeline-span">
-              <dt>Scan</dt>
-              <dd className="term-pnl-neg">Rejected — does not pass bot scan rules</dd>
-            </div>
-          ) : pipeline.scanPassed === true ? (
-            <div className="term-bot-analysis-pipeline-span">
-              <dt>Scan</dt>
-              <dd className="term-pnl-pos">Accepted — candidate qualifies for gates</dd>
-            </div>
-          ) : null}
-          {pipeline.blockedBy ? (
-            <div className="term-bot-analysis-pipeline-span">
-              <dt>Blocked</dt>
-              <dd className="term-pnl-neg">
-                {pipeline.blockedBy}
-                {pipeline.blockedReason ? ` — ${pipeline.blockedReason}` : ''}
-              </dd>
-            </div>
-          ) : null}
-          {opening ? (
-            <div className="term-bot-analysis-pipeline-span">
-              <dt>Open</dt>
-              <dd className="term-pnl-pos">
-                {pipeline.fillConfirmed ? 'Fill confirmed on HL' : 'Order in flight — opening when HL confirms'}
-              </dd>
-            </div>
-          ) : null}
-          {pipeline.gates.length > 0 ? (
-            <div className="term-bot-analysis-pipeline-span">
-              <dt>Gates passed</dt>
-              <dd>{pipeline.gates.join(' · ')}</dd>
-            </div>
-          ) : null}
-        </dl>
-        {pipeline.focusReason ? (
-          <p className="term-bot-analysis-focus-reason">{pipeline.focusReason}</p>
+  const statusLabel =
+    pipeline.headline ??
+    (opening
+      ? 'Opening'
+      : pipeline.blockedBy
+        ? 'Blocked'
+        : botRunning
+          ? scanning
+            ? 'Scanning'
+            : 'Ready'
+          : 'Idle');
+
+  const narrativeChips = useMemo(
+    () => tokenizeNarrative(liveNarrative),
+    [liveNarrative]
+  );
+
+  const passCount = candidates.length;
+  const blockCount = scanSkips?.length ?? 0;
+
+  return (
+    <div className="term-bot-analysis-panel term-bot-analysis-panel--modern">
+      <AnalyticLiveHero
+        botRunning={botRunning}
+        scanning={scanning}
+        progress={pulse.progress}
+        coin={currentlyScanningCoin}
+        statusLabel={statusLabel}
+        statusTone={statusTone}
+        focusCoin={pipeline.focusCoin}
+        focusDir={pipeline.focusDir}
+        focusConf={pipeline.focusConf}
+        tfChips={pulse.engineTfChips ?? []}
+      />
+
+      <div className="term-analytic-badges" aria-label="Engine pipeline">
+        {pipeline.scanPassed === true ? (
+          <span className="term-analytic-badge term-analytic-badge--pass">Scan pass</span>
+        ) : pipeline.scanPassed === false ? (
+          <span className="term-analytic-badge term-analytic-badge--fail">Scan reject</span>
         ) : null}
-        {pipeline.execReason ? (
-          <p className="term-bot-analysis-exec-reason">{pipeline.execReason}</p>
+        {pipeline.blockedBy ? (
+          <span className="term-analytic-badge term-analytic-badge--fail" title={pipeline.blockedReason ?? ''}>
+            {pipeline.blockedBy}
+          </span>
         ) : null}
-        {pipeline.diagLine ? <p className="term-hint">{pipeline.diagLine}</p> : null}
+        {opening ? (
+          <span className="term-analytic-badge term-analytic-badge--pass">
+            {pipeline.fillConfirmed ? 'HL fill' : 'Order live'}
+          </span>
+        ) : null}
+        {pipeline.gates.slice(0, 6).map((g) => (
+          <span key={g} className="term-analytic-badge term-analytic-badge--gate">
+            {g}
+          </span>
+        ))}
       </div>
 
-      <div className="term-bot-analysis-live">
-        <h3 className="term-bot-analysis-section-title">Live detail</h3>
-        {lines.length > 0 ? (
-          <ul className="term-bot-analysis-lines">
-            {lines.map((line) => (
-              <li key={line}>{line}</li>
+      <AnalyticAccordionSection
+        title="Engine detail"
+        meta={pipeline.focusCoin ?? 'gates & reasons'}
+        defaultOpen={Boolean(pipeline.focusReason || pipeline.execReason)}
+      >
+        {pipeline.focusReason && !isBotScanNoiseDetail(pipeline.focusReason) ? (
+          <p className="term-analytic-chip-line">{pipeline.focusReason}</p>
+        ) : pipeline.focusReason ? (
+          <span className="term-analytic-badge term-analytic-badge--muted">Pre-open gate active</span>
+        ) : null}
+        {pipeline.execReason ? (
+          <p className="term-analytic-chip-line term-analytic-chip-line--dim">{pipeline.execReason}</p>
+        ) : null}
+        {pipeline.diagLine ? <p className="term-analytic-chip-line term-analytic-chip-line--dim">{pipeline.diagLine}</p> : null}
+        {!pipeline.focusReason && !pipeline.execReason && !pipeline.diagLine ? (
+          <p className="term-hint">Gates and blockers show here when the engine evaluates a fill.</p>
+        ) : null}
+      </AnalyticAccordionSection>
+
+      <AnalyticAccordionSection
+        title="Live feed"
+        meta={`${narrativeChips.length} signal${narrativeChips.length === 1 ? '' : 's'}`}
+        defaultOpen={narrativeChips.length > 0 && narrativeChips.length <= 8}
+      >
+        {narrativeChips.length > 0 ? (
+          <ul className="term-analytic-chip-grid">
+            {narrativeChips.map((chip) => (
+              <li key={chip.key}>
+                <span
+                  className={`term-analytic-chip term-analytic-chip--${chip.tone}`}
+                  title={chip.full}
+                >
+                  {chip.short}
+                </span>
+              </li>
             ))}
           </ul>
         ) : (
-          <p className="term-hint">
-            Accept / reject reasons and blockers appear here each scan cycle.
-          </p>
+          <p className="term-hint">Waiting for scan updates — tied to the same engine as the chart badges.</p>
         )}
-      </div>
+      </AnalyticAccordionSection>
 
-      <ProTradeScanCyclePanel
-        universe={scanUniverseCoins?.length > 0 ? scanUniverseCoins : []}
-        candidates={candidates}
-        skips={scanSkips}
-        openCoins={[]}
-        currentlyScanning={currentlyScanningCoin}
-        scannedAt={scanScannedAt}
-        coinsScanned={globalCoinsScanned}
-        scanComplete={scanComplete}
-      />
+      <AnalyticAccordionSection
+        title="Scan cycle"
+        meta={
+          coinsScannedMeta(globalCoinsScanned, passCount, blockCount, scanComplete)
+        }
+        badge={
+          <span className="term-analytic-count">
+            {passCount}/{Math.max(passCount + blockCount, 1)}
+          </span>
+        }
+      >
+        <ProTradeScanCyclePanel
+          universe={scanUniverseCoins?.length > 0 ? scanUniverseCoins : []}
+          candidates={candidates}
+          skips={scanSkips}
+          openCoins={[]}
+          currentlyScanning={currentlyScanningCoin}
+          scannedAt={scanScannedAt}
+          coinsScanned={globalCoinsScanned}
+          scanComplete={scanComplete}
+        />
+      </AnalyticAccordionSection>
 
-      <div className="term-bot-analysis-history">
-        <h3 className="term-bot-analysis-section-title">Last 10 minutes</h3>
+      <AnalyticAccordionSection
+        title="Journal"
+        meta="Last 10 min"
+        defaultOpen={false}
+      >
         {journalHistory.length === 0 ? (
-          <p className="term-hint">No journal entries yet — start the agent to record scan updates.</p>
+          <p className="term-hint">No journal yet — start the agent to log scan verdicts.</p>
         ) : (
-          <ul className="term-bot-analysis-journal">
-            {[...journalHistory].reverse().map((entry) => (
+          <ul className="term-bot-analysis-journal term-bot-analysis-journal--compact">
+            {[...journalHistory].reverse().slice(0, 12).map((entry) => (
               <li key={`${entry.at}-${entry.detail.slice(0, 40)}`} className="term-bot-analysis-journal-item">
                 <div className="term-bot-analysis-journal-head">
                   <time dateTime={new Date(entry.at).toISOString()}>{formatJournalTime(entry.at)}</time>
-                  <span className="term-bot-analysis-journal-verdict">{entry.verdict}</span>
+                  <span className="term-analytic-badge term-analytic-badge--muted term-analytic-badge--xs">
+                    {entry.verdict}
+                  </span>
                   {entry.coin ? (
                     <span className="term-bot-analysis-journal-coin">{entry.coin.toUpperCase()}</span>
                   ) : null}
                 </div>
-                <p className="term-bot-analysis-journal-body">{entry.detail}</p>
+                <details className="term-analytic-journal-drop">
+                  <summary>Expand</summary>
+                  <p className="term-bot-analysis-journal-body">{entry.detail}</p>
+                </details>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </AnalyticAccordionSection>
 
       {openPositionsCount > 0 ? (
         <p className="term-hint term-bot-analysis-foot">
-          Managing {openPositionsCount} open trade{openPositionsCount === 1 ? '' : 's'} — engine log continues for free slots.
+          {openPositionsCount} open — log continues for free slots.
         </p>
       ) : null}
     </div>
   );
 };
 
+function coinsScannedMeta(
+  scanned: number,
+  pass: number,
+  block: number,
+  complete: boolean
+): string {
+  const head = scanned > 0 ? `${scanned} perps` : 'HL universe';
+  return `${head} · ${pass} pass · ${block} blocked${complete ? '' : ' · …'}`;
+}
+
 function headlineIsOpening(headline: string | null | undefined): boolean {
   if (!headline) return false;
   return /opening trade|waiting confirmation|order/i.test(headline);
 }
 
-function motionHeader({
-  botRunning,
-  scanning,
-  coin,
-}: {
-  botRunning: boolean;
-  scanning: boolean;
-  coin?: string;
-}) {
-  return (
-    <div className="term-bot-analysis-panel-head">
-      {scanning ? <Activity size={14} className="term-analysis-pulse" aria-hidden /> : null}
-      <span>
-        {botRunning
-          ? coin
-            ? `Scanning ${coin.toUpperCase()}`
-            : 'Agent scanning HL perps'
-          : 'Agent paused — start to resume analysis log'}
-      </span>
-    </div>
-  );
+type NarrativeChip = { key: string; short: string; full: string; tone: 'pos' | 'neg' | 'muted' | 'warn' };
+
+function tokenizeNarrative(blob: string): NarrativeChip[] {
+  const lines = blob.split('\n').map((l) => l.trim()).filter(Boolean);
+  const out: NarrativeChip[] = [];
+  for (const line of lines) {
+    if (/^Scan skips/i.test(line)) {
+      const parts = line.replace(/^Scan skips —\s*/i, '').split(' · ');
+      for (const p of parts) {
+        const m = p.match(/^(\w+):\s*(.+)$/);
+        const short = m ? `${m[1]} · ${shortScanBlockReason(m[2])}` : p;
+        out.push({
+          key: `skip-${p}`,
+          short,
+          full: p,
+          tone: 'muted',
+        });
+      }
+      continue;
+    }
+  if (isBotScanNoiseDetail(line)) {
+      out.push({
+        key: line.slice(0, 48),
+        short: shorten(line, 42),
+        full: line,
+        tone: 'warn',
+      });
+      continue;
+    }
+    const tone: NarrativeChip['tone'] =
+      /blocked|reject|fail|margin/i.test(line)
+        ? 'neg'
+        : /opening|pass|accepted|fill/i.test(line)
+          ? 'pos'
+          : 'muted';
+    if (line.includes(' · ')) {
+      for (const seg of line.split(' · ')) {
+        out.push({
+          key: `${line}-${seg}`,
+          short: shorten(seg, 36),
+          full: seg,
+          tone,
+        });
+      }
+    } else {
+      out.push({
+        key: line.slice(0, 56),
+        short: shorten(line, 44),
+        full: line,
+        tone,
+      });
+    }
+  }
+  return out.slice(0, 40);
+}
+
+function shorten(s: string, max: number): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
 export default TerminalBotAnalysisPanel;

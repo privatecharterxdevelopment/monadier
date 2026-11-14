@@ -791,13 +791,6 @@ const TerminalTradePanel: React.FC<Props> = ({
       <div className="term-trade-body">
         {panelTab === 'bot' && agentView === 'analytic' && botAnalysisActions ? (
           <div className="term-panel-stack term-panel-stack--analysis">
-            <button
-              type="button"
-              className="term-bot-analytic-back"
-              onClick={() => setAgentView('home')}
-            >
-              ← {t('tradePanel.tabBot')}
-            </button>
             <TerminalBotAnalysisPanel />
           </div>
         ) : null}
