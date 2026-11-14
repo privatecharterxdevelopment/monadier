@@ -156,6 +156,39 @@ function longScanBars() {
 
 type MtfAnalysis = NonNullable<Awaited<ReturnType<typeof analyzeMarketMTFBySymbol>>>;
 
+/** Why a SHORT failed standard scan bars (for scan-cycle UI). */
+export function standardShortScanSkipReason(
+  coin: string,
+  analysis: MtfAnalysis,
+  preloadedUniverse: HlLiquidUniverse | undefined
+): string {
+  if (analysis.direction !== 'SHORT') {
+    return `direction ${String(analysis.direction)}`;
+  }
+  const bars = shortScanBars();
+  const tierInfo = classifyCoinTier(coin, preloadedUniverse);
+  const cautious = needsCautionPath(tierInfo.tier);
+  const minConf = cautious
+    ? Math.max(bars.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
+    : bars.minConf;
+  if (analysis.confidence < minConf) {
+    return `confidence ${Math.round(analysis.confidence)}% < ${minConf}%`;
+  }
+  const tfCount = analysis.metrics?.directionalTfCount ?? 0;
+  const align = analysis.metrics?.trendAlignment ?? 0;
+  if (tfCount < bars.minTfs) {
+    return `${tfCount}/${bars.minTfs} aligned TFs (need ${bars.minTfs})`;
+  }
+  if (align < bars.minAlign) {
+    return `trend align ${Math.round(align)}% < ${bars.minAlign}%`;
+  }
+  const h1 = analysis.metrics?.h1Trend ?? '';
+  if (!h1AllowsShort(h1)) {
+    return `1h ${h1 || 'n/a'} — SHORT needs 1h not UP`;
+  }
+  return 'SHORT scan bars not met';
+}
+
 async function buildStandardShortFromMtf(
   coin: string,
   symbol: string,
@@ -284,6 +317,11 @@ async function scanStandardCoin(
       return pushSkip(coin, 'standard', `direction ${String(analysis.direction)}`);
     }
 
+    const tierInfo = classifyCoinTier(coin, preloadedUniverse);
+    if (needsCautionPath(tierInfo.tier)) {
+      const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
+      if (!pumpSkip.ok) return pushSkip(coin, 'standard', pumpSkip.reason);
+    }
     const candidate = await buildStandardShortFromMtf(
       coin,
       symbol,
@@ -294,7 +332,11 @@ async function scanStandardCoin(
       reversalCode
     );
     if (!candidate) {
-      return pushSkip(coin, 'standard', 'SHORT scan bars not met');
+      return pushSkip(
+        coin,
+        'standard',
+        standardShortScanSkipReason(coin, analysis, preloadedUniverse)
+      );
     }
     return [candidate];
   } catch (err: unknown) {

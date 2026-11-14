@@ -1204,6 +1204,8 @@ const healthServer = http.createServer(async (req, res) => {
                 reason: bestGlobal.reason,
               }
             : null,
+          scannedAt: lastHlGlobalScanStats.scannedAt,
+          scanSkips: lastHlScanSkips.slice(-120),
         },
         megaPairVolume: getMegaPairVolumeSnapshot(),
         pumpSweep: {

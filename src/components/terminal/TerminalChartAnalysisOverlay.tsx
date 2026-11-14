@@ -10,6 +10,8 @@ import {
   executionHeadline,
   type BotExecutionSnapshot,
 } from '../../lib/hlExecutionDisplay';
+import ProTradeScanCyclePanel from '../protrade/ProTradeScanCyclePanel';
+import type { HlScanSkip, ScanCycleCandidate } from '../../lib/hlScanCycleDisplay';
 
 type DbAnalysis = {
   signal: string;
@@ -45,6 +47,12 @@ type Props = {
   engineTfChips?: EngineTfChip[];
   tfRevealComplete?: boolean;
   execution?: BotExecutionSnapshot | null;
+  scanUniverseCoins?: string[];
+  scanSkips?: HlScanSkip[];
+  scanBoardCandidates?: ScanCycleCandidate[];
+  scanScannedAt?: string;
+  scanComplete?: boolean;
+  openPositionCoins?: string[];
 };
 
 function analyzerPhaseLabel(
@@ -105,6 +113,12 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
   engineTfChips,
   tfRevealComplete = false,
   execution = null,
+  scanUniverseCoins = [],
+  scanSkips = [],
+  scanBoardCandidates = [],
+  scanScannedAt,
+  scanComplete = true,
+  openPositionCoins = [],
 }) => {
   const compact = placement === 'dock';
 
@@ -245,6 +259,16 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               ))}
             </div>
           </div>
+          <ProTradeScanCyclePanel
+            universe={scanUniverseCoins}
+            candidates={scanBoardCandidates}
+            skips={scanSkips}
+            openCoins={openPositionCoins}
+            currentlyScanning={currentlyScanningCoin}
+            scannedAt={scanScannedAt}
+            coinsScanned={globalCoinsScanned}
+            scanComplete={scanComplete}
+          />
         </div>
       </div>
     );

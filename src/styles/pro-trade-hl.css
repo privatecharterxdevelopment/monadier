@@ -2846,6 +2846,87 @@ html[dir='rtl'] .hl-book {
   line-height: 1.45;
 }
 
+.hl-scan-cycle-panel {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hl-border-subtle, rgba(255, 255, 255, 0.08));
+  max-height: 220px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hl-scan-cycle-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.hl-scan-cycle-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.hl-scan-cycle-meta {
+  font-size: 10px;
+  color: var(--hl-text-faint);
+}
+
+.hl-scan-cycle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.hl-scan-cycle-row {
+  display: grid;
+  grid-template-columns: 16px 52px 1fr;
+  gap: 6px;
+  align-items: start;
+  font-size: 10px;
+  line-height: 1.35;
+  padding: 3px 0;
+  color: var(--hl-text-secondary);
+}
+
+.hl-scan-cycle-row--pass .hl-scan-cycle-icon {
+  color: var(--hl-green, #22c55e);
+}
+
+.hl-scan-cycle-row--blocked .hl-scan-cycle-icon {
+  color: var(--hl-red, #ef4444);
+}
+
+.hl-scan-cycle-row--scanning .hl-scan-cycle-icon {
+  color: var(--hl-accent, #a855f7);
+}
+
+.hl-scan-cycle-coin {
+  font-weight: 600;
+  color: var(--hl-text-primary);
+}
+
+.hl-scan-cycle-status {
+  color: var(--hl-text-faint);
+  word-break: break-word;
+}
+
+.hl-scan-cycle-foot {
+  margin: 6px 0 0;
+  font-size: 9px;
+  color: var(--hl-text-faint);
+}
+
 .hl-table {
   width: 100%;
   /* separate = sticky thead stays aligned (collapse makes th jump on scroll) */

@@ -181,6 +181,22 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
       entryWaitReason={analysis.entryWaitReason}
       bestLong={analysis.bestLong}
       execution={analysis.execution}
+      scanUniverseCoins={
+        analysis.scanUniverseCoins?.length > 0
+          ? analysis.scanUniverseCoins
+          : analysis.scanRotationCoins
+      }
+      scanSkips={analysis.scanSkips}
+      scanBoardCandidates={[...(analysis.boardCandidates ?? []), ...(analysis.globalCandidates ?? [])].map(
+        (c) => ({
+          coin: c.coin,
+          direction: c.direction,
+          confidence: c.confidence,
+        })
+      )}
+      scanScannedAt={analysis.scanScannedAt}
+      scanComplete={analysis.scanComplete}
+      openPositionCoins={openPositionCoins}
     />
   );
 };

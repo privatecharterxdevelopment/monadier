@@ -149,6 +149,11 @@ export function useTerminalBotAnalysis({
   const [scanUniverseCoins, setScanUniverseCoins] = useState<string[]>([]);
   const [openUniverseSummary, setOpenUniverseSummary] = useState<string | null>(null);
   const [rawScanCandidateCount, setRawScanCandidateCount] = useState(0);
+  const [scanSkips, setScanSkips] = useState<
+    Array<{ coin: string; mode?: string; reason: string }>
+  >([]);
+  const [scanScannedAt, setScanScannedAt] = useState<string | undefined>();
+  const [scanComplete, setScanComplete] = useState(true);
   const [pumpSweepLines, setPumpSweepLines] = useState<string[]>([]);
   const [serverCanTrade, setServerCanTrade] = useState<boolean | null>(null);
   const [lastOpenErrorText, setLastOpenErrorText] = useState<string | null>(null);
@@ -448,6 +453,9 @@ export function useTerminalBotAnalysis({
           standard?: number;
           aggressive?: number;
           openUniverse?: { summary?: string };
+          scanSkips?: Array<{ coin: string; mode?: string; reason: string }>;
+          scannedAt?: string;
+          scanComplete?: boolean;
         };
         const liveUniverse = data.botUniverse ?? data.scanUniverseCoins ?? null;
         const boardList = mergeGlobalScanCandidates(data, botMode);
@@ -474,6 +482,11 @@ export function useTerminalBotAnalysis({
           (typeof data.standard === 'number' ? data.standard : 0) +
             (typeof data.aggressive === 'number' ? data.aggressive : 0)
         );
+        if (Array.isArray(data.scanSkips)) {
+          setScanSkips(data.scanSkips.filter((s) => s?.coin && s?.reason));
+        }
+        if (data.scannedAt) setScanScannedAt(data.scannedAt);
+        if (typeof data.scanComplete === 'boolean') setScanComplete(data.scanComplete);
       } catch {
         ok = false;
       } finally {
@@ -531,6 +544,9 @@ export function useTerminalBotAnalysis({
             boardCandidates?: GlobalScanCandidate[];
             openUniverse?: { summary?: string };
             filterReasons?: string[];
+            scanSkips?: Array<{ coin: string; mode?: string; reason: string }>;
+            scannedAt?: string;
+            scanComplete?: boolean;
           };
           pumpSweep?: { lines?: string[] };
           lastOpenError?: { error: string; coin?: string; at: string } | null;
@@ -652,6 +668,13 @@ export function useTerminalBotAnalysis({
         }
         if (typeof data.globalScan?.rawCandidateCount === 'number') {
           setRawScanCandidateCount(data.globalScan.rawCandidateCount);
+        }
+        if (Array.isArray(data.globalScan?.scanSkips) && data.globalScan.scanSkips.length > 0) {
+          setScanSkips(data.globalScan.scanSkips.filter((s) => s?.coin && s?.reason));
+        }
+        if (data.globalScan?.scannedAt) setScanScannedAt(data.globalScan.scannedAt);
+        if (typeof data.globalScan?.scanComplete === 'boolean') {
+          setScanComplete(data.globalScan.scanComplete);
         }
         setRecentOpenBlocks(
           Array.isArray(data.recentOpenBlocks) ? data.recentOpenBlocks : []
@@ -815,6 +838,8 @@ export function useTerminalBotAnalysis({
     activeSymbol: scanning ? displaySymbol : undefined,
     scanSymbol: scanning ? scanSymbol : null,
     scanCandidate: scanning ? scanCandidate : null,
+    boardCandidates: scanning ? boardCandidates : [],
+    globalCandidates: scanning ? globalCandidates : [],
     globalBest: scanning ? globalBest : null,
     bestLong:
       scanning && !hideLongPill
@@ -824,6 +849,9 @@ export function useTerminalBotAnalysis({
         : null,
     globalScanCount: scanning ? globalScanCount : 0,
     globalCoinsScanned: scanning ? globalCoinsScanned : 0,
+    scanSkips: scanning ? scanSkips : [],
+    scanScannedAt: scanning ? scanScannedAt : undefined,
+    scanComplete: scanning ? scanComplete : true,
     scanCoinIndex: scanning ? scanCoinIndex : 0,
     scanCoinTotal: scanning ? scanCoinTotal : 0,
     readiness,
@@ -832,6 +860,7 @@ export function useTerminalBotAnalysis({
     slotsFull,
     currentlyScanningCoin,
     scanRotationCoins,
+    scanUniverseCoins,
     pumpSweepLines,
     livePositions,
     execution,
