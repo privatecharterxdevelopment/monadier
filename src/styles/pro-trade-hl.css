@@ -9782,7 +9782,9 @@ html[dir='rtl'] .hl-book {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   gap: 6px;
+  width: 100%;
 }
 
 .hl-bot-analyzer-pill {

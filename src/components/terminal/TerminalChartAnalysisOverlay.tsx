@@ -244,19 +244,19 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
                 </span>
               </div>
             ) : null}
-            <div className="hl-bot-analyzer-tf-row">
-              {(engineTfChips && engineTfChips.length > 0
-                ? engineTfChips
-                : ENGINE_OPEN_TIMEFRAMES.map((timeframe) => ({
-                    timeframe,
-                    direction: null,
-                    confidence: null,
-                    revealed: false,
-                  }))
-              ).map((chip) => (
-                <TfChip key={chip.timeframe} chip={chip} />
-              ))}
-            </div>
+          </div>
+          <div className="hl-bot-analyzer-tf-row" aria-label="Open timeframes">
+            {(engineTfChips && engineTfChips.length > 0
+              ? engineTfChips
+              : ENGINE_OPEN_TIMEFRAMES.map((timeframe) => ({
+                  timeframe,
+                  direction: null,
+                  confidence: null,
+                  revealed: false,
+                }))
+            ).map((chip) => (
+              <TfChip key={chip.timeframe} chip={chip} />
+            ))}
           </div>
         </div>
       </div>

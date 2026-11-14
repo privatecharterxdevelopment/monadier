@@ -1980,8 +1980,22 @@
 .term-tf-row--overlay {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: 6px;
+  min-height: 22px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.hl-bot-dock-analyzer .hl-bot-analyzer-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.hl-bot-dock-analyzer .hl-bot-analyzer-pills {
+  min-height: 28px;
 }
 
 .term-tf-row--overlay {
