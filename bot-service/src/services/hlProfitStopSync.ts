@@ -707,28 +707,53 @@ export function buildEmergencyStopMarketLeg(opts: {
   };
 }
 
+const frontendOrdersCache = new Map<string, { at: number; rows: FrontendOrder[] }>();
+const FRONTEND_ORDERS_CACHE_MS = 20_000;
+
 export async function fetchFrontendOpenOrders(
   userAddress: string
 ): Promise<FrontendOrder[] | null> {
-  try {
-    const res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'frontendOpenOrders',
-        user: userAddress.toLowerCase(),
-      }),
-    });
-    if (!res.ok) return null;
-    const rows = (await res.json()) as FrontendOrder[];
-    return Array.isArray(rows) ? rows : [];
-  } catch (err) {
-    logger.warn('HL frontendOpenOrders failed', {
-      user: userAddress.slice(0, 10),
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
+  const user = userAddress.toLowerCase();
+  const body = JSON.stringify({
+    type: 'frontendOpenOrders',
+    user,
+  });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      if (!res.ok) {
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 120 * (attempt + 1)));
+          continue;
+        }
+        break;
+      }
+      const rows = (await res.json()) as FrontendOrder[];
+      const list = Array.isArray(rows) ? rows : [];
+      frontendOrdersCache.set(user, { at: Date.now(), rows: list });
+      return list;
+    } catch (err) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 120 * (attempt + 1)));
+        continue;
+      }
+      logger.warn('HL frontendOpenOrders failed', {
+        user: userAddress.slice(0, 10),
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
+
+  const cached = frontendOrdersCache.get(user);
+  if (cached && Date.now() - cached.at <= FRONTEND_ORDERS_CACHE_MS) {
+    return cached.rows;
+  }
+  return null;
 }
 
 async function cancelOids(

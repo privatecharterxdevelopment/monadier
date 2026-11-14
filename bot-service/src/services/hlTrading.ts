@@ -1770,6 +1770,7 @@ export class HyperliquidTradingService {
     const fast = opts.fast === true;
     const meta = fast ? null : await fetchHlMeta();
     const configuredLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
+    const slPctGlobal = Math.max(0, Number(settings.stopLossPercent) || 0);
     const nowMs = Date.now();
     const openOrders = await fetchFrontendOpenOrders(userAddress);
     if (openOrders == null) {
@@ -1778,6 +1779,13 @@ export class HyperliquidTradingService {
         .filter((c): c is string => Boolean(c));
       if (liveCoins.length === 0) {
         markWalletProtectiveReconcile(userAddress, true, 'no open positions', nowMs);
+      } else if (slPctGlobal <= 0) {
+        markWalletProtectiveReconcile(
+          userAddress,
+          true,
+          'orders query failed — no exchange SL configured (SL 0%)',
+          nowMs
+        );
       } else {
         const remembered = liveCoins.filter(
           (coin) => lastConfirmedEmergencyStopPx(userAddress, coin) != null
