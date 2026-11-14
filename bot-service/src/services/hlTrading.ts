@@ -1787,6 +1787,25 @@ export class HyperliquidTradingService {
         continue;
       }
 
+      const letRunState = await resolvePositionLetRun({
+        wallet: userAddress,
+        coin: String(pos.coin),
+        direction: positionDirection,
+        letRunCoin: config.hyperliquid.letRunCoins.includes(
+          String(pos.coin).toUpperCase()
+        ),
+        longLetRun:
+          config.hyperliquid.longLetRun && positionDirection === 'LONG',
+      });
+      if (letRunState.letRun) {
+        logger.debug('HL hold ON — no bot auto-close for this position', {
+          user: userAddress.slice(0, 10),
+          coin: pos.coin,
+          source: letRunState.source,
+        });
+        continue;
+      }
+
       if (isExcludedHlCoin(String(pos.coin))) {
         clearTrailState(lockKey);
         await this.closeMarketPosition(
@@ -1982,37 +2001,16 @@ export class HyperliquidTradingService {
         leverage: pos.leverage?.value ?? 10,
       };
 
-      const letRunState = await resolvePositionLetRun({
-        wallet: userAddress,
-        coin: String(pos.coin),
-        direction: positionDirection,
-        letRunCoin: config.hyperliquid.letRunCoins.includes(
-          String(pos.coin).toUpperCase()
-        ),
-        longLetRun:
-          config.hyperliquid.longLetRun && positionDirection === 'LONG',
-      });
-
       if (trailResult.shouldClose) {
-        if (letRunState.letRun) {
-          logger.info('HL hold (let run) — skip trail auto-close', {
-            user: userAddress.slice(0, 10),
-            coin: pos.coin,
-            direction: positionDirection,
-            source: letRunState.source,
-            exitReason: trailResult.exitReason,
-          });
-        } else {
-          clearTrailState(lockKey);
-          await this.closeMarketPosition(
-            userAddress,
-            pos.coin,
-            trailResult.exitReason,
-            closeCtx,
-            trailResult.closeDetail
-          );
-          continue;
-        }
+        clearTrailState(lockKey);
+        await this.closeMarketPosition(
+          userAddress,
+          pos.coin,
+          trailResult.exitReason,
+          closeCtx,
+          trailResult.closeDetail
+        );
+        continue;
       }
 
       if (pnl < 0 && config.hyperliquid.profitOnlyExits) {

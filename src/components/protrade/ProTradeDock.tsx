@@ -540,7 +540,7 @@ const ProTradeDock: React.FC<Props> = ({
   const toggleLetRun = async (coin: string) => {
     if (!walletAddress || letRunBusyCoin) return;
     const next = !effectiveLetRun(coin);
-  if (next === false) {
+    if (next === false) {
       const ok = window.confirm(
         `Turn profit trail back ON for ${coin.toUpperCase()}? The bot may auto-close this position. Use Close only if you want to exit now.`
       );
@@ -555,6 +555,10 @@ const ProTradeDock: React.FC<Props> = ({
         delete copy[coin.toUpperCase()];
         return copy;
       });
+    } else if (next) {
+      window.alert(
+        `${coin.toUpperCase()}: Hold ON saved. Bot will not trail-close this position — use Close only to exit.`
+      );
     }
     setLetRunBusyCoin(null);
   };
@@ -719,7 +723,7 @@ const ProTradeDock: React.FC<Props> = ({
                   <th>{t('dock.cols.pnl')}</th>
                   <th className="hl-col-optional">{t('dock.cols.lev')}</th>
                   {isBotMode ? <th>{t('dock.cols.stop')}</th> : null}
-                  {isBotMode ? <th>Let run</th> : null}
+                  {isBotMode ? <th title="Hold ON = no trail auto-close">Hold</th> : null}
                   {isBotMode ? (
                     <th className="term-hl-open-reason-col" scope="col" title="Why this trade opened">
                       Why
