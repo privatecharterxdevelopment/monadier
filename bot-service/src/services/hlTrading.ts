@@ -33,6 +33,7 @@ import {
   warmCoinCloseCacheForWallet,
 } from './hlCoinCloseGuard';
 import { syncVanishedHlOpens } from './hlOpenPositionSnapshot';
+import { syncWalletMissingExchangeCloses } from './hlExchangeCloseBackfill';
 import {
   evaluateEntryLocationQuality,
   logEntryLocationRecord,
@@ -462,6 +463,7 @@ export class HyperliquidTradingService {
       syncVanishedHlOpens(userAddress, []);
     }
     noteHlOpenPositions(userAddress, openCoins);
+    void syncWalletMissingExchangeCloses(userAddress).catch(() => undefined);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
 
     if (openCoins.length > 0 && state) {
