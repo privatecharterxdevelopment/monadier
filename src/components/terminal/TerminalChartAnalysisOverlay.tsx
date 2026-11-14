@@ -7,7 +7,6 @@ import type { BotReadiness } from '../../lib/botReadiness';
 import type { UnifiedSignal } from '../../lib/signalService';
 import type { EngineTfChip } from '../../lib/engineOpenTimeframes';
 import { ENGINE_OPEN_TIMEFRAMES } from '../../lib/engineOpenTimeframes';
-import { isBotScanNoiseDetail } from '../../lib/hlBotReasonLabels';
 import {
   executionHeadline,
   type BotExecutionSnapshot,
@@ -161,52 +160,14 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return null;
   }, [scanning, globalCoinsScanned, scanCoinTotal]);
 
-  const waitLine = useMemo(() => {
-    const detail = readiness?.detail?.trim();
-    if (
-      detail &&
-      !isBotScanNoiseDetail(detail) &&
-      /wait|block|margin|fee|approve|last open|skip|volume|notional|insufficient/i.test(
-        detail
-      )
-    ) {
-      return detail;
-    }
-    const tf5 = signal?.timeframes?.find((tf) => tf.timeframe === '5m');
-    if (
-      tf5 &&
-      (action === 'LONG' || action === 'SHORT') &&
-      String(tf5.direction).toUpperCase() !== action
-    ) {
-      return `Waiting for 5m ${action} — now ${tf5.direction} ${Math.round(tf5.confidence)}%`;
-    }
-    return null;
-  }, [readiness?.detail, signal, action]);
+  const waitLine = useMemo(() => null, []);
 
   const whyLine = useMemo(
     () =>
       resolveBotAnalysisWhyLine({
-        globalBest,
-        readiness,
-        hasTfConflict,
-        openPositionsCount,
-        maxConcurrentPositions,
-        pumpSweepLines,
-        signal,
-        scanningCoin: activeSymbol,
         entryWaitReason,
       }),
-    [
-      globalBest,
-      readiness,
-      hasTfConflict,
-      openPositionsCount,
-      maxConcurrentPositions,
-      pumpSweepLines,
-      signal,
-      activeSymbol,
-      entryWaitReason,
-    ]
+    [entryWaitReason]
   );
 
   if (compact) {

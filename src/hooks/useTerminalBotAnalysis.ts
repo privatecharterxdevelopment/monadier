@@ -35,6 +35,7 @@ import {
 import { normalizeHlBotStrategy, type HlBotStrategy } from '../lib/hlBotStrategy';
 import { pickNextScanCandidate } from '../lib/botScanCandidate';
 import { isBotEntryBlocked, botAnalyzerStatusCopy, isMarginEntryBlocked } from '../lib/botAnalyzerActive';
+import { scrubBotReadinessForUi } from '../lib/botReadinessDisplay';
 import {
   formatOpenBlockReason,
   pickFreshOpenBlock,
@@ -669,7 +670,7 @@ export function useTerminalBotAnalysis({
     };
   }, [vaultWallet, botRunning, vaultUsd, feeExempt, openPositionCoins.length]);
 
-  const readiness = useMemo(() => {
+  const rawReadiness = useMemo(() => {
     if (!botRunning) {
       return {
         canEnter: false,
@@ -777,6 +778,11 @@ export function useTerminalBotAnalysis({
     rawScanCandidateCount,
     marginBlocked,
   ]);
+
+  const readiness = useMemo(
+    () => scrubBotReadinessForUi(rawReadiness),
+    [rawReadiness]
+  );
 
   const displaySymbol = useMemo(() => {
     if (scanCandidate?.coin) return hlCoinToBotSymbol(scanCandidate.coin);

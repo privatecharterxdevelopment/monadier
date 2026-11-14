@@ -102,9 +102,34 @@ export function formatHlBotOpenReason(_raw: string | null | undefined): string |
   return null;
 }
 
+/** User must act — shown under bot scan title; everything else is hidden. */
+export function isActionableBotScanDetail(detail: string): boolean {
+  const d = detail.trim();
+  if (!d) return false;
+  if (/Emergency-SL|Profit-SL idle|meets entry rules|no HL pair/i.test(d)) return false;
+  return (
+    /insufficient margin/i.test(d) ||
+    /trading agent/i.test(d) ||
+    /Approve the (Hyperliquid|trading agent)/i.test(d) ||
+    /platform fee/i.test(d) ||
+    /Bot fees due/i.test(d) ||
+    /Pay fees/i.test(d) ||
+    /Must deposit/i.test(d) ||
+    /Deposit USDC/i.test(d) ||
+    /At least \$[\d.]+ USDC/i.test(d) ||
+    /Trade size below/i.test(d) ||
+    /notional below/i.test(d) ||
+    /HL balance \$[\d.]+\s*—\s*need/i.test(d) ||
+    /Start bot to scan/i.test(d)
+  );
+}
+
 export function isBotScanNoiseDetail(detail: string): boolean {
   const d = detail.trim();
   if (!d) return true;
+  if (isActionableBotScanDetail(d)) return false;
+  const parts = d.split(/\s*·\s*/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1 && parts.every((p) => isBotScanNoiseDetail(p))) return true;
   return (
     /HL perps scanned/i.test(d) ||
     /^\d+ passed/i.test(d) ||
@@ -124,7 +149,20 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /no HL pair passed the global scan/i.test(d) ||
     /Emergency-SL not confirmed/i.test(d) ||
     /Profit-SL idle/i.test(d) ||
-    /(\d+)\+% confidence,\s*\d+\/3 timeframes aligned/i.test(d)
+    /(\d+)\+% confidence,\s*\d+\/3 timeframes aligned/i.test(d) ||
+    /^Slot \d+:/i.test(d) ||
+    /% — 6×1m/i.test(d) ||
+    /next3 (UP|DOWN)/i.test(d) ||
+    /Scanned \d+ HL perps/i.test(d) ||
+    /Rotating scan/i.test(d) ||
+    /Scanning all HL perps/i.test(d) ||
+    /tradeable setup/i.test(d) ||
+    /below \d+% threshold/i.test(d) ||
+    /independent pair/i.test(d) ||
+    /MTF on chart pair/i.test(d) ||
+    /macro filters removed/i.test(d) ||
+    /Checking \w+:/i.test(d) ||
+    /timeframes disagree/i.test(d)
   );
 }
 
