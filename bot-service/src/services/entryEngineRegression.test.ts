@@ -7,6 +7,7 @@ import { BEAR_MARKET } from '../config/profiles/bearMarketShort';
 import { evaluatePreOpenCandleWindow } from './preOpenCandleAnalytics';
 import { isConfirmedShortBreakdown } from './shortBreakdownConfirm';
 import { scoreEntryLocationQuality } from './entryLocationQuality';
+import { scoreShortEntryQuality } from './shortEntryQuality';
 import { evaluateEntryLocation } from './entryLocationGate';
 import type { Candle } from './signalEngine';
 
@@ -124,6 +125,22 @@ describe('entry engine regression (2026-11-13)', () => {
     });
     assert.equal(quality.deterministicLocationDecision, 'BLOCK');
     assert.ok(quality.blockedBy.includes('INTO_SUPPORT'));
+  });
+
+  it('final short entry quality blocks spike-then-pause at local low', () => {
+    const window = spikeThenHammerPause1m();
+    const flat = range15mAboveSupport();
+    const c1h = flat.map((c, i) => ({ ...c, time: i * 3_600_000 }));
+    const r = scoreShortEntryQuality({
+      coin: 'WLFI',
+      price: window[window.length - 1]!.close,
+      candles1m: window,
+      candles5m: flat,
+      candles15m: flat,
+      candles1h: c1h,
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.code.startsWith('SHORT_'));
   });
 
   it('evaluateEntryLocation still blocks SHORT on held support', () => {

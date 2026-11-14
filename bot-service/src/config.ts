@@ -582,6 +582,29 @@ export const config = {
       reversalMinNetPct: Number(process.env.HL_PRE_OPEN_REVERSAL_MIN_PCT || 0.8),
       reversalAtrMult: Number(process.env.HL_PRE_OPEN_REVERSAL_ATR_MULT || 2),
     },
+    /** Final pre-order SHORT quality — never bypassed on any SHORT path. */
+    shortEntryQuality: {
+      fetch1m: Number(process.env.HL_SHORT_QUALITY_FETCH_1M || 48),
+      fetch5m: Number(process.env.HL_SHORT_QUALITY_FETCH_5M || 72),
+      fetch15m: Number(process.env.HL_SHORT_QUALITY_FETCH_15M || 64),
+      fetch1h: Number(process.env.HL_SHORT_QUALITY_FETCH_1H || 48),
+      minCandles1m: Number(process.env.HL_SHORT_QUALITY_MIN_1M || 24),
+      minCandles5m: Number(process.env.HL_SHORT_QUALITY_MIN_5M || 20),
+      minCandles15m: Number(process.env.HL_SHORT_QUALITY_MIN_15M || 16),
+      minCandles1h: Number(process.env.HL_SHORT_QUALITY_MIN_1H || 16),
+      nearSupportAtr: Number(process.env.HL_SHORT_QUALITY_NEAR_SUPPORT_ATR || 0.4),
+      rangeLowMax: Number(process.env.HL_SHORT_QUALITY_RANGE_LOW || 0.22),
+      maxChaseFromStructureAtr: Number(process.env.HL_SHORT_QUALITY_MAX_CHASE_ATR || 0.65),
+      minRedExtensionAtr: Number(process.env.HL_SHORT_QUALITY_MIN_RED_EXT_ATR || 0.85),
+      redExtensionBars1m: Number(process.env.HL_SHORT_QUALITY_RED_BARS_1M || 5),
+      redExtensionBars5m: Number(process.env.HL_SHORT_QUALITY_RED_BARS_5M || 4),
+      poorDownsideRoomSupportAtr: Number(
+        process.env.HL_SHORT_QUALITY_POOR_DOWN_SUPPORT_ATR || 0.38
+      ),
+      poorDownsideRoomUpsideAtr: Number(
+        process.env.HL_SHORT_QUALITY_POOR_DOWN_UPSIDE_ATR || 1.15
+      ),
+    },
     /** Pause new opens after today's realized loss exceeds cap (off by default). */
     dailyLoss: {
       enabled: process.env.HL_DAILY_LOSS_GATE === 'true',

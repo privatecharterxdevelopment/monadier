@@ -87,6 +87,10 @@ import { validateNotFreshlyPumped } from './freshPumpGate';
 import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import {
+  evaluateShortEntryQualityFinal,
+  logShortEntryQualityRecord,
+} from './shortEntryQuality';
+import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
 import { buildHlOpenReasonDoc } from './openReasonBuilder';
@@ -223,11 +227,15 @@ function noteOpenBlock(
     blockedReason: extra?.code ? `${extra.code} — ${error}` : error,
     orderSent: false,
   });
+  const gate: HlOpenBlockGate =
+    extra?.code?.startsWith('SHORT_') === true
+      ? 'short_entry_quality'
+      : gateFromOpenError(error);
   void recordHlOpenBlock({
     walletAddress: wallet,
     coin,
     direction,
-    gate: gateFromOpenError(error),
+    gate,
     reason: extra?.code ? `${extra.code} — ${error}` : error,
     confidence: extra?.confidence,
     notionalUsd: extra?.notionalUsd,
@@ -1341,6 +1349,48 @@ export class HyperliquidTradingService {
       patchExecutionDiagnostic(opts.userAddress, {
         gatesPassed: gatesPassed.map((g) => g.gate),
       });
+      }
+
+      /** Final SHORT quality — fresh candles, no bypass (aggressive / trusted MTF included). */
+      if (opts.direction === 'SHORT') {
+        const shortQuality = await evaluateShortEntryQualityFinal({
+          coin,
+          markPx,
+        });
+        logShortEntryQualityRecord(shortQuality.record);
+        if (!skipOpenGates) {
+          logOpenGate(
+            {
+              userAddress: opts.userAddress,
+              coin,
+              direction: opts.direction,
+              gate: 'short_entry_quality',
+              ok: shortQuality.ok,
+              code: shortQuality.code,
+              reason: shortQuality.reason,
+              metrics: {
+                entryType: shortQuality.record.entryType,
+                distanceSupportAtr: shortQuality.record.distanceSupportAtr,
+                distanceResistanceAtr: shortQuality.record.distanceResistanceAtr,
+                dumpExtensionAtr: shortQuality.record.dumpExtensionAtr,
+                reversalRiskScore: shortQuality.record.reversalRiskScore,
+                reversalHardVeto: shortQuality.record.reversalHardVeto,
+              },
+            },
+            gatesPassed
+          );
+        }
+        if (!shortQuality.ok) {
+          return failOpen(shortQuality.reason, shortQuality.code);
+        }
+        if (!skipOpenGates) {
+          markGatePassed(opts.userAddress, 'short_entry_quality');
+          gatesPassed.push({
+            gate: 'short_entry_quality',
+            code: shortQuality.code,
+            reason: shortQuality.reason,
+          });
+        }
       }
 
       const client = createAgentClient(opts.userAddress);

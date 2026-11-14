@@ -103,6 +103,13 @@ export function buildOpenGateAudit(profile: HlDirectionProfile): {
       trustedMtfBypass: on(s.bypassEntryLocationWhenTrusted),
     },
     {
+      gate: 'short_entry_quality',
+      layer: 'open',
+      applies: 'SHORT only',
+      trustedMtfBypass: false,
+      notes: 'Final pre-order — dump extension, support, reversal, entry type',
+    },
+    {
       gate: 'margin_notional',
       layer: 'pre_trade',
       applies: 'all',
