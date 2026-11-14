@@ -13708,6 +13708,75 @@ html[dir='rtl'] .hl-book {
   }
 }
 
+/* Bot mobile — chart stack must not grow (black gap before positions dock) */
+@media (max-width: 900px) {
+  .hl-terminal--bot .hl-body {
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .hl-terminal--bot .hl-workspace-main {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    grid-template-rows: none !important;
+  }
+
+  .hl-terminal--bot .hl-workspace-main > .hl-chart-row {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    align-items: stretch !important;
+  }
+
+  .hl-terminal--bot .hl-bot-chart-stack {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    align-self: stretch !important;
+  }
+
+  .hl-terminal--bot .hl-bot-analysis {
+    flex: 0 0 auto !important;
+  }
+
+  /* Positions dock sits directly under analyzer — same desk tabs as desktop */
+  .hl-terminal--bot .hl-bot-dock {
+    flex: 0 0 auto !important;
+    width: 100%;
+    height: auto !important;
+    min-height: min(44vh, 380px) !important;
+    max-height: none !important;
+    margin-top: 0;
+    border-top: 2px solid var(--hl-border-strong);
+    background: var(--hl-bg-panel);
+  }
+
+  .hl-terminal--bot .hl-bot-dock .hl-dock-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--hl-bg-panel);
+    border-bottom: 1px solid var(--hl-border);
+  }
+
+  .hl-terminal--bot .hl-scan-cycle-panel {
+    display: none;
+  }
+
+  /* Open trades live in the dock on mobile — avoid duplicating under the agent panel */
+  .hl-terminal--bot .hl-bot-panel-wrap .term-bot-open-positions-wrap {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .hl-topnav {
     padding-left: max(14px, env(safe-area-inset-left, 0px));
