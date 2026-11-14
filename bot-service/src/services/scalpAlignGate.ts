@@ -155,6 +155,19 @@ function isMtfShortBearishStack(
   );
 }
 
+/** Aggressive 1m print — 5m/15m/1h may read HOLD with trend DOWN (not full MTF SHORT label). */
+function isAggressiveShortScalpContext(
+  tf5m: TimeframeAnalysis,
+  tf15m: TimeframeAnalysis,
+  tf1h: TimeframeAnalysis,
+  minConf: number
+): boolean {
+  const floor = Math.min(minConf, 48);
+  const bearishTf = (tf: TimeframeAnalysis) =>
+    tf.confidence >= floor && (tf.direction === 'SHORT' || tf.trend === 'DOWN');
+  return bearishTf(tf5m) && bearishTf(tf15m) && bearishTf(tf1h);
+}
+
 export type TrendLongScalpInputs = {
   coin: string;
   tf1m: TimeframeAnalysis;
@@ -277,6 +290,7 @@ export type TrendShortScalpInputs = {
   c15m: Candle[];
   minConf: number;
   minConfirm1mCandles: number;
+  allow5mTrendDown?: boolean;
 };
 
 /** Pure MTF SHORT scalp rules (unit-tested). */
@@ -324,7 +338,13 @@ export function evaluateTrendShortScalp1m(inputs: TrendShortScalpInputs): ScalpA
     };
   }
 
-  if (inputs.tf5m.direction !== 'SHORT' || inputs.tf5m.confidence < inputs.minConf) {
+  const tf5mShort =
+    inputs.tf5m.direction === 'SHORT' && inputs.tf5m.confidence >= inputs.minConf;
+  const tf5mTrendDown =
+    inputs.allow5mTrendDown &&
+    inputs.tf5m.trend === 'DOWN' &&
+    inputs.tf5m.confidence >= Math.min(inputs.minConf, 48);
+  if (!tf5mShort && !tf5mTrendDown) {
     return {
       ok: false,
       code: 'SCALP_5M_MISALIGN',
@@ -334,9 +354,12 @@ export function evaluateTrendShortScalp1m(inputs: TrendShortScalpInputs): ScalpA
     };
   }
 
+  const htfMinConf = inputs.allow5mTrendDown
+    ? Math.min(inputs.minConf, 48)
+    : inputs.minConf;
   if (
-    !isHigherTfBearish(inputs.tf15m, inputs.minConf) ||
-    !isHigherTfBearish(inputs.tf1h, inputs.minConf)
+    !isHigherTfBearish(inputs.tf15m, htfMinConf) ||
+    !isHigherTfBearish(inputs.tf1h, htfMinConf)
   ) {
     return {
       ok: false,
@@ -444,6 +467,7 @@ export async function validateScalpAlignment(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
   longClass?: LongOpportunityClass | null;
+  aggressiveScalp?: boolean;
 }): Promise<ScalpAlignResult> {
   const cfg = config.hyperliquid.scalpOpen;
   if (!cfg.require1m5mAlign) {
@@ -482,10 +506,12 @@ export async function validateScalpAlignment(opts: {
       });
     }
 
-    if (
+  const trendShortCtx =
       opts.direction === 'SHORT' &&
-      isMtfShortBearishStack(tf5m, tf15m, tf1h, minConf)
-    ) {
+      (isMtfShortBearishStack(tf5m, tf15m, tf1h, minConf) ||
+        (opts.aggressiveScalp && isAggressiveShortScalpContext(tf5m, tf15m, tf1h, minConf)));
+
+    if (trendShortCtx) {
       return evaluateTrendShortScalp1m({
         coin,
         tf1m,
@@ -497,6 +523,7 @@ export async function validateScalpAlignment(opts: {
         c15m,
         minConf,
         minConfirm1mCandles: cfg.minConfirm1mCandles,
+        allow5mTrendDown: opts.aggressiveScalp,
       });
     }
 

@@ -141,6 +141,8 @@ export function evaluatePreOpenCandleWindow(opts: {
   direction: 'LONG' | 'SHORT';
   candles: Candle[];
   shortBreakdownConfirmed?: boolean;
+  /** 6×1m scalp print — do not veto on marginal volume/structure noise. */
+  aggressiveScalp?: boolean;
 }): PreOpenCandleAnalytics {
   const cfg = config.hyperliquid.preOpenCandles;
   const coin = opts.coin.toUpperCase();
@@ -280,7 +282,8 @@ export function evaluatePreOpenCandleWindow(opts: {
         metrics
       );
     }
-    if (structure === 'up' && net >= minNet * 1.5) {
+    const structureUpMinNet = opts.aggressiveScalp ? 0.35 : minNet * 1.5;
+    if (structure === 'up' && net >= structureUpMinNet) {
       return fail(
         'PRE_OPEN_STRUCTURE_UP',
         `Open blocked — ${coin} SHORT: ${window.length}×${tf} structure still up (net +${net.toFixed(2)}%)`,
@@ -289,7 +292,10 @@ export function evaluatePreOpenCandleWindow(opts: {
     }
   }
 
-  if (volR < cfg.minVolumeRatio) {
+  const minVolRatio = opts.aggressiveScalp
+    ? Math.min(cfg.minVolumeRatio, 0.38)
+    : cfg.minVolumeRatio;
+  if (volR < minVolRatio) {
     return fail(
       'PRE_OPEN_VOLUME_FADE',
       `Open blocked — ${coin} ${dir}: volume fading (recent/base ${volR.toFixed(2)}×)`,
@@ -309,6 +315,7 @@ export function evaluatePreOpenCandleWindow(opts: {
 export async function validatePreOpenCandleAnalytics(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
+  aggressiveScalp?: boolean;
 }): Promise<PreOpenCandleAnalytics> {
   const cfg = config.hyperliquid.preOpenCandles;
   const coin = opts.coin.toUpperCase();
@@ -331,6 +338,7 @@ export async function validatePreOpenCandleAnalytics(opts: {
       direction: opts.direction,
       candles: raw,
       shortBreakdownConfirmed,
+      aggressiveScalp: opts.aggressiveScalp,
     });
     logger.info(result.ok ? 'Pre-open 20-candle pass' : 'Pre-open 20-candle block', {
       coin,

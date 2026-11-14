@@ -1081,6 +1081,7 @@ export class HyperliquidTradingService {
           : await validatePreOpenCandleAnalytics({
               coin,
               direction: opts.direction,
+              aggressiveScalp: aggShort && opts.pick.confidence >= 86,
             });
       logOpenGate({
         userAddress: opts.userAddress,
@@ -1106,9 +1107,10 @@ export class HyperliquidTradingService {
 
       const highConfMtfScalpPass =
         opts.direction === 'SHORT' &&
-        shortRules.trustMtfScan &&
-        opts.pick.confidence >= 90 &&
-        (opts.pick.directionalTfCount ?? 0) >= 3;
+        ((shortRules.trustMtfScan &&
+          opts.pick.confidence >= 90 &&
+          (opts.pick.directionalTfCount ?? 0) >= 3) ||
+          (aggShort && opts.pick.confidence >= 86));
 
       const scalpGate =
         highConfMtfScalpPass
@@ -1133,6 +1135,7 @@ export class HyperliquidTradingService {
                 coin,
                 direction: opts.direction,
                 longClass: opts.pick.longClass,
+                aggressiveScalp: aggShort,
               });
       logOpenGate({
         userAddress: opts.userAddress,
