@@ -10,6 +10,11 @@ import {
   isOpenableLongCandidate,
   type GlobalSignalCandidate,
 } from './globalMarketScan';
+import {
+  openSlotsRemaining,
+  orderOpenPicksWithSameCoinArbitration,
+  type LongDisposition,
+} from './sameCoinDirectionArbitration';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
 import {
   getAutoNewEntriesBlockReason,
@@ -212,6 +217,12 @@ function gateFromOpenError(error: string): HlOpenBlockGate {
   return 'other';
 }
 
+function recordLongDispositions(wallet: string, rows: LongDisposition[]): void {
+  for (const d of rows) {
+    noteOpenBlock(wallet, d.coin, 'LONG', `${d.code} — ${d.reason}`, { code: d.code });
+  }
+}
+
 function noteOpenBlock(
   wallet: string,
   coin: string,
@@ -230,7 +241,13 @@ function noteOpenBlock(
   const gate: HlOpenBlockGate =
     extra?.code?.startsWith('SHORT_') === true
       ? 'short_entry_quality'
-      : gateFromOpenError(error);
+      : extra?.code === 'QUEUE_SUPPRESSED' ||
+          extra?.code === 'SLOT_FULL' ||
+          extra?.code === 'CONFIDENCE' ||
+          extra?.code === 'LONG_CLASS' ||
+          extra?.code === 'COOLDOWN'
+        ? 'long_confirmation'
+        : gateFromOpenError(error);
   void recordHlOpenBlock({
     walletAddress: wallet,
     coin,
@@ -652,6 +669,24 @@ export class HyperliquidTradingService {
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
 
+    if (openSlotsRemaining(coinsOpen.length, maxPositions) <= 0) {
+      const seenLong = new Set<string>();
+      for (const sig of signals) {
+        if (sig.direction !== 'LONG' || !isOpenableLongCandidate(sig)) continue;
+        const key = sig.coin.toUpperCase();
+        if (openCoins.some((c) => c.toUpperCase() === key) || seenLong.has(key)) continue;
+        seenLong.add(key);
+        noteOpenBlock(
+          userAddress,
+          sig.coin,
+          'LONG',
+          'SLOT_FULL — max concurrent positions in use',
+          { code: 'SLOT_FULL', confidence: sig.confidence }
+        );
+      }
+      return openCoins.length > 0 ? 'ok' : 'skip';
+    }
+
     while (coinsOpen.length < maxPositions) {
       const slotsLeft = maxPositions - coinsOpen.length;
       const reservedBudget = Math.max(0, Number(settings.autoBettingBudgetUsd) || 0);
@@ -681,12 +716,22 @@ export class HyperliquidTradingService {
       }
 
       const pickLimit = Math.max(slotsLeft, 8);
-      const picks = await this.pickBestSignalsPassingLiquidityGate(
+      let picks = await this.pickBestSignalsPassingLiquidityGate(
         signals,
         ctx.liquidUniverse,
         coinsOpen,
         pickLimit
       );
+      if (picks.length > 0) {
+        const ordered = await orderOpenPicksWithSameCoinArbitration({
+          picks,
+          markPxByCoin: Object.fromEntries(
+            Object.entries(ctx.mids).map(([k, v]) => [k, Number(v)])
+          ),
+        });
+        picks = ordered.picks;
+        recordLongDispositions(userAddress, ordered.longDispositions);
+      }
       if (picks.length === 0) {
         const top = signals.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
@@ -717,6 +762,7 @@ export class HyperliquidTradingService {
           lastError = cooldown.reason;
           noteOpenBlock(userAddress, pick.coin, pick.direction, cooldown.reason ?? 'cooldown', {
             confidence: pick.confidence,
+            code: pick.direction === 'LONG' ? 'COOLDOWN' : undefined,
           });
           logger.info('HL open skip: same-coin cooldown', {
             user: userAddress.slice(0, 10),

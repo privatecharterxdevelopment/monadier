@@ -26,11 +26,12 @@ function cand(
 }
 
 describe('scan queueable vs board LONG', () => {
-  it('always queues the SHORT-primary print', () => {
+  it('queues both SHORT and openable LONG on the same coin', () => {
     const short = cand('HYPE', 'SHORT', 69);
     const long = cand('HYPE', 'LONG', 64);
+    long.longClass = 'TREND_LONG';
     assert.equal(isScanQueueable(short, short, short), true);
-    assert.equal(isScanQueueable(long, short, short), false);
+    assert.equal(isScanQueueable(long, short, short), true);
   });
 
   it('queues a lone LONG that the MTF pick already chose', () => {
@@ -45,11 +46,12 @@ describe('scan queueable vs board LONG', () => {
     assert.equal(isScanQueueable(long, long, null), true);
   });
 
-  it('queues a LONG that beat a real SHORT', () => {
+  it('queues TREND_LONG alongside a real SHORT (open-time arbitration)', () => {
     const long = cand('ETH', 'LONG', 88);
     long.longClass = 'TREND_LONG';
     const short = cand('ETH', 'SHORT', 60);
-    assert.equal(isScanQueueable(long, long, short), true);
+    assert.equal(isScanQueueable(long, short, short), true);
+    assert.equal(isScanQueueable(short, short, short), true);
   });
 
   it('does not queue a relief/dump LONG over a live SHORT', () => {

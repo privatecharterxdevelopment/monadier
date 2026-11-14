@@ -131,10 +131,11 @@ describe('aggressive SHORT borrow + $1M floor', () => {
 });
 
 describe('SHORT-primary queue helpers', () => {
-  it('queues SHORT over an unclassified LONG', () => {
+  it('queues SHORT; unclassified LONG stays off the board', () => {
     const short = cand('HYPE', 'SHORT', 69, 10_000_000);
     const long = cand('HYPE', 'LONG', 64, 10_000_000);
     assert.equal(isScanQueueable(short, short, short), true);
+    assert.equal(isOpenableLongCandidate(long), false);
     assert.equal(isScanQueueable(long, short, short), false);
   });
 
@@ -150,7 +151,6 @@ describe('SHORT-primary queue helpers', () => {
     relief.longClass = 'NONE';
     relief.reversalCode = 'REVERSAL_WAITING_RECLAIM';
     assert.equal(isOpenableLongCandidate(relief), false);
-    assert.equal(isScanQueueable(relief, relief, cand('BTC', 'SHORT', 64, 10_000_000)), false);
     assert.equal(
       isScanQueueable(reversal, cand('BTC', 'SHORT', 90, 10_000_000), cand('BTC', 'SHORT', 90, 10_000_000)),
       true
