@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../../hooks/useTerminalBotAnalysis';
 import { pairLabel } from '../../lib/botTradingPairs';
-import { resolveBotAnalysisWhyLine } from '../../lib/botAnalysisDisplay';
 import type { BotReadiness } from '../../lib/botReadiness';
 import type { UnifiedSignal } from '../../lib/signalService';
 import type { EngineTfChip } from '../../lib/engineOpenTimeframes';
@@ -160,16 +159,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
     return null;
   }, [scanning, globalCoinsScanned, scanCoinTotal]);
 
-  const waitLine = useMemo(() => null, []);
-
-  const whyLine = useMemo(
-    () =>
-      resolveBotAnalysisWhyLine({
-        entryWaitReason,
-      }),
-    [entryWaitReason]
-  );
-
   if (compact) {
     return (
       <div className="term-dock-analysis">
@@ -256,18 +245,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
               ))}
             </div>
           </div>
-          {waitLine && waitLine !== whyLine ? (
-            <p className="hl-bot-analyzer-wait">{waitLine}</p>
-          ) : null}
-          {whyLine ? (
-            <p
-              className={`hl-bot-analyzer-subline term-analysis-subline--why${
-                waitOpen ? ' hl-bot-analyzer-subline--block' : ''
-              }`}
-            >
-              {whyLine}
-            </p>
-          ) : null}
         </div>
       </div>
     );
@@ -285,11 +262,6 @@ const TerminalChartAnalysisOverlay: React.FC<Props> = ({
             </div>
             <span className="term-analysis-pct">{Math.round(progress)}%</span>
           </div>
-        ) : null}
-        {whyLine ? (
-          <p className="term-analysis-hint term-analysis-hint--subtle term-analysis-subline--why">
-            {whyLine}
-          </p>
         ) : null}
         <div className="term-analysis-meta">
           <span className={tfRevealComplete ? signalClass : ''}>

@@ -120,11 +120,11 @@ const ProTradeBotScanInsights: React.FC<Props> = ({
         ) : null}
         <span className="hl-dock-bot-scan-title">{scanTitle}</span>
       </div>
-      <div className="hl-dock-bot-scan-insights" aria-live="polite">
-        {primaryLine ? (
+      {primaryLine ? (
+        <div className="hl-dock-bot-scan-insights" aria-live="polite">
           <p className="hl-dock-bot-scan-detail">{primaryLine}</p>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </>
   );
 };

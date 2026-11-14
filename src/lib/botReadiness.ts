@@ -183,10 +183,6 @@ export type BotScanSetup = {
 function setupLabel(setup: BotScanSetup | null | undefined): string | null {
   if (!setup?.coin || !setup.direction || setup.direction === 'HOLD') return null;
   const conf = Math.round(setup.confidence);
-  const reason = setup.reason?.trim();
-  if (reason && !isBotScanNoiseDetail(reason)) {
-    return `${setup.coin} ${setup.direction} ${conf}% — ${reason}`;
-  }
   return `${setup.coin} ${setup.direction} ${conf}%`;
 }
 

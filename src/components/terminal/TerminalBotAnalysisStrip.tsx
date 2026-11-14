@@ -7,6 +7,7 @@ import { HL_DEFAULT_CONCURRENT_POSITIONS } from '../../lib/hlBotConstants';
 import { MIN_HL_BOT_USD } from '../../lib/hyperliquid/hlBotAgent';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import TerminalChartAnalysisOverlay from './TerminalChartAnalysisOverlay';
+import { scrubBotReadinessForUi } from '../../lib/botReadinessDisplay';
 
 type Props = {
   walletConnected: boolean;
@@ -110,7 +111,7 @@ const TerminalBotAnalysisStrip: React.FC<Props> = ({
         headline: analysis.readiness.headline || 'Insufficient margin',
       };
     }
-    return { ...analysis.readiness, headline: scanHeadline };
+    return scrubBotReadinessForUi({ ...analysis.readiness, headline: scanHeadline });
   }, [
     idleReadiness,
     slotsFull,

@@ -152,6 +152,9 @@ export function isBotScanNoiseDetail(detail: string): boolean {
     /(\d+)\+% confidence,\s*\d+\/3 timeframes aligned/i.test(d) ||
     /^Slot \d+:/i.test(d) ||
     /% — 6×1m/i.test(d) ||
+    /^6×1m/i.test(d) ||
+    /lower closes/i.test(d) ||
+    /mom -?\d/i.test(d) ||
     /next3 (UP|DOWN)/i.test(d) ||
     /Scanned \d+ HL perps/i.test(d) ||
     /Rotating scan/i.test(d) ||
