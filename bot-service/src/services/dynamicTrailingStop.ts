@@ -729,10 +729,7 @@ export async function evaluateDynamicTrail(
   }
 
   const targetUsd = config.hyperliquid.minProfitCloseUsd;
-  const armHoldMs =
-    netPnlUsd >= targetUsd
-      ? Math.min(1_000, cfgTrail.armMinProfitHoldMs ?? 1_000)
-      : cfgTrail.armMinProfitHoldMs ?? 0;
+  const armHoldMs = cfgTrail.armMinProfitHoldMs ?? 0;
 
   if (rec.profitSinceAt != null && input.nowMs - rec.profitSinceAt < armHoldMs) {
     return {

@@ -10,14 +10,14 @@ export const HL_BOT_STRATEGY_HINTS: Record<HlBotStrategy, string> = {
   standard:
     'Standard: MTF trend-only. Profit SL arms at fee-adjusted break-even, then trails only toward profit.',
   profit_grabber:
-    'Aggressive: 1m scalp entries. Same profit SL — fee-adjusted BE, then ratchet toward profit.',
+    'Aggressive: 1m scalp entries. Profit trail arms after ~45s in profit; active trail needs ~2 min before exit.',
 };
 
 /** Must match bot-service config.hyperliquid.dynamicTrail defaults. */
 export const HL_DYNAMIC_TRAIL = {
-  armMinProfitHoldMs: 1_000,
+  armMinProfitHoldMs: 45_000,
   maxHoldBeforeSlTrailMs: 120_000,
-  trailMinActiveBeforeCloseMs: 0,
+  trailMinActiveBeforeCloseMs: 120_000,
   longMinGreenHoldMs: 15_000,
   longTrailMinActiveMult: 1,
   breakevenArmRoePct: 8,

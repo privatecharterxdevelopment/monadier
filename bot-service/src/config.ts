@@ -223,16 +223,16 @@ export const config = {
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
-  /** Min net $ locked on profit-trail exit (user expectation ~$0.20 at 40×). */
-    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.2),
+  /** Min net $ locked on profit-trail exit — above scrape level so trades can run. */
+    minProfitCloseUsd: Number(process.env.HL_MIN_PROFIT_CLOSE_USD || 0.45),
     /** Dynamic price-based trailing stop (21 Jun ATR/% trail). */
     dynamicTrail: {
       /** false when HL_TRAIL_LEGACY=true — restores pre-D glue ratchet. */
       consolidatedVariantD: process.env.HL_TRAIL_LEGACY !== 'true',
       /** Min continuous ms in profit before arming the profit SL. */
       armMinProfitHoldMs: Math.max(
-        1_000,
-        Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 1_000)
+        5_000,
+        Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 45_000)
       ),
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
@@ -251,11 +251,11 @@ export const config = {
        * Stage-2 hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets with the peak.
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
-      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
-      /** After trail arms — min ms before a cross can close. Floor 5s (June trail). */
+      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.72),
+      /** After trail arms — min ms before a cross can close. */
       trailMinActiveBeforeCloseMs: Math.max(
-        5_000,
-        Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 5_000)
+        15_000,
+        Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 120_000)
       ),
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
@@ -267,7 +267,7 @@ export const config = {
        * Blocks harvesting $0.01 after a $1+ run when the floor was applied too late.
        */
       minPeakRemainFracBeforeClose: Number(
-        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.15
+        process.env.HL_TRAIL_MIN_PEAK_REMAIN_FRAC || 0.28
       ),
       armFeesMultiplier: Number(process.env.HL_TRAIL_ARM_FEES_MULT || 2),
       breakevenBufferPct: Number(process.env.HL_TRAIL_BE_BUFFER_PCT || 0.02),
@@ -298,7 +298,7 @@ export const config = {
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
       /** Stage-2 ATR/% trail distance from the favorable extreme (hug the peak). */
       majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.0125),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.0175),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.024),
       cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.0325),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**

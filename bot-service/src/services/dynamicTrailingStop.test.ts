@@ -256,8 +256,9 @@ describe('profit SL architecture', () => {
     assert.equal(red.shouldClose, false);
   });
 
-  it('arms profit SL after ~$0.20 net and 1s green hold', async () => {
+  it('arms profit SL after net target and armMinProfitHoldMs', async () => {
     const t0 = 9_000_000;
+    const armMs = 46_000;
     const warm = await evaluateDynamicTrail(
       shortTick({
         nowMs: t0,
@@ -269,10 +270,11 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 1_200,
+        nowMs: t0 + armMs,
         pnlUsd: 0.45,
         markPrice: 99.55,
         record: warm.record,
+        totalHoldMs: armMs,
       })
     );
     assert.ok(armed.record.phase === 'armed' || armed.record.phase === 'trailing');

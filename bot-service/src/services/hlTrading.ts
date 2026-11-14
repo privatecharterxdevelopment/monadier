@@ -2000,10 +2000,7 @@ export class HyperliquidTradingService {
           }
         }
         const profitTargetUsd = config.hyperliquid.minProfitCloseUsd;
-        const armHoldMs =
-          netPnlUsd >= profitTargetUsd
-            ? Math.min(1_000, config.hyperliquid.dynamicTrail.armMinProfitHoldMs)
-            : config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
+        const armHoldMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs;
         const armFloor = profitArmFloorUsd(minLockUsd, netPnlUsd, pnl);
         const lockUsdAtStop = Math.min(
           profitTargetUsd,
