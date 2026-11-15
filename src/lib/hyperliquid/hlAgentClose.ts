@@ -55,6 +55,9 @@ export async function closeHlPositionViaAgent(params: {
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const coin = params.coin.toUpperCase();
+  clearHlUserInfoCache(wallet);
+  clearHlInfoCache();
+  requestTradeNotificationRefresh();
   const body: Record<string, unknown> = { wallet, coin, reason: 'manual' };
   if (params.size != null && Number.isFinite(params.size) && params.size > 0) {
     body.size = params.size;

@@ -79,7 +79,7 @@ import {
   markCoinPendingFlat,
   reconcilePendingFlatCoins,
 } from '../../lib/hyperliquid/pendingFlatPositions';
-import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
 import { clearHlInfoCache, clearHlUserInfoCache } from '../../lib/hyperliquid/hlInfoClient';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
@@ -688,35 +688,38 @@ const Dashboard2ProPageContent: React.FC = () => {
     onStopped: onBotMinBalanceStopped,
   });
 
-  const handleClosePosition = async (position: HlPosition) => {
+  const handleClosePosition = (position: HlPosition) => {
     const size = Math.abs(toNum(position.szi));
     const isLong = toNum(position.szi) >= 0;
     const px = perpMarkPrices[position.coin] ?? perpMarkPx;
     if (size <= 0 || px <= 0) return;
     const wallet = (hlActiveWallet ?? address)?.toLowerCase();
-    setPendingFlatCoins((prev) => markCoinPendingFlat(prev, position.coin));
-    try {
-      await closePosition({
-        coin: position.coin,
-        size,
-        isLong,
-        markPx: px,
-        entryPx: toNum(position.entryPx),
-        profitUsd: toNum(position.unrealizedPnl),
+    const coinKey = position.coin.toUpperCase();
+    setPendingFlatCoins((prev) => markCoinPendingFlat(prev, coinKey));
+    void closePosition({
+      coin: position.coin,
+      size,
+      isLong,
+      markPx: px,
+      entryPx: toNum(position.entryPx),
+      profitUsd: toNum(position.unrealizedPnl),
+      walletAddress: wallet,
+    })
+      .then(() => {
+        scheduleHlStateAfterTrade(wallet, {
+          refreshAccount,
+          refreshHlSnapshot,
+        });
+      })
+      .catch((err) => {
+        setPendingFlatCoins((prev) => {
+          const next = new Set(prev);
+          next.delete(coinKey);
+          return next;
+        });
+        const msg = err instanceof Error ? err.message : 'Close failed';
+        showToast(msg, 'err');
       });
-      await flushHlStateAfterTrade(wallet, {
-        refreshAccount,
-        refreshHlSnapshot,
-      });
-    } catch (err) {
-      setPendingFlatCoins((prev) => {
-        const next = new Set(prev);
-        next.delete(position.coin.toUpperCase());
-        return next;
-      });
-      const msg = err instanceof Error ? err.message : 'Close failed';
-      showToast(msg, 'err');
-    }
   };
 
   const openBotHistory = (_tradeId?: string) => {

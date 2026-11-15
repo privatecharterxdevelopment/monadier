@@ -27,3 +27,11 @@ export async function flushHlStateAfterTrade(
     void handlers.refreshHlSnap?.(true);
   }, 350);
 }
+
+/** Background refresh — never block the Close click handler on network. */
+export function scheduleHlStateAfterTrade(
+  wallet: string | undefined,
+  handlers: HlTradeRefreshHandlers
+): void {
+  void flushHlStateAfterTrade(wallet, handlers).catch(() => undefined);
+}

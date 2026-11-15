@@ -273,8 +273,9 @@ export function useHyperliquidTrading() {
     [executeSimpleOrder, withBusy]
   );
 
+  /** Agent close — no global `busy` so one Close does not lock every button. */
   const closePosition = useCallback(
-    (opts: {
+    async (opts: {
       coin: string;
       size: number;
       isLong: boolean;
@@ -282,32 +283,29 @@ export function useHyperliquidTrading() {
       entryPx?: number;
       profitUsd?: number;
       walletAddress?: string;
-    }) =>
-      withBusy(async () => {
-        let wallet = opts.walletAddress?.toLowerCase();
-        if (!wallet) {
-          try {
-            wallet = (await resolveWallet()).account?.address?.toLowerCase();
-          } catch {
-            /* bot dock may pass walletAddress without an active signer */
-          }
+    }) => {
+      let wallet = opts.walletAddress?.toLowerCase();
+      if (!wallet) {
+        try {
+          wallet = (await resolveWallet()).account?.address?.toLowerCase();
+        } catch {
+          /* bot dock may pass walletAddress without an active signer */
         }
-        if (!wallet) {
-          throw new Error('Link your wallet on the Bot tab to close this position.');
-        }
+      }
+      if (!wallet) {
+        throw new Error('Link your wallet on the Bot tab to close this position.');
+      }
 
-        // HyperGain HL agent — one-time approve at Start bot, no MetaMask per close.
-        // Pass live size so Railway can fire the order without waiting on clearinghouse.
-        await closeHlPositionViaAgent({
-          walletAddress: wallet,
-          coin: opts.coin,
-          size: opts.size,
-          isLong: opts.isLong,
-          entryPx: opts.entryPx ?? opts.markPx,
-          unrealizedPnlUsd: opts.profitUsd,
-        });
-      }, 'Close position failed'),
-    [resolveWallet, withBusy]
+      await closeHlPositionViaAgent({
+        walletAddress: wallet,
+        coin: opts.coin,
+        size: opts.size,
+        isLong: opts.isLong,
+        entryPx: opts.entryPx ?? opts.markPx,
+        unrealizedPnlUsd: opts.profitUsd,
+      });
+    },
+    [resolveWallet]
   );
 
   const placeScaleOrder = useCallback(

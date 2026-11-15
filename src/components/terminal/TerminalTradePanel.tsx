@@ -85,7 +85,7 @@ import {
   markCoinPendingFlat,
   reconcilePendingFlatCoins,
 } from '../../lib/hyperliquid/pendingFlatPositions';
-import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
 import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
 import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
 import type { AgentPanelView, TradePanelTab } from '../protrade/tradePanelTypes';
@@ -147,7 +147,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
   const { address: monadierAddress } = useMonadierWallet();
-  const { transferUsdClass, closePosition, busy: hlCloseBusy } = useHyperliquidTrading();
+  const { transferUsdClass, closePosition } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
   const [panelTabInternal, setPanelTabInternal] = useState<PanelTab>('bot');
@@ -296,33 +296,44 @@ const TerminalTradePanel: React.FC<Props> = ({
   const hasOpenPosition =
     metrics.openPositionsCount > 0 || openHlPositions.length > 0;
 
-  const handleCloseHlPosition = async (position: HlPosition) => {
+  const handleCloseHlPosition = (position: HlPosition) => {
     const closeWallet = wallet ?? hlBalanceWallet;
     if (!closeWallet) return;
     const size = Math.abs(toNum(position.szi));
     const isLong = toNum(position.szi) >= 0;
-    const markPx = toNum(position.entryPx);
+    const markPx =
+      toNum((position as { markPx?: number }).markPx) ||
+      toNum(position.entryPx);
     if (size <= 0) return;
-    setClosingHlCoin(position.coin);
-    try {
-      setPendingFlatCoins((prev) => markCoinPendingFlat(prev, position.coin));
-      const profitUsd = toNum(position.unrealizedPnl);
-      await closePosition({
-        coin: position.coin,
-        size,
-        isLong,
-        markPx: markPx > 0 ? markPx : 1,
-        entryPx: toNum(position.entryPx),
-        profitUsd,
-        walletAddress: closeWallet,
+    const coinKey = position.coin.toUpperCase();
+    setPendingFlatCoins((prev) => markCoinPendingFlat(prev, coinKey));
+    setClosingHlCoin(coinKey);
+    const profitUsd = toNum(position.unrealizedPnl);
+    void closePosition({
+      coin: position.coin,
+      size,
+      isLong,
+      markPx: markPx > 0 ? markPx : 1,
+      entryPx: toNum(position.entryPx),
+      profitUsd,
+      walletAddress: closeWallet,
+    })
+      .then(() => {
+        scheduleHlStateAfterTrade(closeWallet, {
+          refreshHlSnap: () => refreshHlOpenSnap(),
+        });
+        onRefresh();
+      })
+      .catch(() => {
+        setPendingFlatCoins((prev) => {
+          const next = new Set(prev);
+          next.delete(coinKey);
+          return next;
+        });
+      })
+      .finally(() => {
+        setClosingHlCoin((c) => (c === coinKey ? null : c));
       });
-      await flushHlStateAfterTrade(closeWallet, {
-        refreshHlSnap: () => refreshHlOpenSnap(),
-      });
-      onRefresh();
-    } finally {
-      setClosingHlCoin(null);
-    }
   };
 
   const phase: SetupPhase = useMemo(() => {
@@ -1013,7 +1024,7 @@ const TerminalTradePanel: React.FC<Props> = ({
                   configuredLeverage={botEffSettings.leverage}
                   stopLossMarginPct={botEffSettings.stopLoss}
                   compact
-                  closeBusy={hlCloseBusy}
+                  closeBusy={false}
                   closingCoin={closingHlCoin}
                   onClose={(p) => void handleCloseHlPosition(p)}
                 />

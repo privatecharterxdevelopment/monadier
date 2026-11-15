@@ -15,7 +15,7 @@ import { snapLeverageToStep } from '../../lib/leverageLimits';
 import { registerBotStopSaver } from '../../lib/botStopSaver';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { fetchHlAccountState, type HlPosition } from '../../lib/hyperliquid/user';
-import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -239,7 +239,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   useEffect(() => registerBotStopSaver(handleSaveStopLoss), [handleSaveStopLoss]);
 
   const handleClosePosition = useCallback(
-    async (position: HlPosition) => {
+    (position: HlPosition) => {
       const closeWallet = positionsWallet ?? hlWallet;
       if (!closeWallet) {
         setCloseNotice('Connect wallet to close this position.');
@@ -252,30 +252,36 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         setCloseNotice('Could not read position price — try again.');
         return;
       }
+      const coinKey = position.coin.toUpperCase();
       setCloseNotice(null);
-      try {
-        const profitUsd = toNum(position.unrealizedPnl);
-        const coinKey = position.coin.toUpperCase();
-        setPendingFlatCoins((prev) => new Set(prev).add(coinKey));
-        await closePosition({
-          coin: position.coin,
-          size,
-          isLong,
-          markPx,
-          entryPx: toNum(position.entryPx),
-          profitUsd,
-          walletAddress: closeWallet,
+      setPendingFlatCoins((prev) => new Set(prev).add(coinKey));
+      const profitUsd = toNum(position.unrealizedPnl);
+      void closePosition({
+        coin: position.coin,
+        size,
+        isLong,
+        markPx,
+        entryPx: toNum(position.entryPx),
+        profitUsd,
+        walletAddress: closeWallet,
+      })
+        .then(() => {
+          setCloseNotice(null);
+          onPositionChange?.();
+          scheduleHlStateAfterTrade(closeWallet, {
+            refreshAccount,
+            refreshHlSnap: () => refreshHlSnap(),
+          });
+        })
+        .catch((err: unknown) => {
+          setPendingFlatCoins((prev) => {
+            const next = new Set(prev);
+            next.delete(coinKey);
+            return next;
+          });
+          const msg = err instanceof Error ? err.message : 'Close failed';
+          setCloseNotice(msg);
         });
-        setCloseNotice(null);
-        onPositionChange?.();
-        await flushHlStateAfterTrade(closeWallet, {
-          refreshAccount,
-          refreshHlSnap: () => refreshHlSnap(),
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Close failed';
-        setCloseNotice(msg);
-      }
     },
     [closePosition, hlWallet, positionsWallet, markPrices, refreshAccount, onPositionChange]
   );
