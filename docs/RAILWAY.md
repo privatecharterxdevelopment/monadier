@@ -34,14 +34,26 @@ See `bot-service/.env.example`:
 
 Final audit: [`PRODUCTION_READINESS_AUDIT.md`](./PRODUCTION_READINESS_AUDIT.md). Verdict at last audit: **NO-GO** until a signed Hyperliquid fill of the capped profit stop-market is observed. Deploy/rollback checklist is in that file.
 
+## Deploy (CLI) — use the repo script only
+
+Railway’s service **root directory** is `bot-service`. The CLI upload must include a top-level `bot-service/` folder in the snapshot (plus `.git`). **`railway up` from repo root or from `cd bot-service` alone often fails** with:
+
+`lstat …/snapshot-target-unpack/bot-service: no such file or directory`
+
+That is what happened on **2026-11-15 ~16:34 (Asia/Dubai)** (deployments `09ea1d86…`, `d771578c…`).
+
+```bash
+export RAILWAY_TOKEN=rlwy_proj_…   # project token, not account token
+npm run deploy:bot
+# or: ./scripts/railway-deploy-bot.sh
+```
+
+Do **not** use the Railway dashboard “Deploy” on a broken upload, and do **not** run bare `railway up` unless you use the same staging tree as the script.
+
 ## Verify deploy (CLI)
 
 ```bash
-cd bot-service
-npx @railway/cli login
-npx @railway/cli link -p 38979153-d629-42f6-ae11-eb8f1418d750 -s 63bc77f7-21a3-4fa9-96db-7ecf7cd55802
-npx @railway/cli variables set HL_BUILDER_ADDRESS=0x... HL_BUILDER_FEE_PERP=30 HL_BUILDER_MAX_APPROVAL=0.1%
-cd .. && ./scripts/verify-bot-api.sh "https://hypergain-bot-production.up.railway.app"
+./scripts/verify-bot-api.sh "https://hypergain-bot-production.up.railway.app"
 curl -s "https://hypergain-bot-production.up.railway.app/api/hl-builder/status" | jq
 ```
 
