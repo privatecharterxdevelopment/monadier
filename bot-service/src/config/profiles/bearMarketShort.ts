@@ -12,11 +12,9 @@ import { BEAR_REVERSAL_LONG } from './bearReversalLong';
  * ================================================
  * Switch via `HL_DIRECTION_PROFILE=bear_market`.
  *
- * SHORT = PRIMARY plus thorough pre-open: 1h+15m DOWN, 3 closed 15m reds,
- *         no trusted-MTF bypass of location / pump / macro. Quality over churn.
- * LONG  = allowlist BTC/ETH/SOL via longAllowlist (allowLongOpens=true).
- *         PUMP/VVV/WLD hard-excluded. Other memes SHORT-only if not excluded.
- *         Entry: LONG at support / lower range, not at R.
+ * SHORT = thorough pre-open when coin MTF bearish. LONG when coin confirms uptrend.
+ *         Global BTC regime is context only — not a per-coin direction veto.
+ *         PUMP/VVV/WLD hard-excluded via excludedCoins.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
  * leaving mid-caps tradable — $250M was BTC/ETH-only and starved opens.
@@ -24,7 +22,7 @@ import { BEAR_REVERSAL_LONG } from './bearReversalLong';
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'SHORT-primary; LONG allowlist BTC/ETH/SOL. PUMP/VVV/WLD hard-excluded.',
+    'Coin-trend: SHORT-primary profile; LONG and SHORT per coin MTF. Excludes unchanged.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',

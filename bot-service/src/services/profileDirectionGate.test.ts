@@ -13,10 +13,9 @@ describe('profileDirectionGate', () => {
     assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'SHORT'), true);
   });
 
-  it('BULL allows LONG and blocks SHORT by profile flags', () => {
+  it('BULL allows LONG and SHORT at profile level (coin MTF picks side)', () => {
     assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'LONG'), true);
-    assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'SHORT'), false);
-    assert.match(profileDirectionBlockReason(BULL_MARKET, 'SHORT'), /allowShortOpens=false/);
+    assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'SHORT'), true);
   });
 
   it('BEAR allows both directions at profile level', () => {

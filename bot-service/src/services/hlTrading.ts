@@ -608,11 +608,6 @@ export class HyperliquidTradingService {
         logger.debug('HL signal skip: LONG not TREND/REVERSAL', { coin: signal.coin });
         continue;
       }
-      if (signal.direction === 'LONG' && !isLongAllowedCoin(signal.coin)) {
-        logger.debug('HL signal skip: LONG not on allowlist', { coin: signal.coin });
-        continue;
-      }
-
       const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
       const gate = await validatePreTradeLiquidity({
         symbol: signal.symbol,
@@ -993,7 +988,7 @@ export class HyperliquidTradingService {
       const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
 
       if (!skipOpenGates && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
-        return failOpen(longAllowlistReason(coin), 'LONG_ALLOWLIST');
+        return failOpen(longAllowlistReason(coin), 'LONG_NOT_TRADABLE');
       }
       if (!skipOpenGates && opts.direction === 'LONG' && !isOpenableLongCandidate(opts.pick)) {
         return failOpen(

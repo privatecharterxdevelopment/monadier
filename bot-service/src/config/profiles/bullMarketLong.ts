@@ -7,13 +7,12 @@ import {
 } from './types';
 
 /**
- * BULL MARKET — 21 Aug 2026 winning book: LONG-only, 52% / 2 TFs.
- * SHORTs stay off (12 Aug SHORT-continuation printed FIL bottoms).
+ * BULL MARKET — LONG-primary; SHORT allowed when coin MTF is bearish (higher short bar).
  */
 export const BULL_MARKET: HlDirectionProfile = {
   name: 'bull_market',
   description:
-    'LONG-only bull (21 Aug): dip/continuation LONGs across liquid HL perps. No new SHORTs.',
+    'LONG-primary bull book; SHORT when per-coin MTF confirms downtrend (no global ban).',
   primaryDirection: 'LONG',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '15m',
@@ -32,8 +31,8 @@ export const BULL_MARKET: HlDirectionProfile = {
   /** Vision logs in shadow; never fail-closed (Aug 21 traded without vision starve). */
   enableLlmConfirm: true,
   allowLongOpens: true,
-  /** 21 Aug ROOT: bull never opens SHORT. */
-  allowShortOpens: false,
+  /** Counter-trend SHORT — strict minConfidence in `short` rules. */
+  allowShortOpens: true,
   long: {
     ...PRIMARY_RULES,
     minConfidence: 52,

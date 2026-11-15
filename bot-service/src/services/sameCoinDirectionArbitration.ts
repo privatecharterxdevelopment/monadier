@@ -1,6 +1,6 @@
 /**
- * One direction per coin at open time — SHORT preference only when SHORT is quality-executable.
- * TREND_LONG must not be scan-suppressed when a competing SHORT fails short_entry_quality.
+ * One direction per coin at open time — quality-based pick when both sides queue.
+ * Scan should already emit one direction per coin; open time resolves edge cases.
  */
 import { config } from '../config';
 import {
@@ -8,8 +8,10 @@ import {
   type GlobalSignalCandidate,
 } from './globalMarketScan';
 import { evaluateShortEntryQualityFinal } from './shortEntryQuality';
+import { signalQualityScore } from './coinTrendDirection';
 
 export type LongDispositionCode =
+  | 'DIRECTION_LOST_ARBITRATION'
   | 'QUEUE_SUPPRESSED'
   | 'SLOT_FULL'
   | 'LONG_CLASS'
@@ -71,7 +73,11 @@ export type SameCoinArbitrationInput = {
   longProbe: ReturnType<LongSetupProbe>;
 };
 
-/** Pure decision for one coin (unit-tested). May return SHORT then LONG fallback. */
+function shortQualityScore(c: GlobalSignalCandidate): number {
+  return signalQualityScore(c);
+}
+
+/** Pure decision for one coin (unit-tested). At most one direction per attempt list. */
 export function resolveSameCoinAttemptOrder(
   input: SameCoinArbitrationInput
 ): {
@@ -103,38 +109,58 @@ export function resolveSameCoinAttemptOrder(
     return { attempts: [long], longDisposition: null };
   }
 
-  if (shortExecutable && longExecutable) {
+  if (!shortExecutable && !longExecutable) {
     return {
-      attempts: [short!, long!],
-      longDisposition: {
-        coin: input.coin,
-        code: 'QUEUE_SUPPRESSED',
-        reason:
-          `QUEUE_SUPPRESSED — SHORT tries first on ${input.coin}; LONG ${long!.longClass ?? 'LONG'} ` +
-          `conf ${long!.confidence}% queued if SHORT fails entry quality or open gates`,
-        competingShortCode: 'SHORT_QUALITY_PASS',
-      },
+      attempts: [],
+      longDisposition: long
+        ? {
+            coin: input.coin,
+            code: longProbe.code ?? 'LONG_CLASS',
+            reason: longProbe.reason ?? 'LONG not executable',
+          }
+        : null,
     };
   }
+
   if (shortExecutable && !longExecutable) {
     return { attempts: [short!], longDisposition: null };
   }
   if (!shortExecutable && longExecutable) {
+    return { attempts: [long!], longDisposition: null };
+  }
+
+  const shortScore = shortQualityScore(short!);
+  const longScore = signalQualityScore(long!);
+  if (Math.abs(shortScore - longScore) < 0.5) {
     return {
-      attempts: [long!],
-      longDisposition: null,
+      attempts: [],
+      longDisposition: {
+        coin: input.coin,
+        code: 'DIRECTION_LOST_ARBITRATION',
+        reason:
+          `WAIT — LONG ${long!.confidence}% vs SHORT ${short!.confidence}% tie on quality ` +
+          `(${longScore.toFixed(1)} / ${shortScore.toFixed(1)})`,
+      },
+    };
+  }
+
+  if (shortScore > longScore) {
+    return {
+      attempts: [short!],
+      longDisposition: {
+        coin: input.coin,
+        code: 'DIRECTION_LOST_ARBITRATION',
+        reason:
+          `LONG skipped — SHORT wins quality on ${input.coin} ` +
+          `(${shortScore.toFixed(1)} vs ${longScore.toFixed(1)})`,
+        competingShortCode: 'SHORT_QUALITY_PASS',
+      },
     };
   }
 
   return {
-    attempts: [],
-    longDisposition: long
-      ? {
-          coin: input.coin,
-          code: longProbe.code ?? 'LONG_CLASS',
-          reason: longProbe.reason ?? 'LONG not executable',
-        }
-      : null,
+    attempts: [long!],
+    longDisposition: null,
   };
 }
 

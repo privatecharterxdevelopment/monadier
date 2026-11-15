@@ -161,16 +161,16 @@ export async function refreshLiveDirectionProfile(): Promise<HlDirectionProfile>
     return liveProfile;
   }
 
-  const next = snap.regime === 'bear_market' ? BEAR_MARKET : BULL_MARKET;
-  if (next.name !== liveProfile.name) {
-    logger.info('Live direction profile switched from BTC', {
-      from: liveProfile.name,
-      to: next.name,
+  // BTC regime is risk context only — both LONG and SHORT use coin-trend gates (BEAR_MARKET).
+  if (snap.regime !== liveProfile.name) {
+    logger.info('BTC regime context updated (profile unchanged)', {
+      btcRegime: snap.regime,
+      profile: liveProfile.name,
       reason: snap.reason,
       sticky: snap.sticky,
     });
   }
-  return setLiveProfile(next);
+  return setLiveProfile(BEAR_MARKET);
 }
 
 /** Tests — reset live profile module state. */

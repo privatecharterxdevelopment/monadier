@@ -193,9 +193,8 @@ export const config = {
       return [...new Set(parsed)];
     })(),
     /**
-     * LONG allowlist — these may open LONG; rest SHORT-only (or skip).
-     * Bull profile ignores this (any non-excluded coin may LONG).
-     * Override: HL_LONG_ONLY_COINS="BTC,ETH,SOL" or "*" / "ALL" for unrestricted.
+     * Legacy label list (ops metadata only). LONG/SHORT use per-coin MTF; not an open blocker.
+     * Override: HL_LONG_ONLY_COINS="*" / "ALL" or comma list for dashboards.
      * (PUMP/VVV/WLD are hard-excluded — not tradable even if listed here.)
      */
     longOnlyCoins: [

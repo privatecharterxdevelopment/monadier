@@ -11,8 +11,13 @@ import { filterWeekendShortOnly, isWeekendShortOnlyWindow } from './weekendTradi
 import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
-import { isLongAllowedCoin } from './longAllowlist';
 import { isProfileDirectionOpenAllowed } from './profileDirectionGate';
+import {
+  evaluateCoinLongFromStructure,
+  evaluateCoinShortFromMtf,
+  h1AllowsShort,
+  pickCoinTrendCandidate,
+} from './coinTrendDirection';
 import {
   evaluateBearLongOpportunity,
   votesFromTfMap,
@@ -93,12 +98,6 @@ function pushSkip(coin: string, mode: BotSignalMode, reason: string): null {
   return null;
 }
 
-export function h1AllowsShort(h1Trend: string | undefined | null): boolean {
-  const t = String(h1Trend ?? '').toUpperCase();
-  if (!t) return false;
-  if (t.includes('UP')) return false;
-  return true;
-}
 
 export function isOpenableLongCandidate(
   candidate: Pick<GlobalSignalCandidate, 'direction' | 'longClass' | 'reversalCode'>
@@ -162,30 +161,14 @@ export function standardShortScanSkipReason(
   analysis: MtfAnalysis,
   preloadedUniverse: HlLiquidUniverse | undefined
 ): string {
-  if (analysis.direction !== 'SHORT') {
-    return `direction ${String(analysis.direction)}`;
-  }
   const bars = shortScanBars();
   const tierInfo = classifyCoinTier(coin, preloadedUniverse);
   const cautious = needsCautionPath(tierInfo.tier);
   const minConf = cautious
     ? Math.max(bars.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
     : bars.minConf;
-  if (analysis.confidence < minConf) {
-    return `confidence ${Math.round(analysis.confidence)}% < ${minConf}%`;
-  }
-  const tfCount = analysis.metrics?.directionalTfCount ?? 0;
-  const align = analysis.metrics?.trendAlignment ?? 0;
-  if (tfCount < bars.minTfs) {
-    return `${tfCount}/${bars.minTfs} aligned TFs (need ${bars.minTfs})`;
-  }
-  if (align < bars.minAlign) {
-    return `trend align ${Math.round(align)}% < ${bars.minAlign}%`;
-  }
-  const h1 = analysis.metrics?.h1Trend ?? '';
-  if (!h1AllowsShort(h1)) {
-    return `1h ${h1 || 'n/a'} — SHORT needs 1h not UP`;
-  }
+  const verdict = evaluateCoinShortFromMtf(analysis, minConf);
+  if (!verdict.ok) return verdict.reason;
   return 'SHORT scan bars not met';
 }
 
@@ -196,38 +179,34 @@ async function buildStandardShortFromMtf(
   analysis: MtfAnalysis,
   preloadedUniverse: HlLiquidUniverse | undefined,
   longClass?: LongOpportunityClass,
-  reversalCode?: string | null
+  reversalCode?: string | null,
+  verdictOverride?: ReturnType<typeof evaluateCoinShortFromMtf>
 ): Promise<GlobalSignalCandidate | null> {
-  if (analysis.direction !== 'SHORT') return null;
-  const bars = shortScanBars();
   const tierInfo = classifyCoinTier(coin, preloadedUniverse);
   const cautious = needsCautionPath(tierInfo.tier);
+  const bars = shortScanBars();
   const minConf = cautious
     ? Math.max(bars.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
     : bars.minConf;
-  if (analysis.confidence < minConf) return null;
+  const verdict = verdictOverride ?? evaluateCoinShortFromMtf(analysis, minConf);
+  if (!verdict.ok) return null;
   if (cautious) {
     const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
     if (!pumpSkip.ok) return null;
   }
-  const tfCount = analysis.metrics?.directionalTfCount ?? 0;
-  const align = analysis.metrics?.trendAlignment ?? 0;
-  if (tfCount < bars.minTfs) return null;
-  if (align < bars.minAlign) return null;
-  if (!h1AllowsShort(analysis.metrics?.h1Trend)) return null;
 
   const candidate: GlobalSignalCandidate = {
     coin,
     symbol,
     direction: 'SHORT',
-    confidence: analysis.confidence,
-    reason: analysis.reason,
+    confidence: verdict.confidence,
+    reason: verdict.reason === analysis.reason ? analysis.reason : `${verdict.reason} · ${analysis.reason}`,
     dayVolumeUsd: liq.dayVolumeUsd,
     openInterestUsd: liq.openInterestUsd,
     botMode: 'standard',
     mtfBreakdown: analysis.mtfBreakdown,
     trendAlignment: analysis.metrics?.trendAlignment,
-    directionalTfCount: analysis.metrics?.directionalTfCount,
+    directionalTfCount: verdict.shortTfCount,
     h1Trend: analysis.metrics?.h1Trend,
     signalReasons: analysis.signalReasons,
     indicators: analysis.indicators,
@@ -249,101 +228,112 @@ async function scanStandardCoin(
     const symbol = hlCoinToBinanceSymbol(coin);
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY);
     if (!analysis) return pushSkip(coin, 'standard', 'no MTF analysis');
-    const votes = votesFromBreakdown(analysis.mtfBreakdown, analysis.metrics?.h1Trend);
-    let longClass: LongOpportunityClass | undefined;
-    let reversalCode: string | null = null;
-    if (isLongAllowedCoin(coin)) {
-      let rangePosition24h: number | undefined;
-      try {
-        rangePosition24h = (await fetchPerpMarketContext(coin))?.rangePosition;
-      } catch {
-        rangePosition24h = undefined;
-      }
-      const cls = await evaluateBearLongOpportunity({
-        coin,
-        votes,
-        confidence: analysis.confidence,
-        floorMajor: true,
-        rangePosition24h,
-      });
-      if (
-        isOpenableLongCandidate({
-          direction: 'LONG',
-          longClass: cls.class,
-          reversalCode: cls.code,
-        })
-      ) {
-        const candidate: GlobalSignalCandidate = {
-          coin,
-          symbol,
-          direction: 'LONG',
-          confidence: analysis.confidence,
-          reason: cls.reason || analysis.reason,
-          dayVolumeUsd: liq.dayVolumeUsd,
-          openInterestUsd: liq.openInterestUsd,
-          botMode: 'standard',
-          mtfBreakdown: analysis.mtfBreakdown,
-          trendAlignment: analysis.metrics?.trendAlignment,
-          directionalTfCount: analysis.metrics?.directionalTfCount,
-          h1Trend: analysis.metrics?.h1Trend,
-          signalReasons: [cls.reason, ...(analysis.signalReasons ?? [])],
-          indicators: analysis.indicators,
-          longClass: cls.class,
-          reversalCode: cls.code,
-          queueable: true,
-        };
-        candidate.queueable = isScanQueueable(candidate, null, null);
-        const companionShort = await buildStandardShortFromMtf(
-          coin,
-          symbol,
-          liq,
-          analysis,
-          preloadedUniverse,
-          cls.class,
-          cls.code
-        );
-        return companionShort ? [candidate, companionShort] : [candidate];
-      }
-      longClass = cls.class;
-      reversalCode = cls.code;
-      if (analysis.direction === 'LONG') {
-        return pushSkip(coin, 'standard', cls.reason || 'LONG not TREND/REVERSAL');
-      }
-    } else if (analysis.direction === 'LONG') {
-      return pushSkip(coin, 'standard', 'LONG not on allowlist');
-    }
-
-    if (analysis.direction !== 'SHORT') {
-      return pushSkip(coin, 'standard', `direction ${String(analysis.direction)}`);
-    }
 
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
-    if (needsCautionPath(tierInfo.tier)) {
-      const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
-      if (!pumpSkip.ok) return pushSkip(coin, 'standard', pumpSkip.reason);
+    const cautious = needsCautionPath(tierInfo.tier);
+    const bars = {
+      short: shortScanBars(),
+      long: longScanBars(),
+    };
+    const cautiousMinConfShort = cautious
+      ? Math.max(bars.short.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
+      : bars.short.minConf;
+    const cautiousMinConfLong = cautious
+      ? Math.max(bars.long.minConf, config.hyperliquid.cautiousScan.minSignalConfidence)
+      : bars.long.minConf;
+
+    const votes = votesFromBreakdown(analysis.mtfBreakdown, analysis.metrics?.h1Trend);
+    let rangePosition24h: number | undefined;
+    try {
+      rangePosition24h = (await fetchPerpMarketContext(coin))?.rangePosition;
+    } catch {
+      rangePosition24h = undefined;
     }
-    const candidate = await buildStandardShortFromMtf(
+    const cls = await evaluateBearLongOpportunity({
       coin,
-      symbol,
-      liq,
+      votes,
+      confidence: analysis.confidence,
+      floorMajor: true,
+      rangePosition24h,
+    });
+
+    let longCandidate: GlobalSignalCandidate | null = null;
+    const longVerdict = evaluateCoinLongFromStructure(
       analysis,
-      preloadedUniverse,
-      longClass,
-      reversalCode
+      cls.class,
+      cls.reason || analysis.reason,
+      cautiousMinConfLong
     );
-    if (!candidate) {
+    if (longVerdict.ok) {
+      longCandidate = {
+        coin,
+        symbol,
+        direction: 'LONG',
+        confidence: analysis.confidence,
+        reason: longVerdict.reason,
+        dayVolumeUsd: liq.dayVolumeUsd,
+        openInterestUsd: liq.openInterestUsd,
+        botMode: 'standard',
+        mtfBreakdown: analysis.mtfBreakdown,
+        trendAlignment: analysis.metrics?.trendAlignment,
+        directionalTfCount: analysis.metrics?.directionalTfCount,
+        h1Trend: analysis.metrics?.h1Trend,
+        signalReasons: [cls.reason, ...(analysis.signalReasons ?? [])],
+        indicators: analysis.indicators,
+        longClass: cls.class,
+        reversalCode: cls.code,
+        queueable: true,
+      };
+      longCandidate.queueable = isScanQueueable(longCandidate, null, null);
+    }
+
+    let shortVerdict = evaluateCoinShortFromMtf(analysis, cautiousMinConfShort);
+    let shortCandidate: GlobalSignalCandidate | null = null;
+    if (shortVerdict.ok && cautious) {
+      const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
+      if (!pumpSkip.ok) {
+        shortVerdict = { ...shortVerdict, ok: false, reason: pumpSkip.reason };
+      }
+    }
+    if (shortVerdict.ok) {
+      shortCandidate = await buildStandardShortFromMtf(
+        coin,
+        symbol,
+        liq,
+        analysis,
+        preloadedUniverse,
+        cls.class,
+        cls.code,
+        shortVerdict
+      );
+    }
+
+    const pick = pickCoinTrendCandidate(longCandidate, shortCandidate);
+    if (pick.direction === 'WAIT' || !pick.candidate) {
+      const reason =
+        pick.waitReason ??
+        longVerdict.reason ??
+        shortVerdict.reason ??
+        standardShortScanSkipReason(coin, analysis, preloadedUniverse);
+      return pushSkip(coin, 'standard', reason);
+    }
+
+    if (!isProfileDirectionOpenAllowed(pick.candidate.direction)) {
       return pushSkip(
         coin,
         'standard',
-        standardShortScanSkipReason(coin, analysis, preloadedUniverse)
+        `${pick.candidate.direction} blocked by live profile permission`
       );
     }
-    return [candidate];
+
+    return [pick.candidate];
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return pushSkip(coin, 'standard', `scan error ${msg.slice(0, 80)}`);
   }
 }
+
+export { h1AllowsShort } from './coinTrendDirection';
 
 async function scanAggressiveCoin(
   coin: string,

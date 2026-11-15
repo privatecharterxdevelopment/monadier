@@ -115,7 +115,7 @@ describe('resolveSameCoinAttemptOrder', () => {
     assert.ok(r.longDisposition?.code === 'LONG_CLASS');
   });
 
-  it('both valid → SHORT first, LONG fallback, never parallel', () => {
+  it('both valid → single direction by quality (SHORT wins on conf here)', () => {
     const r = resolveSameCoinAttemptOrder(
       arb({
         coin: 'ETH',
@@ -125,11 +125,26 @@ describe('resolveSameCoinAttemptOrder', () => {
         shortBlockCode: 'SHORT_QUALITY_PASS',
       })
     );
-    assert.equal(r.attempts.length, 2);
+    assert.equal(r.attempts.length, 1);
     assert.equal(r.attempts[0]?.direction, 'SHORT');
-    assert.equal(r.attempts[1]?.direction, 'LONG');
-    assert.equal(r.attempts[0]?.coin, r.attempts[1]?.coin);
-    assert.equal(r.longDisposition?.code, 'QUEUE_SUPPRESSED');
+    assert.equal(r.longDisposition?.code, 'DIRECTION_LOST_ARBITRATION');
+  });
+
+  it('both valid → LONG wins when higher quality', () => {
+    const strongLong = cand('ETH', 'LONG', 92, 'TREND_LONG');
+    const weakShort = cand('ETH', 'SHORT', 58);
+    const r = resolveSameCoinAttemptOrder(
+      arb({
+        coin: 'ETH',
+        short: weakShort,
+        long: strongLong,
+        shortExecutable: true,
+        shortBlockCode: 'SHORT_QUALITY_PASS',
+      })
+    );
+    assert.equal(r.attempts.length, 1);
+    assert.equal(r.attempts[0]?.direction, 'LONG');
+    assert.equal(r.longDisposition, null);
   });
 });
 
