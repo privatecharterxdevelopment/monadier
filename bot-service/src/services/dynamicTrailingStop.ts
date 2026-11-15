@@ -413,34 +413,55 @@ export function calculateATR(candles: Candle[], period = 14): number {
 
 const atrCache = new Map<string, { at: number; atr: number; mark: number }>();
 
-/** Tight trail at high leverage (~2% ROE ≈ 0.1% price at 20×). */
+/**
+ * High-leverage floor — never trail tighter than ~0.7–1.2% of mark.
+ * (Old cap crushed 40× trails to ~0.04% price → instant noise exits.)
+ */
+export function leverageTrailFloorPx(
+  markPrice: number,
+  leverage: number,
+  collateralUsd: number,
+  pnlUsd: number
+): number {
+  const lev = Math.max(10, Math.min(50, leverage));
+  const roePct = collateralUsd > 0 ? (pnlUsd / collateralUsd) * 100 : 0;
+  const basePct = 0.011 * Math.sqrt(lev / 10);
+  const roeBoost = roePct >= 20 ? 1.25 : roePct >= 12 ? 1.12 : roePct >= 6 ? 1.05 : 1;
+  return markPrice * basePct * roeBoost;
+}
+
+/** @deprecated — only tests; live path uses leverageTrailFloorPx as a floor. */
 export function leverageScaledTrailCapPx(
   markPrice: number,
   leverage: number,
   collateralUsd: number,
   pnlUsd: number
 ): number {
-  const lev = Math.max(1, leverage);
-  const roePct = collateralUsd > 0 ? (pnlUsd / collateralUsd) * 100 : 0;
-  const roeGapPct = Math.max(0.35, Math.min(2, roePct * 0.35));
-  const fromRoe = markPrice * (roeGapPct / 100 / lev);
-  const floor = markPrice * 0.00035;
-  return Math.max(floor, Math.min(fromRoe, markPrice * 0.003));
+  return leverageTrailFloorPx(markPrice, leverage, collateralUsd, pnlUsd);
 }
 
 export async function resolveTrailDistancePx(
   coin: string,
   markPrice: number,
-  opts?: { pctOnly?: boolean; leverage?: number; collateralUsd?: number; pnlUsd?: number }
+  opts?: {
+    pctOnly?: boolean;
+    leverage?: number;
+    collateralUsd?: number;
+    pnlUsd?: number;
+    direction?: 'LONG' | 'SHORT';
+  }
 ): Promise<number> {
   const cfg = config.hyperliquid.dynamicTrail;
   const tier = classifyCoinTier(coin).tier;
   const pctFallback = tierTrailPct(tier);
   let pctDistance = markPrice * pctFallback;
+  if (opts?.direction === 'LONG') {
+    pctDistance *= cfg.longTrailDistanceMult ?? 1;
+  }
   if (opts?.leverage && opts.leverage >= 10) {
-    pctDistance = Math.min(
+    pctDistance = Math.max(
       pctDistance,
-      leverageScaledTrailCapPx(
+      leverageTrailFloorPx(
         markPrice,
         opts.leverage,
         opts.collateralUsd ?? 0,
@@ -561,11 +582,19 @@ export function consolidateProfitStopPx(input: ConsolidateStopInput): Consolidat
   if (minLockPx != null) candidates.push(minLockPx);
 
   if (peakPnl > 0) {
+    const stage1Frac =
+      input.direction === 'LONG'
+        ? cfg.longStage1PeakKeepFrac ?? cfg.stage1PeakKeepFrac
+        : cfg.shortStage1PeakKeepFrac ?? cfg.stage1PeakKeepFrac;
+    const stage2Frac =
+      input.direction === 'LONG'
+        ? cfg.longStage2PeakKeepFrac ?? cfg.stage2PeakKeepFrac
+        : cfg.shortStage2PeakKeepFrac ?? cfg.stage2PeakKeepFrac;
     const s1 = stopPxFromPeakLockUsd(
       input.direction,
       input.entryPrice,
       input.absSize,
-      peakPnl * cfg.stage1PeakKeepFrac,
+      peakPnl * stage1Frac,
       input.markPrice,
       input.tickSize
     );
@@ -597,7 +626,7 @@ export function consolidateProfitStopPx(input: ConsolidateStopInput): Consolidat
         input.direction,
         input.entryPrice,
         input.absSize,
-        peakPnl * cfg.stage2PeakKeepFrac,
+        peakPnl * stage2Frac,
         input.markPrice,
         input.tickSize
       );
@@ -745,6 +774,7 @@ export async function evaluateDynamicTrail(
     leverage: input.leverage,
     collateralUsd: input.collateralUsd,
     pnlUsd: input.pnlUsd,
+    direction: input.direction,
   });
   rec.lastTrailDistancePx = trailDistFixed;
 

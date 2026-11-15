@@ -22,28 +22,28 @@ export const HL_DYNAMIC_TRAIL = {
   longTrailMinActiveMult: 1,
   breakevenArmRoePct: 8,
   armMinProfitUsd: 0,
-  armMinRoePct: 2,
+  armMinRoePct: 4,
   trailGapRoePct: 1,
   fullTrailArmRoePct: 2,
   longTrailArmRoePct: 15,
   armFeesMultiplier: 4,
   estimatedFeeBpsPerSide: 3.5,
-  majorTrailPct: 0.012,
-  midTrailPct: 0.016,
-  cautiousTrailPct: 0.02,
+  majorTrailPct: 0.0175,
+  midTrailPct: 0.028,
+  cautiousTrailPct: 0.038,
   breakevenBufferPct: 0.02,
 } as const;
 
 /** High-leverage ROE gates only — hold times stay the same as the bot. */
 export const HL_DYNAMIC_TRAIL_40X = {
   breakevenArmRoePct: 8,
-  armMinRoePct: 2,
+  armMinRoePct: 4,
   fullTrailArmRoePct: 2,
   trailGapRoePct: 1,
   longTrailArmRoePct: 15,
-  majorTrailPct: 0.012,
-  midTrailPct: 0.016,
-  cautiousTrailPct: 0.02,
+  majorTrailPct: 0.0175,
+  midTrailPct: 0.028,
+  cautiousTrailPct: 0.038,
 } as const;
 
 export function trailProfileForLeverage(leverage: number) {

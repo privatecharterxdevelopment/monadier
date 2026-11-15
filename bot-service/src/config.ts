@@ -240,17 +240,18 @@ export const config = {
        */
       breakevenArmRoePct: Number(process.env.HL_TRAIL_BE_ARM_ROE_PCT || 8),
       /** Min ROE before Stage-2 ATR/% trail. Stage 1 BE lock is independent. */
-      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 0.5),
+      /** Stage-2 (ATR + peak floor) only after this ROE — was 0.5% (micro-stops at high lev). */
+      armMinRoePct: Number(process.env.HL_TRAIL_ARM_ROE_PCT || 4),
       /**
        * Stage-1 stall floor (before stage-2 ROE): giveback from peak.
        * 0.5 → lock ~50% of peak uPnL. Stop stays on the profit side of entry.
        */
-      stallFloorPeakDropFrac: Number(process.env.HL_TRAIL_STALL_FLOOR_DROP_FRAC || 0.5),
+      stallFloorPeakDropFrac: Number(process.env.HL_TRAIL_STALL_FLOOR_DROP_FRAC || 0.58),
       /**
        * Stage-2 hard profit-lock floor = peak uPnL × (1 − dropFrac), ratchets with the peak.
        * Higher dropFrac = more room to pull back before floor close (0.65 → lock ~35% of peak).
        */
-      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.72),
+      profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.8),
       /** After trail arms — min ms before a cross can close. */
       trailMinActiveBeforeCloseMs: Math.max(
         15_000,
@@ -287,29 +288,35 @@ export const config = {
        * (or a modest lock), never a 84% hug of a $0.01 tick.
        */
       stage1PeakKeepFrac: Number(process.env.HL_TRAIL_STAGE1_KEEP_FRAC || 0.32),
+      /** LONG stage-1: lower keep → stop farther from peak (more pullback room). */
+      longStage1PeakKeepFrac: Number(process.env.HL_TRAIL_LONG_STAGE1_KEEP_FRAC || 0.22),
+      /** SHORT stage-1: higher keep → stop deeper on profit side. */
+      shortStage1PeakKeepFrac: Number(process.env.HL_TRAIL_SHORT_STAGE1_KEEP_FRAC || 0.4),
       /** Stage-2 additional peak lock once ATR trailing is on. */
       stage2PeakKeepFrac: Number(process.env.HL_TRAIL_STAGE2_KEEP_FRAC || 0.45),
+      longStage2PeakKeepFrac: Number(process.env.HL_TRAIL_LONG_STAGE2_KEEP_FRAC || 0.32),
+      shortStage2PeakKeepFrac: Number(process.env.HL_TRAIL_SHORT_STAGE2_KEEP_FRAC || 0.52),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 1.5),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 2),
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),
       /** Stage-2 ATR/% trail distance from the favorable extreme (hug the peak). */
-      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.0125),
-      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.024),
-      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.0325),
+      majorTrailPct: Number(process.env.HL_TRAIL_MAJOR_PCT || 0.0175),
+      midTrailPct: Number(process.env.HL_TRAIL_MID_PCT || 0.028),
+      cautiousTrailPct: Number(process.env.HL_TRAIL_CAUTIOUS_PCT || 0.038),
       neverRedAfterArm: process.env.HL_TRAIL_NEVER_RED_AFTER_ARM !== 'false',
       /**
        * LONG stage-2 trail distance vs SHORT. >1 = more room while stop ratchets up
        * after the trade runs (stage-1 BE lock unchanged).
        */
-      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1),
+      longTrailDistanceMult: Number(process.env.HL_TRAIL_LONG_DIST_MULT || 1.35),
       /**
        * LONG peak-floor giveback after a real run. 0.78 → lock ~22% of peak
        * (more air than 0.65 while still securing a chunk of the explosion).
        */
-      longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.78),
+      longProfitFloorPeakDropFrac: Number(process.env.HL_TRAIL_LONG_FLOOR_DROP_FRAC || 0.84),
       /** Stretch min-active time before a LONG trail/floor close. */
       longTrailMinActiveMult: Number(process.env.HL_TRAIL_LONG_MIN_ACTIVE_MULT || 1),
       /**
