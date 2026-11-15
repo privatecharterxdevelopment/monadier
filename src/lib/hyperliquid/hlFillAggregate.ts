@@ -15,6 +15,18 @@ export function aggregatedCloseFillKey(f: AggregatedHlCloseFill): string {
   return `${f.time}|${f.coin}|${fillPositionDirection(f)}|${f.oid ?? 'x'}|${f.fillCount}`;
 }
 
+/** Whether two fills belong to one logical close (matches dock history aggregation). */
+export function isSameHlCloseFillGroup(
+  group: AggregatedHlCloseFill | HlUserFill,
+  fill: HlUserFill
+): boolean {
+  const a: AggregatedHlCloseFill =
+    'fillCount' in group && group.fillCount != null
+      ? (group as AggregatedHlCloseFill)
+      : { ...group, fillCount: 1 };
+  return sameCloseGroup(a, fill);
+}
+
 function sameCloseGroup(a: AggregatedHlCloseFill, b: HlUserFill): boolean {
   if (a.coin.toUpperCase() !== b.coin.toUpperCase()) return false;
   if (fillPositionDirection(a) !== fillPositionDirection(b)) return false;

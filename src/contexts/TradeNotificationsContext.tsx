@@ -41,7 +41,14 @@ import { useTermAuthToast } from '../components/terminal/TermAuthToast';
 import { devError, isHlRateLimitError } from '../lib/devLog';
 import { getHlWsClient } from '../lib/hyperliquid/ws';
 import { fetchHlUserFills, type HlUserFill } from '../lib/hyperliquid/user';
-import { fillPositionDirection, fmtClosedPnl, isHlFillClose } from '../lib/hyperliquid/format';
+import { fillPositionDirection, isHlFillClose } from '../lib/hyperliquid/format';
+import {
+  aggregateHlCloseFills,
+  aggregatedCloseFillKey,
+  isSameHlCloseFillGroup,
+  type AggregatedHlCloseFill,
+} from '../lib/hyperliquid/hlFillAggregate';
+import { netHlClosePnl } from '../lib/hyperliquid/hlPnl';
 import { subscribeTradeNotificationRefresh } from '../lib/tradeNotificationEvents';
 
 const NOTIFICATION_POLL_MS = 25_000;
@@ -78,14 +85,19 @@ function fillCloseKey(f: HlUserFill): string {
   return `${f.coin}|${f.time}|${f.tid ?? 0}`;
 }
 
-function optimisticCloseNotification(f: HlUserFill): ActivityNotification {
+function optimisticCloseNotification(f: AggregatedHlCloseFill | HlUserFill): ActivityNotification {
   const dir = fillPositionDirection(f);
   const ms = f.time > 1e12 ? f.time : f.time * 1000;
+  const fillCount = 'fillCount' in f && f.fillCount != null ? f.fillCount : 1;
+  const id =
+    fillCount > 1
+      ? `hl-close-${aggregatedCloseFillKey({ ...f, fillCount } as AggregatedHlCloseFill)}`
+      : `hl-fill-${fillCloseKey(f)}`;
   return {
-    id: `hl-fill-${fillCloseKey(f)}`,
+    id,
     kind: 'bot',
     headline: `${dir} ${f.coin}`,
-    profitLoss: Number(f.closedPnl) || 0,
+    profitLoss: netHlClosePnl(f),
     closedAt: new Date(ms).toISOString(),
     eventType: 'close',
   };
@@ -308,14 +320,28 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
     (fills: HlUserFill[], opts?: { toast?: boolean; optimistic?: boolean }) => {
       const wantToast = opts?.toast !== false;
       const wantOptimistic = opts?.optimistic !== false;
-      let anyNew = false;
+      const newCloses: HlUserFill[] = [];
       for (const f of fills) {
         if (!isHlFillClose(f.dir, f.closedPnl)) continue;
         const key = fillCloseKey(f);
         if (!rememberHlCloseKey(knownHlCloseFillKeysRef.current, key)) continue;
-        anyNew = true;
-        const dir = fillPositionDirection(f);
-        const optimistic = optimisticCloseNotification(f);
+        newCloses.push(f);
+      }
+      if (newCloses.length === 0) return;
+
+      const allCloses = fills.filter((f) => isHlFillClose(f.dir, f.closedPnl));
+      const aggregated = aggregateHlCloseFills(allCloses);
+      const notifiedGroups = new Set<string>();
+
+      for (const f of newCloses) {
+        const group =
+          aggregated.find((g) => isSameHlCloseFillGroup(g, f)) ??
+          ({ ...f, fillCount: 1 } as AggregatedHlCloseFill);
+        const groupKey = aggregatedCloseFillKey(group);
+        if (notifiedGroups.has(groupKey)) continue;
+        notifiedGroups.add(groupKey);
+
+        const optimistic = optimisticCloseNotification(group);
         if (wantToast) {
           showToastRef.current(toastMessageForNotification(optimistic), 6_000);
         }
@@ -324,7 +350,7 @@ export const TradeNotificationsProvider: React.FC<{ children: React.ReactNode }>
           setNotifications((prev) => mergeActivityNotifications([optimistic, ...prev], [], 100));
         }
       }
-      if (anyNew) scheduleSilentReload();
+      scheduleSilentReload();
     },
     [scheduleSilentReload]
   );

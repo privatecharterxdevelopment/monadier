@@ -3,6 +3,14 @@ import { isHlFillClose } from './format';
 import { toNum } from './parse';
 import type { HlUserFill } from './user';
 
+/** Net realized P/L for one close row — matches dock “Closed PnL” and Win/Loss. */
+export function netHlClosePnl(f: Pick<HlUserFill, 'closedPnl' | 'fee'>): number {
+  const pnl = toNum(f.closedPnl);
+  const fee = toNum(f.fee);
+  if (!Number.isFinite(pnl)) return 0;
+  return pnl - (Number.isFinite(fee) ? fee : 0);
+}
+
 export type HlClosedPnlSummary = {
   totalGain: number;
   totalLoss: number;
