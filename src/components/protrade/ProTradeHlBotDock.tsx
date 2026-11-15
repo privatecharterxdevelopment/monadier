@@ -108,7 +108,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     refresh: refreshAccount,
     refreshAfterTrade,
   } = useHyperliquidAccount(hlWallet);
-  const { snapshot: hlSnap } = useHlAccountSnapshot(hlWallet);
+  const { snapshot: hlSnap, refresh: refreshHlSnap } = useHlAccountSnapshot(hlWallet);
+  const [pendingFlatCoins, setPendingFlatCoins] = useState<Set<string>>(() => new Set());
   const [fallbackAccount, setFallbackAccount] = useState<typeof account>(null);
   const fallbackWallet =
     settingsWallet &&
@@ -132,8 +133,28 @@ const ProTradeHlBotDock: React.FC<Props> = ({
     };
   }, [account?.positions?.length, fallbackWallet]);
 
-  const dockAccount =
+  const dockAccountRaw =
     (account?.positions?.length ?? 0) > 0 ? account : fallbackAccount ?? account;
+  const dockAccount = useMemo(() => {
+    if (!dockAccountRaw || pendingFlatCoins.size === 0) return dockAccountRaw;
+    const positions = (dockAccountRaw.positions ?? []).filter(
+      (p) => !pendingFlatCoins.has(p.coin.toUpperCase())
+    );
+    return { ...dockAccountRaw, positions };
+  }, [dockAccountRaw, pendingFlatCoins]);
+
+  useEffect(() => {
+    if (pendingFlatCoins.size === 0) return;
+    const live = new Set(
+      [...(hlSnap?.positions ?? []), ...(account?.positions ?? [])].map((p) =>
+        p.coin.toUpperCase()
+      )
+    );
+    setPendingFlatCoins((prev) => {
+      const next = new Set([...prev].filter((c) => live.has(c)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [hlSnap?.positions, account?.positions, pendingFlatCoins.size]);
   const positionsWallet =
     (account?.positions?.length ?? 0) > 0
       ? hlWallet
@@ -233,6 +254,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       setCloseNotice(null);
       try {
         const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+        const coinKey = position.coin.toUpperCase();
+        setPendingFlatCoins((prev) => new Set(prev).add(coinKey));
         await closePosition({
           coin: position.coin,
           size,
@@ -244,7 +267,14 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         });
         setCloseNotice(null);
         onPositionChange?.();
-        await refreshAccount({ forceHeavy: true });
+        await Promise.all([
+          refreshHlSnap(),
+          refreshAccount({ forceHeavy: true }),
+        ]);
+        window.setTimeout(() => {
+          void refreshHlSnap();
+          void refreshAccount({ forceHeavy: true });
+        }, 1_200);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Close failed';
         setCloseNotice(msg);

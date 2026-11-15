@@ -294,8 +294,9 @@ const TerminalTradePanel: React.FC<Props> = ({
         profitUsd,
         walletAddress: closeWallet,
       });
-      void refreshHlOpenSnap();
+      await refreshHlOpenSnap();
       onRefresh();
+      window.setTimeout(() => void refreshHlOpenSnap(), 1_200);
     } finally {
       setClosingHlCoin(null);
     }

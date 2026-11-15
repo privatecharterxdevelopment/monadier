@@ -288,14 +288,21 @@ const ProTradeDock: React.FC<Props> = ({
   const liveAccountPositions = useMemo(() => {
     const fromAccount = account?.positions ?? [];
     const fromSnap = hlSnap?.positions ?? [];
-    const hasMeaningful = (list: HlPosition[]) =>
-      list.some(
+    const meaningful = (list: HlPosition[]) =>
+      list.filter(
         (p) => isMeaningfulHlPosition(p.szi, p.entryPx) || isHlDustPosition(p.szi, p.entryPx)
       );
-    if (hasMeaningful(fromAccount)) return fromAccount;
-    if (fromSnap.length > 0) return fromSnap;
-    return fromAccount;
-  }, [account?.positions, hlSnap?.positions]);
+    const snapList = meaningful(fromSnap);
+    const acctList = meaningful(fromAccount);
+
+    // Shared HL snapshot poller is source of truth — stale account poll must not ghost opens.
+    if (hlSnap != null) {
+      if (snapList.length > 0 || hlSnap.openPositionsCount === 0) return snapList;
+      if (acctList.length > 0) return acctList;
+      return snapList;
+    }
+    return acctList.length > 0 ? acctList : fromAccount;
+  }, [account?.positions, hlSnap]);
 
   const scopedPositions = useMemo(
     () => filterHlPositions(liveAccountPositions, managedCoins, scope),
@@ -490,17 +497,7 @@ const ProTradeDock: React.FC<Props> = ({
     return list.filter((p) => p.coin.toLowerCase().includes(q));
   }, [scopedPositions, search]);
 
-  /** When HL has opens but scoped list is empty (stale tags / rate limit), still show the live book. */
-  const positionsForTable = useMemo(() => {
-    if (filteredPositions.length > 0) return filteredPositions;
-    if (!isBotMode || hlOpenPositionCount <= 0) return filteredPositions;
-    const fallback = liveAccountPositions.filter(
-      (p) => isMeaningfulHlPosition(p.szi, p.entryPx) || isHlDustPosition(p.szi, p.entryPx)
-    );
-    const q = search.trim().toLowerCase();
-    if (!q) return fallback;
-    return fallback.filter((p) => p.coin.toLowerCase().includes(q));
-  }, [filteredPositions, isBotMode, hlOpenPositionCount, liveAccountPositions, search]);
+  const positionsForTable = useMemo(() => filteredPositions, [filteredPositions]);
 
   const livePnlByCoin = useMemo(() => {
     const map: Record<string, number> = {};

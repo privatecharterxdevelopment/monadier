@@ -31,6 +31,7 @@ let snapshot: HlAccountSnapshot | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pollIntervalMs = 12_000;
 let inFlight = false;
+let pendingFreshPoll = false;
 /** Require 2 consecutive empty reads before wiping a previously funded snapshot. */
 let emptyEquityStreak = 0;
 const listeners = new Set<Listener>();
@@ -91,7 +92,10 @@ function buildSnapshot(
 }
 
 async function pollOnce(wallet: string, fresh = false): Promise<void> {
-  if (inFlight) return;
+  if (inFlight) {
+    if (fresh) pendingFreshPoll = true;
+    return;
+  }
   inFlight = true;
   try {
     const [funding, acct] = await Promise.all([
@@ -133,16 +137,19 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
     const next = buildSnapshot(wallet, funding, acct);
     const nextEmpty = next.totalUsd < 0.01 && openCount === 0;
 
+    const prevHadOpens = (prev?.openPositionsCount ?? 0) > 0;
+    if (openCount === 0 && prevHadOpens && acct) {
+      // User closed — trust clearinghouse with zero opens even if equity still funded.
+      snapshot = buildSnapshot(wallet, funding, acct);
+      emptyEquityStreak = 0;
+      for (const listener of listeners) listener(snapshot);
+      return;
+    }
+
     if (prevFunded && nextEmpty) {
       emptyEquityStreak += 1;
       if (emptyEquityStreak < 5) {
-        // Keep equity briefly on a flaky $0 read — but NEVER keep ghost positions
-        // with a Close button (that produces "No HL position" after a real fill).
-        if (
-          prev &&
-          openCount === 0 &&
-          !(prev.openPositionsCount > 0 && prev.totalMarginUsedUsd >= 0.5)
-        ) {
+        if (prev && openCount === 0) {
           snapshot = {
             ...prev,
             positions: [],
@@ -186,6 +193,10 @@ async function pollOnce(wallet: string, fresh = false): Promise<void> {
     }
   } finally {
     inFlight = false;
+    if (pendingFreshPoll && activeWallet === wallet) {
+      pendingFreshPoll = false;
+      void pollOnce(wallet, true);
+    }
   }
 }
 
