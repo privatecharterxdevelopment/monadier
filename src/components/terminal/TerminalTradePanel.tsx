@@ -86,6 +86,10 @@ import {
   reconcilePendingFlatCoins,
 } from '../../lib/hyperliquid/pendingFlatPositions';
 import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import {
+  beginHlManualClose,
+  endHlManualClose,
+} from '../../lib/hyperliquid/hlCloseInFlight';
 import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
 import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
 import type { AgentPanelView, TradePanelTab } from '../protrade/tradePanelTypes';
@@ -306,9 +310,11 @@ const TerminalTradePanel: React.FC<Props> = ({
       toNum(position.entryPx);
     if (size <= 0) return;
     const coinKey = position.coin.toUpperCase();
+    if (!beginHlManualClose(closeWallet, coinKey)) return;
     setPendingFlatCoins((prev) => markCoinPendingFlat(prev, coinKey));
     setClosingHlCoin(coinKey);
     const profitUsd = toNum(position.unrealizedPnl);
+    const leverage = Math.max(1, toNum(position.leverage?.value));
     void closePosition({
       coin: position.coin,
       size,
@@ -316,6 +322,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       markPx: markPx > 0 ? markPx : 1,
       entryPx: toNum(position.entryPx),
       profitUsd,
+      leverage,
       walletAddress: closeWallet,
     })
       .then(() => {
@@ -333,6 +340,7 @@ const TerminalTradePanel: React.FC<Props> = ({
       })
       .finally(() => {
         setClosingHlCoin((c) => (c === coinKey ? null : c));
+        endHlManualClose(closeWallet, coinKey);
       });
   };
 

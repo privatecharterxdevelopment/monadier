@@ -16,6 +16,10 @@ import { registerBotStopSaver } from '../../lib/botStopSaver';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { fetchHlAccountState, type HlPosition } from '../../lib/hyperliquid/user';
 import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import {
+  beginHlManualClose,
+  endHlManualClose,
+} from '../../lib/hyperliquid/hlCloseInFlight';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -166,7 +170,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
   const positions = exchangeSnapshot?.positions ?? dockAccount?.positions ?? [];
   const markPrices = exchangeSnapshot?.marks ?? {};
   const exchangeDataStale = exchangeSnapshot?.stale ?? false;
-  const { closePosition, busy: closeBusy, error: closeError } =
+  const { closePosition, error: closeError } =
     useHyperliquidTrading();
   const [closeNotice, setCloseNotice] = useState<string | null>(null);
 
@@ -253,9 +257,11 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         return;
       }
       const coinKey = position.coin.toUpperCase();
+      if (!beginHlManualClose(closeWallet, coinKey)) return;
       setCloseNotice(null);
       setPendingFlatCoins((prev) => new Set(prev).add(coinKey));
       const profitUsd = toNum(position.unrealizedPnl);
+      const leverage = Math.max(1, toNum(position.leverage?.value));
       void closePosition({
         coin: position.coin,
         size,
@@ -263,6 +269,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         markPx,
         entryPx: toNum(position.entryPx),
         profitUsd,
+        leverage,
         walletAddress: closeWallet,
       })
         .then(() => {
@@ -281,7 +288,8 @@ const ProTradeHlBotDock: React.FC<Props> = ({
           });
           const msg = err instanceof Error ? err.message : 'Close failed';
           setCloseNotice(msg);
-        });
+        })
+        .finally(() => endHlManualClose(closeWallet, coinKey));
     },
     [closePosition, hlWallet, positionsWallet, markPrices, refreshAccount, onPositionChange]
   );
@@ -328,7 +336,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         activeTab={dockTab}
         onTabChange={handleDockTabChange}
         onCoinClick={onCoinClick}
-        actionBusy={closeBusy}
+        actionBusy={false}
         onClosePosition={(p) => void handleClosePosition(p)}
         configuredLeverage={configuredLeverage}
         stopLossMarginPct={stopLossMarginPct}

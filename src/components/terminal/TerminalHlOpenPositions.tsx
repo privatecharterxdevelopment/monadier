@@ -160,7 +160,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
                   <button
                     type="button"
                     className="term-dock-close-btn"
-                    disabled={closeBusy || isClosing}
+                    disabled={isClosing}
                     onClick={() => onClose(p)}
                     title="Close position — bot keeps running"
                   >
@@ -244,7 +244,7 @@ const TerminalHlOpenPositions: React.FC<Props> = ({
               <button
                 type="button"
                 className="hl-dock-action hl-pos-card__close"
-                disabled={closeBusy || isClosing}
+                disabled={isClosing}
                 onClick={() => onClose(p)}
               >
                 {isClosing ? '…' : 'Close'}

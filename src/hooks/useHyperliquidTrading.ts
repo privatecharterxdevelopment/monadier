@@ -282,6 +282,7 @@ export function useHyperliquidTrading() {
       markPx: number;
       entryPx?: number;
       profitUsd?: number;
+      leverage?: number;
       walletAddress?: string;
     }) => {
       let wallet = opts.walletAddress?.toLowerCase();
@@ -303,6 +304,8 @@ export function useHyperliquidTrading() {
         isLong: opts.isLong,
         entryPx: opts.entryPx ?? opts.markPx,
         unrealizedPnlUsd: opts.profitUsd,
+        markPx: opts.markPx,
+        leverage: opts.leverage,
       });
     },
     [resolveWallet]

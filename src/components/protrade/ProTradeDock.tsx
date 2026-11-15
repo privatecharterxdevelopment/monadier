@@ -860,7 +860,6 @@ const ProTradeDock: React.FC<Props> = ({
                         <button
                           type="button"
                           className="hl-dock-action"
-                          disabled={actionBusy}
                           onClick={() => onClosePosition?.(p)}
                         >
                           Close

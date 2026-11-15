@@ -526,6 +526,8 @@ const healthServer = http.createServer(async (req, res) => {
       const reasonNote = String(body.reason ?? '').trim();
       const reason = 'manual';
       const sizeAbs = Number(body.size);
+      const markPxBody = Number(body.markPx);
+      const leverageBody = Number(body.leverage);
       const isLongRaw = body.isLong;
       const isLongBody =
         typeof isLongRaw === 'boolean'
@@ -553,7 +555,9 @@ const healthServer = http.createServer(async (req, res) => {
       const hasUiSize =
         Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody === 'boolean';
       // Close: DB approval only when UI sent size (instant path — no HL extraAgents poll).
-      let dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
+      let dbApproved = hasUiSize
+        ? await hlAgentApprovalService.isApprovedForClose(wallet, agentAddr)
+        : await hlAgentApprovalService.isApproved(wallet, agentAddr);
       if (!dbApproved && !hasUiSize) {
         const agents = await fetchHlExtraAgents(wallet);
         const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
@@ -597,7 +601,11 @@ const healthServer = http.createServer(async (req, res) => {
               isLong: isLongBody,
               entryPx: Number.isFinite(entryPxBody) ? entryPxBody : 0,
               unrealizedPnlUsd: Number.isFinite(unrealizedPnlBody) ? unrealizedPnlBody : 0,
-              leverage: 10,
+              markPx: Number.isFinite(markPxBody) && markPxBody > 0 ? markPxBody : 0,
+              leverage:
+                Number.isFinite(leverageBody) && leverageBody > 0
+                  ? Math.floor(leverageBody)
+                  : 10,
             }
           : undefined;
 

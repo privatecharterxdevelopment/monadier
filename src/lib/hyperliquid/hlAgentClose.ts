@@ -52,6 +52,8 @@ export async function closeHlPositionViaAgent(params: {
   isLong?: boolean;
   entryPx?: number;
   unrealizedPnlUsd?: number;
+  markPx?: number;
+  leverage?: number;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const coin = params.coin.toUpperCase();
@@ -67,9 +69,15 @@ export async function closeHlPositionViaAgent(params: {
   if (params.unrealizedPnlUsd != null && Number.isFinite(params.unrealizedPnlUsd)) {
     body.unrealizedPnlUsd = params.unrealizedPnlUsd;
   }
+  if (params.markPx != null && Number.isFinite(params.markPx) && params.markPx > 0) {
+    body.markPx = params.markPx;
+  }
+  if (params.leverage != null && Number.isFinite(params.leverage) && params.leverage > 0) {
+    body.leverage = params.leverage;
+  }
 
   let lastErr: Error | null = null;
-  const maxAttempts = 6;
+  const maxAttempts = 3;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let res: Response;
     try {
@@ -82,7 +90,7 @@ export async function closeHlPositionViaAgent(params: {
       if (isNetworkCloseError(err)) {
         lastErr = new Error('Network error — check Wi‑Fi/VPN, then retry close.');
         if (attempt < maxAttempts - 1) {
-          await sleep(500 + attempt * 400);
+          await sleep(120 + attempt * 180);
           continue;
         }
         throw lastErr;
@@ -104,7 +112,7 @@ export async function closeHlPositionViaAgent(params: {
     } catch {
       lastErr = closeAgentError(res, json);
       if (attempt < maxAttempts - 1) {
-        await sleep(500 + attempt * 400);
+        await sleep(120 + attempt * 180);
         continue;
       }
       throw lastErr;
@@ -131,7 +139,7 @@ export async function closeHlPositionViaAgent(params: {
     const retryable =
       res.status === 429 || isRetryableCloseError(lastErr.message);
     if (retryable && attempt < maxAttempts - 1) {
-      await sleep(600 + attempt * 500);
+      await sleep(150 + attempt * 200);
       continue;
     }
     throw lastErr;

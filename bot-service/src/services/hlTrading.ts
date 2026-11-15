@@ -2196,6 +2196,7 @@ export class HyperliquidTradingService {
       size: number;
       leverage: number;
       isLong?: boolean;
+      markPx?: number;
     },
     reasonDetail?: string
   ): Promise<{ success: boolean; error?: string; alreadyClosed?: boolean }> {
@@ -2220,6 +2221,13 @@ export class HyperliquidTradingService {
         entryPx = closeCtx!.entryPx ?? 0;
         pnlUsd = closeCtx!.unrealizedPnlUsd ?? 0;
         leverage = closeCtx!.leverage ?? 10;
+        if (Number.isFinite(closeCtx!.markPx) && (closeCtx!.markPx ?? 0) > 0) {
+          logger.info('HL instant manual close — UI mark (skip mids wait)', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            markPx: closeCtx!.markPx,
+          });
+        }
         logger.info('HL instant manual close — order first (no clearinghouse gate)', {
           user: userAddress.slice(0, 10),
           coin: coinUpper,
@@ -2321,8 +2329,18 @@ export class HyperliquidTradingService {
         return { success: false, error: 'Stop loss skipped while in profit' };
       }
 
+      const uiMark =
+        instantManual &&
+        closeCtx != null &&
+        Number.isFinite(closeCtx.markPx) &&
+        (closeCtx.markPx ?? 0) > 0
+          ? closeCtx.markPx!
+          : 0;
       const metaPromise = fetchHlMeta();
-      const midsPromise = fetchHlAllMids();
+      const midsPromise =
+        uiMark > 0
+          ? Promise.resolve({ [coinUpper]: String(uiMark) } as Record<string, string>)
+          : fetchHlAllMids();
       const builderPromise =
         pnlUsd > 0 && !instantManual
           ? checkHlBuilderFeeApproved(userAddress)
@@ -2334,7 +2352,7 @@ export class HyperliquidTradingService {
       ]);
       const assetIndex = coinToAssetIndex(meta, coinUpper);
       const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
-      const markPx = Number(mids[coinUpper] ?? mids[coin] ?? 0);
+      const markPx = uiMark > 0 ? uiMark : Number(mids[coinUpper] ?? mids[coin] ?? 0);
       if (!Number.isFinite(markPx) || markPx <= 0) {
         return { success: false, error: 'Could not read mark price — try again' };
       }
@@ -2393,9 +2411,13 @@ export class HyperliquidTradingService {
       let result: Awaited<ReturnType<typeof submitClose>> | undefined;
       let status: { filled?: unknown; error?: string } | undefined;
       let lastSubmitErr: string | null = null;
-      const maxAttempts = reason === 'manual' ? 8 : 2;
+      const maxAttempts = instantManual ? 4 : reason === 'manual' ? 6 : 2;
       const retryDelayMs = (attempt: number) =>
-        reason === 'manual' ? 400 + attempt * 350 : 1200 * (attempt + 1);
+        instantManual
+          ? 80 + attempt * 120
+          : reason === 'manual'
+            ? 250 + attempt * 250
+            : 1200 * (attempt + 1);
       const closeTraceMs = Date.now();
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {

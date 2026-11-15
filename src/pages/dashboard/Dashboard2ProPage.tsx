@@ -80,6 +80,10 @@ import {
   reconcilePendingFlatCoins,
 } from '../../lib/hyperliquid/pendingFlatPositions';
 import { scheduleHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import {
+  beginHlManualClose,
+  endHlManualClose,
+} from '../../lib/hyperliquid/hlCloseInFlight';
 import { clearHlInfoCache, clearHlUserInfoCache } from '../../lib/hyperliquid/hlInfoClient';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
@@ -694,8 +698,11 @@ const Dashboard2ProPageContent: React.FC = () => {
     const px = perpMarkPrices[position.coin] ?? perpMarkPx;
     if (size <= 0 || px <= 0) return;
     const wallet = (hlActiveWallet ?? address)?.toLowerCase();
+    if (!wallet) return;
     const coinKey = position.coin.toUpperCase();
+    if (!beginHlManualClose(wallet, coinKey)) return;
     setPendingFlatCoins((prev) => markCoinPendingFlat(prev, coinKey));
+    const leverage = Math.max(1, toNum(position.leverage?.value));
     void closePosition({
       coin: position.coin,
       size,
@@ -703,6 +710,7 @@ const Dashboard2ProPageContent: React.FC = () => {
       markPx: px,
       entryPx: toNum(position.entryPx),
       profitUsd: toNum(position.unrealizedPnl),
+      leverage,
       walletAddress: wallet,
     })
       .then(() => {
@@ -719,7 +727,8 @@ const Dashboard2ProPageContent: React.FC = () => {
         });
         const msg = err instanceof Error ? err.message : 'Close failed';
         showToast(msg, 'err');
-      });
+      })
+      .finally(() => endHlManualClose(wallet, coinKey));
   };
 
   const openBotHistory = (_tradeId?: string) => {
