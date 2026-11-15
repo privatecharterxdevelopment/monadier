@@ -119,11 +119,7 @@ export function isSameCoinOpenBlockedSync(
   return evaluateBlock(mem, coin, direction, opts);
 }
 
-/**
- * Wallet-wide 10m still applies to SHORT / TREND_LONG / other coins.
- * REVERSAL_LONG may skip stacking that 10m only when the wallet's last close
- * *is* this coin's SHORT (2m opposite floor already applied).
- */
+/** Same-coin anti-flip / re-entry only — no wallet-wide pause (HL_REENTRY_COOLDOWN_MS ignored for opens). */
 export function isOpenCooldownBlocked(
   wallet: string,
   coin: string,
@@ -134,26 +130,7 @@ export function isOpenCooldownBlocked(
   if (coinGate.blocked) {
     return { blocked: true, reason: coinGate.reason, guard: 'same-coin' };
   }
-  const walletTs = hlLastBotCloseByWallet.get(wallet.toLowerCase()) ?? 0;
-  const walletGate = evaluateWalletReentry(walletTs);
-  if (!walletGate.blocked) {
-    return { blocked: false, guard: 'none' };
-  }
-  const mem = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
-  const reversalVsThisShort =
-    Boolean(opts?.reversalLong) &&
-    direction === 'LONG' &&
-    mem?.direction === 'SHORT' &&
-    walletTs > 0 &&
-    Math.abs(walletTs - mem.at) <= 1_000;
-  if (reversalVsThisShort) {
-    return { blocked: false, guard: 'none' };
-  }
-  return {
-    blocked: true,
-    reason: walletGate.reason,
-    guard: 'wallet',
-  };
+  return { blocked: false, guard: 'none' };
 }
 
 export async function isSameCoinOpenBlocked(
@@ -260,27 +237,7 @@ export async function isOpenCooldownBlockedAsync(
       return { blocked: true, reason: coinGate.reason, guard: 'same-coin' };
     }
   }
-  const walletTs = await resolveWalletLastBotCloseMs(wallet);
-  const walletGate = evaluateWalletReentry(walletTs);
-  if (!walletGate.blocked) {
-    return { blocked: false, guard: 'none' };
-  }
-  const memSync = hlLastCloseByCoin.get(coinCloseKey(wallet, coin));
-  const reversalVsThisShort =
-    Boolean(opts?.reversalLong) &&
-    direction === 'LONG' &&
-    memSync?.direction === 'SHORT' &&
-    walletTs > 0 &&
-    memSync &&
-    Math.abs(walletTs - memSync.at) <= 1_000;
-  if (reversalVsThisShort) {
-    return { blocked: false, guard: 'none' };
-  }
-  return {
-    blocked: true,
-    reason: walletGate.reason,
-    guard: 'wallet',
-  };
+  return { blocked: false, guard: 'none' };
 }
 
 /** Warm in-memory cache from DB for one wallet (one query per trading cycle). */

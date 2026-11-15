@@ -285,8 +285,10 @@ export function pickCoinTrendCandidate<T extends ScoredSignal>(
   if (long && !short) return { direction: 'LONG', candidate: long };
   if (short && !long) return { direction: 'SHORT', candidate: short };
 
-  const longScore = signalQualityScore(long);
-  const shortScore = signalQualityScore(short);
+  const longPick = long!;
+  const shortPick = short!;
+  const longScore = signalQualityScore(longPick);
+  const shortScore = signalQualityScore(shortPick);
   if (Math.abs(longScore - shortScore) < 0.5) {
     return {
       direction: 'WAIT',
@@ -294,6 +296,6 @@ export function pickCoinTrendCandidate<T extends ScoredSignal>(
       waitReason: `LONG vs SHORT tie (scores ${longScore.toFixed(1)} / ${shortScore.toFixed(1)})`,
     };
   }
-  if (longScore > shortScore) return { direction: 'LONG', candidate: long };
-  return { direction: 'SHORT', candidate: short };
+  if (longScore > shortScore) return { direction: 'LONG', candidate: longPick };
+  return { direction: 'SHORT', candidate: shortPick };
 }

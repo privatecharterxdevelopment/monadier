@@ -244,9 +244,10 @@ export function solIncidentScenario(): SimScenario {
       { tMs: t0 + 4_000, mark: 86.25 },
       { tMs: t0 + 5_000, mark: 86.1 },
       { tMs: t0 + 8_000, mark: 85.8 },
-      { tMs: t0 + 12_000, mark: 86.0 },
-      { tMs: t0 + 16_000, mark: 86.2 },
-      { tMs: t0 + 20_000, mark: 86.518 },
+      { tMs: t0 + 46_000, mark: 86.08 },
+      { tMs: t0 + 52_000, mark: 86.0 },
+      { tMs: t0 + 56_000, mark: 86.2 },
+      { tMs: t0 + 60_000, mark: 86.518 },
     ],
   };
 }
@@ -269,8 +270,9 @@ export function longBtcRunScenario(): SimScenario {
       { tMs: t0 + 2_000, mark: 60_120 },
       { tMs: t0 + 4_000, mark: 60_400 },
       { tMs: t0 + 8_000, mark: 61_200 },
-      { tMs: t0 + 12_000, mark: 61_000 },
-      { tMs: t0 + 16_000, mark: 60_800 },
+      { tMs: t0 + 46_000, mark: 60_420 },
+      { tMs: t0 + 52_000, mark: 61_000 },
+      { tMs: t0 + 56_000, mark: 60_800 },
     ],
   };
 }
@@ -293,6 +295,7 @@ export function shortEthEarlyGreenScenario(): SimScenario {
       { tMs: t0 + 2_000, mark: 3_198.8 },
       { tMs: t0 + 4_000, mark: 3_190 },
       { tMs: t0 + 8_000, mark: 3_185 },
+      { tMs: t0 + 46_000, mark: 3_188 },
     ],
   };
 }

@@ -69,14 +69,14 @@ describe('post-close cooldown (wallet-wide off by default, 1h same-coin)', () =>
     assert.equal(reversal.blocked, false);
   });
 
-  it('wallet-wide 1h blocks SHORT and TREND_LONG on another coin after any close', () => {
+  it('does not wallet-block another coin after a close (same-coin rules only)', () => {
     const wallet = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
     rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 3 * 60_000);
     const shortBtc = isOpenCooldownBlocked(wallet, 'BTC', 'SHORT');
-    assert.equal(shortBtc.blocked, true);
-    assert.equal(shortBtc.guard, 'wallet');
+    assert.equal(shortBtc.blocked, false);
+    assert.equal(shortBtc.guard, 'none');
     const trendLong = isOpenCooldownBlocked(wallet, 'BTC', 'LONG');
-    assert.equal(trendLong.blocked, true);
+    assert.equal(trendLong.blocked, false);
     const sameEth = isOpenCooldownBlocked(wallet, 'ETH', 'SHORT');
     assert.equal(sameEth.blocked, true);
     assert.equal(sameEth.guard, 'same-coin');
@@ -89,13 +89,13 @@ describe('post-close cooldown (wallet-wide off by default, 1h same-coin)', () =>
     assert.equal(r.blocked, false);
   });
 
-  it('REVERSAL_LONG on BTC still waits wallet 1h if last close was another coin', () => {
+  it('REVERSAL_LONG on BTC allowed when 2m passed even if another coin closed recently', () => {
     const wallet = '0x1111111111111111111111111111111111111111';
     rememberCoinClose(wallet, 'BTC', 'SHORT', Date.now() - 58 * 60_000);
     rememberCoinClose(wallet, 'ETH', 'SHORT', Date.now() - 60_000);
     const r = isOpenCooldownBlocked(wallet, 'BTC', 'LONG', { reversalLong: true });
-    assert.equal(r.blocked, true);
-    assert.equal(r.guard, 'wallet');
+    assert.equal(r.blocked, false);
+    assert.equal(r.guard, 'none');
     const eth = isOpenCooldownBlocked(wallet, 'ETH', 'SHORT');
     assert.equal(eth.blocked, true);
     assert.equal(eth.guard, 'same-coin');

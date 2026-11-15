@@ -16,7 +16,7 @@ describe('profit SL simulations', () => {
     const scenario = solIncidentScenario();
     const result = await runProfitSlSimulation(scenario);
 
-    assert.equal(explainWouldArmAt(scenario, 86.1, 6_000), true);
+    assert.equal(explainWouldArmAt(scenario, 86.1, 46_000), true);
     assert.equal(explainWouldArmAt(scenario, 86.448, 0), false);
 
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
@@ -35,7 +35,7 @@ describe('profit SL simulations', () => {
     const result = await runProfitSlSimulation(longBtcRunScenario());
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
     assert.ok(firstGreen);
-    assert.equal(explainWouldArmAt(longBtcRunScenario(), 60_400, 6_000), true);
+    assert.equal(explainWouldArmAt(longBtcRunScenario(), 60_400, 46_000), true);
     assert.equal(result.stopNeverWorsened, true);
     const stops = result.ticks.map((t) => t.stopPx).filter((s): s is number => s != null);
     for (let i = 1; i < stops.length; i += 1) {
@@ -45,7 +45,7 @@ describe('profit SL simulations', () => {
 
   it('ETH SHORT: would-arm after net-green + hold', async () => {
     const scenario = shortEthEarlyGreenScenario();
-    assert.equal(explainWouldArmAt(scenario, 3190, 6_000), true);
+    assert.equal(explainWouldArmAt(scenario, 3190, 46_000), true);
     const result = await runProfitSlSimulation(scenario);
     const firstGreen = result.ticks.find((t) => t.pnlUsd > 0);
     assert.ok(firstGreen);

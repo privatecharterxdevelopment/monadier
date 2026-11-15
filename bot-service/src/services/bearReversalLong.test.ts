@@ -341,7 +341,7 @@ describe('bear reversal LONG classifier', () => {
         absSize: 2,
         feesUsd: fees,
         tickSize: 0.01,
-        timeInProfitMs: 6_000,
+        timeInProfitMs: 46_000,
         collateralUsd: 10,
         notionalUsd: 200,
       }),

@@ -165,7 +165,7 @@ describe('evaluateDynamicTrail Variant D path', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 2_000,
+        nowMs: t0 + 46_000,
         pnlUsd: pnl,
         markPrice: mark,
         record: warm.record,

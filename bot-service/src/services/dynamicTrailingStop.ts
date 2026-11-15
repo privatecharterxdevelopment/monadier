@@ -968,12 +968,27 @@ export function shouldArmBreakevenProtection(input: {
   tickSize?: number;
   szDecimals?: number;
 }): boolean {
-  return shouldArmProfitProtection(
-    input.pnlUsd,
-    input.collateralUsd ?? 0,
-    input.feesUsd,
-    input.notionalUsd ?? 0
-  );
+  void input.direction;
+  void input.markPrice;
+  void input.entryPrice;
+  void input.absSize;
+  void input.fundingUsd;
+  void input.tickSize;
+  void input.szDecimals;
+  const notional = input.notionalUsd ?? 0;
+  const minLock = minProfitLockUsd(notional);
+  const net = netPnlForProfitArm(input.pnlUsd, notional, input.feesUsd);
+  const armFloor = profitArmFloorUsd(minLock, net, input.pnlUsd);
+  if (input.pnlUsd <= 0 || net < armFloor) return false;
+  const armHoldMs = config.hyperliquid.dynamicTrail.armMinProfitHoldMs ?? 0;
+  if (
+    input.timeInProfitMs != null &&
+    armHoldMs > 0 &&
+    input.timeInProfitMs < armHoldMs
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function resolveEffectiveTrailProfile(leverage = 1) {

@@ -703,23 +703,6 @@ export class HyperliquidTradingService {
       return 'skip';
     }
 
-    const cooldownMs = config.hyperliquid.reentryCooldownMs;
-    const lastClose = await resolveWalletLastBotCloseMs(userAddress);
-    if (cooldownMs > 0 && lastClose > 0 && Date.now() - lastClose < cooldownMs) {
-      const waitSec = Math.ceil((cooldownMs - (Date.now() - lastClose)) / 1000);
-      const waitMin = Math.max(1, Math.ceil(waitSec / 60));
-      noteHlOpenSkipReason(
-        userAddress,
-        `Wallet re-entry pause — ~${waitMin}m left (set HL_REENTRY_COOLDOWN_MS=0 on Railway to disable)`
-      );
-      logger.info('HL open skip: wallet reentry cooldown after close', {
-        user: userAddress.slice(0, 10),
-        waitSec,
-        openSlotsInUse: openCoins.length,
-      });
-      return openCoins.length > 0 ? 'ok' : 'skip';
-    }
-
     let stateRef = state;
     let fundingRef = funding;
     let coinsOpen = [...openCoins];

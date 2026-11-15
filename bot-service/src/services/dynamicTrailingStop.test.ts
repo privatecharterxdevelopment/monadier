@@ -56,7 +56,6 @@ describe('profit SL architecture', () => {
         absSize: 1,
         feesUsd: fees,
         tickSize: 0.01,
-        timeInProfitMs: 0,
         collateralUsd: 5,
         notionalUsd: 100,
       }),
@@ -105,7 +104,7 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 6_000,
+        nowMs: t0 + 46_000,
         pnlUsd: 0.5,
         markPrice: 99.5,
         record: warm.record,
@@ -128,7 +127,7 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       longTick({
-        nowMs: t0 + 6_000,
+        nowMs: t0 + 46_000,
         pnlUsd: 0.5,
         markPrice: 100.5,
         record: warm.record,
@@ -162,22 +161,22 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 5_000,
+        nowMs: t0 + 46_000,
         pnlUsd: 0.6,
         markPrice: 99.4,
         record: warm.record,
-        totalHoldMs: 5_000,
+        totalHoldMs: 46_000,
       })
     );
     const first = armed.record.currentTrailStop as number;
 
     const ran = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 6_000,
+        nowMs: t0 + 47_000,
         pnlUsd: 2.4,
         markPrice: 97.6,
         record: armed.record,
-        totalHoldMs: 6_000,
+        totalHoldMs: 47_000,
       })
     );
     const afterRun = ran.record.currentTrailStop as number;
@@ -186,11 +185,11 @@ describe('profit SL architecture', () => {
 
     const pullback = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 8_000,
+        nowMs: t0 + 49_000,
         pnlUsd: 0.4,
         markPrice: 99.0,
         record: ran.record,
-        totalHoldMs: 8_000,
+        totalHoldMs: 49_000,
       })
     );
     assert.ok(
@@ -206,7 +205,7 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 6_000,
+        nowMs: t0 + 46_000,
         pnlUsd: 0.9,
         markPrice: 99.1,
         record: warm.record,
@@ -216,7 +215,7 @@ describe('profit SL architecture', () => {
     const stop = armed.record.currentTrailStop as number;
     const tagged = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 12_000,
+        nowMs: t0 + 52_000,
         pnlUsd: 0.85,
         markPrice: stop + 0.02,
         record: armed.record,
@@ -236,21 +235,21 @@ describe('profit SL architecture', () => {
     );
     const armed = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 5_000,
+        nowMs: t0 + 46_000,
         pnlUsd: 0.9,
         markPrice: 99.1,
         record: warm.record,
-        totalHoldMs: 5_000,
+        totalHoldMs: 46_000,
       })
     );
     const stop = armed.record.currentTrailStop as number;
     const red = await evaluateDynamicTrail(
       shortTick({
-        nowMs: t0 + 12_000,
+        nowMs: t0 + 52_000,
         pnlUsd: -0.4,
         markPrice: stop + 0.2,
         record: armed.record,
-        totalHoldMs: 12_000,
+        totalHoldMs: 52_000,
       })
     );
     assert.equal(red.shouldClose, false);
