@@ -1,5 +1,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
@@ -8,7 +10,9 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
+ARG GIT_COMMIT=unknown
 ENV NODE_ENV=production
+ENV GIT_COMMIT=$GIT_COMMIT
 # DejaVu fallback + bundled Montserrat/Open Sans for HQ flyers
 RUN apk add --no-cache font-dejavu
 COPY package.json package-lock.json ./
