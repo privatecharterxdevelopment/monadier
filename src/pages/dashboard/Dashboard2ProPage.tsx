@@ -74,6 +74,13 @@ import { getProTradeChartColors } from '../../lib/proTradeTheme';
 import { PlatformFeeProvider } from '../../contexts/PlatformFeeContext';
 import { BettingFeeProvider } from '../../contexts/BettingFeeContext';
 import { consumeRegisterEmail, peekRegisterEmail } from '../../lib/appUrls';
+import {
+  filterPositionsPendingFlat,
+  markCoinPendingFlat,
+  reconcilePendingFlatCoins,
+} from '../../lib/hyperliquid/pendingFlatPositions';
+import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
+import { clearHlInfoCache, clearHlUserInfoCache } from '../../lib/hyperliquid/hlInfoClient';
 
 const PROFILE_TABS = new Set<ProTradeProfileTab>([
   'identity',
@@ -124,6 +131,7 @@ const Dashboard2ProPageContent: React.FC = () => {
   const [buyUsdcOpen, setBuyUsdcOpen] = useState(() => initialSection === 'buy');
   const [transferOpen, setTransferOpen] = useState(false);
   const [perpDockTab, setPerpDockTab] = useState<ProTradeDockTab>('positions');
+  const [pendingFlatCoins, setPendingFlatCoins] = useState<Set<string>>(() => new Set());
   const [botDockTab, setBotDockTab] = useState<HlBotDockTab>('positions');
   const [toast, setToast] = useState<{ message: string; variant: 'ok' | 'err' | 'info' } | null>(
     null
@@ -197,9 +205,13 @@ const Dashboard2ProPageContent: React.FC = () => {
     [account?.positions, botManagedCoins]
   );
 
-  const manualPositions = useMemo(
+  const manualPositionsRaw = useMemo(
     () => filterHlPositions(account?.positions, botManagedCoins, 'manual'),
     [account?.positions, botManagedCoins]
+  );
+  const manualPositions = useMemo(
+    () => filterPositionsPendingFlat(manualPositionsRaw, pendingFlatCoins) ?? [],
+    [manualPositionsRaw, pendingFlatCoins]
   );
 
   const botChartCoin = section === 'bot' ? perpCoin : undefined;
@@ -223,6 +235,16 @@ const Dashboard2ProPageContent: React.FC = () => {
   const { snapshot: perpHlSnapshot, refresh: refreshHlSnapshot } = useHlAccountSnapshot(
     (hlActiveWallet ?? address)?.toLowerCase()
   );
+
+  useEffect(() => {
+    if (pendingFlatCoins.size === 0) return;
+    const liveCoins = [
+      ...(account?.positions ?? []).map((p) => p.coin),
+      ...(perpHlSnapshot?.positions ?? []).map((p) => p.coin),
+    ];
+    setPendingFlatCoins((prev) => reconcilePendingFlatCoins(prev, liveCoins));
+  }, [account?.positions, perpHlSnapshot?.positions, pendingFlatCoins.size]);
+
   const perpWithdrawable = toNum(account?.withdrawable);
   const hlTotalUsd = Math.max(
     perpHlSnapshot?.totalUsd ?? 0,
@@ -628,6 +650,9 @@ const Dashboard2ProPageContent: React.FC = () => {
   }, [section]);
 
   const handleRefreshAll = async () => {
+    const w = (hlActiveWallet ?? address)?.toLowerCase();
+    if (w) clearHlUserInfoCache(w);
+    clearHlInfoCache();
     await Promise.all([
       perpMarket.refresh(),
       refreshAccount({ forceHeavy: true }),
@@ -668,16 +693,30 @@ const Dashboard2ProPageContent: React.FC = () => {
     const isLong = toNum(position.szi) >= 0;
     const px = perpMarkPrices[position.coin] ?? perpMarkPx;
     if (size <= 0 || px <= 0) return;
-    const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
-    await closePosition({
-      coin: position.coin,
-      size,
-      isLong,
-      markPx: px,
-      entryPx: toNum(position.entryPx),
-      profitUsd,
-    });
-    void handleRefreshAll();
+    const wallet = (hlActiveWallet ?? address)?.toLowerCase();
+    setPendingFlatCoins((prev) => markCoinPendingFlat(prev, position.coin));
+    try {
+      await closePosition({
+        coin: position.coin,
+        size,
+        isLong,
+        markPx: px,
+        entryPx: toNum(position.entryPx),
+        profitUsd: toNum(position.unrealizedPnl),
+      });
+      await flushHlStateAfterTrade(wallet, {
+        refreshAccount,
+        refreshHlSnapshot,
+      });
+    } catch (err) {
+      setPendingFlatCoins((prev) => {
+        const next = new Set(prev);
+        next.delete(position.coin.toUpperCase());
+        return next;
+      });
+      const msg = err instanceof Error ? err.message : 'Close failed';
+      showToast(msg, 'err');
+    }
   };
 
   const openBotHistory = (_tradeId?: string) => {

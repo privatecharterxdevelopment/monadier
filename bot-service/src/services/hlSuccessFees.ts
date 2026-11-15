@@ -38,6 +38,8 @@ export async function recordHlBotClose(params: {
   closedAt?: string;
   /** Never accrue platform success fee (liquidations, even if one leg is green). */
   skipSuccessFee?: boolean;
+  /** When set (fill-backed net PnL), overrides collateral-based ROI %. */
+  profitLossPercent?: number;
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const { snapshot } = params;
@@ -56,7 +58,11 @@ export async function recordHlBotClose(params: {
         : 'accrued'
       : 'none';
   const pnlPct =
-    snapshot.collateralUsd > 0 ? (profitUsd / snapshot.collateralUsd) * 100 : 0;
+    params.profitLossPercent != null && Number.isFinite(params.profitLossPercent)
+      ? params.profitLossPercent
+      : snapshot.collateralUsd > 0
+        ? (profitUsd / snapshot.collateralUsd) * 100
+        : 0;
   const closedAt = params.closedAt ?? new Date().toISOString();
   const entryAmount = snapshot.collateralUsd;
   const exitAmount = entryAmount + profitUsd;

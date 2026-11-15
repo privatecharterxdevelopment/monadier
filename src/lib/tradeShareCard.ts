@@ -130,7 +130,7 @@ export function tradeShareInputFromCloseFill(
   const side = fillPositionDirection(fill);
   const closePrice = toNum(fill.px);
   const size = toNum(fill.sz);
-  const closedPnlUsd = toNum(fill.closedPnl);
+  const closedPnlUsd = toNum(fill.closedPnl) - toNum(fill.fee);
   return {
     displayName: opts.displayName,
     avatarUrl: opts.avatarUrl,

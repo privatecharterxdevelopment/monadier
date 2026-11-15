@@ -33,6 +33,8 @@ import { fetchMaxBuilderFee, resolveProTradeBuilderParam } from '../lib/hyperliq
 import { getHlBuilderConfig } from '../lib/hyperliquid/builderConfig';
 import { proratePositionProfitUsd } from '../lib/hyperliquid/proTradeBuilderFee';
 import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
+import { clearHlInfoCache, clearHlUserInfoCache } from '../lib/hyperliquid/hlInfoClient';
+import { requestTradeNotificationRefresh } from '../lib/tradeNotificationEvents';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
 
 export type ManualOrderResult = {
@@ -225,6 +227,10 @@ export function useHyperliquidTrading() {
         reduceOnly: opts.reduceOnly ?? false,
         profitUsd: opts.profitUsd,
       });
+      const wallet = (await resolveWallet()).account?.address?.toLowerCase();
+      if (wallet) clearHlUserInfoCache(wallet);
+      clearHlInfoCache();
+      requestTradeNotificationRefresh();
       return { outcome: classifyOrderPlacement(result) };
     },
     [resolveAsset, submitOrders]

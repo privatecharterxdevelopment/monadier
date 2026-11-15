@@ -7,7 +7,8 @@ import { fetchUserWalletAddresses } from '../lib/userWallets';
 import { resolveHlTradingWallet } from '../lib/hlTradingWallet';
 import { fetchUserPositions } from '../lib/userPositions';
 import { fetchHlUserFills } from '../lib/hyperliquid/user';
-import { sumHlRealizedPnlFromFills, countHlClosedFills } from '../lib/hyperliquid/hlPnl';
+import { aggregateHlCloseFills } from '../lib/hyperliquid/hlFillAggregate';
+import { summarizeHlClosedNetFromAggregated } from '../lib/hyperliquid/hlPnl';
 import {
   checkHlBotAgentApproved,
 } from '../lib/hyperliquid/hlBotAgent';
@@ -216,8 +217,9 @@ export function useTradingDashboardMetrics() {
       if (hlWalletForFills) {
         try {
           const fills = await fetchHlUserFills(hlWalletForFills, 500);
-          hlRealizedPnl = sumHlRealizedPnlFromFills(fills);
-          hlClosedFillCount = countHlClosedFills(fills);
+          const closedAgg = aggregateHlCloseFills(fills);
+          hlRealizedPnl = summarizeHlClosedNetFromAggregated(closedAgg).netPnl;
+          hlClosedFillCount = closedAgg.length;
         } catch {
           /* fills optional */
         }

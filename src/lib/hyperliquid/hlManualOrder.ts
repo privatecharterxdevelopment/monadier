@@ -1,4 +1,6 @@
 import { getBotApiBase } from '../signalService';
+import { clearHlInfoCache, clearHlUserInfoCache } from './hlInfoClient';
+import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
 import type { OrderSide, SimpleOrderKind } from './orders';
 
 type MarginMode = 'cross' | 'isolated';
@@ -22,6 +24,10 @@ async function postHlTradeApi<T>(
       json = {};
     }
     if (res.ok && json.success) {
+      const wallet = typeof body.wallet === 'string' ? body.wallet.toLowerCase() : '';
+      if (wallet) clearHlUserInfoCache(wallet);
+      clearHlInfoCache();
+      requestTradeNotificationRefresh();
       return json as T;
     }
     const raw = (json.error ?? '').replace(/\s*-\s*null\s*$/i, '').trim();

@@ -85,7 +85,7 @@ const TradeShareModal: React.FC<Props> = ({
 
   const shareText = useMemo(() => {
     const side = fillPositionDirection(fill);
-    const pnl = toNum(fill.closedPnl);
+    const pnl = toNum(fill.closedPnl) - toNum(fill.fee);
     const sign = pnl > 0 ? '+' : '';
     return `My ${fill.coin} ${side} on HyperGain: ${sign}${pnl.toFixed(2)} USD\n${referralUrl}`;
   }, [fill, referralUrl]);
@@ -130,7 +130,7 @@ const TradeShareModal: React.FC<Props> = ({
             userId,
             coin: fill.coin,
             side: fillPositionDirection(fill),
-            closedPnlUsd: toNum(fill.closedPnl),
+            closedPnlUsd: toNum(fill.closedPnl) - toNum(fill.fee),
             walletAddress: null,
           }).catch((err) => {
             console.warn('[tradeFlyer] upload failed', err);

@@ -15,6 +15,7 @@ import { snapLeverageToStep } from '../../lib/leverageLimits';
 import { registerBotStopSaver } from '../../lib/botStopSaver';
 import { toNum } from '../../lib/hyperliquid/parse';
 import { fetchHlAccountState, type HlPosition } from '../../lib/hyperliquid/user';
+import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
 import type { Dashboard2Metrics } from '../../hooks/useDashboard2Metrics';
 import ProTradeDock, { type ProTradeDockTab } from './ProTradeDock';
 
@@ -253,7 +254,7 @@ const ProTradeHlBotDock: React.FC<Props> = ({
       }
       setCloseNotice(null);
       try {
-        const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+        const profitUsd = toNum(position.unrealizedPnl);
         const coinKey = position.coin.toUpperCase();
         setPendingFlatCoins((prev) => new Set(prev).add(coinKey));
         await closePosition({
@@ -267,14 +268,10 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         });
         setCloseNotice(null);
         onPositionChange?.();
-        await Promise.all([
-          refreshHlSnap(),
-          refreshAccount({ forceHeavy: true }),
-        ]);
-        window.setTimeout(() => {
-          void refreshHlSnap();
-          void refreshAccount({ forceHeavy: true });
-        }, 1_200);
+        await flushHlStateAfterTrade(closeWallet, {
+          refreshAccount,
+          refreshHlSnap: () => refreshHlSnap(),
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Close failed';
         setCloseNotice(msg);

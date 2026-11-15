@@ -495,21 +495,35 @@ async function fetchHlInfoCached<T>(
 type HlRawFill = {
   coin?: string;
   closedPnl?: string | number;
+  fee?: string | number;
   time?: number;
   dir?: string;
 };
 
+export type HlCloseFillPnl = {
+  grossUsd: number;
+  feeUsd: number;
+  netUsd: number;
+};
+
+function isHlRawFillClose(dir: string, pnl: number): boolean {
+  return (
+    /^close/i.test(dir) ||
+    /long\s*>\s*short|short\s*>\s*long/i.test(dir) ||
+    (Number.isFinite(pnl) && pnl !== 0 && !/^open/i.test(dir))
+  );
+}
+
 /**
- * Sum HL fill `closedPnl` for a coin close — source of truth for emails /
- * notifications / success fees (uPnL at trigger time can diverge from fills).
+ * Net realized P/L from HL close fills — matches app trade history (closedPnl − fee).
  */
-export async function fetchHlCloseRealizedPnlUsd(opts: {
+export async function fetchHlCloseNetPnlUsd(opts: {
   userAddress: string;
   coin: string;
   /** Only fills at/after this ms (close order time − small slack). */
   sinceMs: number;
   lookbackMs?: number;
-}): Promise<number | null> {
+}): Promise<HlCloseFillPnl | null> {
   try {
     const res = await fetch(config.hyperliquid.infoUrl, {
       method: 'POST',
@@ -526,7 +540,8 @@ export async function fetchHlCloseRealizedPnlUsd(opts: {
 
     const coin = opts.coin.toUpperCase();
     const since = opts.sinceMs - (opts.lookbackMs ?? 15_000);
-    let sum = 0;
+    let gross = 0;
+    let fee = 0;
     let matched = 0;
     for (const f of fills) {
       if (String(f.coin ?? '').toUpperCase() !== coin) continue;
@@ -534,25 +549,36 @@ export async function fetchHlCloseRealizedPnlUsd(opts: {
       if (!Number.isFinite(t) || t < since) continue;
       const dir = String(f.dir ?? '');
       const pnl = Number(f.closedPnl ?? 0);
-      const isClose =
-        /^close/i.test(dir) ||
-        /long\s*>\s*short|short\s*>\s*long/i.test(dir) ||
-        (Number.isFinite(pnl) && pnl !== 0 && !/^open/i.test(dir));
-      if (!isClose) continue;
+      if (!isHlRawFillClose(dir, pnl)) continue;
       if (!Number.isFinite(pnl)) continue;
-      sum += pnl;
+      const fillFee = Number(f.fee ?? 0);
+      gross += pnl;
+      fee += Number.isFinite(fillFee) ? fillFee : 0;
       matched += 1;
     }
     if (matched === 0) return null;
-    return Math.round(sum * 1e6) / 1e6;
+    const net = gross - fee;
+    const round = (n: number) => Math.round(n * 1e6) / 1e6;
+    return { grossUsd: round(gross), feeUsd: round(fee), netUsd: round(net) };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn('HL close realized pnl fetch failed', {
+    logger.warn('HL close net pnl fetch failed', {
       coin: opts.coin,
       error: msg.slice(0, 160),
     });
     return null;
   }
+}
+
+/** @deprecated Use fetchHlCloseNetPnlUsd — gross only, diverges from UI history. */
+export async function fetchHlCloseRealizedPnlUsd(opts: {
+  userAddress: string;
+  coin: string;
+  sinceMs: number;
+  lookbackMs?: number;
+}): Promise<number | null> {
+  const row = await fetchHlCloseNetPnlUsd(opts);
+  return row ? row.grossUsd : null;
 }
 
 export function maxLeverageForCoin(

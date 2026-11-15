@@ -52,7 +52,7 @@ import { netHlClosePnl } from '../lib/hyperliquid/hlPnl';
 import { subscribeTradeNotificationRefresh } from '../lib/tradeNotificationEvents';
 
 const NOTIFICATION_POLL_MS = 25_000;
-const SILENT_RELOAD_DEBOUNCE_MS = 600;
+const SILENT_RELOAD_DEBOUNCE_MS = 280;
 const HL_CLOSE_FILL_KEY_CAP = 800;
 const BETTING_SYNC_MS = 5 * 60_000;
 const UNREAD_BADGE_CAP = 99;

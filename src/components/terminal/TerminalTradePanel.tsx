@@ -80,6 +80,12 @@ import TerminalHlOpenPositions from './TerminalHlOpenPositions';
 import ProTradeAgentManualTrade from './ProTradeAgentManualTrade';
 import type { HlPosition } from '../../lib/hyperliquid/user';
 import { toNum } from '../../lib/hyperliquid/parse';
+import {
+  filterPositionsPendingFlat,
+  markCoinPendingFlat,
+  reconcilePendingFlatCoins,
+} from '../../lib/hyperliquid/pendingFlatPositions';
+import { flushHlStateAfterTrade } from '../../lib/hyperliquid/tradeRefreshAfterHl';
 import TerminalBotAnalysisPanel from './TerminalBotAnalysisPanel';
 import { BotPanelTabBridge } from '../protrade/BotPanelTabBridge';
 import type { AgentPanelView, TradePanelTab } from '../protrade/tradePanelTypes';
@@ -180,7 +186,22 @@ const TerminalTradePanel: React.FC<Props> = ({
   const { snapshot: hlOpenSnap, refresh: refreshHlOpenSnap } = useHlAccountSnapshot(
     hlBalanceWallet?.toLowerCase()
   );
-  const openHlPositions = hlOpenSnap?.positions ?? [];
+  const [pendingFlatCoins, setPendingFlatCoins] = useState<Set<string>>(() => new Set());
+  const openHlPositionsRaw = hlOpenSnap?.positions ?? [];
+  const openHlPositions = useMemo(
+    () => filterPositionsPendingFlat(openHlPositionsRaw, pendingFlatCoins) ?? [],
+    [openHlPositionsRaw, pendingFlatCoins]
+  );
+
+  useEffect(() => {
+    if (pendingFlatCoins.size === 0) return;
+    setPendingFlatCoins((prev) =>
+      reconcilePendingFlatCoins(
+        prev,
+        openHlPositionsRaw.map((p) => p.coin)
+      )
+    );
+  }, [openHlPositionsRaw, pendingFlatCoins.size]);
   const { totalUsd: liveOpenUpnl } = useHlLiveUnrealizedPnl(openHlPositions);
   const openPositionsCountLive = openHlPositions.length;
   const displayUpnl =
@@ -284,7 +305,8 @@ const TerminalTradePanel: React.FC<Props> = ({
     if (size <= 0) return;
     setClosingHlCoin(position.coin);
     try {
-      const profitUsd = Math.max(0, toNum(position.unrealizedPnl));
+      setPendingFlatCoins((prev) => markCoinPendingFlat(prev, position.coin));
+      const profitUsd = toNum(position.unrealizedPnl);
       await closePosition({
         coin: position.coin,
         size,
@@ -294,9 +316,10 @@ const TerminalTradePanel: React.FC<Props> = ({
         profitUsd,
         walletAddress: closeWallet,
       });
-      await refreshHlOpenSnap();
+      await flushHlStateAfterTrade(closeWallet, {
+        refreshHlSnap: () => refreshHlOpenSnap(),
+      });
       onRefresh();
-      window.setTimeout(() => void refreshHlOpenSnap(), 1_200);
     } finally {
       setClosingHlCoin(null);
     }

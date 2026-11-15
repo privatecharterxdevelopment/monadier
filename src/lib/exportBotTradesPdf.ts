@@ -178,7 +178,10 @@ export async function exportBotTradesPdf({
     y += 4.5;
     doc.text(`Closed fills: ${closeFills.length}`, marginX, y);
 
-    const netPnl = closeFills.reduce((sum, f) => sum + toNum(f.closedPnl), 0);
+    const netPnl = closeFills.reduce(
+      (sum, f) => sum + toNum(f.closedPnl) - toNum(f.fee),
+      0
+    );
     y += 4.5;
     doc.setFont('helvetica', 'bold');
     if (netPnl > 0) doc.setTextColor(PNL_GREEN[0], PNL_GREEN[1], PNL_GREEN[2]);
@@ -202,17 +205,20 @@ export async function exportBotTradesPdf({
       'Closed P/L',
     ];
 
-    const body = closeFills.map((f) => [
-      fmtPdfTime(f.time),
-      f.coin,
-      fmtFillAction(f.dir),
-      fillPositionDirection(f),
-      fmtSize(f.sz),
-      fmtPrice(f.px),
-      `$${toNum(f.fee).toFixed(4)}`,
-      hlFillResultLabel(f.closedPnl) ?? '—',
-      fmtClosedPnl(f.closedPnl),
-    ]);
+    const body = closeFills.map((f) => {
+      const rowNet = toNum(f.closedPnl) - toNum(f.fee);
+      return [
+        fmtPdfTime(f.time),
+        f.coin,
+        fmtFillAction(f.dir),
+        fillPositionDirection(f),
+        fmtSize(f.sz),
+        fmtPrice(f.px),
+        `$${toNum(f.fee).toFixed(4)}`,
+        hlFillResultLabel(rowNet) ?? '—',
+        fmtClosedPnl(rowNet),
+      ];
+    });
 
     autoTable(doc, {
       startY: y + 7,
@@ -251,7 +257,10 @@ export async function exportBotTradesPdf({
         if (data.section !== 'body') return;
         // Result (7) + Closed P/L (8) — green wins / red losses
         if (data.column.index !== 7 && data.column.index !== 8) return;
-        const pnl = toNum(closeFills[data.row.index]?.closedPnl);
+        const row = closeFills[data.row.index];
+        const pnl = row
+          ? toNum(row.closedPnl) - toNum(row.fee)
+          : 0;
         if (pnl > 0) data.cell.styles.textColor = [...PNL_GREEN];
         else if (pnl < 0) data.cell.styles.textColor = [...PNL_RED];
       },

@@ -171,14 +171,14 @@ export function useHyperliquidAccount(address: string | undefined) {
       debounce = setTimeout(() => {
         void refreshCore(address);
         const staleHeavy = Date.now() - lastHeavyAtRef.current > HEAVY_REFRESH_MS;
-        if (staleHeavy && !heavyScheduled) {
+        if (!heavyScheduled) {
           heavyScheduled = true;
           window.setTimeout(() => {
             heavyScheduled = false;
             void refreshHeavy(address);
-          }, 1_500);
+          }, staleHeavy ? 320 : 120);
         }
-      }, 200);
+      }, 50);
     });
 
     return () => {
@@ -236,7 +236,7 @@ export function useHyperliquidAccount(address: string | undefined) {
       }
       window.setTimeout(() => {
         void refreshHeavy(target);
-      }, 1_800);
+      }, 380);
     },
     [address, refreshCore, refreshHeavy]
   );

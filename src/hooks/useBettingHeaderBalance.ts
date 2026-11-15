@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { countHlClosedFills, sumHlRealizedPnlFromFills } from '../lib/hyperliquid/hlPnl';
+import { aggregateHlCloseFills } from '../lib/hyperliquid/hlFillAggregate';
+import { summarizeHlClosedNetFromAggregated } from '../lib/hyperliquid/hlPnl';
 import { isOutcomeOrderCoin } from '../lib/hyperliquid/outcomes/encoding';
 import { fetchHlOutcomePositions } from '../lib/hyperliquid/outcomes/positions';
 import { OUTCOME_POSITIONS_POLL_MS } from '../lib/hyperliquid/outcomes/constants';
@@ -47,8 +48,10 @@ export function useBettingHeaderBalance(walletAddress: string | undefined, enabl
       positionCount: positions.length,
       positionsValueUsd,
       unrealizedPnlUsd,
-      closedCount: countHlClosedFills(outcomeFills),
-      realizedPnlUsd: sumHlRealizedPnlFromFills(outcomeFills),
+      closedCount: aggregateHlCloseFills(outcomeFills).length,
+      realizedPnlUsd: summarizeHlClosedNetFromAggregated(
+        aggregateHlCloseFills(outcomeFills)
+      ).netPnl,
     };
   }, [spotBalances, fills, positions]);
 }

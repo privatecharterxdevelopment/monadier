@@ -59,6 +59,8 @@ import {
   hlFreeMarginUsd,
   hlOpenPerpCoins,
   hlTickSize,
+  fetchHlCloseNetPnlUsd,
+  type HlCloseFillPnl,
 } from './hlInfo';
 import { checkHlBuilderFeeApproved } from './hlBuilder';
 import { checkWinRateGate } from './tradeGates';
@@ -153,6 +155,23 @@ import {
   patchExecutionDiagnostic,
 } from './executionDiagnostics';
 import { setHlExecutionState } from './hlExecutionState';
+
+async function waitHlCloseNetPnlFromFills(
+  userAddress: `0x${string}`,
+  coin: string,
+  sinceMs: number
+): Promise<HlCloseFillPnl | null> {
+  for (let i = 0; i < 14; i += 1) {
+    const row = await fetchHlCloseNetPnlUsd({
+      userAddress,
+      coin,
+      sinceMs,
+    });
+    if (row != null) return row;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return null;
+}
 
 const transport = new HttpTransport();
 
@@ -2394,6 +2413,7 @@ export class HyperliquidTradingService {
       const maxAttempts = reason === 'manual' ? 8 : 2;
       const retryDelayMs = (attempt: number) =>
         reason === 'manual' ? 400 + attempt * 350 : 1200 * (attempt + 1);
+      const closeTraceMs = Date.now();
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (pnlUsd > 0 && instantManual && attempt === 1 && !closeBuilder) {
@@ -2510,12 +2530,37 @@ export class HyperliquidTradingService {
           : 0;
 
       const postClose = async () => {
+        const fillPnl = await waitHlCloseNetPnlFromFills(
+          userAddress,
+          coinUpper,
+          closeTraceMs - 2_000
+        );
+        const recordedPnlUsd = fillPnl?.netUsd ?? pnlUsd;
+        const finalSnapshot: HlCloseSnapshot = {
+          ...snapshot,
+          unrealizedPnlUsd: recordedPnlUsd,
+        };
+        const recordedPnlPct =
+          finalSnapshot.collateralUsd > 0
+            ? (recordedPnlUsd / finalSnapshot.collateralUsd) * 100
+            : 0;
+        const recordedFee =
+          recordedPnlUsd > 0
+            ? viaHlBuilder && closeBuilder
+              ? estimateCollectedSuccessFee(
+                  recordedPnlUsd,
+                  notionalUsd,
+                  closeBuilder.f
+                )
+              : calculateHlSuccessFee(recordedPnlUsd)
+            : 0;
         await recordHlBotClose({
           walletAddress: userAddress,
           reason: reasonDetail ?? reason,
-          snapshot,
-          collectedFeeUsd: collectedFee,
+          snapshot: finalSnapshot,
+          collectedFeeUsd: recordedFee > 0 ? recordedFee : collectedFee,
           viaHlBuilder,
+          profitLossPercent: recordedPnlPct,
         });
         await cancelProtectiveOrdersForCoin({
           userAddress,
