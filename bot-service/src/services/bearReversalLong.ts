@@ -5,6 +5,7 @@
  * OVEREXTENDED_LONG blocks NEW entries only.
  */
 import { BEAR_REVERSAL_LONG, type BearReversalLongRules } from '../config/profiles/bearReversalLong';
+import { getLiveDirectionProfile } from './liveDirectionProfile';
 import type { Candle } from './signalEngine';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
@@ -505,9 +506,15 @@ export function classifyBearLongFromCandles(opts: {
     };
   }
 
+  const live = getLiveDirectionProfile();
+  const bullBook = live.name === 'bull_market' && live.primaryDirection === 'LONG';
+  const greensNeeded = bullBook ? 1 : 3;
   const trend5 = isBullVote(opts.votes.tf5m);
-  const greens = lastNClosedConfirm(opts.candles15m, 3, 'UP');
-  if (primary && trend5 && greens && isBullVote(opts.votes.tf15m)) {
+  const greens = lastNClosedConfirm(opts.candles15m, greensNeeded, 'UP');
+  const primaryOk = bullBook
+    ? !isBearVote(opts.votes.tf1h) && (isBullVote(opts.votes.tf15m) || isBullVote(opts.votes.tf1h))
+    : primary;
+  if (primaryOk && trend5 && greens && isBullVote(opts.votes.tf15m)) {
     return {
       ...EMPTY,
       ...base,
@@ -515,8 +522,32 @@ export function classifyBearLongFromCandles(opts: {
       dumpPhase: 'CLEAR',
       executionState: 'CANDIDATE',
       code: null,
-      reason: 'TREND_LONG — 5m/15m/1h aligned with 3 closed 15m greens',
+      reason: bullBook
+        ? 'TREND_LONG — bull book 5m/15m with 1× 15m green'
+        : 'TREND_LONG — 5m/15m/1h aligned with 3 closed 15m greens',
     };
+  }
+
+  if (bullBook && primaryOk && !trend5 && greens && !isBearVote(opts.votes.tf1h)) {
+    const mtfLong = [opts.votes.tf5m, opts.votes.tf15m, opts.votes.tf1h].filter((v) =>
+      isBullVote(v)
+    ).length;
+    if (
+      mtfLong >= 2 &&
+      opts.confidence >= (live.long.minConfidence ?? 52) &&
+      dump.phase !== 'ACTIVE_DUMP' &&
+      dump.phase !== 'OVEREXTENDED'
+    ) {
+      return {
+        ...EMPTY,
+        ...base,
+        class: 'TREND_LONG',
+        dumpPhase: dump.phase === 'CLEAR' ? 'CLEAR' : dump.phase,
+        executionState: 'CANDIDATE',
+        code: null,
+        reason: 'TREND_LONG — bull book: 2+ MTF LONG, 1h not DOWN',
+      };
+    }
   }
 
   if (primary && !trend5) {

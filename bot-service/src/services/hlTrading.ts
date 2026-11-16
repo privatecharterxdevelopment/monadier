@@ -614,11 +614,10 @@ export class HyperliquidTradingService {
       }
 
       const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
-      if (
-        needsCautionPath(tier) &&
-        !config.hyperliquid.scalpOpen.allowCautiousAlts &&
-        signal.direction !== 'SHORT'
-      ) {
+      const allowCautiousLong =
+        config.hyperliquid.scalpOpen.allowCautiousAlts ||
+        getLiveDirectionProfile().name === 'bull_market';
+      if (needsCautionPath(tier) && !allowCautiousLong && signal.direction !== 'SHORT') {
         logger.debug('HL signal skip: cautious alt LONG (SHORT still allowed)', {
           coin: signal.coin,
         });
@@ -1116,8 +1115,13 @@ export class HyperliquidTradingService {
         }
       }
 
-      const freshPumpGate =
-        relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
+      const bullLongPumpBypass =
+        opts.direction === 'LONG' &&
+        getLiveDirectionProfile().name === 'bull_market' &&
+        isOpenableLongCandidate(opts.pick);
+      const freshPumpGate = bullLongPumpBypass
+        ? { ok: true as const, reason: 'Bull LONG — post-pump cooldown bypass' }
+        : relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
           ? { ok: true as const, reason: 'Fresh pump bypass — trusted MTF scan' }
           : await validateNotFreshlyPumped({ coin, tier: coinTier });
       logOpenGate({
@@ -1735,7 +1739,7 @@ export class HyperliquidTradingService {
           direction: opts.direction,
           entryPx: fillEntry,
         });
-        clearTrailState(`${opts.userAddress.toLowerCase()}:${coin}`);
+        clearTrailState(positionKey(opts.userAddress, coin));
       }
       invalidateHlPositionScopeCache(opts.userAddress);
 

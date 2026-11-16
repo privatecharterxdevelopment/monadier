@@ -12,6 +12,7 @@ import { refreshMegaPairVolumeMonitor } from './megaPairVolumeMonitor';
 import { classifyCoinTier, needsCautionPath } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
 import { isProfileDirectionOpenAllowed } from './profileDirectionGate';
+import { getLiveDirectionProfile } from './liveDirectionProfile';
 import {
   evaluateCoinLongFromStructure,
   evaluateCoinShortFromMtf,
@@ -258,10 +259,26 @@ async function scanStandardCoin(
     });
 
     let longCandidate: GlobalSignalCandidate | null = null;
+    let longClass = cls.class;
+    let longReason = cls.reason || analysis.reason;
+    const liveProf = getLiveDirectionProfile();
+    if (
+      longClass === 'NONE' &&
+      liveProf.name === 'bull_market' &&
+      analysis.direction === 'LONG' &&
+      (analysis.metrics?.directionalTfCount ?? 0) >= (liveProf.long.minDirectionalTfs ?? 2) &&
+      analysis.confidence >= (liveProf.long.minConfidence ?? 52) &&
+      !String(analysis.metrics?.h1Trend ?? '')
+        .toUpperCase()
+        .includes('DOWN')
+    ) {
+      longClass = 'TREND_LONG';
+      longReason = 'TREND_LONG — bull scan MTF LONG stack';
+    }
     const longVerdict = evaluateCoinLongFromStructure(
       analysis,
-      cls.class,
-      cls.reason || analysis.reason,
+      longClass,
+      longReason,
       cautiousMinConfLong
     );
     if (longVerdict.ok) {
@@ -280,7 +297,7 @@ async function scanStandardCoin(
         h1Trend: analysis.metrics?.h1Trend,
         signalReasons: [cls.reason, ...(analysis.signalReasons ?? [])],
         indicators: analysis.indicators,
-        longClass: cls.class,
+        longClass,
         reversalCode: cls.code,
         queueable: true,
       };
