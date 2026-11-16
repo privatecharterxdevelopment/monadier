@@ -1138,8 +1138,29 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'fresh_pump');
 
+      const bullLongPreOpenBypass =
+        opts.direction === 'LONG' &&
+        getLiveDirectionProfile().name === 'bull_market' &&
+        isOpenableLongCandidate(opts.pick);
       const candleAnalytics =
-        relaxSecondary && shortRules.bypassPreOpenWhenTrusted
+        bullLongPreOpenBypass
+          ? {
+              ok: true as const,
+              code: 'PRE_OPEN_PASS' as const,
+              reason: 'Pre-open bypass — bull book TREND/REVERSAL LONG',
+              summary: 'Pre-open bypass — bull book TREND/REVERSAL LONG',
+              netMovePct: 0,
+              greenCount: 0,
+              redCount: 0,
+              rangePosition: 0.5,
+              recentMovePct: 0,
+              volumeRatio: 1,
+              structure: 'chop' as const,
+              rejectionsAtHigh: 0,
+              rejectionsAtLow: 0,
+              shortBreakdownConfirmed: false,
+            }
+          : relaxSecondary && shortRules.bypassPreOpenWhenTrusted
           ? {
               ok: true as const,
               code: 'PRE_OPEN_PASS' as const,
