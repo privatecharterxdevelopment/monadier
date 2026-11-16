@@ -532,12 +532,7 @@ export function classifyBearLongFromCandles(opts: {
     const mtfLong = [opts.votes.tf5m, opts.votes.tf15m, opts.votes.tf1h].filter((v) =>
       isBullVote(v)
     ).length;
-    if (
-      mtfLong >= 2 &&
-      opts.confidence >= (live.long.minConfidence ?? 52) &&
-      dump.phase !== 'ACTIVE_DUMP' &&
-      dump.phase !== 'OVEREXTENDED'
-    ) {
+    if (mtfLong >= 2 && opts.confidence >= (live.long.minConfidence ?? 52)) {
       return {
         ...EMPTY,
         ...base,
