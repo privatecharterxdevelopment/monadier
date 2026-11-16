@@ -41,6 +41,32 @@ export function parseMtfBreakdown(breakdown: string | undefined): ParsedTfRow[] 
   return rows;
 }
 
+/** Price-trend label from MTF breakdown (`15m SHORT 100% RSI46 UP` → `UP`). */
+export function parseTfPriceTrend(
+  breakdown: string | undefined,
+  tf: '1m' | '5m' | '15m' | '1h'
+): string | null {
+  for (const part of String(breakdown ?? '').split('·')) {
+    const trimmed = part.trim();
+    if (!trimmed.toLowerCase().startsWith(tf)) continue;
+    const m = trimmed.match(
+      /^(?:1m|5m|15m|1h|4h)\s+(?:LONG|SHORT|HOLD)\s+\d+%(?:\s+RSI\d+)?\s+(\S+)/i
+    );
+    if (m) return m[1]!.toUpperCase();
+  }
+  return null;
+}
+
+function trendLabelUp(raw: string | null | undefined): boolean {
+  const t = String(raw ?? '').toUpperCase();
+  return t.includes('UP');
+}
+
+function trendLabelDown(raw: string | null | undefined): boolean {
+  const t = String(raw ?? '').toUpperCase();
+  return t.includes('DOWN');
+}
+
 export function directionalTfCountForSide(
   breakdown: string | undefined,
   side: 'LONG' | 'SHORT'
@@ -118,10 +144,61 @@ export function evaluateCoinShortFromMtf(
   const votes = higherTfVoteSummary(breakdown, h1);
   const minConf = cautiousMinConf ?? bars.minConf;
 
+  const profileRules = config.hyperliquid.directionProfile.short;
+  const requiredH1 = profileRules.requiredH1Trend ?? null;
+  if (requiredH1 === 'DOWN' && !trendLabelDown(h1)) {
+    return {
+      ok: false,
+      reason: `1h ${h1 ?? 'n/a'} — profile requires 1h DOWN (no SHORT on chop/up)`,
+      shortTfCount,
+      align,
+      confidence: analysis.confidence,
+    };
+  }
   if (!h1AllowsShort(h1)) {
     return {
       ok: false,
       reason: `1h ${h1 ?? 'n/a'} — SHORT needs 1h not UP`,
+      shortTfCount,
+      align,
+      confidence: analysis.confidence,
+    };
+  }
+
+  const t15 = parseTfPriceTrend(breakdown, '15m');
+  const t5 = parseTfPriceTrend(breakdown, '5m');
+  if (trendLabelUp(t15)) {
+    return {
+      ok: false,
+      reason: `15m price trend UP — SHORT blocked (indicators lag rally)`,
+      shortTfCount,
+      align,
+      confidence: analysis.confidence,
+    };
+  }
+  const required15 = profileRules.required15mTrend ?? null;
+  if (required15 === 'DOWN' && trendLabelUp(t15)) {
+    return {
+      ok: false,
+      reason: `15m ${t15 ?? 'n/a'} — profile requires 15m DOWN`,
+      shortTfCount,
+      align,
+      confidence: analysis.confidence,
+    };
+  }
+  if (required15 === 'DOWN' && t15 && !trendLabelDown(t15)) {
+    return {
+      ok: false,
+      reason: `15m ${t15} — need bearish 15m structure for SHORT`,
+      shortTfCount,
+      align,
+      confidence: analysis.confidence,
+    };
+  }
+  if (trendLabelUp(t5) && trendLabelUp(t15)) {
+    return {
+      ok: false,
+      reason: `5m+15m UP — no SHORT into active bounce`,
       shortTfCount,
       align,
       confidence: analysis.confidence,

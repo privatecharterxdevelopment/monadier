@@ -42,7 +42,7 @@ describe('coin-trend direction (independent of BTC regime)', () => {
       58
     );
     assert.equal(r.ok, false);
-    assert.match(r.reason, /1h.*not UP|LONG TFs dominate/i);
+    assert.match(r.reason, /1h.*not UP|LONG TFs dominate|profile requires 1h DOWN/i);
   });
 
   it('PAXG downtrend — SHORT when bearish stack meets bars', () => {
@@ -56,6 +56,22 @@ describe('coin-trend direction (independent of BTC regime)', () => {
       58
     );
     assert.equal(r.ok, true);
+  });
+
+  it('ETH-style disaster — SHORT signal labels but 15m UP blocked', () => {
+    const ethChop =
+      '1m HOLD 50% RSI70 UP · 5m SHORT 100% RSI73 SIDEWAYS · 15m SHORT 100% RSI46 UP · 1h SHORT 100% RSI53 SIDEWAYS';
+    const r = evaluateCoinShortFromMtf(
+      {
+        direction: 'SHORT',
+        confidence: 79,
+        mtfBreakdown: ethChop,
+        metrics: { trendAlignment: 50, h1Trend: 'SIDEWAYS', directionalTfCount: 3 },
+      },
+      58
+    );
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /15m price trend UP|profile requires 1h DOWN/i);
   });
 
   it('alt SHORT in downtrend while narrative is “BTC bull” — coin MTF only', () => {

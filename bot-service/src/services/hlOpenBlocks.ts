@@ -40,6 +40,7 @@ export type HlOpenBlockGate =
   | 'short_entry_quality'
   | 'sr_zone_flip'
   | 'entry_momentum'
+  | 'profile_entry_trend'
   | 'htf_sr'
   | 'llm_confirm'
   | 'pre_order_safety'

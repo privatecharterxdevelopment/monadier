@@ -96,6 +96,7 @@ import { validateNotFreshlyPumped } from './freshPumpGate';
 import { signalEngine } from './signalEngine';
 import { tapeStillPumping, validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
+import { validateProfileEntryTrend } from './profileEntryTrendGate';
 import {
   evaluateShortEntryQualityPreSubmit,
   logShortEntryQualityRecord,
@@ -981,7 +982,11 @@ export class HyperliquidTradingService {
       const trustedMtf =
         shortRules.trustMtfScan &&
         opts.pick.confidence >= Math.max(58, shortRules.minConfidence - 4);
-      const relaxSecondary = shortRules.relaxSecondaryGates && trustedMtf;
+      const coinTierInfo = classifyCoinTier(coin);
+      const relaxSecondary =
+        shortRules.relaxSecondaryGates &&
+        trustedMtf &&
+        coinTierInfo.tier !== 'major';
       const hardEntryLocation = requiresHardEntryLocationGate(coin, effectiveLeverage);
       const aggShort =
         opts.pick.botMode === 'aggressive' && opts.direction === 'SHORT';
@@ -1042,6 +1047,38 @@ export class HyperliquidTradingService {
       }
 
       if (!skipOpenGates) {
+      const highConfMtfScalpPassEarly =
+        opts.direction === 'SHORT' &&
+        ((shortRules.trustMtfScan &&
+          opts.pick.confidence >= 90 &&
+          (opts.pick.directionalTfCount ?? 0) >= 3) ||
+          (aggShort && opts.pick.confidence >= 86));
+
+      const profileTrend = await validateProfileEntryTrend({
+        coin,
+        direction: opts.direction,
+        longClass: opts.pick.longClass,
+        skipConfirmCandles: highConfMtfScalpPassEarly,
+        allow15mSideways: opts.direction === 'LONG',
+      });
+      logOpenGate(
+        {
+          userAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          gate: 'profile_entry_trend',
+          ok: profileTrend.ok,
+          code: profileTrend.ok ? 'PROFILE_TREND_PASS' : 'PROFILE_TREND_BLOCK',
+          reason: profileTrend.reason,
+          metrics: { trend5m: profileTrend.trend5m, trend15m: profileTrend.trend15m },
+        },
+        gatesPassed
+      );
+      if (!profileTrend.ok) {
+        return failOpen(profileTrend.reason, 'PROFILE_TREND_BLOCK');
+      }
+      markGatePassed(opts.userAddress, 'profile_entry_trend');
+
       if (opts.direction === 'SHORT') {
         try {
           const btc1m = await signalEngine.fetchCandles('BTCUSDT', '1m', 12);
