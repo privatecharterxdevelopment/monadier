@@ -87,20 +87,33 @@ export async function proxyHlInfoPost(body: Record<string, unknown>): Promise<un
   if (pending) return pending;
 
   const run = (async () => {
-    const res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      if (row && Date.now() - row.at <= ttl * 20) return row.data;
-      throw new Error(`Hyperliquid API ${res.status}`);
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      lastStatus = res.status;
+      if (res.status === 429) {
+        if (row) return row.data;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
+          continue;
+        }
+      }
+      if (!res.ok) {
+        if (row) return row.data;
+        throw new Error(`Hyperliquid API ${res.status}`);
+      }
+      const data = await res.json();
+      if (!(type === 'candleSnapshot' && Array.isArray(data) && data.length === 0)) {
+        cache.set(key, { at: Date.now(), data });
+      }
+      return data;
     }
-    const data = await res.json();
-    if (!(type === 'candleSnapshot' && Array.isArray(data) && data.length === 0)) {
-      cache.set(key, { at: Date.now(), data });
-    }
-    return data;
+    if (row) return row.data;
+    throw new Error(`Hyperliquid API ${lastStatus || 429}`);
   })();
 
   inflight.set(key, run);

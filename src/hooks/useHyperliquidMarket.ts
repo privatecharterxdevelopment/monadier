@@ -198,8 +198,10 @@ export function useHyperliquidMarket(
 
   const finishLoadingForMarket = useCallback(
     (requestedMarketKey: string, generation: number, patch: Partial<State> = {}) => {
-      if (fetchGenerationRef.current !== generation) return;
       if (marketKeyRef.current !== requestedMarketKey) return;
+      // Drop only stale *newer* generations — never leave loading:true if this market
+      // is still active but an aborted fetch skipped setState (coin-switch race).
+      if (fetchGenerationRef.current > generation) return;
       setState((prev) => ({ ...prev, loading: false, ...patch }));
     },
     []
@@ -214,7 +216,6 @@ export function useHyperliquidMarket(
   const [appliedMarketKey, setAppliedMarketKey] = useState(marketKey);
   if (enabled && marketKey !== appliedMarketKey) {
     setAppliedMarketKey(marketKey);
-    fetchGenerationRef.current += 1;
     historyReadyRef.current = false;
     marketKeyRef.current = marketKey;
     const coinChanged = coinKeyRef.current !== coinKey;
@@ -590,7 +591,21 @@ export function useHyperliquidMarket(
       kind,
       marketKey,
     });
+    const loadSafety = window.setTimeout(() => {
+      if (marketKeyRef.current !== marketKey) return;
+      setState((prev) => {
+        if (!prev.loading || prev.candles.length >= MIN_HISTORY_BARS) return prev;
+        return {
+          ...prev,
+          loading: false,
+          error: prev.error ?? 'Chart load timed out — tap Retry',
+        };
+      });
+    }, 22_000);
     void refresh();
+    return () => {
+      window.clearTimeout(loadSafety);
+    };
   }, [coin, interval, kind, enabled, marketKey, coinKey, clearEmptyRetry, refresh]);
 
   useEffect(() => () => clearEmptyRetry(), [clearEmptyRetry]);
