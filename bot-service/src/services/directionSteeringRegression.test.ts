@@ -176,10 +176,11 @@ describe('direction steering regression (requirements 1–10)', () => {
     assert.equal(pick.candidate?.direction, 'SHORT');
   });
 
-  it('liveDirectionProfile — AUTO keeps dual-direction BEAR_MARKET (BTC context only)', async () => {
+  it('liveDirectionProfile — AUTO uses bear until BTC detect (allows both sides)', async () => {
     _resetLiveDirectionProfileForTests();
     const profile = await refreshLiveDirectionProfile();
     assert.equal(profile.allowLongOpens, true);
     assert.equal(profile.allowShortOpens, true);
+    assert.ok(profile.name === 'bear_market' || profile.name === 'bull_market');
   });
 });
