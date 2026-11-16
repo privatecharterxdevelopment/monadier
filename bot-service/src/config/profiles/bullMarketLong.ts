@@ -40,6 +40,8 @@ export const BULL_MARKET: HlDirectionProfile = {
     minTrendAlignment: 45,
     /** No LONGs while 1h is DOWN — dump = shorts, not dip-buy blind. */
     requiredH1Trend: 'UP',
+    required5mTrend: 'UP',
+    required15mTrend: 'UP',
     trustMtfScan: true,
     relaxSecondaryGates: true,
     enforceHtfSr: false,

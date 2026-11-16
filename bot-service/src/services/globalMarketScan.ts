@@ -262,15 +262,16 @@ async function scanStandardCoin(
     let longClass = cls.class;
     let longReason = cls.reason || analysis.reason;
     const liveProf = getLiveDirectionProfile();
+    const h1 = String(analysis.metrics?.h1Trend ?? '').toUpperCase();
+    const h1Bull =
+      h1.includes('UP') && !h1.includes('DOWN');
     if (
       longClass === 'NONE' &&
       liveProf.name === 'bull_market' &&
       analysis.direction === 'LONG' &&
+      h1Bull &&
       (analysis.metrics?.directionalTfCount ?? 0) >= (liveProf.long.minDirectionalTfs ?? 2) &&
-      analysis.confidence >= (liveProf.long.minConfidence ?? 52) &&
-      !String(analysis.metrics?.h1Trend ?? '')
-        .toUpperCase()
-        .includes('DOWN')
+      analysis.confidence >= (liveProf.long.minConfidence ?? 52)
     ) {
       longClass = 'TREND_LONG';
       longReason = 'TREND_LONG — bull scan MTF LONG stack';

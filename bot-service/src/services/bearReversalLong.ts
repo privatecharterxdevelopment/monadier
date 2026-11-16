@@ -512,7 +512,7 @@ export function classifyBearLongFromCandles(opts: {
   const trend5 = isBullVote(opts.votes.tf5m);
   const greens = lastNClosedConfirm(opts.candles15m, greensNeeded, 'UP');
   const primaryOk = bullBook
-    ? !isBearVote(opts.votes.tf1h) && (isBullVote(opts.votes.tf15m) || isBullVote(opts.votes.tf1h))
+    ? isBullVote(opts.votes.tf1h) && isBullVote(opts.votes.tf15m)
     : primary;
   if (primaryOk && trend5 && greens && isBullVote(opts.votes.tf15m)) {
     return {
@@ -528,7 +528,7 @@ export function classifyBearLongFromCandles(opts: {
     };
   }
 
-  if (bullBook && primaryOk && !trend5 && greens && !isBearVote(opts.votes.tf1h)) {
+  if (bullBook && primaryOk && !trend5 && greens && isBullVote(opts.votes.tf1h)) {
     const mtfLong = [opts.votes.tf5m, opts.votes.tf15m, opts.votes.tf1h].filter((v) =>
       isBullVote(v)
     ).length;

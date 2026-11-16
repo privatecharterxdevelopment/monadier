@@ -89,6 +89,7 @@ import { validateNoAltPumpShort } from './pumpShortGate';
 import {
   classifyCoinTier,
   isVolumeRankOpenable,
+  MAJOR_COINS,
   needsCautionPath,
   volumeRankForCoin,
 } from './coinTier';
@@ -97,6 +98,7 @@ import { signalEngine } from './signalEngine';
 import { tapeStillPumping, validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
 import { validateProfileEntryTrend } from './profileEntryTrendGate';
+import { validateLongDumpTapeGate } from './longDumpTapeGate';
 import {
   evaluateShortEntryQualityPreSubmit,
   logShortEntryQualityRecord,
@@ -1078,6 +1080,26 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'profile_entry_trend');
 
+      if (opts.direction === 'LONG') {
+        const dumpTape = await validateLongDumpTapeGate({ coin });
+        logOpenGate(
+          {
+            userAddress: opts.userAddress,
+            coin,
+            direction: opts.direction,
+            gate: 'long_dump_tape',
+            ok: dumpTape.ok,
+            code: dumpTape.ok ? 'DUMP_TAPE_PASS' : 'DUMP_TAPE_BLOCK',
+            reason: dumpTape.reason,
+          },
+          gatesPassed
+        );
+        if (!dumpTape.ok) {
+          return failOpen(dumpTape.reason, 'DUMP_TAPE_BLOCK');
+        }
+        markGatePassed(opts.userAddress, 'long_dump_tape');
+      }
+
       if (opts.direction === 'SHORT') {
         try {
           const btc1m = await signalEngine.fetchCandles('BTCUSDT', '1m', 12);
@@ -1115,11 +1137,12 @@ export class HyperliquidTradingService {
         }
       }
 
-      const bullLongPumpBypass =
+      const bullMajorLong =
         opts.direction === 'LONG' &&
         getLiveDirectionProfile().name === 'bull_market' &&
-        isOpenableLongCandidate(opts.pick);
-      const freshPumpGate = bullLongPumpBypass
+        isOpenableLongCandidate(opts.pick) &&
+        MAJOR_COINS.has(coin);
+      const freshPumpGate = bullMajorLong
         ? { ok: true as const, reason: 'Bull LONG — post-pump cooldown bypass' }
         : relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
           ? { ok: true as const, reason: 'Fresh pump bypass — trusted MTF scan' }
@@ -1138,29 +1161,8 @@ export class HyperliquidTradingService {
       }
       markGatePassed(opts.userAddress, 'fresh_pump');
 
-      const bullLongPreOpenBypass =
-        opts.direction === 'LONG' &&
-        getLiveDirectionProfile().name === 'bull_market' &&
-        isOpenableLongCandidate(opts.pick);
       const candleAnalytics =
-        bullLongPreOpenBypass
-          ? {
-              ok: true as const,
-              code: 'PRE_OPEN_PASS' as const,
-              reason: 'Pre-open bypass — bull book TREND/REVERSAL LONG',
-              summary: 'Pre-open bypass — bull book TREND/REVERSAL LONG',
-              netMovePct: 0,
-              greenCount: 0,
-              redCount: 0,
-              rangePosition: 0.5,
-              recentMovePct: 0,
-              volumeRatio: 1,
-              structure: 'chop' as const,
-              rejectionsAtHigh: 0,
-              rejectionsAtLow: 0,
-              shortBreakdownConfirmed: false,
-            }
-          : relaxSecondary && shortRules.bypassPreOpenWhenTrusted
+        relaxSecondary && shortRules.bypassPreOpenWhenTrusted
           ? {
               ok: true as const,
               code: 'PRE_OPEN_PASS' as const,

@@ -16,6 +16,21 @@ const ALT_DOWN_BTC_UP =
   '1m SHORT 58% · 5m SHORT 62% · 15m SHORT 64% · 1h SHORT 66% STRONG_DOWNTREND';
 
 describe('coin-trend direction (independent of BTC regime)', () => {
+  it('blocks TREND_LONG when 1h is DOWN even if MTF labels LONG', () => {
+    const r = evaluateCoinLongFromStructure(
+      {
+        confidence: 80,
+        mtfBreakdown: ALT_DOWN_BTC_UP,
+        metrics: { trendAlignment: 70, h1Trend: 'STRONG_DOWNTREND' },
+      },
+      'TREND_LONG',
+      'TREND_LONG — test',
+      52
+    );
+    assert.equal(r.ok, false);
+    assert.match(r.reason, /1h downtrend/i);
+  });
+
   it('PAXG uptrend breakdown — LONG structure path when TREND_LONG', () => {
     assert.equal(directionalTfCountForSide(PAXG_UP, 'LONG'), 4);
     const r = evaluateCoinLongFromStructure(
@@ -167,6 +182,6 @@ describe('coin-trend direction (independent of BTC regime)', () => {
       62
     );
     assert.equal(r.ok, false);
-    assert.match(r.reason, /1h DOWN|SHORT TFs/);
+    assert.match(r.reason, /1h downtrend|1h DOWN|SHORT TFs/);
   });
 });

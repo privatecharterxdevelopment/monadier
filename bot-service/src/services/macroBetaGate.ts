@@ -50,7 +50,6 @@ const ETH_BETA_COINS = new Set([
   'FXS',
   'SSV',
   'RPL',
-  'ETHFI',
   'EIGEN',
   'ZRO',
   'ALT',

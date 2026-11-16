@@ -300,6 +300,15 @@ export function evaluateCoinLongFromStructure(
     return { ok: false, reason: longReason || 'No TREND_LONG / REVERSAL_LONG', longClass };
   }
 
+  const h1Raw = analysis.metrics?.h1Trend;
+  if (longClass === 'TREND_LONG' && (votes.h1Down || trendLabelDown(h1Raw))) {
+    return {
+      ok: false,
+      reason: `1h downtrend — no TREND_LONG (no dip-buy into red)`,
+      longClass,
+    };
+  }
+
   if (votes.h1Down && longTfCount < shortTfCount) {
     return {
       ok: false,

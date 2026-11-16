@@ -78,20 +78,22 @@ export async function validateProfileEntryTrend(opts: {
       reason: 'LONG blocked — LONG_OVEREXTENDED (do not chase)',
     };
   }
+  const requiredH1 = rules.requiredH1Trend ?? null;
   const required5 = reversalLong ? null : (rules.required5mTrend ?? null);
   const required15 = rules.required15mTrend ?? null;
   const minCandles =
     reversalLong || opts.skipConfirmCandles
       ? 0
       : Math.max(0, Math.floor(rules.minConfirm15mCandles ?? 0));
-  if (!required5 && !required15 && minCandles <= 0) {
+  if (!requiredH1 && !required5 && !required15 && minCandles <= 0) {
     return { ok: true, reason: 'Profile entry-trend — not configured for this side' };
   }
 
   const symbol = hlCoinToBinanceSymbol(opts.coin.toUpperCase());
   try {
     const need = Math.max(minCandles + 2, 8);
-    const [tf5, tf15, candles15] = await Promise.all([
+    const [tf1h, tf5, tf15, candles15] = await Promise.all([
+      requiredH1 ? signalEngine.analyzeTimeframe(symbol, '1h') : Promise.resolve(null),
       required5 ? signalEngine.analyzeTimeframe(symbol, '5m') : Promise.resolve(null),
       required15 || minCandles > 0
         ? signalEngine.analyzeTimeframe(symbol, '15m')
@@ -101,8 +103,28 @@ export async function validateProfileEntryTrend(opts: {
         : Promise.resolve([] as Candle[]),
     ]);
 
+    const trend1h = tf1h?.trend;
     const trend5m = tf5?.trend;
     const trend15m = tf15?.trend;
+
+    if (requiredH1) {
+      if (againstRequired(trend1h, requiredH1)) {
+        return {
+          ok: false,
+          reason: `${opts.direction} blocked — 1h trend ${trend1h ?? 'n/a'} (need ${requiredH1})`,
+          trend5m,
+          trend15m,
+        };
+      }
+      if (!trendMatches(trend1h, requiredH1)) {
+        return {
+          ok: false,
+          reason: `${opts.direction} blocked — 1h trend ${trend1h ?? 'n/a'} (need ${requiredH1})`,
+          trend5m,
+          trend15m,
+        };
+      }
+    }
 
     if (required5) {
       if (againstRequired(trend5m, required5) || !trendMatches(trend5m, required5)) {
