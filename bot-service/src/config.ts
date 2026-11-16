@@ -172,6 +172,19 @@ export const config = {
         'WLFI',
         'PONS',
         'USELESS',
+        /** Restaking / farm + meme rot — no bot opens (user: ETHFI et al.). */
+        'ETHFI',
+        'GOAT',
+        'MEME',
+        'MOODENG',
+        'NEIRO',
+        'NOT',
+        'PEOPLE',
+        'PNUT',
+        'POPCAT',
+        'TURBO',
+        'BOME',
+        'BRETT',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())

@@ -17,19 +17,7 @@ export const CAUTIOUS_ALTS = new Set([
   'APE',
   'EIGEN',
   'ENA',
-  'ETHFI',
-  'GOAT',
-  'MEME',
-  'MOODENG',
-  'NEIRO',
-  'NOT',
-  'PEOPLE',
-  'PNUT',
-  'POPCAT',
-  'TURBO',
   'WIF',
-  'BOME',
-  'BRETT',
 ]);
 
 export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE']);

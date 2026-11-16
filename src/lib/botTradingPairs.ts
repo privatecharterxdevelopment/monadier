@@ -68,6 +68,18 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'WLFI',
   'PONS',
   'USELESS',
+  'ETHFI',
+  'GOAT',
+  'MEME',
+  'MOODENG',
+  'NEIRO',
+  'NOT',
+  'PEOPLE',
+  'PNUT',
+  'POPCAT',
+  'TURBO',
+  'BOME',
+  'BRETT',
 ]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
