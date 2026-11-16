@@ -1729,6 +1729,13 @@ export class HyperliquidTradingService {
           closeReason: openReasonFull,
           source: 'manual',
         });
+        void cancelProfitStopsForLetRun({
+          userAddress: opts.userAddress,
+          coin,
+          direction: opts.direction,
+          entryPx: fillEntry,
+        });
+        clearTrailState(`${opts.userAddress.toLowerCase()}:${coin}`);
       }
       invalidateHlPositionScopeCache(opts.userAddress);
 
@@ -1911,7 +1918,7 @@ export class HyperliquidTradingService {
       if (userManual) {
         const stripKey = lockKey;
         const lastStrip = hlManualProfitStripAt.get(stripKey) ?? 0;
-        if (nowMs - lastStrip > 45_000) {
+        if (nowMs - lastStrip > 4_000) {
           hlManualProfitStripAt.set(stripKey, nowMs);
           clearTrailState(lockKey);
           void cancelProfitStopsForLetRun({
