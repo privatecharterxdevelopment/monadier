@@ -326,9 +326,13 @@ const TerminalTradePanel: React.FC<Props> = ({
       walletAddress: closeWallet,
     })
       .then(() => {
-        scheduleHlStateAfterTrade(closeWallet, {
-          refreshHlSnap: () => refreshHlOpenSnap(),
-        });
+        scheduleHlStateAfterTrade(
+          closeWallet,
+          {
+            refreshHlSnap: () => refreshHlOpenSnap(),
+          },
+          { afterClose: true }
+        );
         onRefresh();
       })
       .catch(() => {

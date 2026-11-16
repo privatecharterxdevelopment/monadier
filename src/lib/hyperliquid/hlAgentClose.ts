@@ -1,7 +1,7 @@
 import { getBotApiBase } from '../signalService';
 import { isHlRateLimitError } from '../devLog';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
-import { clearHlInfoCache, clearHlUserInfoCache } from './hlInfoClient';
+import { clearHlUserInfoCache } from './hlInfoClient';
 
 function closeAgentError(res: Response, json: { error?: string | null }): Error {
   const raw =
@@ -11,7 +11,7 @@ function closeAgentError(res: Response, json: { error?: string | null }): Error 
       : '');
   const cleaned = raw.replace(/\s*-\s*null\s*$/i, '').trim();
   if (res.status === 429 || isHlRateLimitError(cleaned) || /429|too many requests/i.test(cleaned)) {
-    return new Error('Hyperliquid rate limit — closing, please wait…');
+    return new Error('Hyperliquid kurz rate-limited — 3s warten, dann Close nochmal.');
   }
   if (/account sync|could not read your hl position|api timeout/i.test(cleaned)) {
     return new Error(cleaned);
@@ -57,9 +57,7 @@ export async function closeHlPositionViaAgent(params: {
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const coin = params.coin.toUpperCase();
-  clearHlUserInfoCache(wallet);
-  clearHlInfoCache();
-  requestTradeNotificationRefresh();
+  // No cache bust before close — that stampedes /info and triggers 429s on HL.
   const body: Record<string, unknown> = { wallet, coin, reason: 'manual' };
   if (params.size != null && Number.isFinite(params.size) && params.size > 0) {
     body.size = params.size;
@@ -77,7 +75,7 @@ export async function closeHlPositionViaAgent(params: {
   }
 
   let lastErr: Error | null = null;
-  const maxAttempts = 3;
+  const maxAttempts = 2;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let res: Response;
     try {
@@ -90,7 +88,7 @@ export async function closeHlPositionViaAgent(params: {
       if (isNetworkCloseError(err)) {
         lastErr = new Error('Network error — check Wi‑Fi/VPN, then retry close.');
         if (attempt < maxAttempts - 1) {
-          await sleep(120 + attempt * 180);
+          await sleep(800 + attempt * 1_200);
           continue;
         }
         throw lastErr;
@@ -112,7 +110,7 @@ export async function closeHlPositionViaAgent(params: {
     } catch {
       lastErr = closeAgentError(res, json);
       if (attempt < maxAttempts - 1) {
-        await sleep(120 + attempt * 180);
+        await sleep(800 + attempt * 1_200);
         continue;
       }
       throw lastErr;
@@ -123,23 +121,22 @@ export async function closeHlPositionViaAgent(params: {
       (!json.success && isAlreadyFlatCloseError(String(json.error ?? '')))
     ) {
       clearHlUserInfoCache(wallet);
-      clearHlInfoCache();
       requestTradeNotificationRefresh();
       return;
     }
 
     if (res.ok && json.success) {
       clearHlUserInfoCache(wallet);
-      clearHlInfoCache();
       requestTradeNotificationRefresh();
       return;
     }
 
     lastErr = closeAgentError(res, json);
-    const retryable =
-      res.status === 429 || isRetryableCloseError(lastErr.message);
+    const rateLimited =
+      res.status === 429 || /429|rate limit|too many/i.test(lastErr.message);
+    const retryable = rateLimited || isRetryableCloseError(lastErr.message);
     if (retryable && attempt < maxAttempts - 1) {
-      await sleep(150 + attempt * 200);
+      await sleep(rateLimited ? 1_800 + attempt * 1_500 : 400 + attempt * 400);
       continue;
     }
     throw lastErr;

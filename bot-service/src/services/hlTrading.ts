@@ -162,14 +162,14 @@ async function waitHlCloseNetPnlFromFills(
   coin: string,
   sinceMs: number
 ): Promise<HlCloseFillPnl | null> {
-  for (let i = 0; i < 14; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     const row = await fetchHlCloseNetPnlUsd({
       userAddress,
       coin,
       sinceMs,
     });
     if (row != null) return row;
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 120));
   }
   return null;
 }
@@ -2480,13 +2480,15 @@ export class HyperliquidTradingService {
       let result: Awaited<ReturnType<typeof submitClose>> | undefined;
       let status: { filled?: unknown; error?: string } | undefined;
       let lastSubmitErr: string | null = null;
-      const maxAttempts = instantManual ? 4 : reason === 'manual' ? 6 : 2;
-      const retryDelayMs = (attempt: number) =>
-        instantManual
-          ? 80 + attempt * 120
-          : reason === 'manual'
-            ? 250 + attempt * 250
-            : 1200 * (attempt + 1);
+      const maxAttempts = instantManual ? 2 : reason === 'manual' ? 3 : 2;
+      const retryDelayMs = (attempt: number, rateLimited: boolean) =>
+        rateLimited
+          ? 350 + attempt * 450
+          : instantManual
+            ? 60 + attempt * 80
+            : reason === 'manual'
+              ? 200 + attempt * 200
+              : 800 * (attempt + 1);
       const closeTraceMs = Date.now();
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -2507,11 +2509,11 @@ export class HyperliquidTradingService {
           lastSubmitErr = msg;
           const rateLimited = /429|rate limit|too many|busy|timeout/i.test(msg);
           if (rateLimited && attempt < maxAttempts - 1) {
-            await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
+            await new Promise((r) => setTimeout(r, retryDelayMs(attempt, true)));
             continue;
           }
-          if (reason === 'manual' && attempt < maxAttempts - 1) {
-            await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
+          if (reason === 'manual' && attempt < maxAttempts - 1 && !rateLimited) {
+            await new Promise((r) => setTimeout(r, retryDelayMs(attempt, false)));
             continue;
           }
           throw err;
@@ -2536,7 +2538,7 @@ export class HyperliquidTradingService {
         const errText =
           status && 'error' in status && status.error ? String(status.error) : '';
         if (/429|rate limit|too many/i.test(errText) && attempt < maxAttempts - 1) {
-          await new Promise((r) => setTimeout(r, retryDelayMs(attempt)));
+          await new Promise((r) => setTimeout(r, retryDelayMs(attempt, true)));
           continue;
         }
         break;
@@ -2559,7 +2561,8 @@ export class HyperliquidTradingService {
         if (/429|rate limit|too many/i.test(errText)) {
           return {
             success: false,
-            error: 'Hyperliquid rate limit — wait ~15 seconds and retry close.',
+            error:
+              'Hyperliquid rate limit — Order nicht gesendet. 3–5 Sekunden warten, dann Close erneut.',
           };
         }
         return { success: false, error: errText };

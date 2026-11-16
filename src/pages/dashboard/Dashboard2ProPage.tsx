@@ -714,10 +714,14 @@ const Dashboard2ProPageContent: React.FC = () => {
       walletAddress: wallet,
     })
       .then(() => {
-        scheduleHlStateAfterTrade(wallet, {
-          refreshAccount,
-          refreshHlSnapshot,
-        });
+        scheduleHlStateAfterTrade(
+          wallet,
+          {
+            refreshAccount,
+            refreshHlSnapshot,
+          },
+          { afterClose: true }
+        );
       })
       .catch((err) => {
         setPendingFlatCoins((prev) => {

@@ -1,5 +1,5 @@
 import type { HlAccountRefreshOpts } from '../../hooks/useHyperliquidAccount';
-import { clearHlInfoCache, clearHlUserInfoCache } from './hlInfoClient';
+import { clearHlUserInfoCache } from './hlInfoClient';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
 
 export type HlTradeRefreshHandlers = {
@@ -10,18 +10,30 @@ export type HlTradeRefreshHandlers = {
 /** Bust HL caches and pull fresh positions/fills immediately after open or close. */
 export async function flushHlStateAfterTrade(
   wallet: string | undefined,
-  handlers: HlTradeRefreshHandlers
+  handlers: HlTradeRefreshHandlers,
+  opts?: { afterClose?: boolean }
 ): Promise<void> {
   const w = wallet?.toLowerCase();
   if (w) {
     clearHlUserInfoCache(w);
   }
-  clearHlInfoCache();
   requestTradeNotificationRefresh();
+  const afterClose = opts?.afterClose === true;
+  // Close: light poll first — avoid 6× parallel /info right when HL is hot.
   await Promise.all([
-    handlers.refreshAccount?.({ forceHeavy: true }) ?? Promise.resolve(),
-    handlers.refreshHlSnap?.(true) ?? Promise.resolve(),
+    handlers.refreshAccount?.({ forceHeavy: !afterClose }) ?? Promise.resolve(),
+    handlers.refreshHlSnap?.(!afterClose) ?? Promise.resolve(),
   ]);
+  if (afterClose) {
+    window.setTimeout(() => {
+      void handlers.refreshAccount?.();
+      void handlers.refreshHlSnap?.(true);
+    }, 2_500);
+    window.setTimeout(() => {
+      void handlers.refreshAccount?.({ forceHeavy: true });
+    }, 6_000);
+    return;
+  }
   window.setTimeout(() => {
     void handlers.refreshAccount?.({ forceHeavy: true });
     void handlers.refreshHlSnap?.(true);
@@ -31,7 +43,11 @@ export async function flushHlStateAfterTrade(
 /** Background refresh — never block the Close click handler on network. */
 export function scheduleHlStateAfterTrade(
   wallet: string | undefined,
-  handlers: HlTradeRefreshHandlers
+  handlers: HlTradeRefreshHandlers,
+  opts?: { afterClose?: boolean }
 ): void {
-  void flushHlStateAfterTrade(wallet, handlers).catch(() => undefined);
+  const delayMs = opts?.afterClose ? 450 : 0;
+  window.setTimeout(() => {
+    void flushHlStateAfterTrade(wallet, handlers, opts).catch(() => undefined);
+  }, delayMs);
 }

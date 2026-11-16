@@ -275,10 +275,14 @@ const ProTradeHlBotDock: React.FC<Props> = ({
         .then(() => {
           setCloseNotice(null);
           onPositionChange?.();
-          scheduleHlStateAfterTrade(closeWallet, {
-            refreshAccount,
-            refreshHlSnap: () => refreshHlSnap(),
-          });
+          scheduleHlStateAfterTrade(
+            closeWallet,
+            {
+              refreshAccount,
+              refreshHlSnap: () => refreshHlSnap(),
+            },
+            { afterClose: true }
+          );
         })
         .catch((err: unknown) => {
           setPendingFlatCoins((prev) => {
