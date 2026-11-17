@@ -1061,6 +1061,7 @@ export class HyperliquidTradingService {
         longClass: opts.pick.longClass,
         skipConfirmCandles: highConfMtfScalpPassEarly,
         allow15mSideways: opts.direction === 'LONG',
+        allowH1Sideways: opts.direction === 'LONG',
       });
       logOpenGate(
         {
