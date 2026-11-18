@@ -326,7 +326,7 @@ export function evaluateEntryLocation(
   if (
     analysis.pricePosition <= cfg.rangeBottomBlock &&
     !analysis.confirmedBreakdown &&
-    analysis.dumpContinuation !== true
+    !analysis.dumpContinuation
   ) {
     return {
       ok: false,

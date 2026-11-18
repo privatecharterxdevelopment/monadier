@@ -224,7 +224,7 @@ async function recordFillCloseIfMissing(
   if (await closeAlreadyKnown({ wallet, coin, closedAtMs: t, pnl })) return false;
 
   const entryPx = entryFromClose({ direction, exitPx, size, pnl });
-  const reason = inferExchangeCloseReason(pnl, direction);
+  const reason = inferExchangeCloseReason(pnl, direction, fill);
   const closedAt = new Date(t).toISOString();
   const leverage = 10;
   const collateralUsd = entryPx > 0 ? (size * entryPx) / leverage : 0;
