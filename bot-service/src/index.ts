@@ -1195,6 +1195,7 @@ const healthServer = http.createServer(async (req, res) => {
           candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
+            longClass: s.longClass ?? null,
             confidence: s.confidence,
             reason: s.reason,
             mode: s.botMode,

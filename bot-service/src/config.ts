@@ -188,6 +188,12 @@ export const config = {
         'GRAM',
         'USUAL',
         'PENGU',
+        /** Thin / meme rotations — no bot auto-opens (user: no XPL/AERO junk queue). */
+        'XPL',
+        'STRK',
+        'AERO',
+        'GRASS',
+        'SOPH',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())

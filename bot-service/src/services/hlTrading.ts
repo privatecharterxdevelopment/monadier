@@ -415,7 +415,9 @@ export function balanceForTradingRisk(
 function liquidityPickScore(signal: GlobalSignalCandidate, tier: 'major' | 'mid' | 'cautious'): number {
   const volM = signal.dayVolumeUsd / 1_000_000;
   const oiM = signal.openInterestUsd / 1_000_000;
-  const tierBonus = tier === 'major' ? 40 : tier === 'mid' ? 15 : -25;
+  const bullBook = getLiveDirectionProfile().name === 'bull_market';
+  const tierBonus =
+    tier === 'major' ? (bullBook ? 95 : 40) : tier === 'mid' ? (bullBook ? 22 : 15) : bullBook ? -35 : -25;
   const reversalBonus =
     signal.direction === 'LONG' && signal.longClass === 'REVERSAL_LONG' && tier === 'major'
       ? 90

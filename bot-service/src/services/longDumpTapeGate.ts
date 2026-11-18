@@ -6,6 +6,11 @@
 import { logger } from '../utils/logger';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { MAJOR_COINS } from './coinTier';
+import { btcAnchorTapeHit } from './btcAnchorTape';
+
+/** Majors / liquid L1 — BTC mild dip must not veto their own tape (user: trade BTC/ETH/SOL/XRP, not chop-block). */
+const LONG_BTC_ANCHOR_SKIP = new Set([...MAJOR_COINS, 'LINK', 'AVAX', 'LTC', 'ADA', 'DOGE']);
 
 export type LongDumpTapeResult = {
   ok: boolean;
@@ -44,7 +49,7 @@ export async function validateLongDumpTapeGate(opts: {
   const symbol = hlCoinToBinanceSymbol(coin);
 
   try {
-    const needBtcAnchor = coin !== 'BTC';
+    const needBtcAnchor = coin !== 'BTC' && !LONG_BTC_ANCHOR_SKIP.has(coin);
     const [c15m, c1h, c5m, c4h, btc15, btc1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '15m', 12),
       signalEngine.fetchCandles(symbol, '1h', 12),
@@ -59,8 +64,8 @@ export async function validateLongDumpTapeGate(opts: {
     ]);
 
     if (needBtcAnchor) {
-      const btc15Hit = tapeHit('BTC 15m', btc15, 5);
-      const btc1hHit = tapeHit('BTC 1h', btc1h, 5);
+      const btc15Hit = btcAnchorTapeHit('BTC 15m', btc15, 5);
+      const btc1hHit = btcAnchorTapeHit('BTC 1h', btc1h, 5);
       // Only veto alts when BTC itself is dumping hard (not mild 4/5 red, net flat).
       const btcDumping = Boolean(btc15Hit && btc15Hit.includes('net -') && !btc15Hit.includes('net +'));
       const btc1hDumping = Boolean(btc1hHit && btc1hHit.includes('net -') && !btc1hHit.includes('net +'));
