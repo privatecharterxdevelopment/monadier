@@ -83,6 +83,11 @@ export const BOT_EXCLUDED_HL_COINS = new Set([
   'GRAM',
   'USUAL',
   'PENGU',
+  'XPL',
+  'STRK',
+  'AERO',
+  'GRASS',
+  'SOPH',
 ]);
 
 export function isBotExcludedHlCoin(coin: string): boolean {
