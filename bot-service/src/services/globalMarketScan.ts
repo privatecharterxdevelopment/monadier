@@ -590,11 +590,19 @@ export function globalSignalsForBotMode(
   const borrow =
     config.hyperliquid.directionProfile.useAggressiveScalpSignals !== false;
   if (borrow) {
+    const bullBook = config.hyperliquid.directionProfile.name === 'bull_market';
     for (const s of liquid(scan.aggressive)) {
-      if (s.direction !== 'SHORT') continue;
-      if (!isProfileDirectionOpenAllowed('SHORT')) continue;
-      if (reversalCoins.has(s.coin.toUpperCase())) continue;
-      if (!h1AllowsShort(s.h1Trend)) continue;
+      if (s.direction === 'SHORT') {
+        if (!isProfileDirectionOpenAllowed('SHORT')) continue;
+        if (reversalCoins.has(s.coin.toUpperCase())) continue;
+        if (!h1AllowsShort(s.h1Trend)) continue;
+      } else if (s.direction === 'LONG') {
+        if (!bullBook || hlBotStrategy === 'profit_grabber') continue;
+        if (!isOpenableLongCandidate(s)) continue;
+        if (String(s.h1Trend ?? '').toUpperCase().includes('DOWN')) continue;
+      } else {
+        continue;
+      }
       const key = `${s.coin.toUpperCase()}:${s.direction}`;
       if (seen.has(key)) continue;
       seen.add(key);

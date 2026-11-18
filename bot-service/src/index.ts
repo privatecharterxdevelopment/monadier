@@ -1108,8 +1108,12 @@ const healthServer = http.createServer(async (req, res) => {
         !bestAvailable &&
         hlOpenCoins.length < maxPositions
       ) {
+        const longRules = config.hyperliquid.directionProfile.long;
+        const minConf = longRules.minConfidence ?? config.hyperliquid.minSignalConfidence;
+        const minTfs = longRules.minDirectionalTfs ?? config.hyperliquid.minDirectionalTfs;
+        const minAlign = longRules.minTrendAlignment ?? config.hyperliquid.minTrendAlignment;
         blockers.push(
-          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
+          `no HL perp tradeable after scan (profile bars: ${minConf}% conf, ${minTfs} TFs, ${minAlign}% align)`
         );
       }
 

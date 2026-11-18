@@ -24,9 +24,15 @@ function tapeHit(
   const first = closed[0]!;
   const last = closed[closed.length - 1]!;
   const netPct = first.open > 0 ? ((last.close - first.open) / first.open) * 100 : 0;
-  // Strict: ≥3/5 red with any net down, or ≥4/5 red, or net ≤ −0.25%.
-  if (red >= 4 || (red >= 3 && netPct < -0.08) || netPct <= -0.25) {
-    return `LONG blocked — ${label} ${red}/${lookback} red (net ${netPct >= 0 ? '+' : ''}${netPct.toFixed(2)}%) — dump tape, no long into red`;
+  // Real dump only — chop (4/5 red, net flat) must not freeze the whole book.
+  if (netPct <= -0.45) {
+    return `LONG blocked — ${label} net ${netPct.toFixed(2)}% — dump tape, no long into red`;
+  }
+  if (red >= 4 && netPct < -0.18) {
+    return `LONG blocked — ${label} ${red}/${lookback} red (net ${netPct.toFixed(2)}%) — dump tape, no long into red`;
+  }
+  if (red >= 3 && netPct < -0.32) {
+    return `LONG blocked — ${label} ${red}/${lookback} red (net ${netPct.toFixed(2)}%) — dump tape, no long into red`;
   }
   return null;
 }
@@ -54,19 +60,22 @@ export async function validateLongDumpTapeGate(opts: {
 
     if (needBtcAnchor) {
       const btc15Hit = tapeHit('BTC 15m', btc15, 5);
-      if (btc15Hit) {
+      const btc1hHit = tapeHit('BTC 1h', btc1h, 5);
+      // Only veto alts when BTC itself is dumping hard (not mild 4/5 red, net flat).
+      const btcDumping = Boolean(btc15Hit && btc15Hit.includes('net -') && !btc15Hit.includes('net +'));
+      const btc1hDumping = Boolean(btc1hHit && btc1hHit.includes('net -') && !btc1hHit.includes('net +'));
+      if (btcDumping) {
         logger.info('Long dump-tape gate blocked — BTC dump', { coin, tf: '15m' });
         return {
           ok: false,
-          reason: `LONG blocked — ${coin} while ${btc15Hit.replace(/^LONG blocked — /, '')}`,
+          reason: `LONG blocked — ${coin} while ${btc15Hit!.replace(/^LONG blocked — /, '')}`,
         };
       }
-      const btc1hHit = tapeHit('BTC 1h', btc1h, 5);
-      if (btc1hHit) {
+      if (btc1hDumping) {
         logger.info('Long dump-tape gate blocked — BTC dump', { coin, tf: '1h' });
         return {
           ok: false,
-          reason: `LONG blocked — ${coin} while ${btc1hHit.replace(/^LONG blocked — /, '')}`,
+          reason: `LONG blocked — ${coin} while ${btc1hHit!.replace(/^LONG blocked — /, '')}`,
         };
       }
     }

@@ -185,6 +185,9 @@ export const config = {
         'TURBO',
         'BOME',
         'BRETT',
+        'GRAM',
+        'USUAL',
+        'PENGU',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
