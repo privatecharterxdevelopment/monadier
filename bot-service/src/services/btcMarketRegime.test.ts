@@ -33,14 +33,13 @@ describe('btcMarketRegime hysteresis — 1h signal cadence', () => {
     const step = 3_600_000;
     advanceBtcRegimeHysteresisForTests('bear_market', t0);
 
-    advanceBtcRegimeHysteresisForTests('bull_market', t0 + step);
-    assert.equal(getBtcHysteresisStateForTests().pendingHits, 1);
-    assert.equal(getBtcHysteresisStateForTests().committed, 'bear_market');
-
-    const flipped = advanceBtcRegimeHysteresisForTests('bull_market', t0 + step * 2);
+    for (let i = 1; i <= 4; i += 1) {
+      advanceBtcRegimeHysteresisForTests('bull_market', t0 + step * i);
+      if (i < 4) {
+        assert.equal(getBtcHysteresisStateForTests().committed, 'bear_market');
+      }
+    }
     assert.equal(getBtcHysteresisStateForTests().committed, 'bull_market');
-    assert.equal(flipped.regime, 'bull_market');
-    assert.equal(flipped.sticky, false);
   });
 
   it('bull→bear requires four 1h confirmations (FLIP_LEAVE_BULL default)', () => {

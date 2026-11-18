@@ -143,6 +143,26 @@ describe('entry engine regression (2026-11-13)', () => {
     assert.ok(r.code.startsWith('SHORT_'));
   });
 
+  it('evaluateEntryLocation blocks SHORT in bottom of range without breakdown', () => {
+    const loc = evaluateEntryLocation('SHORT', {
+      support: 100,
+      resistance: 110,
+      price: 101.2,
+      pricePosition: 0.12,
+      resistanceTouches: 2,
+      resistanceRejections: 0,
+      supportTouches: 2,
+      supportRejections: 0,
+      confirmedBreakoutUp: false,
+      confirmedBreakdown: false,
+      nearResistance: false,
+      nearSupport: false,
+      dumpContinuation: false,
+    });
+    assert.equal(loc.ok, false);
+    assert.equal(loc.code, 'LOCATION_SUPPORT');
+  });
+
   it('evaluateEntryLocation still blocks SHORT on held support', () => {
     const loc = evaluateEntryLocation('SHORT', {
       support: 0.046,

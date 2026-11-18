@@ -41,8 +41,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
   enableLlmConfirm: false,
-  /** LONGs on — allowlist via longOnlyCoins; non-listed memes never. */
-  allowLongOpens: true,
+  /** No auto LONGs in bear/short-primary book — user ops: SHORT focus only. */
+  allowLongOpens: false,
   /** SHORT is primary in bear — opens allowed. */
   allowShortOpens: true,
   short: {
@@ -63,7 +63,8 @@ export const BEAR_MARKET: HlDirectionProfile = {
     bypassPreOpenWhenTrusted: false,
     /** Never skip live 1m/5m at open — MTF scan lag caused SHORTs at support (USELESS/WLFI). */
     bypassScalpAlignWhenTrusted: false,
-    bypassEntryMomentumWhenTrusted: true,
+    /** Majors already skip relax — off everywhere so SHORTs don't chase into local lows. */
+    bypassEntryMomentumWhenTrusted: false,
     bypassSrLocationWhenTrusted: false,
   },
   long: {

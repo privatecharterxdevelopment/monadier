@@ -12,7 +12,7 @@ describe('bear_market thorough pre-open', () => {
     assert.equal(s.bypassFreshPumpWhenTrusted, true);
     assert.equal(s.bypassPreOpenWhenTrusted, false);
     assert.equal(s.bypassScalpAlignWhenTrusted, false);
-    assert.equal(s.bypassEntryMomentumWhenTrusted, true);
+    assert.equal(s.bypassEntryMomentumWhenTrusted, false);
     assert.equal(s.bypassSrLocationWhenTrusted, false);
   });
 

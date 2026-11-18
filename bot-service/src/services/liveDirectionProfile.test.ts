@@ -54,7 +54,12 @@ describe('ops kill switches HL_ALLOW_*', () => {
     const p = applyOpsDirectionOverridesToProfile(BEAR_MARKET);
     assert.equal(p.allowShortOpens, false);
     assert.equal(isDirectionOpenAllowedForProfile(p, 'SHORT'), false);
-    assert.equal(isDirectionOpenAllowedForProfile(p, 'LONG'), true);
+    assert.equal(isDirectionOpenAllowedForProfile(p, 'LONG'), false);
+  });
+
+  it('BEAR profile ships with LONG opens disabled (SHORT-primary)', () => {
+    assert.equal(BEAR_MARKET.allowLongOpens, false);
+    assert.equal(BEAR_MARKET.allowShortOpens, true);
   });
 
   it('SHORT kill-switch applies in BULL', () => {

@@ -34,6 +34,11 @@ const FLIP_CONFIRM_LEAVE_BULL = Math.max(
   FLIP_CONFIRM,
   Number(process.env.HL_BTC_REGIME_FLIP_LEAVE_BULL || 4)
 );
+/** Extra confirms when leaving bear → bull (short bias until BTC proves bull). */
+const FLIP_CONFIRM_ENTER_BULL = Math.max(
+  FLIP_CONFIRM,
+  Number(process.env.HL_BTC_REGIME_FLIP_ENTER_BULL || 4)
+);
 
 let cached: BtcRegimeSnapshot | null = null;
 let cachedAt = 0;
@@ -63,13 +68,11 @@ function scoreBtc(opts: {
   if (opts.change7dPct > 2) bullScore += 2;
   else if (opts.change7dPct < -2) bullScore -= 2;
 
-  // Asymmetric while still in a bull run: mild red days / score -1..-3 must NOT
-  // flip to bear_market (that arms Jun-26 primary SHORT and shorts the dip).
-  // Need a hard break: deep score AND weekly still red.
-  const bearFloor = Number(process.env.HL_BTC_BEAR_SCORE_FLOOR || -5);
-  const clearBearBreak =
-    bullScore <= bearFloor && opts.change7dPct < Number(process.env.HL_BTC_BEAR_7D_MAX || 0);
-  const regime: HlDirectionProfileName = clearBearBreak ? 'bear_market' : 'bull_market';
+  // Short-bias default (chop / mild green → bear_market). Bull only on a clear bull structure.
+  const bullFloor = Number(process.env.HL_BTC_BULL_SCORE_FLOOR || 4);
+  const bull7dMin = Number(process.env.HL_BTC_BULL_7D_MIN || 0);
+  const clearBullBreak = bullScore >= bullFloor && above && opts.change7dPct >= bull7dMin;
+  const regime: HlDirectionProfileName = clearBullBreak ? 'bull_market' : 'bear_market';
   const reason =
     `BTC ${opts.last.toFixed(0)} ` +
     `${above ? '>' : '<'} SMA20-4h ${opts.sma20.toFixed(0)} · ` +
@@ -163,7 +166,9 @@ function applyHysteresis(
     const need =
       from === 'bull_market' && pending === 'bear_market'
         ? FLIP_CONFIRM_LEAVE_BULL
-        : FLIP_CONFIRM;
+        : from === 'bear_market' && pending === 'bull_market'
+          ? FLIP_CONFIRM_ENTER_BULL
+          : FLIP_CONFIRM;
     if (pendingHits < need) {
       return { regime: committed, sticky: true, signalAdvanced: true };
     }

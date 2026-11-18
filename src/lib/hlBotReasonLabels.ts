@@ -18,6 +18,7 @@ export type HlHistoryCloseCategory =
   | 'bot_trail'
   | 'profit_sl_exchange'
   | 'stop_loss_exchange'
+  | 'exchange_fill'
   | 'liquidation'
   | 'other';
 
@@ -41,6 +42,8 @@ export function classifyHlCloseReason(code: string | null | undefined): HlHistor
     (key.includes('stop_loss') && key.includes('exchange'))
   )
     return 'stop_loss_exchange';
+  if (key.startsWith('exchange_close_'))
+    return 'exchange_fill';
   if (
     key === 'trailing_stop' ||
     key.startsWith('profit_grab') ||
@@ -67,6 +70,10 @@ export function historyCloseWhyShortLabel(code: string | null | undefined): stri
       return 'Profit-SL (HL)';
     case 'stop_loss_exchange':
       return 'SL (HL)';
+    case 'exchange_fill': {
+      const stem = closeReasonStem(code);
+      return stem.includes('_loss') ? 'HL close (loss)' : 'HL close';
+    }
     case 'liquidation':
       return 'Liquidation';
     default:

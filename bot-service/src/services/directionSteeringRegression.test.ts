@@ -46,8 +46,8 @@ describe('direction steering regression (requirements 1–10)', () => {
     }
   });
 
-  it('2 — BEAR and BULL profiles allow both LONG and SHORT opens', () => {
-    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'LONG'), true);
+  it('2 — BEAR is SHORT-only at profile level; BULL allows both sides', () => {
+    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'LONG'), false);
     assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'SHORT'), true);
     assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'LONG'), true);
     assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'SHORT'), true);
@@ -179,7 +179,7 @@ describe('direction steering regression (requirements 1–10)', () => {
   it('liveDirectionProfile — AUTO uses bear until BTC detect (allows both sides)', async () => {
     _resetLiveDirectionProfileForTests();
     const profile = await refreshLiveDirectionProfile();
-    assert.equal(profile.allowLongOpens, true);
+    assert.equal(profile.allowLongOpens, profile.name === 'bull_market');
     assert.equal(profile.allowShortOpens, true);
     assert.ok(profile.name === 'bear_market' || profile.name === 'bull_market');
   });

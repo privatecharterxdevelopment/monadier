@@ -323,6 +323,19 @@ export function evaluateEntryLocation(
     }
   }
 
+  if (
+    analysis.pricePosition <= cfg.rangeBottomBlock &&
+    !analysis.confirmedBreakdown &&
+    analysis.dumpContinuation !== true
+  ) {
+    return {
+      ok: false,
+      code: 'LOCATION_SUPPORT',
+      analysis,
+      reason: `SHORT blocked — price in bottom ${(analysis.pricePosition * 100).toFixed(0)}% of range (no breakdown — won't short the low)`,
+    };
+  }
+
   return {
     ok: true,
     code: 'LOCATION_OK',

@@ -574,16 +574,16 @@ export function globalSignalsForBotMode(
   const liquid = (rows: GlobalSignalCandidate[]) =>
     minVol > 0 ? rows.filter((s) => s.dayVolumeUsd >= minVol) : rows;
 
+  const reversalCoins = new Set(
+    liquid(scan.standard)
+      .filter((s) => s.direction === 'LONG' && s.longClass === 'REVERSAL_LONG')
+      .map((s) => s.coin.toUpperCase())
+  );
   const standard = liquid(scan.standard).filter((s) => {
     if (!isProfileDirectionOpenAllowed(s.direction)) return false;
     if (s.direction === 'SHORT') return true;
     return isOpenableLongCandidate(s);
   });
-  const reversalCoins = new Set(
-    standard
-      .filter((s) => s.direction === 'LONG' && s.longClass === 'REVERSAL_LONG')
-      .map((s) => s.coin.toUpperCase())
-  );
   const seen = new Set(standard.map((s) => `${s.coin.toUpperCase()}:${s.direction}`));
   const out = [...standard];
 

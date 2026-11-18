@@ -14,5 +14,7 @@ describe('hlBotReasonLabels close Why', () => {
     assert.equal(historyCloseWhyShortLabel('profit_sl_exchange'), 'Profit-SL (HL)');
     assert.equal(historyCloseWhyShortLabel('manual'), 'Manual');
     assert.equal(historyCloseWhyShortLabel('trailing_stop'), 'Bot trail');
+    assert.equal(classifyHlCloseReason('exchange_close_long_loss'), 'exchange_fill');
+    assert.equal(historyCloseWhyShortLabel('exchange_close_long_loss'), 'HL close (loss)');
   });
 });

@@ -1051,6 +1051,7 @@ export class HyperliquidTradingService {
 
       if (!skipOpenGates) {
       const highConfMtfScalpPassEarly =
+        !hardEntryLocation &&
         opts.direction === 'SHORT' &&
         ((shortRules.trustMtfScan &&
           opts.pick.confidence >= 90 &&
@@ -1210,6 +1211,7 @@ export class HyperliquidTradingService {
       markGatePassed(opts.userAddress, 'pre_open_candles');
 
       const highConfMtfScalpPass =
+        !hardEntryLocation &&
         opts.direction === 'SHORT' &&
         ((shortRules.trustMtfScan &&
           opts.pick.confidence >= 90 &&
@@ -2356,12 +2358,16 @@ export class HyperliquidTradingService {
       const closeNotional = absSize * (entryPx > 0 ? entryPx : 1);
       const closeFees = estimateRoundTripFeesUsd(closeNotional);
       const netPnlUsd = netPnlAfterCosts(pnlUsd, closeNotional, closeFees);
+      const userSettings = await subscriptionService.getUserTradingSettings(
+        userAddress,
+        config.arbitrum.chainId
+      );
       const flattenGate = shouldAllowBotFlatten({
         reason,
         pnlUsd,
         netPnlUsd,
         profitOnlyExits: config.hyperliquid.profitOnlyExits,
-        userStopLossPct: 0,
+        userStopLossPct: userSettings.stopLossPercent,
       });
       if (!flattenGate.ok) {
         logger.warn('HL close rejected — exit policy', {

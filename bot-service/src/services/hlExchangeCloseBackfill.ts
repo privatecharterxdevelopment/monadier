@@ -109,9 +109,22 @@ async function closeAlreadyKnown(opts: {
   return false;
 }
 
-function inferExchangeCloseReason(pnl: number, direction: 'LONG' | 'SHORT'): string {
-  if (pnl > 0.001) return 'profit_sl_exchange';
-  if (pnl < -0.001) return 'stop_loss_exchange';
+function fillLooksLikeStopOrder(fill: HlFill): boolean {
+  const dir = String(fill.dir ?? '').toLowerCase();
+  return /stop|trigger|liquidat/i.test(dir);
+}
+
+/** Don't call every red HL fill "SL" — only when the fill looks like a stop/trigger. */
+function inferExchangeCloseReason(
+  pnl: number,
+  direction: 'LONG' | 'SHORT',
+  fill: HlFill
+): string {
+  const stopLike = fillLooksLikeStopOrder(fill);
+  if (stopLike && pnl > 0.001) return 'profit_sl_exchange';
+  if (stopLike && pnl < -0.001) return 'stop_loss_exchange';
+  if (pnl < -0.001) return `exchange_close_${direction.toLowerCase()}_loss`;
+  if (pnl > 0.001) return `exchange_close_${direction.toLowerCase()}_profit`;
   return `exchange_close_${direction.toLowerCase()}`;
 }
 
@@ -161,7 +174,7 @@ async function recordExchangeVanishedClose(opts: {
     size,
     pnl: best.pnl,
   });
-  const reason = inferExchangeCloseReason(best.pnl, opts.direction);
+  const reason = inferExchangeCloseReason(best.pnl, opts.direction, best.fill);
   const closedAt = new Date(best.t).toISOString();
   const leverage = 10;
   const collateralUsd = entryPx > 0 ? (size * entryPx) / leverage : 0;
