@@ -107,6 +107,36 @@ export class SubscriptionService {
     );
   }
 
+  /** Profiles created since `withinHours` ago (admin signup monitor). */
+  async listRecentProfileSignups(
+    withinHours = 24,
+    limit = 100
+  ): Promise<
+    Array<{
+      id: string;
+      email: string | null;
+      username: string | null;
+      full_name: string | null;
+      wallet_address: string | null;
+      created_at: string;
+    }>
+  > {
+    const hours = Math.max(1, Math.min(168, Math.floor(withinHours)));
+    const cap = Math.max(1, Math.min(500, Math.floor(limit)));
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .select('id, email, username, full_name, wallet_address, created_at')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(cap);
+    if (error) {
+      logger.warn('listRecentProfileSignups failed', { error: error.message });
+      throw error;
+    }
+    return data ?? [];
+  }
+
   /** Resolve profile email for a wallet (admin desk labels). */
   async getEmailFromWallet(walletAddress: string): Promise<string | null> {
     try {

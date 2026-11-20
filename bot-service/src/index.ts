@@ -1659,6 +1659,32 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/admin/signups' && req.method === 'GET') {
+    if (!requireBotAdmin()) return;
+    try {
+      const hoursRaw = Number(url.searchParams.get('hours') ?? 24);
+      const limitRaw = Number(url.searchParams.get('limit') ?? 100);
+      const withinHours = Number.isFinite(hoursRaw) ? hoursRaw : 24;
+      const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+      const signups = await subscriptionService.listRecentProfileSignups(withinHours, limit);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          withinHours,
+          count: signups.length,
+          signups,
+          checkedAt: new Date().toISOString(),
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'signups query failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
   if (url.pathname === '/api/service-status') {
     try {
       const activeWallets = await subscriptionService.getAutoTradeUsers(config.arbitrum.chainId);
