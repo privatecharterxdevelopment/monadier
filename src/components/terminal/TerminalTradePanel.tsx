@@ -605,7 +605,7 @@ const TerminalTradePanel: React.FC<Props> = ({
   const requireSignerForApproval = (): `0x${string}` | null => {
     const trading =
       (wallet ?? monadierAddress ?? address)?.toLowerCase() as `0x${string}` | undefined;
-  if (!trading) {
+    if (!trading) {
       setBotError('Connect your HyperGain trading wallet first.');
       open();
       return null;
