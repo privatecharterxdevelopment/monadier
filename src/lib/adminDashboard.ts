@@ -1208,6 +1208,39 @@ function reconcileAdminBotRunnable(dash: AdminHlDashboard): AdminHlDashboard {
   };
 }
 
+/** Hot path: HL open perps + open uPnL only (~3s admin poll). */
+export async function refreshAdminHlLiveOverlay(
+  dash: AdminHlDashboard
+): Promise<AdminHlDashboard> {
+  const reconciled = reconcileAdminBotRunnable(dash);
+  const hlLive = await fetchAdminHlLiveOpenPositions(reconciled);
+  const openUpnl = sumAdminOpenUpnl(hlLive);
+  const openByWallet = new Map<string, number>();
+  for (const p of hlLive) {
+    const w = p.wallet_address.toLowerCase();
+    openByWallet.set(w, (openByWallet.get(w) ?? 0) + 1);
+  }
+  const users = dash.users.map((u) => {
+    const w = u.wallet_address?.trim().toLowerCase();
+    if (!w) return u;
+    return {
+      ...u,
+      open_positions_count: openByWallet.get(w) ?? u.open_positions_count ?? 0,
+    };
+  });
+  return {
+    ...dash,
+    users,
+    open_positions: hlLive,
+    stats: {
+      ...dash.stats,
+      open_positions: hlLive.length,
+      open_upnl_total: openUpnl,
+    },
+    generated_at: new Date().toISOString(),
+  };
+}
+
 /** Overlay live HL perps + authoritative HL close P/L stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard

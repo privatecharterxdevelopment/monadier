@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Activity,
@@ -29,6 +29,7 @@ import {
   fetchAdminHlTradeHistory,
   fetchAdminLiveContext,
   fetchAdminWalletFeeAudit,
+  refreshAdminHlLiveOverlay,
   fmtUsd,
   fmtUsdTrade,
   formatTimeAgo,
@@ -45,10 +46,9 @@ import {
   fetchHlBotTrailSnapshots,
   type HlBotTrailSnapshot,
 } from '../../lib/hlBotTrailStatus';
-import {
-  countAdminPositionsByCoin,
-  fetchAdminHlLiveOpenPositions,
-} from '../../lib/adminHlLivePositions';
+import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
+import { adminPollIntervalMs } from '../../lib/adminMonitorPoll';
+import { shouldDeferHlBackgroundFetch } from '../../lib/hyperliquid/hlInfoClient';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
 import AdminForceOpenPanel from '../../components/admin/AdminForceOpenPanel';
@@ -145,10 +145,8 @@ const AdminMonitorPage: React.FC = () => {
   const [rpcError, setRpcError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [historyFilter, setHistoryFilter] = useState<HistoryUserFilter>(null);
-  const [liveOpenPositions, setLiveOpenPositions] = useState<
-    AdminHlDashboard['open_positions'] | null
-  >(null);
-  const [liveOpenAt, setLiveOpenAt] = useState<Date | null>(null);
+  const dashRef = useRef<AdminHlDashboard | null>(null);
+  const hlLiveInFlight = useRef(false);
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -170,6 +168,25 @@ const AdminMonitorPage: React.FC = () => {
     setLive(ctx);
     setLastRefresh(new Date());
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    dashRef.current = dash;
+  }, [dash]);
+
+  const refreshHlLive = useCallback(async () => {
+    const current = dashRef.current;
+    if (!current || hlLiveInFlight.current || shouldDeferHlBackgroundFetch()) return;
+    hlLiveInFlight.current = true;
+    try {
+      const next = await refreshAdminHlLiveOverlay(current);
+      setDash(next);
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.warn('[AdminMonitor] HL live overlay failed', err);
+    } finally {
+      hlLiveInFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -196,34 +213,40 @@ const AdminMonitorPage: React.FC = () => {
   useEffect(() => {
     if (!isAdmin || !mfaOk) return;
     void refresh();
-    const poll = setInterval(() => void refresh({ silent: true }), 60_000);
-    return () => clearInterval(poll);
-  }, [isAdmin, mfaOk, refresh]);
 
-  useEffect(() => {
-    if (!isAdmin || !mfaOk || section !== 'positions' || !dash) {
-      setLiveOpenPositions(null);
-      setLiveOpenAt(null);
-      return;
-    }
-    let cancelled = false;
-    const pull = async () => {
-      try {
-        const rows = await fetchAdminHlLiveOpenPositions(dash);
-        if (cancelled) return;
-        setLiveOpenPositions(rows);
-        setLiveOpenAt(new Date());
-      } catch (err) {
-        console.warn('[AdminMonitor] live HL positions refresh failed', err);
+    let fastId = 0;
+    let fullId = 0;
+
+    const arm = () => {
+      window.clearInterval(fastId);
+      window.clearInterval(fullId);
+      fastId = window.setInterval(
+        () => void refreshHlLive(),
+        adminPollIntervalMs('fast')
+      );
+      fullId = window.setInterval(
+        () => void refresh({ silent: true }),
+        adminPollIntervalMs('full')
+      );
+    };
+
+    arm();
+
+    const onVis = () => {
+      arm();
+      if (document.visibilityState === 'visible') {
+        void refreshHlLive();
+        void refresh({ silent: true });
       }
     };
-    void pull();
-    const id = window.setInterval(() => void pull(), 10_000);
+    document.addEventListener('visibilitychange', onVis);
+
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      window.clearInterval(fastId);
+      window.clearInterval(fullId);
+      document.removeEventListener('visibilitychange', onVis);
     };
-  }, [isAdmin, mfaOk, section, dash]);
+  }, [isAdmin, mfaOk, refresh, refreshHlLive]);
 
   useEffect(() => {
     if (!isAdmin || !mfaOk) return;
@@ -287,8 +310,16 @@ const AdminMonitorPage: React.FC = () => {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">Admin — Hyperliquid</h1>
-          <p className="text-secondary text-sm mt-1">
-            Live DB + bot-service · {lastRefresh.toLocaleTimeString()} · {email}
+          <p className="text-secondary text-sm mt-1 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+                aria-hidden
+              />
+              Auto-refresh · HL every 5s · full snapshot 20s
+            </span>
+            <span>· updated {lastRefresh.toLocaleTimeString()}</span>
+            <span>· {email}</span>
           </p>
           {rpcError && (
             <p className="text-amber-500 text-xs mt-2 max-w-xl">{rpcError}</p>
@@ -339,10 +370,7 @@ const AdminMonitorPage: React.FC = () => {
         <BotsPanel bots={dash.active_bots} runnableCount={dash.stats.hl_bots_runnable} />
       )}
       {section === 'positions' && dash && (
-        <PositionsPanel
-          rows={liveOpenPositions ?? dash.open_positions}
-          hlSnapshotAt={liveOpenAt ?? lastRefresh}
-        />
+        <PositionsPanel rows={dash.open_positions} hlSnapshotAt={lastRefresh} />
       )}
       {section === 'trades' && (
         <TradesPanel
@@ -1165,7 +1193,7 @@ function PositionsPanel({
   return (
     <TableShell
       title={`Open HL positions (${total})`}
-      subtitle={`Hyperliquid clearinghouse · as of ${formatAdminHlClock(hlSnapshotAt)} · refreshes every 10s · total uPnL ${fmtUsdTrade(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
+      subtitle={`Hyperliquid clearinghouse · as of ${formatAdminHlClock(hlSnapshotAt)} · auto 5s · total uPnL ${fmtUsdTrade(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
       scrollable
       pagination={{
         page: safePage,

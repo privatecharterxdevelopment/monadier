@@ -1,7 +1,7 @@
 import { getBotApiBase } from '../signalService';
 import { isHlRateLimitError } from '../devLog';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
-import { clearHlUserInfoCache } from './hlInfoClient';
+import { beginHlUserAction, clearHlUserInfoCache } from './hlInfoClient';
 
 function closeAgentError(res: Response, json: { error?: string | null }): Error {
   const raw =
@@ -11,7 +11,9 @@ function closeAgentError(res: Response, json: { error?: string | null }): Error 
       : '');
   const cleaned = raw.replace(/\s*-\s*null\s*$/i, '').trim();
   if (res.status === 429 || isHlRateLimitError(cleaned) || /429|too many requests/i.test(cleaned)) {
-    return new Error('Hyperliquid kurz rate-limited — 3s warten, dann Close nochmal.');
+    return new Error(
+      'Hyperliquid ist kurz ausgelastet. Wird automatisch erneut versucht — sonst in 5s nochmal auf Close tippen.'
+    );
   }
   if (/account sync|could not read your hl position|api timeout/i.test(cleaned)) {
     return new Error(cleaned);
@@ -57,6 +59,7 @@ export async function closeHlPositionViaAgent(params: {
 }): Promise<void> {
   const wallet = params.walletAddress.toLowerCase();
   const coin = params.coin.toUpperCase();
+  beginHlUserAction(6_000);
   // No cache bust before close — that stampedes /info and triggers 429s on HL.
   const body: Record<string, unknown> = { wallet, coin, reason: 'manual' };
   if (params.size != null && Number.isFinite(params.size) && params.size > 0) {
@@ -75,7 +78,7 @@ export async function closeHlPositionViaAgent(params: {
   }
 
   let lastErr: Error | null = null;
-  const maxAttempts = 2;
+  const maxAttempts = 5;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let res: Response;
     try {
@@ -136,7 +139,7 @@ export async function closeHlPositionViaAgent(params: {
       res.status === 429 || /429|rate limit|too many/i.test(lastErr.message);
     const retryable = rateLimited || isRetryableCloseError(lastErr.message);
     if (retryable && attempt < maxAttempts - 1) {
-      await sleep(rateLimited ? 1_800 + attempt * 1_500 : 400 + attempt * 400);
+      await sleep(rateLimited ? 2_000 + attempt * 1_800 : 500 + attempt * 500);
       continue;
     }
     throw lastErr;

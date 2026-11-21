@@ -101,6 +101,9 @@ function emailForWallet(
   return bot?.email ?? null;
 }
 
+let adminMidsCache: { at: number; data: Record<string, number> } | null = null;
+const ADMIN_MIDS_CACHE_MS = 4_500;
+
 export async function fetchHlAllMidsMap(): Promise<Record<string, number>> {
   const raw = await hlInfoPost<Record<string, string>>({ type: 'allMids' });
   const out: Record<string, number> = {};
@@ -109,6 +112,16 @@ export async function fetchHlAllMidsMap(): Promise<Record<string, number>> {
     if (Number.isFinite(n) && n > 0) out[coin.toUpperCase()] = n;
   }
   return out;
+}
+
+async function fetchHlAllMidsMapForAdmin(): Promise<Record<string, number>> {
+  const now = Date.now();
+  if (adminMidsCache && now - adminMidsCache.at < ADMIN_MIDS_CACHE_MS) {
+    return adminMidsCache.data;
+  }
+  const data = await fetchHlAllMidsMap();
+  adminMidsCache = { at: now, data };
+  return data;
 }
 
 function mapHlPosition(
@@ -176,7 +189,7 @@ export async function fetchAdminHlLiveOpenPositions(
   const wallets = collectAdminHlWalletAddresses(dash);
   if (wallets.length === 0) return [];
 
-  const marks = await fetchHlAllMidsMap();
+  const marks = await fetchHlAllMidsMapForAdmin();
   const out: AdminOpenPosition[] = [];
   const chunkSize = 6;
 

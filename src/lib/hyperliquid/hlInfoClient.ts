@@ -12,6 +12,8 @@ const USER_FILLS_TTL_MS = 8_000;
 const MAX_RETRIES = 2;
 const MIN_REQUEST_GAP_MS = 110;
 const RATE_LIMIT_PAUSE_MS = 8_000;
+/** Close / manual trade wins over dashboard HL polls for this window. */
+let hlUserActionUntil = 0;
 
 type HlInfoError = Error & { status?: number; retryable?: boolean };
 
@@ -72,7 +74,7 @@ function ttlFor(body: Record<string, unknown>): number {
     return META_TTL_MS;
   }
   if (t === 'candleSnapshot') return CANDLE_TTL_MS;
-  if (t === 'l2Book' || t === 'allMids') return 2_000;
+  if (t === 'l2Book' || t === 'allMids') return 4_000;
   if (t === 'userFills') return USER_FILLS_TTL_MS;
   if (
     t === 'clearinghouseState' ||
@@ -167,6 +169,20 @@ async function throttleRequest<T>(run: () => Promise<T>): Promise<T> {
     () => undefined
   );
   return scheduled;
+}
+
+/** User clicked Close / order — pause background HL polls briefly. */
+export function beginHlUserAction(ms = 5_000): void {
+  hlUserActionUntil = Math.max(hlUserActionUntil, Date.now() + ms);
+}
+
+export function isHlInfoRateLimited(): boolean {
+  return Date.now() < rateLimitUntil;
+}
+
+/** Admin / background refresh should yield during Close or HL 429 cooldown. */
+export function shouldDeferHlBackgroundFetch(): boolean {
+  return Date.now() < hlUserActionUntil || Date.now() < rateLimitUntil;
 }
 
 /** Shared HL /info POST — dedupes in-flight calls and caches meta/candles. */
