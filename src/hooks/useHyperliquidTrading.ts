@@ -36,6 +36,7 @@ import { closeHlPositionViaAgent } from '../lib/hyperliquid/hlAgentClose';
 import { clearHlInfoCache, clearHlUserInfoCache } from '../lib/hyperliquid/hlInfoClient';
 import { requestTradeNotificationRefresh } from '../lib/tradeNotificationEvents';
 import { fetchHlAccountState } from '../lib/hyperliquid/user';
+import { assertHlReduceOnlyMatchesPosition } from '../lib/hyperliquid/reduceOnlyValidate';
 
 export type ManualOrderResult = {
   outcome: OrderPlacementOutcome | 'tpsl' | 'twap';
@@ -209,6 +210,15 @@ export function useHyperliquidTrading() {
       ) {
         throw new Error(`${opts.coin} is delisted — no new opens (Close only).`);
       }
+      const wallet = await resolveWallet();
+      const user = wallet.account?.address?.toLowerCase();
+      if (opts.reduceOnly && marketKind === 'perp' && user) {
+        await assertHlReduceOnlyMatchesPosition({
+          wallet: user,
+          coin: opts.coin,
+          side: opts.side,
+        });
+      }
       const { index: assetIndex, meta } = await resolveAsset(opts.coin, marketKind);
       const leg = buildSimpleOrderLeg({
         assetIndex,
@@ -227,8 +237,7 @@ export function useHyperliquidTrading() {
         reduceOnly: opts.reduceOnly ?? false,
         profitUsd: opts.profitUsd,
       });
-      const wallet = (await resolveWallet()).account?.address?.toLowerCase();
-      if (wallet) clearHlUserInfoCache(wallet);
+      if (user) clearHlUserInfoCache(user);
       clearHlInfoCache();
       requestTradeNotificationRefresh();
       return { outcome: classifyOrderPlacement(result) };

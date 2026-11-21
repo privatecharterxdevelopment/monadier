@@ -54,6 +54,7 @@ import {
   fetchHlAllMids,
   fetchHlMeta,
   formatHlPrice,
+  formatHlCloseSize,
   formatHlSize,
   hlAccountValueUsd,
   hlFreeMarginUsd,
@@ -2359,6 +2360,47 @@ export class HyperliquidTradingService {
       if (!Number.isFinite(absSize) || absSize < 1e-12) {
         return { success: false, error: 'Zero size' };
       }
+
+      /** Manual close always uses live HL position — UI cache can be flat/wrong side → reduce-only reject. */
+      if (reason === 'manual') {
+        invalidateHlClearinghouseCache(userAddress);
+        const synced = await fetchHlClearinghouseState(userAddress, {
+          critical: true,
+          forceRefresh: true,
+        });
+        const row = synced?.assetPositions?.find(
+          (p) => p.position?.coin?.toUpperCase() === coinUpper
+        )?.position;
+        const rowSize = row != null ? Number(row.szi ?? 0) : 0;
+        if (!Number.isFinite(rowSize) || Math.abs(rowSize) < 1e-12) {
+          return { success: true, alreadyClosed: true };
+        }
+        const chainLong = rowSize > 0;
+        const chainAbs = Math.abs(rowSize);
+        if (chainLong !== isLong) {
+          logger.warn('HL manual close — UI side stale, using HL chain', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            uiLong: isLong,
+            chainLong,
+          });
+          isLong = chainLong;
+        }
+        if (Math.abs(chainAbs - absSize) > 1e-8) {
+          logger.info('HL manual close — size from HL chain', {
+            user: userAddress.slice(0, 10),
+            coin: coinUpper,
+            uiSize: absSize,
+            chainSize: chainAbs,
+          });
+        }
+        absSize = chainAbs;
+        entryPx = Number(row?.entryPx ?? 0) || entryPx;
+        const chainPnl = Number(row?.unrealizedPnl ?? 0);
+        if (Number.isFinite(chainPnl)) pnlUsd = chainPnl;
+        leverage = row?.leverage?.value ?? leverage;
+      }
+
       const closeNotional = absSize * (entryPx > 0 ? entryPx : 1);
       const closeFees = estimateRoundTripFeesUsd(closeNotional);
       const netPnlUsd = netPnlAfterCosts(pnlUsd, closeNotional, closeFees);
@@ -2450,7 +2492,7 @@ export class HyperliquidTradingService {
             a: assetIndex,
             b: !isLong,
             p: formatHlPrice(limitPx, szDecimals),
-            s: formatHlSize(absSize, szDecimals),
+            s: formatHlCloseSize(absSize, szDecimals),
             r: true,
             t: { limit: { tif: 'FrontendMarket' as const } },
           },

@@ -417,8 +417,8 @@ const ProTradeOrderPanel: React.FC<Props> = ({
       }
     } catch (err: unknown) {
       const msg = humanizeHlTradeError(formatHlWalletSignError(err) || (err instanceof Error ? err.message : 'Order failed'));
-      if (!error) setLocalError(msg);
       onErrorToast?.(msg);
+      if (!onErrorToast && !error) setLocalError(msg);
     }
   };
 
@@ -740,7 +740,11 @@ const ProTradeOrderPanel: React.FC<Props> = ({
           </button>
         ) : null}
 
-        {displayError ? <p className="hl-entry-err"><AlertCircle size={12} /> {displayError}</p> : null}
+        {displayError && !onErrorToast ? (
+          <p className="hl-entry-err">
+            <AlertCircle size={12} /> {displayError}
+          </p>
+        ) : null}
         {success ? <p className="hl-entry-ok">{success}</p> : null}
       </div>
 

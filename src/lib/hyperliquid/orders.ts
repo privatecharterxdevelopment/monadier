@@ -194,8 +194,8 @@ export function humanizeHlTradeError(raw: string): string {
   if (/minimum|Order must have minimum|too small|Invalid size/i.test(msg)) {
     return 'Order size too small for this market.';
   }
-  if (/reduce.?only.*increase|would increase position/i.test(msg)) {
-    return 'Reduce-only blockiert: Die Order würde die Position vergrößern. Richtung/Size prüfen und nochmal schließen.';
+  if (/reduce only order would increase position|reduce.?only.*increase|would increase position/i.test(msg)) {
+    return 'Reduce-only abgelehnt: Richtung passt nicht zur echten HL-Position (oft veraltete UI). Positionen aktualisieren, dann Close erneut — kein Reduce-only zum Öffnen.';
   }
   if (/reduce.?only/i.test(msg)) {
     return 'Reduce-only abgelehnt — keine passende offene Position auf Hyperliquid.';
