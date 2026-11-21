@@ -150,7 +150,12 @@ const TerminalTradePanel: React.FC<Props> = ({
   const botAnalysisActions = useBotAnalysisActionsOptional();
   const { open } = useMonadierAppKit();
   const { isConnected, address, publicClient, walletClient } = useWeb3();
-  const { address: monadierAddress } = useMonadierWallet();
+  const {
+    address: monadierAddress,
+    liveAddress,
+    signerMismatch,
+    isLiveConnected,
+  } = useMonadierWallet();
   const { transferUsdClass, closePosition } = useHyperliquidTrading();
   const { isDemoUser, isAuthenticated, user } = useAuth();
   const { linkWallet, planTier } = useSubscription();
@@ -597,17 +602,43 @@ const TerminalTradePanel: React.FC<Props> = ({
     });
   };
 
-  const runApproveAgent = async (forceRenew = false) => {
-    if (!wallet || !address || !walletClient) {
-      setBotError('Connect and unlock your wallet first.');
-      return;
+  const requireSignerForApproval = (): `0x${string}` | null => {
+    const trading =
+      (wallet ?? monadierAddress ?? address)?.toLowerCase() as `0x${string}` | undefined;
+  if (!trading) {
+      setBotError('Connect your HyperGain trading wallet first.');
+      open();
+      return null;
     }
+    if (!walletClient || !isLiveConnected) {
+      open();
+      setBotError(
+        'Sign in with your wallet to approve — balances can load without MetaMask, but agent approval needs an active signature. Open Connect, unlock MetaMask, then tap Approve again.'
+      );
+      return null;
+    }
+    const live = (liveAddress ?? address)?.toLowerCase();
+    if (live && live !== trading) {
+      open();
+      setBotError(
+        signerMismatch
+          ? `Wrong wallet in MetaMask (${live.slice(0, 6)}…${live.slice(-4)}). Switch to your trading wallet ${trading.slice(0, 6)}…${trading.slice(-4)}.`
+          : `Connected wallet does not match your account. Use ${trading.slice(0, 6)}…${trading.slice(-4)} in MetaMask.`
+      );
+      return null;
+    }
+    return trading;
+  };
+
+  const runApproveAgent = async (forceRenew = false) => {
+    const trading = requireSignerForApproval();
+    if (!trading || !walletClient) return;
     setBotError(null);
     setBotBusy(true);
     try {
       await approveHlBotAgentRequired({
         walletClient,
-        walletAddress: address,
+        walletAddress: trading,
         userId: user?.id,
         forceRenew,
       });
@@ -620,10 +651,8 @@ const TerminalTradePanel: React.FC<Props> = ({
   };
 
   const runApproveBuilderFee = async () => {
-    if (!wallet || !address || !walletClient) {
-      setBotError('Connect and unlock your wallet first.');
-      return;
-    }
+    const trading = requireSignerForApproval();
+    if (!trading || !walletClient) return;
     if (!hlSetup.builderPlatformReady) {
       setBotError('Platform fee is activating — try again in a minute.');
       return;
@@ -631,7 +660,7 @@ const TerminalTradePanel: React.FC<Props> = ({
     setBotError(null);
     setBotBusy(true);
     try {
-      await approveHlBuilderFeeRequired(walletClient, address);
+      await approveHlBuilderFeeRequired(walletClient, trading);
       await hlSetup.refresh();
     } catch (err: unknown) {
       setBotError(parseBotTxError(err));
