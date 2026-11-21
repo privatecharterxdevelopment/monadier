@@ -10,6 +10,7 @@
 
 - Default: all agent panel opens are **`botManaged: false`** → marker `manual`, no SL/trail on open.
 - Opt-in: `placeManualPerpOrder({ botManaged: true })` only when you explicitly want agent-managed (profit trail).
+- **Ops / Cursor admin force-open** (`positionScope: ops`): bot marker + emergency SL (default **5%** when vault SL is 0, `HL_OPS_DESK_SL_PERCENT`) + profit trail — same protection as auto-trade.
 - Auto `openMarketPosition` → marker `bot`.
 - `monitorOpenPositions` calls `isUserManualHlPosition` and skips bot exit logic when true.
 - UI `useHlBotManagedCoins` excludes `source=manual` opens from the bot-managed coin set.

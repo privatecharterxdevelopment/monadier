@@ -242,6 +242,8 @@ export const config = {
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
     /** 0 = no SL until user sets one in bot settings (bot decides / profit-only). */
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
+    /** Admin / Cursor force-open when user vault SL is 0 — emergency SL + trail apply. */
+    opsDeskStopLossPercent: Number(process.env.HL_OPS_DESK_SL_PERCENT || 5),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),
     /** Min uPnL before any profit exit (legacy — dynamic trail uses ROE/fees arm). */
   /** Min net $ locked on profit-trail exit — above scrape level so trades can run. */

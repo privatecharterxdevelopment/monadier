@@ -71,6 +71,7 @@ import {
   registerHlProtectiveMonitorWallet,
 } from './hlProtectiveMonitorRegistry';
 import type { TradingCycleContext } from './tradingCycleContext';
+import { resolveOpenStopLossPercent, type HlOpenPositionScope } from './openStopLossScope';
 import {
   normalizeHlBotStrategy,
 } from './hlBotStrategy';
@@ -914,8 +915,8 @@ export class HyperliquidTradingService {
     stopLossPercent: number;
     /** Ops desk / manual — skip SCAN entry gates; still posts fill + emergency SL. */
     skipOpenGates?: boolean;
-    /** manual = Perps tab (slot counts, bot never auto-closes). bot = agent / auto. */
-    positionScope?: 'bot' | 'manual';
+    /** manual = Perps tab (no auto SL/trail). ops = admin/Cursor force-open. bot = auto-trade. */
+    positionScope?: HlOpenPositionScope;
     marginMode?: 'cross' | 'isolated';
   }): Promise<{ success: boolean; error?: string }> {
     try {
@@ -1695,8 +1696,10 @@ export class HyperliquidTradingService {
         return failOpen(lastOpenErr ?? 'Order submit failed', 'HL_RATE_LIMIT');
       }
 
-      const manualOpen = opts.positionScope === 'manual';
-      const slPct = manualOpen ? 0 : Math.max(0, Number(opts.stopLossPercent) || 0);
+      const scope = opts.positionScope ?? 'bot';
+      const manualOpen = scope === 'manual';
+      const opsOpen = scope === 'ops';
+      const slPct = resolveOpenStopLossPercent(scope, opts.stopLossPercent);
       const collateralUsd = opts.notionalUsd / Math.max(1, effectiveLeverage);
       const protectedOpen = await runEntryStopFailSafe({
         wallet: opts.userAddress,
@@ -1711,9 +1714,9 @@ export class HyperliquidTradingService {
         orderStatus: status ?? null,
         entryTimedOut: false,
         exchange: createHlEntrySlExchangeForCoin(opts.userAddress, coin),
-        slRetryBudgetMs: skipOpenGates ? 2_500 : 12_000,
-        slRetries: skipOpenGates ? 2 : 4,
-        ...(skipOpenGates ? { flattenPasses: 2 } : {}),
+        slRetryBudgetMs: manualOpen ? 2_500 : opsOpen || !skipOpenGates ? 12_000 : 2_500,
+        slRetries: manualOpen ? 2 : opsOpen || !skipOpenGates ? 4 : 2,
+        ...(skipOpenGates && !opsOpen ? { flattenPasses: 2 } : {}),
       });
 
       patchExecutionDiagnostic(opts.userAddress, {
@@ -1742,8 +1745,8 @@ export class HyperliquidTradingService {
       }
 
       const fillEntry = protectedOpen.avgPx ?? markPx;
-      const scope = opts.positionScope === 'manual' ? 'manual' : 'bot';
-      if (scope === 'bot') {
+      const markerScope = manualOpen ? 'manual' : 'bot';
+      if (markerScope === 'bot') {
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
           coin,
@@ -1793,7 +1796,7 @@ export class HyperliquidTradingService {
       });
 
       if (slPct > 0 && !protectedOpen.slConfirmed) {
-        if (skipOpenGates && protectedOpen.fillProven) {
+        if (skipOpenGates && !opsOpen && protectedOpen.fillProven) {
           logger.warn('HL manual open — fill ok, SL still pending (monitor will retry)', {
             user: opts.userAddress.slice(0, 10),
             coin,
@@ -2841,6 +2844,7 @@ export class HyperliquidTradingService {
         ctx: opts.ctx,
         stopLossPercent: settings.stopLossPercent,
         skipOpenGates: true,
+        positionScope: 'ops',
         marginMode:
           alreadyOpen || !funding.unifiedAccount
             ? 'isolated'
