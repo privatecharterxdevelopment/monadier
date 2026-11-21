@@ -58,8 +58,6 @@ import {
   hlAccountValueUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
-  hlTradableFreeMarginUsd,
-  fetchHlPerpFundingSnapshot,
   hlTickSize,
   fetchHlCloseNetPnlUsd,
   type HlCloseFillPnl,
@@ -2744,7 +2742,7 @@ export class HyperliquidTradingService {
     direction: 'LONG' | 'SHORT';
     ctx: TradingCycleContext;
     wallets?: string[];
-  /** Vault max when omitted; capped by HL coin max. */
+    /** Vault max when omitted; capped by HL coin max. */
     leverage?: number;
     /** Override notional USD (ops). Default: vault risk × leverage per slot. */
     notionalUsd?: number;
@@ -2801,7 +2799,10 @@ export class HyperliquidTradingService {
         for (const row of state?.assetPositions ?? []) {
           const p = row.position;
           if (p?.coin?.toUpperCase() === coinUpper) {
-            used = Math.max(used, Math.abs(Number(p.marginUsed) || 0));
+            used = Math.max(
+              used,
+              Math.abs(Number((p as { marginUsed?: string }).marginUsed) || 0)
+            );
           }
         }
         collateral = Math.max(collateral, Math.max(0, target - used));
