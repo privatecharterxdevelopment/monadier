@@ -7,7 +7,11 @@ import { hyperliquidTradingService } from '../src/services/hlTrading';
 const coin = (process.argv[2] ?? 'BTC').toUpperCase();
 const direction =
   String(process.argv[3] ?? 'LONG').toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG';
-const leverage = Number(process.argv[4] ?? 20);
+const levArg = String(process.argv[4] ?? 'max').trim();
+const leverageOverride =
+  levArg.toLowerCase() === 'max' || levArg === ''
+    ? undefined
+    : Number(levArg);
 const wallets = String(process.argv[5] ?? '')
   .split(',')
   .map((w) => w.trim().toLowerCase())
@@ -25,10 +29,12 @@ async function main() {
     direction,
     ctx,
     wallets,
-    leverage: Number.isFinite(leverage) && leverage > 0 ? Math.floor(leverage) : 20,
+    leverage: leverageOverride,
     dryRun: false,
   });
-  console.log(JSON.stringify({ coin, direction, leverage, ...result }, null, 2));
+  console.log(
+    JSON.stringify({ coin, direction, leverage: levArg, ...result }, null, 2)
+  );
 }
 
 main().catch((err) => {

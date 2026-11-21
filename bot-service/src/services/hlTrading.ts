@@ -2744,6 +2744,7 @@ export class HyperliquidTradingService {
     direction: 'LONG' | 'SHORT';
     ctx: TradingCycleContext;
     wallets?: string[];
+  /** Vault max when omitted; capped by HL coin max. */
     leverage?: number;
     /** Override notional USD (ops). Default: vault risk × leverage per slot. */
     notionalUsd?: number;
@@ -2805,7 +2806,12 @@ export class HyperliquidTradingService {
         }
         collateral = Math.max(collateral, Math.max(0, target - used));
       }
-      const leverage = opts.leverage ?? Math.max(1, settings.leverageMultiplier || 5);
+      const coinMaxLev = maxLeverageForCoin(opts.ctx.meta, opts.coin);
+      const vaultLev = Math.max(1, Math.floor(settings.leverageMultiplier || 5));
+      const leverage =
+        opts.leverage != null && opts.leverage > 0
+          ? Math.min(Math.floor(opts.leverage), coinMaxLev)
+          : Math.min(vaultLev, coinMaxLev);
       let notional = Math.max(
         config.hyperliquid.minNotionalUsd,
         collateral * leverage
