@@ -58,6 +58,8 @@ import {
   hlAccountValueUsd,
   hlFreeMarginUsd,
   hlOpenPerpCoins,
+  hlTradableFreeMarginUsd,
+  fetchHlPerpFundingSnapshot,
   hlTickSize,
   fetchHlCloseNetPnlUsd,
   type HlCloseFillPnl,
@@ -2743,6 +2745,8 @@ export class HyperliquidTradingService {
     ctx: TradingCycleContext;
     wallets?: string[];
     leverage?: number;
+    /** Override notional USD (ops). Default: vault risk × leverage per slot. */
+    notionalUsd?: number;
     dryRun?: boolean;
   }): Promise<{ opened: number; skipped: string[]; dryRun: boolean }> {
     const wallets =
@@ -2759,15 +2763,62 @@ export class HyperliquidTradingService {
         w,
         config.arbitrum.chainId
       );
-      const state = await fetchHlClearinghouseState(w);
-      const acct = hlAccountValueUsd(state);
-      const notional = Math.max(config.hyperliquid.minNotionalUsd, acct * 0.2);
+      const [state, funding] = await Promise.all([
+        fetchHlClearinghouseState(w),
+        fetchHlPerpFundingSnapshot(w),
+      ]);
+      const openCoins = state ? hlOpenPerpCoins(state) : [];
+      const reserved = Math.max(0, Number(settings.autoBettingBudgetUsd) || 0);
+      const balance = balanceForTradingRisk(
+        funding.tradablePerpUsd,
+        reserved,
+        funding.unifiedAccount
+      );
+      const freeMargin = hlTradableFreeMarginUsd(funding, state);
+      const maxPos = Math.max(
+        2,
+        Math.floor(settings.maxConcurrentPositions || config.hyperliquid.maxConcurrentPositions)
+      );
+      const coinUpper = opts.coin.toUpperCase();
+      const alreadyOpen = openCoins.some((c) => c.toUpperCase() === coinUpper);
+      let collateral = resolveMarginPerSlot(
+        balance,
+        freeMargin,
+        settings.riskLevelBps,
+        alreadyOpen ? Math.max(0, openCoins.length - 1) : openCoins.length,
+        maxPos
+      );
+      if (alreadyOpen) {
+        const target = resolveMarginPerSlot(
+          balance,
+          freeMargin,
+          settings.riskLevelBps,
+          0,
+          maxPos
+        );
+        let used = 0;
+        for (const row of state?.assetPositions ?? []) {
+          const p = row.position;
+          if (p?.coin?.toUpperCase() === coinUpper) {
+            used = Math.max(used, Math.abs(Number(p.marginUsed) || 0));
+          }
+        }
+        collateral = Math.max(collateral, Math.max(0, target - used));
+      }
+      const leverage = opts.leverage ?? Math.max(1, settings.leverageMultiplier || 5);
+      let notional = Math.max(
+        config.hyperliquid.minNotionalUsd,
+        collateral * leverage
+      );
+      if (opts.notionalUsd != null && opts.notionalUsd > 0) {
+        notional = opts.notionalUsd;
+      }
       const result = await this.openMarketPosition({
         userAddress: w as `0x${string}`,
         coin: opts.coin,
         direction: opts.direction,
         notionalUsd: notional,
-        leverage: opts.leverage ?? Math.max(1, settings.leverageMultiplier || 5),
+        leverage,
         pick: {
           coin: opts.coin,
           symbol: `${opts.coin}-PERP`,
@@ -2783,6 +2834,10 @@ export class HyperliquidTradingService {
         ctx: opts.ctx,
         stopLossPercent: settings.stopLossPercent,
         skipOpenGates: true,
+        marginMode:
+          alreadyOpen || !funding.unifiedAccount
+            ? 'isolated'
+            : 'cross',
       });
       if (result.success) opened += 1;
       else skipped.push(`${w.slice(0, 10)}:${result.error || 'fail'}`);
