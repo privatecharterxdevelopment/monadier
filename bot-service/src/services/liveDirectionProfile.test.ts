@@ -100,7 +100,7 @@ describe('AUTO wiring in entry path (static)', () => {
     const force = src.slice(src.indexOf('admin force-open'));
     assert.match(force, /openMarketPosition\(/);
     const manual = src.slice(src.indexOf('placeManualPerpOrder'));
-    assert.match(manual, /skipOpenGates: true/);
+    assert.match(manual, /submitUserManualPerpMarketOrder/);
     const openFn = src.slice(src.indexOf('async openMarketPosition'));
     assert.match(
       openFn,

@@ -182,6 +182,9 @@ export function classifyOrderPlacement(result: unknown): OrderPlacementOutcome {
 export function humanizeHlTradeError(raw: string): string {
   const msg = (raw || '').replace(/\s*-\s*null\s*$/i, '').trim();
   if (!msg) return 'Order failed';
+  if (/bear_market|allowLongOpens=false|SHORT-only mode|direction_profile/i.test(msg)) {
+    return 'Das gilt nur für den Auto-Bot — manuelle Longs sind frei. Seite hart neu laden; Bot-Service muss neu deployt sein.';
+  }
   if (/insufficient.*margin|not enough.*margin|margin.*insufficient|Insufficient margin/i.test(msg)) {
     return 'Insufficient margin — reduce size or deposit USDC.';
   }

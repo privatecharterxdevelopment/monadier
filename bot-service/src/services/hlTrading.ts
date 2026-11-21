@@ -2917,6 +2917,111 @@ export class HyperliquidTradingService {
     return { success: true };
   }
 
+  /**
+   * User manual perp — raw HL agent market order. Zero scan/gates/profile/bear engine.
+   */
+  async submitUserManualPerpMarketOrder(opts: {
+    userAddress: `0x${string}`;
+    coin: string;
+    side: 'LONG' | 'SHORT';
+    size: number;
+    markPx: number;
+    leverage?: number;
+    marginMode: 'cross' | 'isolated';
+  }): Promise<{ success: boolean; error?: string }> {
+    const coinUpper = opts.coin.toUpperCase();
+    if (isExcludedHlCoin(coinUpper)) {
+      return { success: false, error: `${coinUpper} is excluded from HyperGain trading` };
+    }
+    if (!(opts.size > 0) || !(opts.markPx > 0)) {
+      return { success: false, error: 'size and markPx required' };
+    }
+    try {
+      const [meta, mids] = await Promise.all([fetchHlMeta(), fetchHlAllMids()]);
+      const markPx = Number(mids[coinUpper] ?? mids[`${coinUpper}-PERP`] ?? opts.markPx);
+      if (!Number.isFinite(markPx) || markPx <= 0) {
+        return { success: false, error: 'No HL mark price' };
+      }
+      const assetIndex = coinToAssetIndex(meta, coinUpper);
+      const szDecimals = meta.universe[assetIndex]?.szDecimals ?? 4;
+      const coinMaxLev = maxLeverageForCoin(meta, coinUpper);
+      const effectiveLeverage = Math.min(
+        Math.max(1, Math.floor(opts.leverage ?? 5)),
+        coinMaxLev
+      );
+      const client = createAgentClient(opts.userAddress);
+      await client.updateLeverage({
+        asset: assetIndex,
+        isCross: opts.marginMode === 'cross',
+        leverage: effectiveLeverage,
+      });
+      const isLongSubmit = opts.side === 'LONG';
+      const limitPxSubmit = isLongSubmit ? markPx * 1.05 : markPx * 0.95;
+      const orderLeg = {
+        a: assetIndex,
+        b: isLongSubmit,
+        p: formatHlPrice(limitPxSubmit, szDecimals),
+        s: formatHlSize(opts.size, szDecimals),
+        r: false,
+        t: { limit: { tif: 'FrontendMarket' as const } },
+      };
+      const maxAttempts = 6;
+      let lastErr: string | null = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          const result = await client.order({ orders: [orderLeg], grouping: 'na' });
+          const status = result.response?.data?.statuses?.[0] as
+            | { filled?: { avgPx?: string | number }; error?: string; resting?: { oid?: number } }
+            | undefined;
+          const errText = status && 'error' in status && status.error ? String(status.error) : '';
+          if (errText) {
+            lastErr = errText;
+            if (/429|rate limit|too many/i.test(errText) && attempt < maxAttempts - 1) {
+              await new Promise((r) => setTimeout(r, 500 + attempt * 400));
+              continue;
+            }
+            return { success: false, error: errText };
+          }
+          const fillPx =
+            status && 'filled' in status && status.filled?.avgPx != null
+              ? Number(status.filled.avgPx)
+              : markPx;
+          await recordHlChartMarker({
+            walletAddress: opts.userAddress,
+            coin: coinUpper,
+            eventType: 'open',
+            direction: opts.side,
+            price: Number.isFinite(fillPx) ? fillPx : markPx,
+            closeReason: 'manual UI perp (direct HL)',
+            source: 'manual',
+          });
+          invalidateHlPositionScopeCache(opts.userAddress);
+          clearTrailState(positionKey(opts.userAddress, coinUpper));
+          logger.info('HL manual perp opened (direct)', {
+            user: opts.userAddress.slice(0, 10),
+            coin: coinUpper,
+            side: opts.side,
+            size: opts.size,
+            leverage: effectiveLeverage,
+          });
+          return { success: true };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          lastErr = msg;
+          if (/429|rate limit|too many|busy|timeout/i.test(msg) && attempt < maxAttempts - 1) {
+            await new Promise((r) => setTimeout(r, 500 + attempt * 400));
+            continue;
+          }
+          return { success: false, error: msg };
+        }
+      }
+      return { success: false, error: lastErr ?? 'Order failed' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg };
+    }
+  }
+
   async placeManualPerpOrder(opts: {
     userAddress: `0x${string}`;
     coin: string;
@@ -2930,7 +3035,7 @@ export class HyperliquidTradingService {
     reduceOnly: boolean;
     botManaged: boolean;
   }): Promise<{ success: boolean; error?: string }> {
-  const coinUpper = opts.coin.toUpperCase();
+    const coinUpper = opts.coin.toUpperCase();
     if (isExcludedHlCoin(coinUpper)) {
       return { success: false, error: `${coinUpper} is excluded from HyperGain trading` };
     }
@@ -2942,6 +3047,18 @@ export class HyperliquidTradingService {
     }
     if (!(opts.size > 0) || !(opts.markPx > 0)) {
       return { success: false, error: 'size and markPx required' };
+    }
+    const botManaged = opts.botManaged === true;
+    if (!botManaged) {
+      return this.submitUserManualPerpMarketOrder({
+        userAddress: opts.userAddress,
+        coin: coinUpper,
+        side: opts.side,
+        size: opts.size,
+        markPx: opts.markPx,
+        leverage: opts.leverage,
+        marginMode: opts.marginMode,
+      });
     }
     const [meta, mids] = await Promise.all([fetchHlMeta(), fetchHlAllMids()]);
     const ctx: TradingCycleContext = {
@@ -2958,7 +3075,6 @@ export class HyperliquidTradingService {
     );
     const mark = Number(mids[opts.coin] ?? mids[`${opts.coin}-PERP`] ?? opts.markPx);
     const notionalUsd = opts.size * mark;
-    const botManaged = opts.botManaged === true;
     return this.openMarketPosition({
       userAddress: opts.userAddress,
       coin: opts.coin,
@@ -2970,7 +3086,7 @@ export class HyperliquidTradingService {
         symbol: `${opts.coin}-PERP`,
         direction: opts.side,
         confidence: 99,
-        reason: botManaged ? 'manual bot-managed open' : 'manual open',
+        reason: 'manual bot-managed open',
         dayVolumeUsd: 0,
         openInterestUsd: 0,
         botMode: 'standard',
@@ -2978,9 +3094,9 @@ export class HyperliquidTradingService {
       },
       botModeLabel: 'Std',
       ctx,
-      stopLossPercent: botManaged ? settings.stopLossPercent : 0,
+      stopLossPercent: settings.stopLossPercent,
       skipOpenGates: true,
-      positionScope: botManaged ? 'bot' : 'manual',
+      positionScope: 'bot',
       marginMode: opts.marginMode,
     });
   }

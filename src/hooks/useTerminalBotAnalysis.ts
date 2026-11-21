@@ -622,17 +622,17 @@ export function useTerminalBotAnalysis({
         );
         const dp = data.directionProfile;
         if (dp?.autoNewEntriesBlocked?.trim()) {
-          blockers.push(dp.autoNewEntriesBlocked.trim());
+          blockers.push(`Auto-bot only: ${dp.autoNewEntriesBlocked.trim()}`);
         }
         const bestDir = (data.globalScan?.best?.direction ?? '').toUpperCase();
         if (bestDir === 'SHORT' && dp?.allowShortOpens === false) {
           blockers.push(
-            `Scan shows SHORT but live profile ${dp.name ?? '—'} has SHORT opens OFF (bull/long mode)`
+            `Auto-bot only: scan SHORT but profile ${dp.name ?? '—'} has SHORT opens OFF`
           );
         }
         if (bestDir === 'LONG' && dp?.allowLongOpens === false) {
           blockers.push(
-            `Scan shows LONG but live profile ${dp.name ?? '—'} has LONG opens OFF`
+            `Auto-bot only: scan LONG but profile ${dp.name ?? '—'} has LONG opens OFF (manual unaffected)`
           );
         }
         if (data.entryBlockedReason?.trim()) {
