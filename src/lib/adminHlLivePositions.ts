@@ -5,7 +5,7 @@ import type { AdminHlBot, AdminHlDashboard, AdminOpenPosition, AdminUserRow } fr
 
 const WALLET_RE = /^0x[a-f0-9]{40}$/i;
 
-/** Same uPnL math as ProTradeDock — mark-based when mids available. */
+/** Mark-based uPnL when HL snapshot is missing (ProTrade dock fallback). */
 export function adminLivePositionPnl(
   szi: number,
   entryPx: number,
@@ -18,12 +18,32 @@ export function adminLivePositionPnl(
   return hlUpnl;
 }
 
-function marginRoePct(upnlUsd: number, notionalUsd: number, leverage: number): number | null {
+/** ROE % — matches Hyperliquid (uPnL ÷ marginUsed, else notional ÷ leverage). */
+export function hlPositionReturnPct(
+  unrealizedPnlUsd: number,
+  marginUsedUsd: number | null | undefined,
+  notionalUsd: number,
+  leverage: number
+): number | null {
   const lev = Math.max(1, leverage);
-  if (notionalUsd <= 0) return null;
-  const collateral = notionalUsd / lev;
-  if (collateral <= 0) return null;
-  return (upnlUsd / collateral) * 100;
+  const margin =
+    marginUsedUsd != null && marginUsedUsd > 0
+      ? marginUsedUsd
+      : notionalUsd > 0
+        ? notionalUsd / lev
+        : 0;
+  if (margin <= 0) return null;
+  return (unrealizedPnlUsd / margin) * 100;
+}
+
+function displayUnrealizedPnl(
+  szi: number,
+  entryPx: number,
+  markPx: number,
+  hlUpnl: number
+): number {
+  if (Number.isFinite(hlUpnl)) return hlUpnl;
+  return adminLivePositionPnl(szi, entryPx, markPx, hlUpnl);
 }
 
 export function collectAdminHlWalletAddresses(dash: AdminHlDashboard): string[] {
@@ -104,9 +124,10 @@ function mapHlPosition(
   const notional = Number.parseFloat(p.positionValue);
   const hlUpnl = Number.parseFloat(p.unrealizedPnl);
   const lev = Math.max(1, p.leverage?.value ?? 1);
+  const marginUsed = p.marginUsed != null ? Number.parseFloat(p.marginUsed) : null;
   const coin = p.coin.toUpperCase();
   const markPx = marks[coin] ?? 0;
-  const upnl = adminLivePositionPnl(szi, entryPx, markPx, hlUpnl);
+  const upnl = displayUnrealizedPnl(szi, entryPx, markPx, hlUpnl);
 
   return {
     id: `${wallet}:${coin}`,
@@ -122,8 +143,14 @@ function mapHlPosition(
     entry_price: Number.isFinite(entryPx) ? entryPx : null,
     mark_price: markPx > 0 ? markPx : null,
     profit_loss: upnl,
-    profit_loss_percent: marginRoePct(upnl, notional, lev),
+    profit_loss_percent: hlPositionReturnPct(
+      upnl,
+      Number.isFinite(marginUsed ?? NaN) ? marginUsed : null,
+      notional,
+      lev
+    ),
     leverage_multiplier: lev,
+    margin_mode: p.leverage?.type ?? null,
     created_at: new Date().toISOString(),
   };
 }

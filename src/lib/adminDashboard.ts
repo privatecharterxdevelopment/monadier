@@ -106,6 +106,8 @@ export type AdminOpenPosition = {
   profit_loss: number | null;
   profit_loss_percent: number | null;
   leverage_multiplier: number | null;
+  /** HL leverage mode — isolated | cross */
+  margin_mode?: string | null;
   created_at: string;
 };
 

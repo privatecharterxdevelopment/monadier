@@ -45,7 +45,10 @@ import {
   fetchHlBotTrailSnapshots,
   type HlBotTrailSnapshot,
 } from '../../lib/hlBotTrailStatus';
-import { countAdminPositionsByCoin } from '../../lib/adminHlLivePositions';
+import {
+  countAdminPositionsByCoin,
+  fetchAdminHlLiveOpenPositions,
+} from '../../lib/adminHlLivePositions';
 import AdminAffiliateOps from '../../components/admin/AdminAffiliateOps';
 import AdminTwitterSocial from '../../components/admin/AdminTwitterSocial';
 import AdminForceOpenPanel from '../../components/admin/AdminForceOpenPanel';
@@ -142,6 +145,10 @@ const AdminMonitorPage: React.FC = () => {
   const [rpcError, setRpcError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [historyFilter, setHistoryFilter] = useState<HistoryUserFilter>(null);
+  const [liveOpenPositions, setLiveOpenPositions] = useState<
+    AdminHlDashboard['open_positions'] | null
+  >(null);
+  const [liveOpenAt, setLiveOpenAt] = useState<Date | null>(null);
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -192,6 +199,31 @@ const AdminMonitorPage: React.FC = () => {
     const poll = setInterval(() => void refresh({ silent: true }), 60_000);
     return () => clearInterval(poll);
   }, [isAdmin, mfaOk, refresh]);
+
+  useEffect(() => {
+    if (!isAdmin || !mfaOk || section !== 'positions' || !dash) {
+      setLiveOpenPositions(null);
+      setLiveOpenAt(null);
+      return;
+    }
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const rows = await fetchAdminHlLiveOpenPositions(dash);
+        if (cancelled) return;
+        setLiveOpenPositions(rows);
+        setLiveOpenAt(new Date());
+      } catch (err) {
+        console.warn('[AdminMonitor] live HL positions refresh failed', err);
+      }
+    };
+    void pull();
+    const id = window.setInterval(() => void pull(), 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [isAdmin, mfaOk, section, dash]);
 
   useEffect(() => {
     if (!isAdmin || !mfaOk) return;
@@ -306,7 +338,12 @@ const AdminMonitorPage: React.FC = () => {
       {section === 'bots' && dash && (
         <BotsPanel bots={dash.active_bots} runnableCount={dash.stats.hl_bots_runnable} />
       )}
-      {section === 'positions' && dash && <PositionsPanel rows={dash.open_positions} />}
+      {section === 'positions' && dash && (
+        <PositionsPanel
+          rows={liveOpenPositions ?? dash.open_positions}
+          hlSnapshotAt={liveOpenAt ?? lastRefresh}
+        />
+      )}
       {section === 'trades' && (
         <TradesPanel
           userFilter={historyFilter}
@@ -1059,7 +1096,21 @@ function BotsPanel({
   );
 }
 
-function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) {
+function formatAdminHlClock(d: Date): string {
+  return d.toLocaleString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function PositionsPanel({
+  rows,
+  hlSnapshotAt,
+}: {
+  rows: AdminHlDashboard['open_positions'];
+  hlSnapshotAt: Date;
+}) {
   const [page, setPage] = useState(0);
   const [trails, setTrails] = useState<Record<string, HlBotTrailSnapshot>>({});
   const totalUpnl = rows.reduce((s, p) => s + (p.profit_loss ?? 0), 0);
@@ -1114,7 +1165,7 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
   return (
     <TableShell
       title={`Open HL positions (${total})`}
-      subtitle={`Live Hyperliquid · total uPnL ${fmtUsdTrade(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
+      subtitle={`Hyperliquid clearinghouse · as of ${formatAdminHlClock(hlSnapshotAt)} · refreshes every 10s · total uPnL ${fmtUsdTrade(totalUpnl, true)}${coinSummary ? ` · ${coinSummary}` : ''}`}
       scrollable
       pagination={{
         page: safePage,
@@ -1172,7 +1223,14 @@ function PositionsPanel({ rows }: { rows: AdminHlDashboard['open_positions'] }) 
               <td className="px-4 py-2 font-mono">
                 {p.mark_price != null ? fmtPrice(p.mark_price) : '—'}
               </td>
-              <td className="px-4 py-2">{p.leverage_multiplier ?? 1}x</td>
+              <td className="px-4 py-2 text-xs">
+                {p.leverage_multiplier ?? 1}×
+                {p.margin_mode === 'isolated'
+                  ? ' iso'
+                  : p.margin_mode === 'cross'
+                    ? ' cross'
+                    : ''}
+              </td>
               <td
                 className={`px-4 py-2 font-mono ${
                   (p.profit_loss ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'
