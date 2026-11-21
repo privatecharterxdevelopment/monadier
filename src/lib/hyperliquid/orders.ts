@@ -194,8 +194,14 @@ export function humanizeHlTradeError(raw: string): string {
   if (/minimum|Order must have minimum|too small|Invalid size/i.test(msg)) {
     return 'Order size too small for this market.';
   }
+  if (/reduce.?only.*increase|would increase position/i.test(msg)) {
+    return 'Reduce-only blockiert: Die Order würde die Position vergrößern. Richtung/Size prüfen und nochmal schließen.';
+  }
   if (/reduce.?only/i.test(msg)) {
-    return 'Reduce-only rejected — no matching open position.';
+    return 'Reduce-only abgelehnt — keine passende offene Position auf Hyperliquid.';
+  }
+  if (/asset\s*=\s*0/i.test(msg) && /order\s*0/i.test(msg)) {
+    return 'Order abgelehnt (BTC/Asset 0) — Position kurz aktualisieren und Close erneut tippen.';
   }
   if (/Price too far|oracle|slippage/i.test(msg)) {
     return 'Price rejected by Hyperliquid — refresh mark and retry.';

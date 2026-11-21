@@ -9,13 +9,16 @@ import React, {
 import { Loader2 } from 'lucide-react';
 import { consumeAuthToast } from '../../lib/authToast';
 
+export type TermToastVariant = 'ok' | 'err' | 'info';
+
 type ToastState = {
   message: string;
   loading?: boolean;
+  variant?: TermToastVariant;
 };
 
 type TermAuthToastContextValue = {
-  showToast: (message: string, durationMs?: number) => void;
+  showToast: (message: string, durationMs?: number, variant?: TermToastVariant) => void;
   signOutWithToast: (signOutFn: () => Promise<void>, redirect: () => void) => Promise<void>;
 };
 
@@ -41,11 +44,14 @@ export const TermAuthToastProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const showToast = useCallback((message: string, durationMs = 2600) => {
-    clearHideTimer();
-    setToast({ message, loading: false });
-    hideTimerRef.current = setTimeout(() => setToast(null), durationMs);
-  }, []);
+  const showToast = useCallback(
+    (message: string, durationMs = 2600, variant: TermToastVariant = 'info') => {
+      clearHideTimer();
+      setToast({ message, loading: false, variant });
+      hideTimerRef.current = setTimeout(() => setToast(null), durationMs);
+    },
+    []
+  );
 
   const signOutWithToast = useCallback(
     async (signOutFn: () => Promise<void>, redirect: () => void) => {
@@ -81,11 +87,27 @@ export const TermAuthToastProvider: React.FC<{ children: React.ReactNode }> = ({
     <TermAuthToastContext.Provider value={{ showToast, signOutWithToast }}>
       {children}
       {toast && (
-        <div className="term-auth-toast-wrap" role="status" aria-live="polite">
-          <div className="term-auth-toast">
-            {toast.loading && <Loader2 size={14} className="term-auth-toast-spinner" />}
-            <span>{toast.message}</span>
-          </div>
+        <div className="term-auth-toast-wrap" role="status" aria-live="assertive">
+          {toast.variant === 'err' || toast.variant === 'ok' ? (
+            <div className={`hl-toast hl-toast--${toast.variant}`}>
+              {toast.variant === 'ok' ? (
+                <span className="hl-toast__mark" aria-hidden>
+                  ✓
+                </span>
+              ) : null}
+              {toast.variant === 'err' ? (
+                <span className="hl-toast__mark" aria-hidden>
+                  !
+                </span>
+              ) : null}
+              <span>{toast.message}</span>
+            </div>
+          ) : (
+            <div className="term-auth-toast">
+              {toast.loading && <Loader2 size={14} className="term-auth-toast-spinner" />}
+              <span>{toast.message}</span>
+            </div>
+          )}
         </div>
       )}
     </TermAuthToastContext.Provider>

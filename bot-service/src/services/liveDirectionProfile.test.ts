@@ -95,13 +95,16 @@ describe('AUTO wiring in entry path (static)', () => {
     assert.match(src, /await refreshLiveDirectionProfile\(\)/);
   });
 
-  it('force-open and manual paths use openMarketPosition (direction_profile gate)', () => {
+  it('force-open and manual paths use openMarketPosition (profile gate only for auto-bot)', () => {
     const src = readFileSync(new URL('./hlTrading.ts', import.meta.url), 'utf8');
     const force = src.slice(src.indexOf('admin force-open'));
     assert.match(force, /openMarketPosition\(/);
     const manual = src.slice(src.indexOf('placeManualPerpOrder'));
-    assert.match(manual, /openMarketPosition\(/);
+    assert.match(manual, /skipOpenGates: true/);
     const openFn = src.slice(src.indexOf('async openMarketPosition'));
-    assert.match(openFn, /isProfileDirectionOpenAllowed\(opts.direction\)/);
+    assert.match(
+      openFn,
+      /!opts\.skipOpenGates && !isProfileDirectionOpenAllowed\(opts\.direction\)/
+    );
   });
 });

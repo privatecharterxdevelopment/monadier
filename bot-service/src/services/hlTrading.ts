@@ -958,7 +958,8 @@ export class HyperliquidTradingService {
         return { success: false as const, error };
       };
 
-      if (!isProfileDirectionOpenAllowed(opts.direction)) {
+      // Bear/bull profile kills auto-bot entries only — manual + ops use skipOpenGates and must never hit this.
+      if (!opts.skipOpenGates && !isProfileDirectionOpenAllowed(opts.direction)) {
         const profile = getLiveDirectionProfile();
         return failOpen(profileDirectionBlockReason(profile, opts.direction), 'direction_profile');
       }
