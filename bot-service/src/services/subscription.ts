@@ -16,7 +16,8 @@ function normalizeHlTakeProfitPercent(raw: number | null | undefined): number {
 }
 
 /** 0 = disabled — bot never auto-closes at a loss unless user sets SL %. */
-function normalizeHlStopLossPercent(raw: number | null | undefined): number {
+/** Raw user SL % (0 = user picked "Off"). */
+function rawHlStopLossPercent(raw: number | null | undefined): number {
   if (raw == null || !Number.isFinite(Number(raw))) {
     return 0;
   }
@@ -27,6 +28,21 @@ function normalizeHlStopLossPercent(raw: number | null | undefined): number {
   return v;
 }
 
+/**
+ * Bot trades ALWAYS carry a loss stop. User SL wins when set; "Off"/0 → floor
+ * (HL_BOT_MIN_SL_PERCENT, % of margin). Without this a red bot book was never
+ * flattened (profit-trail only) → small wins, unlimited losses.
+ */
+export function effectiveBotStopLossPercent(raw: number | null | undefined): number {
+  const user = rawHlStopLossPercent(raw);
+  if (user > 0) return user;
+  return Math.max(0, config.hyperliquid.botMinStopLossPercent);
+}
+
+function normalizeHlStopLossPercent(raw: number | null | undefined): number {
+  return effectiveBotStopLossPercent(raw);
+}
+
 function normalizeHlProfitLockPercent(raw: number | null | undefined): number {
   const fallback = config.hyperliquid.defaultProfitLockPercent;
   if (raw == null || !Number.isFinite(Number(raw))) return fallback;
@@ -35,9 +51,16 @@ function normalizeHlProfitLockPercent(raw: number | null | undefined): number {
   return v;
 }
 
+/** Bot leverage — user value, hard-capped by HL_BOT_MAX_LEVERAGE (0 = no cap). */
+export function effectiveBotLeverage(raw: number | null | undefined): number {
+  const user =
+    raw == null || !Number.isFinite(Number(raw)) || Number(raw) <= 0 ? 5 : Number(raw);
+  const cap = config.hyperliquid.botMaxLeverage;
+  return cap > 0 ? Math.min(user, cap) : user;
+}
+
 function normalizeHlLeverage(raw: number | null | undefined): number {
-  if (raw == null || !Number.isFinite(Number(raw)) || Number(raw) <= 0) return 5;
-  return Number(raw);
+  return effectiveBotLeverage(raw);
 }
 
 export interface UserSubscription {
@@ -568,14 +591,14 @@ export class SubscriptionService {
           wallet: walletAddress.slice(0, 10),
           chainId,
           defaultTP: '0% (off)',
-          defaultSL: '0% (off — per-user, user can set)',
+          defaultSL: `${config.hyperliquid.botMinStopLossPercent}% floor (bot always has SL)`,
           defaultLeverage: '5x',
           defaultRisk: '5%',
           error: error?.message
         });
         return {
           takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-          stopLossPercent: config.hyperliquid.defaultStopLossPercent,
+          stopLossPercent: effectiveBotStopLossPercent(config.hyperliquid.defaultStopLossPercent),
           profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
           askPermission: false,
           leverageMultiplier: 5.0,
@@ -637,7 +660,7 @@ export class SubscriptionService {
       logger.error('Failed to get user trading settings', { walletAddress, error: err });
       return {
         takeProfitPercent: config.hyperliquid.defaultTakeProfitPercent,
-        stopLossPercent: 0,
+        stopLossPercent: effectiveBotStopLossPercent(0),
         profitLockPercent: config.hyperliquid.defaultProfitLockPercent,
         askPermission: false,
         leverageMultiplier: 5.0,

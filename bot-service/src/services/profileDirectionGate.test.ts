@@ -8,8 +8,8 @@ import {
 } from './profileDirectionGate';
 
 describe('profileDirectionGate', () => {
-  it('BEAR is SHORT-primary — no auto LONG opens', () => {
-    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'LONG'), false);
+  it('BEAR is SHORT-primary but allows LONG (coin MTF picks side)', () => {
+    assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'LONG'), true);
     assert.equal(isDirectionOpenAllowedForProfile(BEAR_MARKET, 'SHORT'), true);
   });
 
@@ -18,8 +18,8 @@ describe('profileDirectionGate', () => {
     assert.equal(isDirectionOpenAllowedForProfile(BULL_MARKET, 'SHORT'), true);
   });
 
-  it('BEAR blocks LONG at profile gate with reason', () => {
-    const reason = profileDirectionBlockReason(BEAR_MARKET, 'LONG');
+  it('LONG kill-switch still yields a block reason', () => {
+    const reason = profileDirectionBlockReason({ ...BEAR_MARKET, allowLongOpens: false }, 'LONG');
     assert.match(reason, /allowLongOpens=false/);
   });
 });

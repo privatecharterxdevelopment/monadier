@@ -126,7 +126,8 @@ describe('aggressive SHORT borrow + $1M floor', () => {
     };
     const signals = globalSignalsForBotMode(scan, 'standard');
     assert.equal(signals.some((s) => s.direction === 'SHORT' && s.coin === 'BTC'), false);
-    assert.equal(signals.filter((s) => s.direction === 'LONG').length, 0);
+    // LONG + SHORT book: the classified REVERSAL_LONG itself stays openable.
+    assert.equal(signals.filter((s) => s.direction === 'LONG').length, 1);
   });
 });
 

@@ -4,7 +4,7 @@
  * HL_DIRECTION_PROFILE=
  *   auto | btc  → BTC 4h/1h detector
  *   bull_market | bear_market | short_friendly → forced (ops override)
- *   (empty / unknown) → forced bear_market (Railway default)
+ *   (empty / unknown) → auto (BTC regime decides LONG- vs SHORT-primary)
  *
  * Ops side-kill (applies on top of whatever profile is live):
  *   HL_ALLOW_SHORT_OPENS=false → no new SHORTs (scan / open / zone-flip / force)
@@ -34,7 +34,7 @@ export type DirectionProfileBoot = {
   forcedName: string | null;
 };
 
-/** Parse env — exported for tests. Empty/unknown stays forced bear (production default). */
+/** Parse env — exported for tests. Empty/unknown → auto (BTC regime). */
 export function parseDirectionProfileBoot(raw: string | undefined): DirectionProfileBoot {
   const value = String(raw ?? '').trim().toLowerCase();
   if (value === 'bull_market' || value === 'bull' || value === 'long') {
@@ -51,7 +51,8 @@ export function parseDirectionProfileBoot(raw: string | undefined): DirectionPro
   if (value === 'auto' || value === 'btc') {
     return { mode: 'auto', forcedName: null };
   }
-  return { mode: 'forced', forcedName: 'bear_market' };
+  // Empty / unknown → AUTO: BTC regime picks bull (LONG-primary) or bear (SHORT-primary).
+  return { mode: 'auto', forcedName: null };
 }
 
 function parseBoolEnv(raw: string | undefined): boolean | null {

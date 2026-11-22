@@ -41,8 +41,11 @@ export const BEAR_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
   enableLlmConfirm: false,
-  /** No auto LONGs in bear/short-primary book — user ops: SHORT focus only. */
-  allowLongOpens: false,
+  /**
+   * LONG + SHORT per coin. Bear = SHORT-primary (looser bars); LONG only with the
+   * strict counter-trend rules below (1h/15m/5m UP, conf ≥ 62, 3 green 15m).
+   */
+  allowLongOpens: true,
   /** SHORT is primary in bear — opens allowed. */
   allowShortOpens: true,
   short: {
