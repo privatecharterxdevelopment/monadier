@@ -21,7 +21,103 @@ type HlFill = {
   closedPnl?: string | number;
   time?: number;
   tid?: number;
+  oid?: number;
+  fee?: string | number;
 };
+
+/** One position close = all its fills (same coin + side, same oid or within 3s). */
+export type AggregatedClose = {
+  coin: string;
+  direction: 'LONG' | 'SHORT';
+  /** Last fill time of the close. */
+  t: number;
+  grossPnl: number;
+  feeUsd: number;
+  /** gross − close fees (same as bot close path / fetchHlCloseNetPnlUsd). */
+  netPnl: number;
+  size: number;
+  /** Size-weighted exit price. */
+  exitPx: number;
+  /** Individual fill closedPnl — used to dedupe rows written before this fix. */
+  partPnls: number[];
+  lastFill: HlFill;
+};
+
+const CLOSE_GROUP_GAP_MS = 3_000;
+
+/**
+ * Group close fills into closes. Bug fixed: HL splits one close into several fills
+ * (e.g. ADA 783 + 949) — previously only one fill landed in trade_history (−3.56 of −7.88).
+ */
+export function aggregateCloseFills(fills: HlFill[]): AggregatedClose[] {
+  const rows = fills
+    .map((f) => ({
+      f,
+      t: Number(f.time ?? 0),
+      pnl: Number(f.closedPnl ?? 0),
+      coin: String(f.coin ?? '').toUpperCase(),
+      direction: fillDirection(f),
+    }))
+    .filter(
+      (r) =>
+        r.coin &&
+        Number.isFinite(r.t) &&
+        Number.isFinite(r.pnl) &&
+        r.direction != null &&
+        isCloseDir(String(r.f.dir ?? ''), r.pnl)
+    )
+    .sort((a, b) => a.t - b.t);
+
+  const out: AggregatedClose[] = [];
+  const open = new Map<string, { agg: AggregatedClose; oid?: number; pxSz: number }>();
+  for (const r of rows) {
+    const key = `${r.coin}:${r.direction}`;
+    const px = Number(r.f.px ?? 0);
+    const sz = Math.abs(Number(r.f.sz ?? 0));
+    const fee = Number(r.f.fee ?? 0);
+    const cur = open.get(key);
+    const sameClose =
+      cur &&
+      ((r.f.oid != null && cur.oid != null && r.f.oid === cur.oid) ||
+        r.t - cur.agg.t <= CLOSE_GROUP_GAP_MS);
+    if (cur && sameClose) {
+      cur.agg.t = r.t;
+      cur.agg.grossPnl += r.pnl;
+      cur.agg.feeUsd += Number.isFinite(fee) ? fee : 0;
+      cur.agg.size += sz;
+      cur.pxSz += px * sz;
+      cur.agg.partPnls.push(r.pnl);
+      cur.agg.lastFill = r.f;
+      continue;
+    }
+    const agg: AggregatedClose = {
+      coin: r.coin,
+      direction: r.direction as 'LONG' | 'SHORT',
+      t: r.t,
+      grossPnl: r.pnl,
+      feeUsd: Number.isFinite(fee) ? fee : 0,
+      netPnl: 0,
+      size: sz,
+      exitPx: px,
+      partPnls: [r.pnl],
+      lastFill: r.f,
+    };
+    const slot = { agg, oid: r.f.oid, pxSz: px * sz };
+    open.set(key, slot);
+    out.push(agg);
+    (agg as AggregatedClose & { _slot?: typeof slot })._slot = slot;
+  }
+  for (const a of out) {
+    const slot = (a as AggregatedClose & { _slot?: { pxSz: number } })._slot;
+    if (slot && a.size > 0) a.exitPx = slot.pxSz / a.size;
+    delete (a as AggregatedClose & { _slot?: unknown })._slot;
+    const round = (n: number) => Math.round(n * 1e6) / 1e6;
+    a.grossPnl = round(a.grossPnl);
+    a.feeUsd = round(a.feeUsd);
+    a.netPnl = round(a.grossPnl - a.feeUsd);
+  }
+  return out;
+}
 
 function isCloseDir(dir: string, pnl: number): boolean {
   if (/^open/i.test(dir)) return false;
@@ -70,6 +166,8 @@ async function closeAlreadyKnown(opts: {
   coin: string;
   closedAtMs: number;
   pnl: number;
+  /** Single-fill PnLs of this close — rows written by the old one-fill backfill. */
+  partPnls?: number[];
 }): Promise<boolean> {
   const from = new Date(opts.closedAtMs - 120_000).toISOString();
   const to = new Date(opts.closedAtMs + 120_000).toISOString();
@@ -88,7 +186,9 @@ async function closeAlreadyKnown(opts: {
   }
   for (const row of th ?? []) {
     const rowPnl = Number(row.profit_loss);
-    if (Number.isFinite(rowPnl) && Math.abs(rowPnl - opts.pnl) < 0.12) return true;
+    if (!Number.isFinite(rowPnl)) continue;
+    if (Math.abs(rowPnl - opts.pnl) < 0.12) return true;
+    if ((opts.partPnls ?? []).some((p) => Math.abs(rowPnl - p) < 0.01)) return true;
   }
 
   const { data: mk, error: mkErr } = await supabase
@@ -139,20 +239,10 @@ async function recordExchangeVanishedClose(opts: {
   const now = Date.now();
 
   const fills = await fetchRecentFills(wallet);
-  let best: { fill: HlFill; t: number; pnl: number } | null = null;
-
-  for (const f of fills) {
-    const fCoin = String(f.coin ?? '').toUpperCase();
-    if (fCoin !== coin) continue;
-    const t = Number(f.time ?? 0);
-    if (!Number.isFinite(t) || t < now - lookbackMs) continue;
-    const pnl = Number(f.closedPnl ?? 0);
-    const dir = String(f.dir ?? '');
-    if (!isCloseDir(dir, pnl)) continue;
-    const fd = fillDirection(f);
-    if (fd !== opts.direction) continue;
-    if (!best || t > best.t) best = { fill: f, t, pnl };
-  }
+  const closes = aggregateCloseFills(fills).filter(
+    (c) => c.coin === coin && c.direction === opts.direction && c.t >= now - lookbackMs
+  );
+  const best = closes.length ? closes[closes.length - 1] : null;
 
   if (!best) {
     logger.debug('HL exchange close backfill — no close fill yet', {
@@ -162,89 +252,80 @@ async function recordExchangeVanishedClose(opts: {
     return;
   }
 
-  const exitPx = Number(best.fill.px ?? 0);
-  const size = Math.abs(Number(best.fill.sz ?? 0));
-  if (!(exitPx > 0) || !(size > 0)) return;
-
-  if (await closeAlreadyKnown({ wallet, coin, closedAtMs: best.t, pnl: best.pnl })) return;
-
-  const entryPx = entryFromClose({
-    direction: opts.direction,
-    exitPx,
-    size,
-    pnl: best.pnl,
-  });
-  const reason = inferExchangeCloseReason(best.pnl, opts.direction, best.fill);
-  const closedAt = new Date(best.t).toISOString();
-  const leverage = 10;
-  const collateralUsd = entryPx > 0 ? (size * entryPx) / leverage : 0;
-
-  await recordHlBotClose({
-    walletAddress: wallet,
-    reason,
-    snapshot: {
-      coin,
-      direction: opts.direction,
-      entryPx,
-      exitPx,
-      size,
-      leverage,
-      unrealizedPnlUsd: best.pnl,
-      collateralUsd,
-    },
-    closedAt,
-  });
-
-  rememberCoinClose(wallet, coin, opts.direction, best.t, { skipWalletReentry: true });
+  const recorded = await recordAggregatedClose(wallet, best);
+  if (!recorded) return;
 
   logger.info('HL exchange-trigger close recorded', {
     user: wallet.slice(0, 10),
     coin,
     direction: opts.direction,
-    reason,
-    pnl: best.pnl.toFixed(4),
-    at: closedAt,
+    fills: best.partPnls.length,
+    grossPnl: best.grossPnl.toFixed(4),
+    netPnl: best.netPnl.toFixed(4),
+    at: new Date(best.t).toISOString(),
   });
 }
 
 const walletSweepAt = new Map<string, number>();
 const SWEEP_MS = 12 * 60_000;
 
-async function recordFillCloseIfMissing(
-  wallet: string,
-  fill: HlFill,
-  direction: 'LONG' | 'SHORT'
-): Promise<boolean> {
-  const coin = String(fill.coin ?? '').toUpperCase();
-  const t = Number(fill.time ?? 0);
-  const pnl = Number(fill.closedPnl ?? 0);
-  const exitPx = Number(fill.px ?? 0);
-  const size = Math.abs(Number(fill.sz ?? 0));
-  if (!coin || !Number.isFinite(t) || !(exitPx > 0) || !(size > 0)) return false;
-  if (await closeAlreadyKnown({ wallet, coin, closedAtMs: t, pnl })) return false;
+/** Live leverage for the coin from HL, else 10 (display only — PnL comes from fills). */
+async function liveLeverageForCoin(wallet: string, coin: string): Promise<number> {
+  try {
+    const res = await fetch(config.hyperliquid.infoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'activeAssetData', user: wallet, coin }),
+    });
+    if (!res.ok) return 10;
+    const j = (await res.json()) as { leverage?: { value?: number } };
+    const v = Number(j?.leverage?.value);
+    return Number.isFinite(v) && v >= 1 ? v : 10;
+  } catch {
+    return 10;
+  }
+}
 
-  const entryPx = entryFromClose({ direction, exitPx, size, pnl });
-  const reason = inferExchangeCloseReason(pnl, direction, fill);
-  const closedAt = new Date(t).toISOString();
-  const leverage = 10;
-  const collateralUsd = entryPx > 0 ? (size * entryPx) / leverage : 0;
+async function recordAggregatedClose(wallet: string, c: AggregatedClose): Promise<boolean> {
+  if (!(c.exitPx > 0) || !(c.size > 0)) return false;
+  if (
+    await closeAlreadyKnown({
+      wallet,
+      coin: c.coin,
+      closedAtMs: c.t,
+      pnl: c.netPnl,
+      partPnls: [...c.partPnls, c.grossPnl],
+    })
+  ) {
+    return false;
+  }
+
+  const entryPx = entryFromClose({
+    direction: c.direction,
+    exitPx: c.exitPx,
+    size: c.size,
+    pnl: c.grossPnl,
+  });
+  const reason = inferExchangeCloseReason(c.grossPnl, c.direction, c.lastFill);
+  const leverage = await liveLeverageForCoin(wallet, c.coin);
+  const collateralUsd = entryPx > 0 ? (c.size * entryPx) / leverage : 0;
 
   await recordHlBotClose({
     walletAddress: wallet,
     reason,
     snapshot: {
-      coin,
-      direction,
+      coin: c.coin,
+      direction: c.direction,
       entryPx,
-      exitPx,
-      size,
+      exitPx: c.exitPx,
+      size: c.size,
       leverage,
-      unrealizedPnlUsd: pnl,
+      unrealizedPnlUsd: c.netPnl,
       collateralUsd,
     },
-    closedAt,
+    closedAt: new Date(c.t).toISOString(),
   });
-  rememberCoinClose(wallet, coin, direction, t, { skipWalletReentry: true });
+  rememberCoinClose(wallet, c.coin, c.direction, c.t, { skipWalletReentry: true });
   return true;
 }
 
@@ -265,15 +346,9 @@ export async function syncWalletMissingExchangeCloses(
 
   const fills = await fetchRecentFills(wallet);
   let recorded = 0;
-  for (const f of fills) {
-    const t = Number(f.time ?? 0);
-    if (!Number.isFinite(t) || t < now - lookbackMs) continue;
-    const pnl = Number(f.closedPnl ?? 0);
-    const dir = String(f.dir ?? '');
-    if (!isCloseDir(dir, pnl)) continue;
-    const direction = fillDirection(f);
-    if (!direction) continue;
-    const did = await recordFillCloseIfMissing(wallet, f, direction);
+  for (const c of aggregateCloseFills(fills)) {
+    if (c.t < now - lookbackMs) continue;
+    const did = await recordAggregatedClose(wallet, c);
     if (did) recorded += 1;
   }
   if (recorded > 0) {

@@ -242,6 +242,13 @@ export const config = {
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
     /** 0 = no SL until user sets one in bot settings (bot decides / profit-only). */
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
+    /**
+     * Bot loss-stop floor (% of margin) when the user SL is Off/0.
+     * 25% at 10× ≈ 2.5% adverse price move. 0 disables (old profit-only behaviour).
+     */
+    botMinStopLossPercent: Number(process.env.HL_BOT_MIN_SL_PERCENT ?? 25),
+    /** Hard cap on bot leverage (user setting above this is clamped). 0 = no cap. */
+    botMaxLeverage: Number(process.env.HL_BOT_MAX_LEVERAGE ?? 10),
     /** Admin / Cursor force-open when user vault SL is 0 — emergency SL + trail apply. */
     opsDeskStopLossPercent: Number(process.env.HL_OPS_DESK_SL_PERCENT || 5),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),

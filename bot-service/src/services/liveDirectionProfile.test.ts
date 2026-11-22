@@ -17,7 +17,7 @@ describe('parseDirectionProfileBoot', () => {
   });
 
   it('forced bear aliases unchanged', () => {
-    for (const v of ['bear_market', 'bear', 'short', 'short_friendly', '']) {
+    for (const v of ['bear_market', 'bear', 'short', 'short_friendly']) {
       assert.equal(parseDirectionProfileBoot(v).mode, 'forced');
       assert.equal(parseDirectionProfileBoot(v).forcedName, 'bear_market');
     }
@@ -30,11 +30,10 @@ describe('parseDirectionProfileBoot', () => {
     }
   });
 
-  it('unknown values stay forced bear (production default)', () => {
-    assert.deepEqual(parseDirectionProfileBoot('typo'), {
-      mode: 'forced',
-      forcedName: 'bear_market',
-    });
+  it('empty / unknown values → auto (BTC regime picks LONG- or SHORT-primary)', () => {
+    for (const v of ['', 'typo', undefined]) {
+      assert.deepEqual(parseDirectionProfileBoot(v), { mode: 'auto', forcedName: null });
+    }
   });
 });
 
@@ -54,12 +53,13 @@ describe('ops kill switches HL_ALLOW_*', () => {
     const p = applyOpsDirectionOverridesToProfile(BEAR_MARKET);
     assert.equal(p.allowShortOpens, false);
     assert.equal(isDirectionOpenAllowedForProfile(p, 'SHORT'), false);
-    assert.equal(isDirectionOpenAllowedForProfile(p, 'LONG'), false);
+    assert.equal(isDirectionOpenAllowedForProfile(p, 'LONG'), true);
   });
 
-  it('BEAR profile ships with LONG opens disabled (SHORT-primary)', () => {
-    assert.equal(BEAR_MARKET.allowLongOpens, false);
+  it('BEAR profile allows LONG + SHORT (SHORT-primary, LONG strict counter-trend)', () => {
+    assert.equal(BEAR_MARKET.allowLongOpens, true);
     assert.equal(BEAR_MARKET.allowShortOpens, true);
+    assert.ok(BEAR_MARKET.long.minConfidence > BEAR_MARKET.short.minConfidence);
   });
 
   it('SHORT kill-switch applies in BULL', () => {
