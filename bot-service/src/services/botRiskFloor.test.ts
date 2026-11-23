@@ -3,12 +3,11 @@ import assert from 'node:assert/strict';
 import { effectiveBotLeverage, effectiveBotStopLossPercent } from './subscription';
 import { config } from '../config';
 
-describe('bot risk floor (SL always on, leverage capped)', () => {
-  it('user SL Off/0/legacy 0.1 → bot SL floor', () => {
-    const floor = config.hyperliquid.botMinStopLossPercent;
-    assert.ok(floor > 0);
+describe('bot risk settings (user SL, leverage capped)', () => {
+  it('user SL Off/0/legacy 0.1 → 0 (user decides, no forced floor)', () => {
+    assert.equal(config.hyperliquid.botMinStopLossPercent, 0);
     for (const raw of [0, null, undefined, 0.1, -5]) {
-      assert.equal(effectiveBotStopLossPercent(raw), floor);
+      assert.equal(effectiveBotStopLossPercent(raw), 0);
     }
   });
 

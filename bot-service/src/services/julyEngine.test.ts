@@ -55,9 +55,10 @@ describe('July 2026 engine — open path wiring (static)', () => {
   });
 });
 
-describe('July 2026 engine — no more liquidations', () => {
-  it('bot SL is never 0', () => {
-    assert.ok(resolveOpenStopLossPercent('bot', 0) > 0);
+describe('July 2026 engine — risk settings', () => {
+  it('bot SL is the user setting (no forced floor by default)', () => {
+    assert.equal(resolveOpenStopLossPercent('bot', 0), 0);
+    assert.equal(resolveOpenStopLossPercent('bot', 20), 20);
   });
 
   it('bot leverage is capped', () => {

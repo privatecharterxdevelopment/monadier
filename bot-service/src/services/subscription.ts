@@ -29,9 +29,8 @@ function rawHlStopLossPercent(raw: number | null | undefined): number {
 }
 
 /**
- * Bot trades ALWAYS carry a loss stop. User SL wins when set; "Off"/0 → floor
- * (HL_BOT_MIN_SL_PERCENT, % of margin). Without this a red bot book was never
- * flattened (profit-trail only) → small wins, unlimited losses.
+ * Bot SL = user setting. "Off"/0 → optional ops floor HL_BOT_MIN_SL_PERCENT
+ * (% of margin, default 0 = no forced SL).
  */
 export function effectiveBotStopLossPercent(raw: number | null | undefined): number {
   const user = rawHlStopLossPercent(raw);
@@ -591,7 +590,7 @@ export class SubscriptionService {
           wallet: walletAddress.slice(0, 10),
           chainId,
           defaultTP: '0% (off)',
-          defaultSL: `${config.hyperliquid.botMinStopLossPercent}% floor (bot always has SL)`,
+          defaultSL: `user setting (floor ${config.hyperliquid.botMinStopLossPercent}%)`,
           defaultLeverage: '5x',
           defaultRisk: '5%',
           error: error?.message

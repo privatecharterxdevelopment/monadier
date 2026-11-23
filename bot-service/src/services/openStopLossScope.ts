@@ -15,6 +15,6 @@ export function resolveOpenStopLossPercent(
   if (scope === 'ops') {
     return user > 0 ? user : Math.max(1, config.hyperliquid.opsDeskStopLossPercent);
   }
-  // Bot: never open without an exchange stop — July lost $128 to 11 liquidations.
+  // Bot: user SL from settings; optional ops floor via HL_BOT_MIN_SL_PERCENT (default 0 = off).
   return user > 0 ? user : Math.max(0, config.hyperliquid.botMinStopLossPercent);
 }
