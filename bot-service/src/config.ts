@@ -329,9 +329,10 @@ export const config = {
      * Same-coin reentry after close. Cap at 5m — Railway once had 30m and starved
      * throughput (“bot waits forever”). Ops can go lower via env; not higher.
      */
+    // 23.11.: 15 min same-coin pause (was 2 min, capped 5) — stop SOL-style instant re-opens.
     sameCoinReentryMinMs: Math.min(
-      300_000,
-      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 120_000))
+      3_600_000,
+      Math.max(0, Number(process.env.HL_SAME_COIN_REENTRY_MS || 900_000))
     ),
     /**
      * Opposite-direction same-coin block. Cap at 10m for the same reason.
