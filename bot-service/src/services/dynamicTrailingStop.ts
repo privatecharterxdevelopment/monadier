@@ -283,8 +283,11 @@ function stagedProfitLock(
     keepFrac = 0.36;
   } else {
     level = 'runner';
-    keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.25 : 0.29) : 0.38;
+    // 23.11.: big winners keep more — 55% of peak from 8× need, 70% from 15× need
+    // (was 25–38%: BTC gave back +$31 → +$5).
+    keepFrac = ratio < 15 ? 0.55 : 0.7;
+    void phase;
+    void direction;
   }
   return {
     level,
@@ -786,6 +789,20 @@ async function evaluateDynamicTrailInner(
       rec.currentTrailStop,
       trailCandidate
     );
+    // 23.11.: the staged peak floor also applies while trailing — the stop is the
+    // tighter (more protective) of ATR trail and peak-lock floor.
+    const peakFloor = peakProfitFloorStopPx(
+      input.direction,
+      input.entryPrice,
+      input.absSize,
+      rec.highestPnlSinceEntry,
+      feesUsd,
+      'trailing',
+      input.collateralUsd
+    );
+    if (peakFloor != null) {
+      rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, peakFloor.px);
+    }
 
     if (input.trailCloseDeferred) {
       return {
