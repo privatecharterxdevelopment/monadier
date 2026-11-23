@@ -16,6 +16,63 @@ import {
 const RESTORE_LABEL_MS = 8_000;
 
 /**
+ * Shared linked-wallet cache. useMonadierWallet runs in ~30 components; each used to
+ * fetch linked wallets on its own, so header / agent / status bar flipped from
+ * "Connect" → connected at different times. One fetch, one notify, every instance
+ * updates in the same render. Last result is kept in sessionStorage so a refresh
+ * shows the wallet immediately.
+ */
+type LinkedSnap = { list: string[]; preferred?: string };
+const LINKED_STORE_KEY = 'hg.linkedWallets.v1';
+const linkedMem = new Map<string, LinkedSnap>();
+const linkedInflight = new Map<string, Promise<void>>();
+const linkedSubs = new Set<() => void>();
+
+function linkedKey(userId: string, live?: string): string {
+  return `${userId}|${(live ?? '').toLowerCase()}`;
+}
+
+function readStoredLinked(userId: string): LinkedSnap | null {
+  try {
+    const raw = window.sessionStorage.getItem(LINKED_STORE_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { userId?: string; list?: string[]; preferred?: string };
+    if (j.userId !== userId || !Array.isArray(j.list)) return null;
+    return { list: j.list, preferred: j.preferred };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredLinked(userId: string, snap: LinkedSnap): void {
+  try {
+    window.sessionStorage.setItem(LINKED_STORE_KEY, JSON.stringify({ userId, ...snap }));
+  } catch {
+    /* storage unavailable — memory cache still shared */
+  }
+}
+
+function loadLinkedShared(userId: string, live?: string): Promise<void> {
+  const key = linkedKey(userId, live);
+  const running = linkedInflight.get(key);
+  if (running) return running;
+  const p = (async () => {
+    try {
+      const list = await fetchUserWalletAddresses(undefined, false, userId);
+      const preferred = await fetchPreferredTradingWallet(list, live);
+      const snap = { list, preferred };
+      linkedMem.set(key, snap);
+      writeStoredLinked(userId, snap);
+      linkedSubs.forEach((fn) => fn());
+    } finally {
+      linkedInflight.delete(key);
+    }
+  })();
+  linkedInflight.set(key, p);
+  return p;
+}
+
+/**
  * Unified wallet connection — AppKit + wagmi + 24h local session + linked DB wallet.
  * HyperGain login required. Live connector is only needed to sign (deposit / approve).
  * Safari can show balances and trades from the wallet already linked to the account.
@@ -25,36 +82,43 @@ export function useMonadierWallet() {
   const appKit = useAppKitAccount();
   const wagmi = useAccount();
   const [sessionTick, setSessionTick] = useState(0);
-  const [linkedWallets, setLinkedWallets] = useState<string[]>([]);
-  const [preferredWallet, setPreferredWallet] = useState<string | undefined>();
-  const [linkedReady, setLinkedReady] = useState(false);
+  const [linkedTick, setLinkedTick] = useState(0);
   const [restoreUntil, setRestoreUntil] = useState(0);
 
   const liveConnected = wagmi.isConnected || appKit.isConnected;
   const liveAddress = wagmi.address ?? appKit.address ?? undefined;
   const authOk = sessionReady && isAuthenticated;
 
+  const userId = authOk && !isDemoUser ? user?.id : undefined;
+
   useEffect(() => {
-    if (!authOk || isDemoUser) {
-      setLinkedWallets(isDemoUser ? [DEMO_WALLET_ADDRESS] : []);
-      setPreferredWallet(isDemoUser ? DEMO_WALLET_ADDRESS : undefined);
-      setLinkedReady(true);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const list = await fetchUserWalletAddresses(undefined, false, user?.id);
-      if (cancelled) return;
-      setLinkedWallets(list);
-      const preferred = await fetchPreferredTradingWallet(list, liveAddress);
-      if (cancelled) return;
-      setPreferredWallet(preferred);
-      setLinkedReady(true);
-    })();
+    const bump = () => setLinkedTick((n) => n + 1);
+    linkedSubs.add(bump);
     return () => {
-      cancelled = true;
+      linkedSubs.delete(bump);
     };
-  }, [authOk, isDemoUser, liveAddress, user?.id]);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    void loadLinkedShared(userId, liveAddress).catch(() => undefined);
+  }, [userId, liveAddress]);
+
+  const linkedSnap = useMemo<LinkedSnap | null>(() => {
+    if (!authOk || isDemoUser) {
+      return isDemoUser
+        ? { list: [DEMO_WALLET_ADDRESS], preferred: DEMO_WALLET_ADDRESS }
+        : { list: [] };
+    }
+    if (!userId) return null;
+    // Fresh shared result for this signer, else last known (same user) for instant paint.
+    return linkedMem.get(linkedKey(userId, liveAddress)) ?? readStoredLinked(userId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authOk, isDemoUser, userId, liveAddress, linkedTick]);
+
+  const linkedWallets = linkedSnap?.list ?? [];
+  const preferredWallet = linkedSnap?.preferred;
+  const linkedReady = linkedSnap != null;
 
   const tradingAddress = resolveHlTradingWallet({
     connectedAddress: liveAddress,
