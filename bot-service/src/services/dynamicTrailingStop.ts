@@ -129,6 +129,8 @@ function blockIfFeesNotCleared(
 ): TrailTickResult {
   if (!result.shouldClose) return result;
   if (result.exitReason === 'stop_loss') return result;
+  // 23.11.: armed stop crossed → always execute (it is the protection, not a harvest).
+  if (result.exitReason === 'profit_lock' || result.exitReason === 'trailing_stop') return result;
   if (profitClearsFeeGate(pnlUsd, feesUsd, peakPnlUsd, collateralUsd)) return result;
   logger.info('HL profit close blocked — leftover too small vs fees/peak', {
     coin,

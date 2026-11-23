@@ -3378,9 +3378,8 @@ export class HyperliquidTradingService {
       }
 
       // Scratch exits that don't clear open+close fees become net losers.
+      // 23.11.: profit_lock / trailing_stop = armed stop hit → never blocked here.
       const profitExitReasons = new Set([
-        'profit_lock',
-        'trailing_stop',
         'profit_grab_peak',
         'profit_grab_timeout',
         'take_profit',
