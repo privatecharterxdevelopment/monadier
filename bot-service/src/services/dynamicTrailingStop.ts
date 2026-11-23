@@ -696,7 +696,9 @@ async function evaluateDynamicTrailInner(
       );
       // Don't snap the floor through mark on a leftover that wouldn't clear fees.
       if (!wouldCross || closeSafe) {
-        rec.currentTrailStop = candidate;
+        // 23.11.: ratchet — a LONG stop never moves down, a SHORT stop never moves up
+        // (rung change 50% → 36% used to lower the floor).
+        rec.currentTrailStop = ratchetStop(input.direction, rec.currentTrailStop, candidate);
       }
       const activeFloor = rec.currentTrailStop ?? candidate;
       // 23.11.: armed floor crossed = close, even if price gapped through below fee

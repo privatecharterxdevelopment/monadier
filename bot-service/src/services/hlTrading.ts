@@ -408,12 +408,8 @@ function isInvertedOrStaleTrail(opts: {
   if (!isTrailStopCrossed(opts.direction, opts.markPrice, rec.currentTrailStop)) {
     return false;
   }
-  // Armed within ~3m of open with stop already breached → invented peak, not a lived trail.
-  const armedAt = rec.trailArmedAt ?? 0;
-  const openedAt = rec.openedAt || opts.openedAtMs;
-  if (armedAt > 0 && openedAt > 0 && armedAt - openedAt < 180_000) {
-    return true;
-  }
+  // 23.11.: a crossed armed stop is a CLOSE, never a wipe. (Old rule wiped stops armed
+  // < 3m after open — with 6s arming that deleted real stops and let trades run down.)
   return false;
 }
 
