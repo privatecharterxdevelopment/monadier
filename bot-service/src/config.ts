@@ -209,7 +209,7 @@ export const config = {
     /** Dynamic price-based trailing stop (replaces fixed $0.02/$0.015 floors). */
     dynamicTrail: {
       /** Min continuous ms in profit before arming profit protection (2m — faster trail arm). */
-      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 12_000), // 23.11.: 12s (was 30s)
+      armMinProfitHoldMs: Number(process.env.HL_TRAIL_ARM_MIN_PROFIT_HOLD_MS || 6_000), // 23.11.: 6s (was 30s)
       /** Max ms from open — force SL trail arm (profit BE or loss SL%). */
       maxHoldBeforeSlTrailMs: Number(process.env.HL_TRAIL_MAX_HOLD_BEFORE_SL_MS || 120_000),
       /**
