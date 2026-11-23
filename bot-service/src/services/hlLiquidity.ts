@@ -1,6 +1,5 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { isBotTradeCoin } from './botTradeUniverse';
 
 export type HlPerpLiquidity = {
   coin: string;
@@ -14,6 +13,13 @@ export type HlLiquidUniverse = {
   coins: string[];
   markets: HlPerpLiquidity[];
   fetchedAt: number;
+  /**
+   * The day-volume floor actually enforced this cycle. Equals the configured
+   * HL_MIN_DAY_VOLUME_USD, but clamped down whenever that value would exclude the
+   * top HL_MIN_TRADABLE_UNIVERSE perps — a stale/too-high Railway floor (e.g. $5M,
+   * which nukes everything but BTC/ETH/SOL) can never silently kill the universe.
+   */
+  minDayVolumeUsdEffective: number;
 };
 
 type AssetMeta = {
@@ -41,8 +47,8 @@ function passesScanUniverse(m: HlPerpLiquidity): boolean {
 }
 
 /** Optional open-time floor — only when env sets minDayVolumeUsd / minOpenInterestUsd > 0. */
-export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
-  const minVol = config.hyperliquid.minDayVolumeUsd;
+export function passesOpenLiquidityGate(m: HlPerpLiquidity, minVolOverride?: number): boolean {
+  const minVol = minVolOverride ?? config.hyperliquid.minDayVolumeUsd;
   const minOi = config.hyperliquid.minOpenInterestUsd;
   if (m.markPx <= 0) return false;
   if (minVol > 0 && m.dayVolumeUsd < minVol) return false;
@@ -50,12 +56,58 @@ export function passesOpenLiquidityGate(m: HlPerpLiquidity): boolean {
   return true;
 }
 
-function buildUniverseFromMetaCtxs(
-  meta: { universe?: AssetMeta[] },
-  ctxs: AssetCtx[]
-): HlLiquidUniverse {
+/**
+ * Clamp the configured day-volume floor so it never excludes the top `minKeep`
+ * most-liquid perps. `scannable` must be sorted by 24h volume descending.
+ */
+export function resolveEffectiveDayVolumeFloor(
+  scannable: HlPerpLiquidity[],
+  configuredFloor: number,
+  minKeep: number
+): number {
+  if (configuredFloor <= 0 || minKeep <= 0 || scannable.length < minKeep) {
+    return Math.max(0, configuredFloor);
+  }
+  const keepFloor = scannable[minKeep - 1]?.dayVolumeUsd ?? 0;
+  return configuredFloor > keepFloor ? keepFloor : configuredFloor;
+}
+
+/** HL perps — scan universe is all listed coins; open floors are optional. */
+export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
+  const ttl = config.hyperliquid.liquidUniverseCacheMs;
+  if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
+    return cached;
+  }
+
+  const res = await fetch(config.hyperliquid.infoUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
+  });
+  if (!res.ok) {
+    if (cached && (res.status === 429 || res.status >= 500)) {
+      logger.warn('HL metaAndAssetCtxs rate-limited — serving stale universe', {
+        status: res.status,
+        ageMs: Date.now() - cached.fetchedAt,
+      });
+      return cached;
+    }
+    throw new Error(`HL metaAndAssetCtxs fetch failed (${res.status})`);
+  }
+
+  const raw = (await res.json()) as unknown;
+  if (!Array.isArray(raw) || raw.length < 2) {
+    throw new Error('HL metaAndAssetCtxs invalid response');
+  }
+
+  const meta = raw[0] as { universe?: AssetMeta[] };
+  const ctxs = raw[1] as AssetCtx[];
+  if (!Array.isArray(meta?.universe) || !Array.isArray(ctxs)) {
+    throw new Error('HL metaAndAssetCtxs missing universe');
+  }
+
   const all: HlPerpLiquidity[] = [];
-  (meta.universe ?? []).forEach((asset, i) => {
+  meta.universe.forEach((asset, i) => {
     if (!asset?.name || asset.isDelisted) return;
     const ctx = ctxs[i];
     if (!ctx) return;
@@ -74,84 +126,50 @@ function buildUniverseFromMetaCtxs(
 
   const scannable = all
     .filter(passesScanUniverse)
-    .filter((m) => isBotTradeCoin(m.coin))
     .sort((a, b) => b.dayVolumeUsd - a.dayVolumeUsd);
 
   const maxScan = config.hyperliquid.maxLiquidScanUniverse;
   const trimmed = maxScan > 0 ? scannable.slice(0, maxScan) : scannable;
 
-  return {
+  const configuredFloor = config.hyperliquid.minDayVolumeUsd;
+  const minKeep = config.hyperliquid.minTradableUniverse;
+  const minDayVolumeUsdEffective = resolveEffectiveDayVolumeFloor(
+    scannable,
+    configuredFloor,
+    minKeep
+  );
+
+  const universe: HlLiquidUniverse = {
     coins: trimmed.map((m) => m.coin),
     markets: trimmed,
     fetchedAt: Date.now(),
+    minDayVolumeUsdEffective,
   };
-}
 
-/** HL perps — scan universe is all listed coins; open floors are optional. */
-export async function fetchHlLiquidUniverse(force = false): Promise<HlLiquidUniverse> {
-  const ttl = config.hyperliquid.liquidUniverseCacheMs;
-  const staleMaxMs = Math.max(ttl * 30, 180_000);
-  if (!force && cached && Date.now() - cached.fetchedAt < ttl) {
-    return cached;
-  }
-
-  const prior = cached;
-
-  let res: Response;
-  try {
-    res = await fetch(config.hyperliquid.infoUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
-    });
-  } catch (err) {
-    if (prior && Date.now() - prior.fetchedAt < staleMaxMs) {
-      logger.warn('HL metaAndAssetCtxs network error — stale liquid universe', {
-        error: err instanceof Error ? err.message : String(err),
-        ageMs: Date.now() - prior.fetchedAt,
-      });
-      return prior;
-    }
-    throw err;
-  }
-
-  if (!res.ok) {
-    if (prior && Date.now() - prior.fetchedAt < staleMaxMs) {
-      logger.warn('HL metaAndAssetCtxs fetch failed — stale liquid universe', {
-        status: res.status,
-        ageMs: Date.now() - prior.fetchedAt,
-      });
-      return prior;
-    }
-    throw new Error(`HL metaAndAssetCtxs fetch failed (${res.status})`);
-  }
-
-  const raw = (await res.json()) as unknown;
-  if (!Array.isArray(raw) || raw.length < 2) {
-    throw new Error('HL metaAndAssetCtxs invalid response');
-  }
-
-  const meta = raw[0] as { universe?: AssetMeta[] };
-  const ctxs = raw[1] as AssetCtx[];
-  if (!Array.isArray(meta?.universe) || !Array.isArray(ctxs)) {
-    throw new Error('HL metaAndAssetCtxs missing universe');
-  }
-
-  const universe = buildUniverseFromMetaCtxs(meta, ctxs);
   cached = universe;
 
-  const openEligible = universe.markets.filter(passesOpenLiquidityGate).length;
+  const openEligible = trimmed.filter((m) =>
+    passesOpenLiquidityGate(m, minDayVolumeUsdEffective)
+  ).length;
+
+  if (minDayVolumeUsdEffective < configuredFloor) {
+    logger.warn('HL day-volume floor clamped — configured value would starve the universe', {
+      configuredFloorM: (configuredFloor / 1e6).toFixed(2),
+      effectiveFloorM: (minDayVolumeUsdEffective / 1e6).toFixed(2),
+      minKeep,
+      openEligible,
+    });
+  }
 
   logger.info('HL liquid universe built', {
-    listed: universe.markets.length,
-    scanning: universe.markets.length,
+    listed: all.length,
+    scanning: trimmed.length,
     openEligible,
-    minDayVolumeUsd: config.hyperliquid.minDayVolumeUsd,
+    minDayVolumeUsd: configuredFloor,
+    minDayVolumeUsdEffective,
     minOpenInterestUsd: config.hyperliquid.minOpenInterestUsd,
-    topCoin: universe.markets[0]?.coin,
-    topVolM: universe.markets[0]
-      ? (universe.markets[0].dayVolumeUsd / 1e6).toFixed(1)
-      : '0',
+    topCoin: trimmed[0]?.coin,
+    topVolM: trimmed[0] ? (trimmed[0].dayVolumeUsd / 1e6).toFixed(1) : '0',
   });
 
   return universe;
@@ -170,5 +188,58 @@ export function isHlCoinLiquid(
   coin: string
 ): boolean {
   const row = getHlLiquidityForCoin(universe, coin);
-  return row != null && passesOpenLiquidityGate(row);
+  return row != null && passesOpenLiquidityGate(row, universe.minDayVolumeUsdEffective);
+}
+
+export type HlLiquidityStatus =
+  | { liquid: true; reason: string }
+  | { liquid: false; kind: 'missing' | 'below_floor'; reason: string };
+
+/**
+ * Precise liquidity verdict — separates a data/mapping miss ("missing": no HL row
+ * or no mark) from an env-floor rejection ("below_floor": real volume/OI under the
+ * configured minimum). Surfaces the exact configured floor so a stale Railway
+ * HL_MIN_DAY_VOLUME_USD is visible in the block log, not hidden behind a generic bucket.
+ */
+export function hlCoinLiquidityStatus(
+  universe: HlLiquidUniverse,
+  coin: string
+): HlLiquidityStatus {
+  const key = coin.toUpperCase();
+  const row = getHlLiquidityForCoin(universe, coin);
+  if (row == null) {
+    return {
+      liquid: false,
+      kind: 'missing',
+      reason: `${key}: no HL perp row in scan universe (mapping/listing miss)`,
+    };
+  }
+  if (row.markPx <= 0) {
+    return {
+      liquid: false,
+      kind: 'missing',
+      reason: `${key}: no live HL mark price (data miss)`,
+    };
+  }
+
+  const minVol = universe.minDayVolumeUsdEffective;
+  const minOi = config.hyperliquid.minOpenInterestUsd;
+  const volM = row.dayVolumeUsd / 1e6;
+
+  if (minVol > 0 && row.dayVolumeUsd < minVol) {
+    return {
+      liquid: false,
+      kind: 'below_floor',
+      reason: `${key}: 24h volume $${volM.toFixed(2)}M below floor $${(minVol / 1e6).toFixed(2)}M (HL_MIN_DAY_VOLUME_USD)`,
+    };
+  }
+  if (minOi > 0 && row.openInterestUsd < minOi) {
+    return {
+      liquid: false,
+      kind: 'below_floor',
+      reason: `${key}: open interest $${(row.openInterestUsd / 1e6).toFixed(2)}M below floor $${(minOi / 1e6).toFixed(2)}M (HL_MIN_OPEN_INTEREST_USD)`,
+    };
+  }
+
+  return { liquid: true, reason: `${key}: liquid ($${volM.toFixed(2)}M/24h)` };
 }

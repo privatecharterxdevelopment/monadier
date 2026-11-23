@@ -6,32 +6,13 @@ import type { Candle } from './signalEngine';
 
 export type VisionChartTimeframe = '1m' | '5m' | '15m' | '1h' | '4h';
 
-/** Structure charts for BOTH sides. 1m may be added for timing, never instead of HTF. */
-export const VISION_STRUCTURE_TIMEFRAMES: VisionChartTimeframe[] = [
-  '5m',
-  '15m',
-  '1h',
-  '4h',
-];
-
+/** SHORT → 1m+5m. LONG → 15m+1h (+4h when HL_LONG_INCLUDE_4H is not false). */
 export function visionTimeframesForDirection(
-  _direction: 'LONG' | 'SHORT'
+  direction: 'LONG' | 'SHORT'
 ): VisionChartTimeframe[] {
-  return [...VISION_STRUCTURE_TIMEFRAMES];
-}
-
-export function visionCandleLimit(tf: VisionChartTimeframe): number {
-  if (tf === '5m') return 80;
-  if (tf === '15m') return 64;
-  if (tf === '1h') return 72;
-  if (tf === '4h') return 48;
-  return 60;
-}
-
-export function visionMinUsableCandles(tf: VisionChartTimeframe): number {
-  if (tf === '4h') return 20;
-  if (tf === '1h') return 24;
-  return 30;
+  if (direction === 'SHORT') return ['1m', '5m'];
+  const include4h = process.env.HL_LONG_INCLUDE_4H !== 'false';
+  return include4h ? ['15m', '1h', '4h'] : ['15m', '1h'];
 }
 
 function crc32(buf: Buffer): number {

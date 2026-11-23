@@ -6,8 +6,6 @@ import { signalEngine } from './signalEngine';
 import { logger } from '../utils/logger';
 import type { HlDirectionProfileName } from '../config/profiles/types';
 
-export type BtcRegimeDataSource = 'detect' | 'cache' | 'fallback';
-
 export type BtcRegimeSnapshot = {
   regime: HlDirectionProfileName;
   reason: string;
@@ -19,12 +17,7 @@ export type BtcRegimeSnapshot = {
   bullScore: number;
   sticky: boolean;
   checkedAt: string;
-  dataSource: BtcRegimeDataSource;
 };
-
-let regimeEverDetectedSuccessfully = false;
-
-const STALE_MS = Number(process.env.HL_BTC_REGIME_STALE_MS || 15 * 60_000);
 
 const CACHE_MS = Number(process.env.HL_BTC_REGIME_CACHE_MS || 60_000);
 /** Consecutive opposite readings required before flipping (anti-whipsaw). */
@@ -34,19 +27,12 @@ const FLIP_CONFIRM_LEAVE_BULL = Math.max(
   FLIP_CONFIRM,
   Number(process.env.HL_BTC_REGIME_FLIP_LEAVE_BULL || 4)
 );
-/** Extra confirms when leaving bear → bull (short bias until BTC proves bull). */
-const FLIP_CONFIRM_ENTER_BULL = Math.max(
-  FLIP_CONFIRM,
-  Number(process.env.HL_BTC_REGIME_FLIP_ENTER_BULL || 4)
-);
 
 let cached: BtcRegimeSnapshot | null = null;
 let cachedAt = 0;
 let committed: HlDirectionProfileName | null = null;
 let pending: HlDirectionProfileName | null = null;
 let pendingHits = 0;
-/** Last closed 1h bar open time used for hysteresis — avoids counting duplicate cycles. */
-let lastHysteresisClosed1hMs = 0;
 
 function avg(xs: number[]): number {
   if (xs.length === 0) return 0;
@@ -68,11 +54,13 @@ function scoreBtc(opts: {
   if (opts.change7dPct > 2) bullScore += 2;
   else if (opts.change7dPct < -2) bullScore -= 2;
 
-  // Short-bias default (chop / mild green → bear_market). Bull only on a clear bull structure.
-  const bullFloor = Number(process.env.HL_BTC_BULL_SCORE_FLOOR || 4);
-  const bull7dMin = Number(process.env.HL_BTC_BULL_7D_MIN || 0);
-  const clearBullBreak = bullScore >= bullFloor && above && opts.change7dPct >= bull7dMin;
-  const regime: HlDirectionProfileName = clearBullBreak ? 'bull_market' : 'bear_market';
+  // Asymmetric while still in a bull run: mild red days / score -1..-3 must NOT
+  // flip to bear_market (that arms Jun-26 primary SHORT and shorts the dip).
+  // Need a hard break: deep score AND weekly still red.
+  const bearFloor = Number(process.env.HL_BTC_BEAR_SCORE_FLOOR || -5);
+  const clearBearBreak =
+    bullScore <= bearFloor && opts.change7dPct < Number(process.env.HL_BTC_BEAR_7D_MAX || 0);
+  const regime: HlDirectionProfileName = clearBearBreak ? 'bear_market' : 'bull_market';
   const reason =
     `BTC ${opts.last.toFixed(0)} ` +
     `${above ? '>' : '<'} SMA20-4h ${opts.sma20.toFixed(0)} · ` +
@@ -82,12 +70,9 @@ function scoreBtc(opts: {
   return { regime, bullScore, reason };
 }
 
-async function detectRaw(): Promise<
-  Omit<BtcRegimeSnapshot, 'sticky' | 'checkedAt' | 'regime' | 'dataSource'> & {
-    regime: HlDirectionProfileName;
-    lastClosed1hMs: number;
-  }
-> {
+async function detectRaw(): Promise<Omit<BtcRegimeSnapshot, 'sticky' | 'checkedAt' | 'regime'> & {
+  regime: HlDirectionProfileName;
+}> {
   const [c4h, c1h] = await Promise.all([
     signalEngine.fetchCandles('BTCUSDT', '4h', 50),
     signalEngine.fetchCandles('BTCUSDT', '1h', 50),
@@ -108,8 +93,6 @@ async function detectRaw(): Promise<
   const change7dPct = ((last - closed4[j7]!.close) / closed4[j7]!.close) * 100;
   const scored = scoreBtc({ last, sma20, change24hPct, change7dPct });
 
-  const lastClosed1hMs = closed1[closed1.length - 1]!.time;
-
   return {
     regime: scored.regime,
     reason: scored.reason,
@@ -119,40 +102,23 @@ async function detectRaw(): Promise<
     change7dPct,
     aboveSma4h: last > sma20,
     bullScore: scored.bullScore,
-    lastClosed1hMs,
   };
 }
 
-function applyHysteresis(
-  raw: HlDirectionProfileName,
-  closed1hMs: number
-): {
+function applyHysteresis(raw: HlDirectionProfileName): {
   regime: HlDirectionProfileName;
   sticky: boolean;
-  signalAdvanced: boolean;
 } {
-  if (closed1hMs > 0 && closed1hMs === lastHysteresisClosed1hMs) {
-    const sticky = Boolean(pending && pending !== committed);
-    return {
-      regime: committed ?? raw,
-      sticky,
-      signalAdvanced: false,
-    };
-  }
-  if (closed1hMs > 0) {
-    lastHysteresisClosed1hMs = closed1hMs;
-  }
-
   if (committed == null) {
     committed = raw;
     pending = null;
     pendingHits = 0;
-    return { regime: committed, sticky: false, signalAdvanced: true };
+    return { regime: committed, sticky: false };
   }
   if (raw === committed) {
     pending = null;
     pendingHits = 0;
-    return { regime: committed, sticky: false, signalAdvanced: true };
+    return { regime: committed, sticky: false };
   }
   if (pending !== raw) {
     pending = raw;
@@ -166,59 +132,29 @@ function applyHysteresis(
     const need =
       from === 'bull_market' && pending === 'bear_market'
         ? FLIP_CONFIRM_LEAVE_BULL
-        : from === 'bear_market' && pending === 'bull_market'
-          ? FLIP_CONFIRM_ENTER_BULL
-          : FLIP_CONFIRM;
+        : FLIP_CONFIRM;
     if (pendingHits < need) {
-      return { regime: committed, sticky: true, signalAdvanced: true };
+      return { regime: committed, sticky: true };
     }
     committed = raw;
     pending = null;
     pendingHits = 0;
     logger.info('BTC market regime flipped', { from, to: committed });
-    return { regime: committed, sticky: false, signalAdvanced: true };
+    return { regime: committed, sticky: false };
   }
-  return { regime: committed, sticky: true, signalAdvanced: true };
-}
-
-export type BtcHysteresisState = {
-  committed: HlDirectionProfileName | null;
-  pending: HlDirectionProfileName | null;
-  pendingHits: number;
-  lastClosed1hMs: number;
-};
-
-export function getBtcHysteresisStateForTests(): BtcHysteresisState {
-  return {
-    committed,
-    pending,
-    pendingHits,
-    lastClosed1hMs: lastHysteresisClosed1hMs,
-  };
-}
-
-/** Test-only: advance hysteresis as if a new closed 1h bar arrived with this raw regime. */
-export function advanceBtcRegimeHysteresisForTests(
-  raw: HlDirectionProfileName,
-  closed1hMs: number
-): { regime: HlDirectionProfileName; sticky: boolean } {
-  return applyHysteresis(raw, closed1hMs);
+  return { regime: committed, sticky: true };
 }
 
 /** Fresh BTC regime (cached ~60s). */
 export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSnapshot> {
-  if (!force && cached && Date.now() - cachedAt < CACHE_MS) {
-    return { ...cached, dataSource: cached.dataSource === 'detect' ? 'cache' : cached.dataSource };
-  }
+  if (!force && cached && Date.now() - cachedAt < CACHE_MS) return cached;
   try {
     const raw = await detectRaw();
-    const { regime, sticky } = applyHysteresis(raw.regime, raw.lastClosed1hMs);
-    regimeEverDetectedSuccessfully = true;
+    const { regime, sticky } = applyHysteresis(raw.regime);
     cached = {
       ...raw,
       regime,
       sticky,
-      dataSource: 'detect',
       reason: sticky
         ? `${raw.reason} (holding ${committed} until ${
             committed === 'bull_market' && raw.regime === 'bear_market'
@@ -233,20 +169,11 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn('BTC regime detect failed — keep last', { error: msg });
-    if (cached && regimeEverDetectedSuccessfully) {
-      const age = Date.now() - cachedAt;
-      if (age <= STALE_MS) {
-        return { ...cached, dataSource: 'cache' };
-      }
-      logger.error('BTC regime stale — detect failed beyond stale window', {
-        staleMs: STALE_MS,
-        ageMs: age,
-      });
-      return { ...cached, dataSource: 'cache', reason: `${cached.reason} (stale ${Math.round(age / 1000)}s)` };
-    }
+    if (cached) return cached;
+    // Safe default when BTC data is down: LONG-primary (don't short blind).
     const fallback: BtcRegimeSnapshot = {
-      regime: 'bear_market',
-      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — default bear until detect`,
+      regime: 'bull_market',
+      reason: `BTC regime unavailable (${msg.slice(0, 80)}) — default bull_market`,
       btcLast: 0,
       sma20_4h: 0,
       change24hPct: 0,
@@ -254,38 +181,15 @@ export async function refreshBtcMarketRegime(force = false): Promise<BtcRegimeSn
       aboveSma4h: true,
       bullScore: 0,
       sticky: false,
-      dataSource: 'fallback',
       checkedAt: new Date().toISOString(),
     };
-    logger.error('BTC regime unavailable — no committed snapshot for AUTO', { error: msg });
+    cached = fallback;
+    cachedAt = Date.now();
+    committed = 'bull_market';
     return fallback;
   }
 }
 
 export function getLastBtcMarketRegime(): BtcRegimeSnapshot | null {
   return cached;
-}
-
-export function btcRegimeHasSuccessfulDetect(): boolean {
-  return regimeEverDetectedSuccessfully;
-}
-
-export function btcRegimeCacheAgeMs(): number {
-  if (!cachedAt) return Number.POSITIVE_INFINITY;
-  return Date.now() - cachedAt;
-}
-
-export function btcRegimeStaleMaxMs(): number {
-  return STALE_MS;
-}
-
-/** For tests — reset module state. */
-export function _resetBtcRegimeStateForTests(): void {
-  cached = null;
-  cachedAt = 0;
-  committed = null;
-  pending = null;
-  pendingHits = 0;
-  lastHysteresisClosed1hMs = 0;
-  regimeEverDetectedSuccessfully = false;
 }

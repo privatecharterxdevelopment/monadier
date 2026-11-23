@@ -1,13 +1,12 @@
 /**
- * LONG allowlist — deprecated as an entry blocker.
- * All bot-universe coins may be evaluated for LONG and SHORT; excluded coins still
- * block at `isExcludedHlCoin` / `isBotTradeCoin`. HL_LONG_ONLY_COINS is kept for
- * ops logging only (set "*" or "ALL" for unrestricted metadata).
+ * LONG allowlist — BTC/ETH/SOL in bear / default.
+ * Bull market: any non-excluded coin may LONG (hard excludes still apply at open).
+ * AVA normalizes to AVAX.
+ * Override: HL_LONG_ONLY_COINS="*" or "ALL" = unrestricted; "BTC,ETH,SOL" = majors only.
  */
 import { config } from '../config';
-import { isBotTradeCoin } from './botTradeUniverse';
 
-const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE'] as const;
+const MAJOR_LONG_DEFAULT = ['BTC', 'ETH', 'SOL'] as const;
 
 export function normalizeLongCoin(coin: string): string {
   const c = coin.trim().toUpperCase();
@@ -20,13 +19,24 @@ export function longAllowlistCoins(): string[] {
   return [...MAJOR_LONG_DEFAULT];
 }
 
-/** True when this coin may open LONG (bot universe; no majors-only gate). */
+function allowlistIsOpen(allow: string[]): boolean {
+  if (allow.length === 0) return true;
+  return allow.some((c) => c === '*' || c === 'ALL');
+}
+
+/** True when this coin may open LONG (bull = all; else allowlist). */
 export function isLongAllowedCoin(coin: string): boolean {
-  const c = normalizeLongCoin(coin);
-  if (!isBotTradeCoin(c)) return false;
-  return true;
+  // Bull run: LONG-primary across the book — majors-only ban was a bear/meme patch.
+  if (config.hyperliquid.directionProfile.name === 'bull_market') return true;
+  const allow = longAllowlistCoins();
+  if (allowlistIsOpen(allow)) return true;
+  return allow.includes(normalizeLongCoin(coin));
 }
 
 export function longAllowlistReason(coin: string): string {
-  return `LONG blocked — ${normalizeLongCoin(coin)} not tradable on bot universe`;
+  const allow = longAllowlistCoins();
+  if (allowlistIsOpen(allow)) {
+    return `LONG blocked — unexpected allowlist miss for ${normalizeLongCoin(coin)}`;
+  }
+  return `LONG blocked — ${normalizeLongCoin(coin)} not in allowlist (${allow.join(',')}); other memes/alts are SHORT-only`;
 }

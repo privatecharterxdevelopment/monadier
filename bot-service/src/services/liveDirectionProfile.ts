@@ -2,9 +2,8 @@
  * Live direction profile — BTC auto regime, with manual env override.
  *
  * HL_DIRECTION_PROFILE=
- *   auto | btc  → BTC 4h/1h detector
+ *   auto | btc | (empty)  → BTC 4h/1h detector (default)
  *   bull_market | bear_market | short_friendly → forced (ops override)
- *   (empty / unknown) → forced bear_market (Railway default)
  *
  * Ops side-kill (applies on top of whatever profile is live):
  *   HL_ALLOW_SHORT_OPENS=false → no new SHORTs (scan / open / zone-flip / force)
@@ -18,9 +17,6 @@ import {
 } from '../config/directionProfiles';
 import type { HlDirectionProfile } from '../config/profiles/types';
 import {
-  btcRegimeCacheAgeMs,
-  btcRegimeHasSuccessfulDetect,
-  btcRegimeStaleMaxMs,
   getLastBtcMarketRegime,
   refreshBtcMarketRegime,
   type BtcRegimeSnapshot,
@@ -29,29 +25,15 @@ import { logger } from '../utils/logger';
 
 export type DirectionProfileMode = 'auto' | 'forced';
 
-export type DirectionProfileBoot = {
+function parseMode(raw: string | undefined): {
   mode: DirectionProfileMode;
   forcedName: string | null;
-};
-
-/** Parse env — exported for tests. Empty/unknown stays forced bear (production default). */
-export function parseDirectionProfileBoot(raw: string | undefined): DirectionProfileBoot {
+} {
   const value = String(raw ?? '').trim().toLowerCase();
-  if (value === 'bull_market' || value === 'bull' || value === 'long') {
-    return { mode: 'forced', forcedName: 'bull_market' };
-  }
-  if (
-    value === 'bear_market' ||
-    value === 'bear' ||
-    value === 'short' ||
-    value === 'short_friendly'
-  ) {
-    return { mode: 'forced', forcedName: 'bear_market' };
-  }
-  if (value === 'auto' || value === 'btc') {
+  if (!value || value === 'auto' || value === 'btc' || value === 'dynamic') {
     return { mode: 'auto', forcedName: null };
   }
-  return { mode: 'forced', forcedName: 'bear_market' };
+  return { mode: 'forced', forcedName: value };
 }
 
 function parseBoolEnv(raw: string | undefined): boolean | null {
@@ -72,19 +54,12 @@ function applyOpsDirectionOverrides(profile: HlDirectionProfile): HlDirectionPro
   };
 }
 
-/** Exported for ops kill-switch tests (HL_ALLOW_* env). */
-export function applyOpsDirectionOverridesToProfile(
-  profile: HlDirectionProfile
-): HlDirectionProfile {
-  return applyOpsDirectionOverrides(profile);
-}
-
-const boot = parseDirectionProfileBoot(process.env.HL_DIRECTION_PROFILE);
+const boot = parseMode(process.env.HL_DIRECTION_PROFILE);
 let liveProfile: HlDirectionProfile = applyOpsDirectionOverrides(
-  boot.mode === 'auto' ? BEAR_MARKET : resolveDirectionProfile(boot.forcedName ?? 'bear_market')
+  boot.mode === 'forced'
+    ? resolveDirectionProfile(boot.forcedName ?? undefined)
+    : BULL_MARKET
 );
-/** When set, AUTO mode pauses new entries only — never block forced bear/bull profiles. */
-let autoNewEntriesBlocked: string | null = null;
 
 function setLiveProfile(next: HlDirectionProfile): HlDirectionProfile {
   const applied = applyOpsDirectionOverrides(next);
@@ -116,75 +91,23 @@ export function getLiveBtcRegime(): BtcRegimeSnapshot | null {
   return getLastBtcMarketRegime();
 }
 
-/** When set, AUTO mode must not open new positions (monitoring / closes unchanged). */
-export function getAutoNewEntriesBlockReason(): string | null {
-  if (boot.mode !== 'auto') return null;
-  return autoNewEntriesBlocked;
-}
-
-export function shouldBlockNewEntriesForAutoRegime(): boolean {
-  return getAutoNewEntriesBlockReason() != null;
-}
-
 /**
  * Refresh profile from BTC (auto) or keep forced env profile.
  * Call at the start of every trading cycle.
  */
 export async function refreshLiveDirectionProfile(): Promise<HlDirectionProfile> {
   if (boot.mode === 'forced') {
-    autoNewEntriesBlocked = null;
     return setLiveProfile(resolveDirectionProfile(boot.forcedName ?? undefined));
   }
 
-  autoNewEntriesBlocked = null;
-  const snap = await refreshBtcMarketRegime(true);
-
-  if (snap.dataSource === 'fallback' || !btcRegimeHasSuccessfulDetect()) {
-    autoNewEntriesBlocked = null;
-    logger.warn('AUTO BTC regime fallback — using bear_market until detect succeeds', {
+  const snap = await refreshBtcMarketRegime();
+  const next = snap.regime === 'bear_market' ? BEAR_MARKET : BULL_MARKET;
+  if (next.name !== liveProfile.name) {
+    logger.info('Live direction profile switched from BTC', {
+      from: liveProfile.name,
+      to: next.name,
       reason: snap.reason,
-      dataSource: snap.dataSource,
-    });
-    return setLiveProfile(BEAR_MARKET);
-  }
-
-  const age = btcRegimeCacheAgeMs();
-  const staleMax = btcRegimeStaleMaxMs();
-  if (age > staleMax) {
-    autoNewEntriesBlocked = null;
-    logger.warn('AUTO BTC regime stale — keep trading on last profile', {
-      ageMs: age,
-      staleMaxMs: staleMax,
-      dataSource: snap.dataSource,
-      holdingProfile: liveProfile.name,
-    });
-    return liveProfile;
-  }
-
-  const next =
-    snap.regime === 'bull_market'
-      ? BULL_MARKET
-      : snap.regime === 'bear_market'
-        ? BEAR_MARKET
-        : liveProfile;
-
-  if (snap.regime !== liveProfile.name) {
-    logger.info('AUTO direction profile — follow BTC regime', {
-      btcRegime: snap.regime,
-      fromProfile: liveProfile.name,
-      toProfile: next.name,
-      reason: snap.reason,
-      sticky: snap.sticky,
     });
   }
   return setLiveProfile(next);
-}
-
-/** Tests — reset live profile module state. */
-export function _resetLiveDirectionProfileForTests(): void {
-  liveProfile = applyOpsDirectionOverrides(
-    boot.mode === 'auto' ? BEAR_MARKET : resolveDirectionProfile(boot.forcedName ?? 'bear_market')
-  );
-  autoNewEntriesBlocked =
-    boot.mode === 'auto' ? 'BTC regime not initialized (awaiting first detect)' : null;
 }

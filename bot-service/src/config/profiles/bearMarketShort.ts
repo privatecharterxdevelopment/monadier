@@ -5,16 +5,17 @@ import {
   SHORT_ANALYSIS_TIMEFRAMES,
   type HlDirectionProfile,
 } from './types';
-import { BEAR_REVERSAL_LONG } from './bearReversalLong';
 
 /**
  * JUNE 26 – JUL 13 SHORT ENGINE (bombastic window)
  * ================================================
  * Switch via `HL_DIRECTION_PROFILE=bear_market`.
  *
- * SHORT = thorough pre-open when coin MTF bearish. LONG when coin confirms uptrend.
- *         Global BTC regime is context only — not a per-coin direction veto.
- *         PUMP/VVV/WLD hard-excluded via excludedCoins.
+ * SHORT = PRIMARY_RULES — trusted MTF may relax chop/funding secondaries,
+ *         but NEVER skips entry_location / pump_sweep (no shorting lows).
+ * LONG  = allowlist BTC/ETH/SOL via longAllowlist (allowLongOpens=true).
+ *         PUMP/VVV/WLD hard-excluded. Other memes SHORT-only if not excluded.
+ *         Entry: LONG at support / lower range, not at R.
  *
  * Universe: no top-N rank cap. $5M/24h floor filters thin shitcoins while
  * leaving mid-caps tradable — $250M was BTC/ETH-only and starved opens.
@@ -22,17 +23,17 @@ import { BEAR_REVERSAL_LONG } from './bearReversalLong';
 export const BEAR_MARKET: HlDirectionProfile = {
   name: 'bear_market',
   description:
-    'Coin-trend: SHORT-primary profile; LONG and SHORT per coin MTF. Excludes unchanged.',
+    'SHORT-primary; LONG allowlist BTC/ETH/SOL. PUMP/VVV/WLD hard-excluded.',
   primaryDirection: 'SHORT',
   analysisTimeframes: [...SHORT_ANALYSIS_TIMEFRAMES, ...LONG_ANALYSIS_TIMEFRAMES_BASE, '4h'],
   entryTimeframe: '5m',
   entryTimeframeLong: '15m',
   entryTimeframeShort: '5m',
-  preOpenTimeframe: '15m',
+  preOpenTimeframe: '1m',
   preOpenTimeframeLong: '15m',
-  preOpenTimeframeShort: '15m',
+  preOpenTimeframeShort: '1m',
   preOpenCandleCount: 20,
-  preOpenMinVolumeRatio: 0.5,
+  preOpenMinVolumeRatio: 0.85,
   /** 0 = no rank cap — let every liquid pair through. */
   maxVolumeRank: 0,
   /** Shitcoin filter — liquid mid-caps; was $5M and starved opens. */
@@ -41,39 +42,17 @@ export const BEAR_MARKET: HlDirectionProfile = {
   useAggressiveScalpSignals: true,
   enableHtfSr: false,
   enableLlmConfirm: false,
-  /** No auto LONGs in bear/short-primary book — user ops: SHORT focus only. */
-  allowLongOpens: false,
+  /** LONGs on — allowlist via longOnlyCoins; non-listed memes never. */
+  allowLongOpens: true,
   /** SHORT is primary in bear — opens allowed. */
   allowShortOpens: true,
-  short: {
-    ...PRIMARY_RULES,
-    minConfidence: 58,
-    minDirectionalTfs: 3,
-    minTrendAlignment: 55,
-    requiredH1Trend: 'DOWN',
-    required15mTrend: 'DOWN',
-    minConfirm15mCandles: 3,
-    trustMtfScan: true,
-    relaxSecondaryGates: true,
-    bypassFreshPumpWhenTrusted: true,
-    bypassMacroBetaWhenTrusted: true,
-    bypassPumpShortWhenTrusted: true,
-    /** Never — shorts at 1h lows with full lev wiped sessions (BTC 40× chase). */
-    bypassEntryLocationWhenTrusted: false,
-    bypassPreOpenWhenTrusted: false,
-    /** Never skip live 1m/5m at open — MTF scan lag caused SHORTs at support (USELESS/WLFI). */
-    bypassScalpAlignWhenTrusted: false,
-    /** Majors already skip relax — off everywhere so SHORTs don't chase into local lows. */
-    bypassEntryMomentumWhenTrusted: false,
-    bypassSrLocationWhenTrusted: false,
-  },
+  short: { ...PRIMARY_RULES },
   long: {
     ...COUNTER_TREND_RULES('UP'),
-    minConfidence: 62,
+    minConfidence: 80,
     requiredH1Trend: 'UP',
     required5mTrend: 'UP',
     required15mTrend: 'UP',
-    minConfirm15mCandles: 3,
+    minConfirm15mCandles: 2,
   },
-  reversalLong: BEAR_REVERSAL_LONG,
 };

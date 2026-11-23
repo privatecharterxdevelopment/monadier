@@ -1,7 +1,6 @@
 import { isTrailStopCrossed } from './dynamicTrailingStop';
 import { fetchHlClearinghouseState } from './hlInfo';
 import { getDynamicTrailRecord } from './profitTrailState';
-import { buildLiveBotPositionViews } from './hlLiveBotPositions';
 
 /** Exact bot-side trail state for one live Hyperliquid position. */
 export type HlPositionTrailSnapshot = {
@@ -21,24 +20,12 @@ export type HlPositionTrailSnapshot = {
   trailDistancePx: number | null;
   wouldCloseNow: boolean;
   stateTracked: boolean;
-  profitSlPx: number | null;
-  profitSlConfirmed: boolean;
-  profitSlStatus:
-    | 'idle'
-    | 'PROFIT_SL_PENDING'
-    | 'PROFIT_SL_CONFIRMED'
-    | 'PROFIT_SL_UNVERIFIED';
-  emergencySlPx: number | null;
-  emergencySlConfirmed: boolean;
-  computedStopPx: number | null;
 };
 
 export async function getHlPositionTrailSnapshots(
   wallet: `0x${string}`
 ): Promise<HlPositionTrailSnapshot[]> {
   const state = await fetchHlClearinghouseState(wallet);
-  const live = await buildLiveBotPositionViews({ wallet, state });
-  const liveByCoin = new Map(live.map((p) => [p.coin, p]));
   const snapshots: HlPositionTrailSnapshot[] = [];
 
   for (const asset of state?.assetPositions ?? []) {
@@ -73,8 +60,7 @@ export async function getHlPositionTrailSnapshots(
     const peakPnlUsd = record?.highestPnlSinceEntry ?? Math.max(0, currentPnlUsd);
     const peakRoePct =
       collateralUsd > 0 ? (peakPnlUsd / collateralUsd) * 100 : 0;
-    const liveRow = liveByCoin.get(coin);
-    const stopPx = liveRow?.profitSlConfirmed ? liveRow.profitSlPx : null;
+    const stopPx = record?.currentTrailStop ?? null;
     const lockPnlUsd =
       stopPx != null
         ? size > 0
@@ -83,7 +69,8 @@ export async function getHlPositionTrailSnapshots(
         : 0;
     const lockRoePct =
       collateralUsd > 0 ? (lockPnlUsd / collateralUsd) * 100 : 0;
-    const armed = Boolean(liveRow?.profitSlConfirmed);
+    const armed =
+      record != null && record.phase !== 'idle' && stopPx != null;
 
     snapshots.push({
       coin,
@@ -108,12 +95,6 @@ export async function getHlPositionTrailSnapshots(
         stopPx != null &&
         isTrailStopCrossed(size > 0 ? 'LONG' : 'SHORT', markPx, stopPx),
       stateTracked: record != null,
-      profitSlPx: liveRow?.profitSlPx ?? null,
-      profitSlConfirmed: liveRow?.profitSlConfirmed ?? false,
-      profitSlStatus: liveRow?.profitSlStatus ?? 'idle',
-      emergencySlPx: liveRow?.emergencySlPx ?? null,
-      emergencySlConfirmed: liveRow?.emergencySlConfirmed ?? false,
-      computedStopPx: record?.currentTrailStop ?? null,
     });
   }
 

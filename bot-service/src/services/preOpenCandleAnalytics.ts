@@ -1,34 +1,16 @@
 /**
  * Pre-open analytics — read last N closed candles before any HL market open.
- * Blocks trades that fight visible 1m structure (wrong side of range, wrong momentum).
- *
- * SHORT range-low / low-rejection vetoes are skipped only when a 5m/15m breakdown
- * is already confirmed (same helper as location + HTF quality). Unconfirmed floors stay blocked.
+ * LONG → 15m structure · SHORT → 1m structure (hard direction rule).
  */
 import { config } from '../config';
+import { preOpenTimeframeForDirection } from '../config/directionProfiles';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle, type Timeframe } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { isConfirmedShortBreakdown } from './shortBreakdownConfirm';
-
-export type PreOpenBlockCode =
-  | 'PRE_OPEN_DISABLED'
-  | 'PRE_OPEN_INSUFFICIENT_DATA'
-  | 'PRE_OPEN_FETCH_ERROR'
-  | 'PRE_OPEN_BEARISH_TAPE'
-  | 'PRE_OPEN_CHASING_HIGH'
-  | 'PRE_OPEN_HIGH_REJECTIONS'
-  | 'PRE_OPEN_STRUCTURE_DOWN'
-  | 'PRE_OPEN_BULLISH_TAPE'
-  | 'PRE_OPEN_SHORTING_LOWS'
-  | 'PRE_OPEN_LOW_REJECTIONS'
-  | 'PRE_OPEN_STRUCTURE_UP'
-  | 'PRE_OPEN_VOLUME_FADE'
-  | 'PRE_OPEN_PASS';
+import { btcLeadIsPumping } from './macroBetaGate';
 
 export type PreOpenCandleAnalytics = {
   ok: boolean;
-  code: PreOpenBlockCode;
   reason: string;
   summary: string;
   netMovePct: number;
@@ -40,7 +22,6 @@ export type PreOpenCandleAnalytics = {
   structure: 'up' | 'down' | 'chop';
   rejectionsAtHigh: number;
   rejectionsAtLow: number;
-  shortBreakdownConfirmed: boolean;
 };
 
 function closedCandles(candles: Candle[], count: number): Candle[] {
@@ -52,6 +33,19 @@ function closedCandles(candles: Candle[], count: number): Candle[] {
 function avgVolume(candles: Candle[]): number {
   if (candles.length === 0) return 0;
   return candles.reduce((s, c) => s + c.volume, 0) / candles.length;
+}
+
+/** Avg per-bar range as % of close — cheap ATR proxy for volatility normalization. */
+function avgRangePct(candles: Candle[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const c of candles) {
+    if (c.close > 0 && c.high >= c.low) {
+      sum += (c.high - c.low) / c.close;
+      n += 1;
+    }
+  }
+  return n > 0 ? (sum / n) * 100 : 0;
 }
 
 function netMovePct(candles: Candle[]): number {
@@ -86,7 +80,7 @@ function countRejections(candles: Candle[], side: 'high' | 'low'): number {
   return n;
 }
 
-export function detectStructure(candles: Candle[]): 'up' | 'down' | 'chop' {
+function detectStructure(candles: Candle[]): 'up' | 'down' | 'chop' {
   if (candles.length < 6) return 'chop';
   const mid = Math.floor(candles.length / 2);
   const firstHalf = candles.slice(0, mid);
@@ -124,249 +118,191 @@ function buildSummary(
   );
 }
 
-const emptyMetrics = {
-  netMovePct: 0,
-  greenCount: 0,
-  redCount: 0,
-  rangePosition: 0.5,
-  recentMovePct: 0,
-  volumeRatio: 0,
-  structure: 'chop' as const,
-  rejectionsAtHigh: 0,
-  rejectionsAtLow: 0,
-};
-
-export function evaluatePreOpenCandleWindow(opts: {
-  coin: string;
-  direction: 'LONG' | 'SHORT';
-  candles: Candle[];
-  shortBreakdownConfirmed?: boolean;
-  /** 6×1m scalp print — do not veto on marginal volume/structure noise. */
-  aggressiveScalp?: boolean;
-}): PreOpenCandleAnalytics {
-  const cfg = config.hyperliquid.preOpenCandles;
-  const coin = opts.coin.toUpperCase();
-  const tf = cfg.timeframe;
-  const n = cfg.candleCount;
-  const confirmed = opts.shortBreakdownConfirmed === true;
-
-  const fail = (
-    code: PreOpenBlockCode,
-    reason: string,
-    extra: Partial<PreOpenCandleAnalytics>
-  ): PreOpenCandleAnalytics => ({
-    ok: false,
-    code,
-    reason,
-    summary: extra.summary ?? '',
-    netMovePct: extra.netMovePct ?? 0,
-    greenCount: extra.greenCount ?? 0,
-    redCount: extra.redCount ?? 0,
-    rangePosition: extra.rangePosition ?? 0.5,
-    recentMovePct: extra.recentMovePct ?? 0,
-    volumeRatio: extra.volumeRatio ?? 0,
-    structure: extra.structure ?? 'chop',
-    rejectionsAtHigh: extra.rejectionsAtHigh ?? 0,
-    rejectionsAtLow: extra.rejectionsAtLow ?? 0,
-    shortBreakdownConfirmed: confirmed,
-  });
-
-  if (!cfg.enabled) {
-    return {
-      ok: true,
-      code: 'PRE_OPEN_DISABLED',
-      reason: '20-candle pre-open analytics disabled',
-      summary: 'disabled',
-      ...emptyMetrics,
-      volumeRatio: 1,
-      shortBreakdownConfirmed: confirmed,
-    };
-  }
-
-  const window = closedCandles(opts.candles, n);
-  if (window.length < Math.min(n, 12)) {
-    return fail('PRE_OPEN_INSUFFICIENT_DATA', `Open blocked — ${coin}: only ${window.length}/${n} ${tf} candles (need history)`, {
-      summary: `insufficient ${tf} data`,
-      ...emptyMetrics,
-    });
-  }
-
-  const greens = window.filter((c) => c.close > c.open).length;
-  const reds = window.length - greens;
-  const net = netMovePct(window);
-  const pos = rangePosition(window);
-  const recent5 = window.length >= 5 ? netMovePct(window.slice(-5)) : net;
-  const volBase = avgVolume(window.slice(0, -5));
-  const volRecent = avgVolume(window.slice(-5));
-  const volR = volBase > 0 ? volRecent / volBase : 1;
-  const structure = detectStructure(window);
-  const rejH = countRejections(window.slice(-8), 'high');
-  const rejL = countRejections(window.slice(-8), 'low');
-  const summary = buildSummary(tf, window.length, net, greens, reds, pos, recent5, volR, structure, rejH, rejL);
-  const metrics = {
-    summary,
-    netMovePct: net,
-    greenCount: greens,
-    redCount: reds,
-    rangePosition: pos,
-    recentMovePct: recent5,
-    volumeRatio: volR,
-    structure,
-    rejectionsAtHigh: rejH,
-    rejectionsAtLow: rejL,
-  };
-
-  const minRatio = cfg.minDirectionalCandleRatio;
-  const minNet = cfg.minNetMovePct;
-  const dir = opts.direction;
-  /**
-   * Skip low-range vetoes only when breakdown is confirmed AND price is still
-   * pressing lower (not pausing on support after one red spike).
-   */
-  const skipFloorVeto =
-    !opts.aggressiveScalp &&
-    dir === 'SHORT' &&
-    confirmed &&
-    recent5 <= -Math.max(0.04, cfg.breakoutRecentMovePct * 0.45) &&
-    structure !== 'up';
-
-  if (dir === 'LONG') {
-    const greenRatio = greens / window.length;
-    if (net < minNet && greenRatio < minRatio) {
-      return fail(
-        'PRE_OPEN_BEARISH_TAPE',
-        `Open blocked — ${coin} LONG: last ${window.length}×${tf} bearish (net ${net.toFixed(2)}%, ${greens}G/${reds}R)`,
-        metrics
-      );
-    }
-    if (pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
-      return fail(
-        'PRE_OPEN_CHASING_HIGH',
-        `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (chasing high)`,
-        metrics
-      );
-    }
-    if (rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
-      return fail(
-        'PRE_OPEN_HIGH_REJECTIONS',
-        `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`,
-        metrics
-      );
-    }
-    if (structure === 'down' && net <= -minNet * 1.5) {
-      return fail(
-        'PRE_OPEN_STRUCTURE_DOWN',
-        `Open blocked — ${coin} LONG: ${window.length}×${tf} structure still down (net ${net.toFixed(2)}%)`,
-        metrics
-      );
-    }
-  } else {
-    const redRatio = reds / window.length;
-    if (net > -minNet && redRatio < minRatio) {
-      return fail(
-        'PRE_OPEN_BULLISH_TAPE',
-        `Open blocked — ${coin} SHORT: last ${window.length}×${tf} bullish (net ${net >= 0 ? '+' : ''}${net.toFixed(2)}%, ${greens}G/${reds}R)`,
-        metrics
-      );
-    }
-    if (!skipFloorVeto && pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
-      return fail(
-        'PRE_OPEN_SHORTING_LOWS',
-        `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`,
-        metrics
-      );
-    }
-    if (!skipFloorVeto && rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
-      return fail(
-        'PRE_OPEN_LOW_REJECTIONS',
-        `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`,
-        metrics
-      );
-    }
-    const structureUpMinNet = opts.aggressiveScalp ? 0.35 : minNet * 1.5;
-    if (structure === 'up' && net >= structureUpMinNet) {
-      return fail(
-        'PRE_OPEN_STRUCTURE_UP',
-        `Open blocked — ${coin} SHORT: ${window.length}×${tf} structure still up (net +${net.toFixed(2)}%)`,
-        metrics
-      );
-    }
-  }
-
-  const minVolRatio = opts.aggressiveScalp
-    ? Math.min(cfg.minVolumeRatio, 0.38)
-    : cfg.minVolumeRatio;
-  if (volR < minVolRatio) {
-    return fail(
-      'PRE_OPEN_VOLUME_FADE',
-      `Open blocked — ${coin} ${dir}: volume fading (recent/base ${volR.toFixed(2)}×)`,
-      metrics
-    );
-  }
-
-  return {
-    ok: true,
-    code: 'PRE_OPEN_PASS',
-    reason: `20-candle OK — ${coin} ${dir} · ${summary}`,
-    shortBreakdownConfirmed: confirmed,
-    ...metrics,
-  };
-}
-
 export async function validatePreOpenCandleAnalytics(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
-  aggressiveScalp?: boolean;
+  /** HTF (1h) trend label from the scan. When it confirms the trade direction the
+   *  mean-reversion guards below are skipped — a confirmed uptrend LONG is *supposed*
+   *  to sit high in its range and ride shallow pullbacks; blocking that strangles the
+   *  momentum signal. Only active reversal / volume fade still blocks in that case. */
+  h1Trend?: string;
 }): Promise<PreOpenCandleAnalytics> {
   const cfg = config.hyperliquid.preOpenCandles;
+  const fail = (partial: Omit<PreOpenCandleAnalytics, 'ok'>): PreOpenCandleAnalytics => ({
+    ok: false,
+    ...partial,
+  });
+  const pass = (partial: Omit<PreOpenCandleAnalytics, 'ok'>): PreOpenCandleAnalytics => ({
+    ok: true,
+    ...partial,
+  });
+
+  if (!cfg.enabled) {
+    return pass({
+      reason: 'pre-open candle analytics disabled',
+      summary: 'disabled',
+      netMovePct: 0,
+      greenCount: 0,
+      redCount: 0,
+      rangePosition: 0.5,
+      recentMovePct: 0,
+      volumeRatio: 1,
+      structure: 'chop',
+      rejectionsAtHigh: 0,
+      rejectionsAtLow: 0,
+    });
+  }
+
   const coin = opts.coin.toUpperCase();
   const symbol = hlCoinToBinanceSymbol(coin);
-  const tf = cfg.timeframe;
+  const tf = (
+    process.env.HL_PRE_OPEN_CANDLE_TF ||
+    preOpenTimeframeForDirection(config.hyperliquid.directionProfile, opts.direction)
+  ) as Timeframe;
   const n = cfg.candleCount;
 
   try {
     const raw = await signalEngine.fetchCandles(symbol, tf, n + 2);
-    let shortBreakdownConfirmed = false;
-    if (opts.direction === 'SHORT') {
-      const [candles5m, candles15m] = await Promise.all([
-        signalEngine.fetchCandles(symbol, '5m', 48),
-        signalEngine.fetchCandles(symbol, '15m', 24),
-      ]);
-      shortBreakdownConfirmed = isConfirmedShortBreakdown({ candles5m, candles15m });
+    const window = closedCandles(raw, n);
+    if (window.length < n) {
+      return fail({
+        reason: `Open blocked — ${coin}: only ${window.length}/${n} ${tf} candles (need history)`,
+        summary: `insufficient ${tf} data`,
+        netMovePct: 0,
+        greenCount: 0,
+        redCount: 0,
+        rangePosition: 0.5,
+        recentMovePct: 0,
+        volumeRatio: 0,
+        structure: 'chop',
+        rejectionsAtHigh: 0,
+        rejectionsAtLow: 0,
+      });
     }
-    const result = evaluatePreOpenCandleWindow({
-      coin,
-      direction: opts.direction,
-      candles: raw,
-      shortBreakdownConfirmed,
-      aggressiveScalp: opts.aggressiveScalp,
+
+    const greens = window.filter((c) => c.close > c.open).length;
+    const reds = window.length - greens;
+    const net = netMovePct(window);
+    const pos = rangePosition(window);
+    const recent5 = window.length >= 5 ? netMovePct(window.slice(-5)) : net;
+    const volBase = avgVolume(window.slice(0, -5));
+    const volRecent = avgVolume(window.slice(-5));
+    const volR = volBase > 0 ? volRecent / volBase : 1;
+    const structure = detectStructure(window);
+    const rejH = countRejections(window.slice(-8), 'high');
+    const rejL = countRejections(window.slice(-8), 'low');
+    // ATR-normalized reversal threshold: a real trend-break/flush must clear typical
+    // per-bar noise, not a −0.15% drift over the full window. Floor keeps calm majors sane.
+    const atrPct = avgRangePct(window);
+    const reversalPct = Math.max(cfg.reversalMinNetPct, atrPct * cfg.reversalAtrMult);
+
+    const summary = buildSummary(tf, window.length, net, greens, reds, pos, recent5, volR, structure, rejH, rejL);
+
+    const minRatio = cfg.minDirectionalCandleRatio;
+    const minNet = cfg.minNetMovePct;
+    const dir = opts.direction;
+
+    // HTF trend confirms the trade direction → this is a momentum entry, not a chop
+    // guess. Skip the mean-reversion guards (net-flat/bearish, buy-low range position,
+    // rejections at range high) that would otherwise strangle a strong trending signal.
+    // Active reversal (structure flipping) still blocks below. Volume fade is skipped
+    // when HTF confirms — quiet-hour majors were stuck at 0.17× with full SHORT stacks.
+    const t = (opts.h1Trend ?? '').toUpperCase();
+    const trendConfirms =
+      (dir === 'LONG' && /UP/.test(t)) || (dir === 'SHORT' && /DOWN/.test(t));
+
+    if (dir === 'LONG') {
+      const greenRatio = greens / window.length;
+      if (!trendConfirms && net < minNet && greenRatio < minRatio) {
+        const reason = `Open blocked — ${coin} LONG: last ${window.length}×${tf} bearish (net ${net.toFixed(2)}%, ${greens}G/${reds}R)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      if (!btcLeadIsPumping() && !trendConfirms && pos >= cfg.maxRangePositionLong && recent5 < cfg.breakoutRecentMovePct) {
+        const reason = `Open blocked — ${coin} LONG: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (buy low — wait for pullback)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      if (!btcLeadIsPumping() && !trendConfirms && rejH >= cfg.maxRejectionsAtLevel && recent5 < minNet) {
+        const reason = `Open blocked — ${coin} LONG: ${rejH} rejections at range high in last 8 bars`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      // Reversal veto — only a MEANINGFUL down-move against the LONG blocks: a sustained
+      // down-structure past the ATR threshold, OR an active fresh dump in the last 5 bars.
+      // A sluggish net drift (e.g. −0.15% over 100min) inside a confirmed uptrend is noise.
+      const sustainedDown = structure === 'down' && net <= -reversalPct;
+      const activeDump = recent5 <= -reversalPct;
+      if (sustainedDown || activeDump) {
+        const kind = activeDump ? 'active dump' : 'structure still down';
+        const reason = `Open blocked — ${coin} LONG: ${kind} (net ${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr −${reversalPct.toFixed(2)}%)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+    } else {
+      const redRatio = reds / window.length;
+      if (!trendConfirms && net > -minNet && redRatio < minRatio) {
+        const reason = `Open blocked — ${coin} SHORT: last ${window.length}×${tf} bullish (net ${net >= 0 ? '+' : ''}${net.toFixed(2)}%, ${greens}G/${reds}R)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      if (!trendConfirms && pos <= cfg.maxRangePositionShort && recent5 > -cfg.breakoutRecentMovePct) {
+        const reason = `Open blocked — ${coin} SHORT: price at ${(pos * 100).toFixed(0)}% of ${window.length}-bar range (shorting lows)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      if (!trendConfirms && rejL >= cfg.maxRejectionsAtLevel && recent5 > -minNet) {
+        const reason = `Open blocked — ${coin} SHORT: ${rejL} rejections at range low in last 8 bars`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+      // Reversal veto (mirror of LONG): sustained up-structure past the ATR threshold, or
+      // an active fresh pump in the last 5 bars. A slow drift up is noise, not a trend break.
+      const sustainedUp = structure === 'up' && net >= reversalPct;
+      const activePump = recent5 >= reversalPct;
+      if (sustainedUp || activePump) {
+        const kind = activePump ? 'active pump' : 'structure still up';
+        const reason = `Open blocked — ${coin} SHORT: ${kind} (net +${net.toFixed(2)}%, recent5 ${recent5.toFixed(2)}%, thr +${reversalPct.toFixed(2)}%)`;
+        logger.info('Pre-open candle block', { coin, direction: dir, summary });
+        return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+      }
+    }
+
+    if (!trendConfirms && volR < cfg.minVolumeRatio) {
+      const reason = `Open blocked — ${coin} ${dir}: volume fading (recent/base ${volR.toFixed(2)}×)`;
+      logger.info('Pre-open candle block', { coin, direction: dir, summary });
+      return fail({ reason, summary, netMovePct: net, greenCount: greens, redCount: reds, rangePosition: pos, recentMovePct: recent5, volumeRatio: volR, structure, rejectionsAtHigh: rejH, rejectionsAtLow: rejL });
+    }
+
+    const reason = `${n}-candle OK — ${coin} ${dir} · ${summary}`;
+    logger.info('Pre-open candle pass', { coin, direction: dir, summary });
+    return pass({
+      reason,
+      summary,
+      netMovePct: net,
+      greenCount: greens,
+      redCount: reds,
+      rangePosition: pos,
+      recentMovePct: recent5,
+      volumeRatio: volR,
+      structure,
+      rejectionsAtHigh: rejH,
+      rejectionsAtLow: rejL,
     });
-    logger.info(result.ok ? 'Pre-open 20-candle pass' : 'Pre-open 20-candle block', {
-      coin,
-      direction: opts.direction,
-      gate: 'pre_open_candles',
-      code: result.code,
-      summary: result.summary,
-      netMovePct: result.netMovePct,
-      rangePosition: result.rangePosition,
-      recentMovePct: result.recentMovePct,
-      volumeRatio: result.volumeRatio,
-      structure: result.structure,
-      rejectionsAtHigh: result.rejectionsAtHigh,
-      rejectionsAtLow: result.rejectionsAtLow,
-      shortBreakdownConfirmed: result.shortBreakdownConfirmed,
-      reason: result.reason,
-    });
-    return result;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return {
-      ok: false,
-      code: 'PRE_OPEN_FETCH_ERROR',
-      reason: `Open blocked — ${coin} 20-candle analytics failed (${msg.slice(0, 60)})`,
+    return fail({
+      reason: `Open blocked — ${coin} pre-open candle analytics failed (${msg.slice(0, 60)})`,
       summary: 'fetch error',
-      ...emptyMetrics,
-      shortBreakdownConfirmed: false,
-    };
+      netMovePct: 0,
+      greenCount: 0,
+      redCount: 0,
+      rangePosition: 0.5,
+      recentMovePct: 0,
+      volumeRatio: 0,
+      structure: 'chop',
+      rejectionsAtHigh: 0,
+      rejectionsAtLow: 0,
+    });
   }
 }

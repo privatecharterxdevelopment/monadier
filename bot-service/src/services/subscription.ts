@@ -107,6 +107,7 @@ export class SubscriptionService {
     );
   }
 
+
   /** Profiles created since `withinHours` ago (admin signup monitor). */
   async listRecentProfileSignups(
     withinHours = 24,

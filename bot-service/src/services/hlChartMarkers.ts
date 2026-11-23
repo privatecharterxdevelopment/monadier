@@ -33,10 +33,7 @@ export async function recordHlChartMarker(params: {
       source: params.source ?? 'bot',
       fill_tid: params.fillTid ?? null,
     },
-    {
-      onConflict: 'wallet_address,coin,event_type,event_ts,price',
-      ignoreDuplicates: false,
-    }
+    { onConflict: 'wallet_address,coin,event_type,event_ts,price', ignoreDuplicates: true }
   );
 
   if (error) {

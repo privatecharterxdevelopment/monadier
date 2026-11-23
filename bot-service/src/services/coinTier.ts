@@ -2,7 +2,7 @@ import type { HlLiquidUniverse } from './hlLiquidity';
 import { getHlLiquidityForCoin } from './hlLiquidity';
 
 /**
- * Mass-driven alts — extra caution (skip if freshly pumped).
+ * Mass-driven alts — extra caution (news first, skip if freshly pumped).
  * Not a ban on SHORT; treat with care.
  */
 export const CAUTIOUS_ALTS = new Set([
@@ -17,10 +17,22 @@ export const CAUTIOUS_ALTS = new Set([
   'APE',
   'EIGEN',
   'ENA',
+  'ETHFI',
+  'GOAT',
+  'MEME',
+  'MOODENG',
+  'NEIRO',
+  'NOT',
+  'PEOPLE',
+  'PNUT',
+  'POPCAT',
+  'TURBO',
   'WIF',
+  'BOME',
+  'BRETT',
 ]);
 
-export const MAJOR_COINS = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'HYPE']);
+export const MAJOR_COINS = new Set(['BTC', 'ETH']);
 
 /** Top HL perps by 24h volume — standard technical path, no mandatory news. */
 export const MID_CAP_MIN_DAY_VOLUME_USD = 35_000_000;
@@ -32,12 +44,6 @@ export function volumeRankForCoin(universe: HlLiquidUniverse, coin: string): num
   const key = coin.toUpperCase();
   const idx = universe.coins.findIndex((c) => c.toUpperCase() === key);
   return idx < 0 ? 999 : idx + 1;
-}
-
-/** `maxRank <= 0` means no cap — rank 99 is still openable. */
-export function isVolumeRankOpenable(rank: number, maxRank: number): boolean {
-  if (!(maxRank > 0)) return true;
-  return rank <= maxRank;
 }
 
 export function classifyCoinTier(

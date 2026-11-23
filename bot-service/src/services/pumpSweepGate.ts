@@ -3,7 +3,7 @@
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
-import { btcLeadIsPumping } from './macroBetaGate';
+import { btcLeadIsPumping, btcTapeIsGreen } from './macroBetaGate';
 import {
   fetchPumpSweepAnalysis,
   fetchMegaPairPumpSweep,
@@ -32,6 +32,13 @@ function gateForDirection(
   const coin = a.coin;
 
   if (direction === 'LONG') {
+    // BTC still pushing: LONG-only. Don't sit out the spike waiting for a fade.
+    if (btcTapeIsGreen() && (a.phase === 'at_apex' || a.phase === 'post_pump_fade')) {
+      return {
+        ok: true,
+        reason: `Pump sweep waived — green tape LONG-only (${coin} ${a.phase.replace(/_/g, ' ')})`,
+      };
+    }
     if (a.phase === 'at_apex') {
       return {
         ok: false,
@@ -67,16 +74,19 @@ function gateForDirection(
   }
   if (a.phase === 'at_sweep_low') {
     return {
-      ok: true,
+      ok: false,
       reason:
-        `Pump sweep OK — dump continuation at sweep low $${a.sweepLow.toFixed(2)} (floor filter off)`,
+        `SHORT blocked — ${coin} at sweep low $${a.sweepLow.toFixed(2)} (dump floor) — wait for bounce-fade or breakdown` +
+        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago)`,
     };
   }
+  // Block early bounce scrapes AND lower-half post-dump shelves (Open S at floor).
   if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.5) {
     return {
-      ok: true,
+      ok: false,
       reason:
-        `Pump sweep OK — dump continuation in lower half (${(a.positionInSweep * 100).toFixed(0)}% of range)`,
+        `SHORT blocked — ${coin} still in lower half after dump (${(a.positionInSweep * 100).toFixed(0)}% of range, ` +
+        `sweep $${a.sweepLow.toFixed(2)}) — wait for real bounce before fade`,
     };
   }
   if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.5) {

@@ -11,10 +11,6 @@ export type HlAgentApproval = {
   revoked_at: string | null;
 };
 
-type CloseApprovalCache = { at: number; ok: boolean };
-const closeApprovalCache = new Map<string, CloseApprovalCache>();
-const CLOSE_APPROVAL_CACHE_MS = 5 * 60_000;
-
 class HlAgentApprovalService {
   private supabase: SupabaseClient;
 
@@ -35,35 +31,6 @@ class HlAgentApprovalService {
       return null;
     }
     return data as HlAgentApproval | null;
-  }
-
-  /**
-   * Manual close path: DB + cache first (ms), HL extraAgents only on miss.
-   * Avoids an extra HL round-trip on every Close click.
-   */
-  async isApprovedForClose(
-    walletAddress: string,
-    expectedAgent: string
-  ): Promise<boolean> {
-    const w = walletAddress.toLowerCase();
-    const agent = expectedAgent.toLowerCase();
-    const cacheKey = `${w}:${agent}`;
-    const hit = closeApprovalCache.get(cacheKey);
-    if (hit && Date.now() - hit.at < CLOSE_APPROVAL_CACHE_MS) {
-      return hit.ok;
-    }
-    const row = await this.getApproval(walletAddress);
-    if (
-      row &&
-      row.agent_address.toLowerCase() === agent &&
-      (!row.expires_at || Date.parse(row.expires_at) > Date.now())
-    ) {
-      closeApprovalCache.set(cacheKey, { at: Date.now(), ok: true });
-      return true;
-    }
-    const ok = await this.isApproved(walletAddress, expectedAgent);
-    closeApprovalCache.set(cacheKey, { at: Date.now(), ok });
-    return ok;
   }
 
   async isApproved(walletAddress: string, expectedAgent: string): Promise<boolean> {

@@ -8,7 +8,9 @@ export function normalizeHlBotStrategy(raw: string | null | undefined): HlBotStr
 }
 
 export type HlExitPolicy = {
-  /** Dynamic trail — arm when ROE ≥ armMinRoePct or PnL ≥ fees × multiplier. */
+  /** Stage 1 — breakeven lock at this ROE (default ~2%). */
+  breakevenArmRoePct: number;
+  /** Stage 2 — full trail at this ROE (default ~4.5%). */
   armMinRoePct: number;
   armFeesMultiplier: number;
   useTakeProfitPercent: boolean;
@@ -18,6 +20,7 @@ export type HlExitPolicy = {
 export function resolveHlExitPolicy(_strategy: HlBotStrategy): HlExitPolicy {
   const trail = config.hyperliquid.dynamicTrail;
   return {
+    breakevenArmRoePct: trail.breakevenArmRoePct,
     armMinRoePct: trail.armMinRoePct,
     armFeesMultiplier: trail.armFeesMultiplier,
     useTakeProfitPercent: false,

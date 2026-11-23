@@ -11,10 +11,9 @@ import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
 import type { DynamicTrailRecord } from './dynamicTrailingStop';
 import {
-  breakevenPlusFeesStopPx,
   estimateRoundTripFeesUsd,
   isTrailStopCrossed,
-  shouldArmBreakevenProtection,
+  peakProfitFloorStopPx,
 } from './dynamicTrailingStop';
 
 async function fetchCandlesDirect(symbol: string): Promise<Candle[]> {
@@ -73,7 +72,6 @@ export async function rehydrateTrailPeakFromCandles(opts: {
   markPrice: number;
   notionalUsd: number;
   openedAtMs: number;
-  collateralUsd?: number;
   existing: DynamicTrailRecord | null;
 }): Promise<DynamicTrailRecord | null> {
   const existing = opts.existing;
@@ -183,43 +181,18 @@ export async function rehydrateTrailPeakFromCandles(opts: {
     // Never arm a stop that is already crossed — for LONG that means stop above
     // mark (trail must sit *below* the run and follow up).
     if (rec.phase === 'idle') {
-      const collateralUsd =
-        opts.collateralUsd && opts.collateralUsd > 0
-          ? opts.collateralUsd
-          : opts.notionalUsd > 0
-            ? opts.notionalUsd / 20
-            : 0;
-      const arm = shouldArmBreakevenProtection({
-        direction: opts.direction,
-        pnlUsd: Math.max(
-          0,
-          opts.direction === 'LONG'
-            ? (opts.markPrice - opts.entryPrice) * opts.absSize
-            : (opts.entryPrice - opts.markPrice) * opts.absSize
-        ),
-        markPrice: opts.markPrice,
-        entryPrice: opts.entryPrice,
-        absSize: opts.absSize,
-        feesUsd,
-        notionalUsd: opts.notionalUsd,
-        collateralUsd,
-        timeInProfitMs: 60_000,
-      });
-      const stop = breakevenPlusFeesStopPx(
+      const floor = peakProfitFloorStopPx(
         opts.direction,
         opts.entryPrice,
         opts.absSize,
+        bestPnl,
         feesUsd,
-        0,
-        opts.notionalUsd
+        'armed'
       );
+      const stop = floor?.px ?? null;
 
-      if (
-        !arm ||
-        stop == null ||
-        isTrailStopCrossed(opts.direction, opts.markPrice, stop)
-      ) {
-        logger.info('HL trail peak rehydrate — peak kept, stage 0 (BE not cleared)', {
+      if (stop == null || isTrailStopCrossed(opts.direction, opts.markPrice, stop)) {
+        logger.info('HL trail peak rehydrate — peak kept, stop not armed (already crossed)', {
           coin: opts.coin,
           direction: opts.direction,
           stop: stop?.toFixed(6) ?? '—',

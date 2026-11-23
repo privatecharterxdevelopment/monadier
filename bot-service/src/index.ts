@@ -15,17 +15,13 @@ import { buildTradingCycleContext } from './services/tradingCycleContext';
 import {
   getDirectionProfileMode,
   getLiveBtcRegime,
-  getLiveDirectionProfile,
-  getAutoNewEntriesBlockReason,
   refreshLiveDirectionProfile,
 } from './services/liveDirectionProfile';
 import {
   lastHlGlobalScanStats,
   lastGlobalScanResult,
-  lastHlScanSkips,
   scanGlobalHlSignals,
   globalSignalsForBotMode,
-  boardScanCandidates,
   type GlobalSignalCandidate,
 } from './services/globalMarketScan';
 import { getMegaPairVolumeSnapshot } from './services/megaPairVolumeMonitor';
@@ -41,15 +37,8 @@ import { deriveUserHlAgentAddress, agentExpiresAt, agentNameForUser } from './se
 import { hlAgentApprovalService } from './services/hlAgentApprovals';
 import { fetchHlClearinghouseState, hlAccountValueUsd, hlWithdrawableUsd, hlTradableFreeMarginUsd, hlMarginUsedUsd, hlOpenPerpCoins, hlResidualDustPositions, fetchHlExtraAgents, isHlExtraAgentActive, fetchHlPerpFundingSnapshot, describeHlPerpBalanceBlocker } from './services/hlInfo';
 import { getLastHlOpenError, getLastHlOpenErrorForClient, hyperliquidTradingService, resolveHlMarginPerSlot, balanceForTradingRisk } from './services/hlTrading';
-import { resolveHlEntryBlockReason } from './services/hlEntryBlockers';
-import { registerHlProtectiveMonitorWallet } from './services/hlProtectiveMonitorRegistry';
-import { getHlExecutionState } from './services/hlExecutionState';
 import { ensureProfitTrailStateHydrated } from './services/profitTrailState';
 import { fetchRecentHlOpenBlocks } from './services/hlOpenBlocks';
-import { fetchRecentHlOpenAudits } from './services/hlOpenAudit';
-import { buildOpenGateAudit } from './services/openGateAudit';
-import { getExecutionDiagnostic } from './services/executionDiagnostics';
-import { buildLiveBotPositionViews } from './services/hlLiveBotPositions';
 import { getLastLlmTradeConfirmVerdict } from './services/llmTradeConfirmGate';
 import { releaseHlBotTradingPauses } from './services/dailyLossGate';
 import { checkHlBuilderFeeApproved, fetchHlBuilderPlatformReady } from './services/hlBuilder';
@@ -58,8 +47,6 @@ import { tryQualifyReferral } from './services/referralAffiliate';
 import { ARBITRUM_SIGNAL_TOKENS, TRADE_TOKENS } from './arbitrumTokens';
 import { fetchMappedTokenPrices } from './services/tokenPrices';
 import { processPendingTradeCloseEmails } from './services/tradeCloseEmail';
-import { runFollowWalletAlertTick } from './services/followWalletAlerts';
-import { hlTraderSearchRateLimited, searchHlTraders } from './services/hlTraderSearch';
 import {
   emailAllClosedTradesPdf,
   maybeEmailClosedTradesOnBoot,
@@ -132,11 +119,15 @@ const healthServer = http.createServer(async (req, res) => {
 
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
 
-  // Health check — must stay sync/fast. Railway probes /health during deploy;
-  // awaiting Supabase (or any I/O) here previously hung probes past the
-  // healthcheckTimeout (~100s) → "Network › Healthcheck" failure.
+  // Health check endpoint
   if (url.pathname === '/health' || url.pathname === '/') {
     const uptime = Math.floor((Date.now() - botStartTime) / 1000);
+    let twitter: Awaited<ReturnType<typeof getTwitterHealthSnapshot>> | null = null;
+    try {
+      twitter = await getTwitterHealthSnapshot();
+    } catch {
+      twitter = null;
+    }
     const status = {
       status: 'healthy',
       uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
@@ -148,8 +139,9 @@ const healthServer = http.createServer(async (req, res) => {
         process.env.GIT_COMMIT?.slice(0, 7) ||
         null,
       policy: {
-        botHalted: config.hyperliquid.botHalted,
+        profitOnlyExits: config.hyperliquid.profitOnlyExits,
         longLetRun: config.hyperliquid.longLetRun,
+        letRunAll: await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll(),
         letRunAllConfigFallback: config.hyperliquid.letRunAll,
         botCrossMargin: config.hyperliquid.botCrossMargin,
         invalidationExit: config.hyperliquid.invalidationExit.enabled,
@@ -169,75 +161,18 @@ const healthServer = http.createServer(async (req, res) => {
           longMinGreenHoldMs: config.hyperliquid.dynamicTrail.longMinGreenHoldMs,
           longTrailMinActiveMult: config.hyperliquid.dynamicTrail.longTrailMinActiveMult,
         },
-        directionProfile: (() => {
-          const live = getLiveDirectionProfile();
-          return {
-            mode: getDirectionProfileMode(),
-            name: live.name,
-            allowLongOpens: live.allowLongOpens,
-            allowShortOpens: live.allowShortOpens,
-            autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
-            btcRegime: (() => {
-              const r = getLiveBtcRegime();
-              if (!r) return null;
-              return {
-                regime: r.regime,
-                sticky: r.sticky,
-                dataSource: r.dataSource,
-                checkedAt: r.checkedAt,
-              };
-            })(),
-          };
-        })(),
+        directionProfile: {
+          mode: getDirectionProfileMode(),
+          name: config.hyperliquid.directionProfile.name,
+          allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
+          allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
+        },
       },
+      twitter,
       lastCycle: lastCycleStats,
     };
     res.writeHead(200, corsHeaders);
     res.end(JSON.stringify(status));
-    return;
-  }
-
-  // Richer bot status (may hit Supabase) — not used by Railway healthchecks.
-  if (url.pathname === '/api/health-detail') {
-    try {
-      let twitter: Awaited<ReturnType<typeof getTwitterHealthSnapshot>> | null = null;
-      try {
-        twitter = await getTwitterHealthSnapshot();
-      } catch {
-        twitter = null;
-      }
-      let letRunAll = config.hyperliquid.letRunAll;
-      try {
-        letRunAll = await (await import('./services/hlRuntimePolicy')).getRuntimeLetRunAll();
-      } catch {
-        /* keep config fallback */
-      }
-      const uptime = Math.floor((Date.now() - botStartTime) / 1000);
-      res.writeHead(200, corsHeaders);
-      res.end(
-        JSON.stringify({
-          status: 'healthy',
-          uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
-          lastCheck: new Date(lastTradeCheck).toISOString(),
-          tradesExecuted: totalTradesExecuted,
-          version: 'v15.0-multi-user-scale',
-          policy: {
-            botHalted: config.hyperliquid.botHalted,
-            letRunAll,
-            letRunAllConfigFallback: config.hyperliquid.letRunAll,
-            directionProfile: {
-              mode: getDirectionProfileMode(),
-              name: config.hyperliquid.directionProfile.name,
-            },
-          },
-          twitter,
-          lastCycle: lastCycleStats,
-        })
-      );
-    } catch (err: any) {
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ status: 'error', error: err?.message || String(err) }));
-    }
     return;
   }
 
@@ -300,6 +235,124 @@ const healthServer = http.createServer(async (req, res) => {
     }
     return true;
   };
+
+  // ── Endpoints the current app needs (ported onto the 21 Aug bot) ──
+  if (url.pathname === '/api/health-detail') {
+    const uptime = Math.floor((Date.now() - botStartTime) / 1000);
+    res.writeHead(200, corsHeaders);
+    res.end(
+      JSON.stringify({
+        status: 'healthy',
+        uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`,
+        lastCheck: new Date(lastTradeCheck).toISOString(),
+        tradesExecuted: totalTradesExecuted,
+        engine: 'aug21-50482df',
+        gitCommit: process.env.GIT_COMMIT || 'unknown',
+        lastCycle: lastCycleStats,
+      })
+    );
+    return;
+  }
+
+  if (url.pathname === '/api/hl-info' && req.method === 'POST') {
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(chunk as Buffer);
+      const raw = Buffer.concat(chunks).toString('utf8');
+      const body = JSON.parse(raw || '{}') as Record<string, unknown>;
+      const { proxyHlInfoPost } = await import('./services/hlInfoProxy');
+      const data = await proxyHlInfoPost(body);
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify(data));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'hl-info failed';
+      const status = /not allowed/i.test(msg) ? 400 : 502;
+      res.writeHead(status, corsHeaders);
+      res.end(JSON.stringify({ error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-protective-ensure' && req.method === 'POST') {
+    // 21 Aug bot monitors every open position each cycle — nothing extra to arm.
+    try {
+      const body = await readJsonBody();
+      const wallet = String(body.wallet ?? '').toLowerCase();
+      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
+        return;
+      }
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ success: true, wallet, protectiveMonitor: true }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/hl-trader-search' && req.method === 'GET') {
+    try {
+      const { searchHlTraders, hlTraderSearchRateLimited } = await import('./services/hlTraderSearch');
+      const ip =
+        String(req.headers['x-forwarded-for'] ?? '')
+          .split(',')[0]
+          ?.trim() ||
+        req.socket.remoteAddress ||
+        'unknown';
+      if (hlTraderSearchRateLimited(ip)) {
+        res.writeHead(429, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'Too many searches' }));
+        return;
+      }
+      const q = (url.searchParams.get('q') || '').trim();
+      if (q.length < 2) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true, results: [] }));
+        return;
+      }
+      const results = await searchHlTraders(q);
+      res.writeHead(200, {
+        ...corsHeaders,
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
+      });
+      res.end(JSON.stringify({ success: true, results }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'trader search failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
+  if (url.pathname === '/api/admin/signups' && req.method === 'GET') {
+    if (!requireBotAdmin()) return;
+    try {
+      const hoursRaw = Number(url.searchParams.get('hours') ?? 24);
+      const limitRaw = Number(url.searchParams.get('limit') ?? 100);
+      const withinHours = Number.isFinite(hoursRaw) ? hoursRaw : 24;
+      const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+      const signups = await subscriptionService.listRecentProfileSignups(withinHours, limit);
+      res.writeHead(200, corsHeaders);
+      res.end(
+        JSON.stringify({
+          success: true,
+          withinHours,
+          count: signups.length,
+          signups,
+          checkedAt: new Date().toISOString(),
+        })
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'signups query failed';
+      res.writeHead(500, corsHeaders);
+      res.end(JSON.stringify({ success: false, error: msg }));
+    }
+    return;
+  }
+
 
   // API: Persist HL agent approval after on-chain approveAgent (service role — bypasses RLS)
   if (url.pathname === '/api/hl-agent/approval' && req.method === 'POST') {
@@ -501,10 +554,6 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: false, error: result.error || 'save failed' }));
         return;
       }
-      if (letRun && /^0x[a-fA-F0-9]{40}$/.test(wallet)) {
-        const { applyLetRunHoldSideEffects } = await import('./services/hlLetRunHoldEffects');
-        void applyLetRunHoldSideEffects(wallet as `0x${string}`, coin);
-      }
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify({ success: true, wallet, coin, letRun }));
     } catch (err: any) {
@@ -526,17 +575,7 @@ const healthServer = http.createServer(async (req, res) => {
       const reasonNote = String(body.reason ?? '').trim();
       const reason = 'manual';
       const sizeAbs = Number(body.size);
-      const markPxBody = Number(body.markPx);
-      const leverageBody = Number(body.leverage);
-      const isLongRaw = body.isLong;
-      const isLongBody =
-        typeof isLongRaw === 'boolean'
-          ? isLongRaw
-          : isLongRaw === true || isLongRaw === 'true'
-            ? true
-            : isLongRaw === false || isLongRaw === 'false'
-              ? false
-              : undefined;
+      const isLongBody = body.isLong;
       const entryPxBody = Number(body.entryPx);
       const unrealizedPnlBody = Number(body.unrealizedPnlUsd);
 
@@ -552,13 +591,9 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const agentAddr = deriveUserHlAgentAddress(wallet);
-      const hasUiSize =
-        Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody === 'boolean';
-      // Close: DB approval only when UI sent size (instant path — no HL extraAgents poll).
-      let dbApproved = hasUiSize
-        ? await hlAgentApprovalService.isApprovedForClose(wallet, agentAddr)
-        : await hlAgentApprovalService.isApproved(wallet, agentAddr);
-      if (!dbApproved && !hasUiSize) {
+      // Fast path: DB approval first — never wait on HL extraAgents for Close.
+      let dbApproved = await hlAgentApprovalService.isApproved(wallet, agentAddr);
+      if (!dbApproved) {
         const agents = await fetchHlExtraAgents(wallet);
         const agentNamePrefix = config.hyperliquid.agentName.toLowerCase();
         const live =
@@ -583,29 +618,14 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
 
-      if (Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody !== 'boolean') {
-        res.writeHead(400, corsHeaders);
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: 'Close requires position size and side (isLong) from the UI.',
-          })
-        );
-        return;
-      }
-
       const closeCtx =
-        Number.isFinite(sizeAbs) && sizeAbs > 1e-12 && typeof isLongBody === 'boolean'
+        Number.isFinite(sizeAbs) && sizeAbs > 1e-12
           ? {
               size: sizeAbs,
-              isLong: isLongBody,
+              isLong: typeof isLongBody === 'boolean' ? isLongBody : undefined,
               entryPx: Number.isFinite(entryPxBody) ? entryPxBody : 0,
               unrealizedPnlUsd: Number.isFinite(unrealizedPnlBody) ? unrealizedPnlBody : 0,
-              markPx: Number.isFinite(markPxBody) && markPxBody > 0 ? markPxBody : 0,
-              leverage:
-                Number.isFinite(leverageBody) && leverageBody > 0
-                  ? Math.floor(leverageBody)
-                  : 10,
+              leverage: 10,
             }
           : undefined;
 
@@ -677,7 +697,7 @@ const healthServer = http.createServer(async (req, res) => {
         return;
       }
       const marginMode = marginModeRaw === 'cross' ? 'cross' : 'isolated';
-      const botManaged = body.botManaged === true || body.scope === 'bot';
+      const botManaged = Boolean(body.botManaged ?? body.scope === 'bot');
 
       const result = await hyperliquidTradingService.placeManualPerpOrder({
         userAddress: wallet as `0x${string}`,
@@ -704,30 +724,6 @@ const healthServer = http.createServer(async (req, res) => {
       logger.error('API: hl-order failed', { error: err.message });
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'hl-order failed' }));
-    }
-    return;
-  }
-
-  // Keep profit-SL / emergency SL on Hyperliquid when auto-trade is OFF but perps remain open.
-  if (url.pathname === '/api/hl-protective-ensure' && req.method === 'POST') {
-    try {
-      const body = await readJsonBody();
-      const wallet = String(body.wallet ?? '').toLowerCase();
-      if (!/^0x[a-f0-9]{40}$/.test(wallet)) {
-        res.writeHead(400, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'wallet required (0x…)' }));
-        return;
-      }
-      const userAddress = wallet as `0x${string}`;
-      registerHlProtectiveMonitorWallet(userAddress);
-      await hyperliquidTradingService.ensureProtectiveMonitorForWallet(userAddress);
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify({ success: true, wallet, protectiveMonitor: true }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error('API: hl-protective-ensure failed', { error: msg });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg || 'hl-protective-ensure failed' }));
     }
     return;
   }
@@ -938,7 +934,6 @@ const healthServer = http.createServer(async (req, res) => {
       }
 
       const userAddress = wallet.toLowerCase() as `0x${string}`;
-      const lite = url.searchParams.get('lite') === '1' || url.searchParams.get('lite') === 'true';
       const chainId = 42161;
 
       const userId = await subscriptionService.getUserIdFromWallet(userAddress);
@@ -964,20 +959,6 @@ const healthServer = http.createServer(async (req, res) => {
       const hlOpenCoins = hlOpenPerpCoins(hlState);
       const hlDustCoins = hlResidualDustPositions(hlState).map((d) => d.coin);
 
-      if (hlOpenCoins.length > 0 && hlAgentOk) {
-        registerHlProtectiveMonitorWallet(userAddress);
-        if (!dbSettings.autoTradeEnabled) {
-          void hyperliquidTradingService
-            .ensureProtectiveMonitorForWallet(userAddress)
-            .catch((err) => {
-              logger.debug('HL protective ensure from bot-status skipped', {
-                user: userAddress.slice(0, 10),
-                error: err instanceof Error ? err.message : String(err),
-              });
-            });
-        }
-      }
-
       const collateralForSignal = BigInt(Math.floor(Math.max(hlBalanceUsd, 0) * 1e6));
 
       const globalScan =
@@ -993,37 +974,27 @@ const healthServer = http.createServer(async (req, res) => {
       const bestAvailable =
         userSignals.find((s) => !openCoinSet.has(s.coin.toUpperCase())) ?? null;
 
-      const ethSignal = lite
-        ? null
-        : await marketService.getSignal(
-            chainId,
-            ARBITRUM_SIGNAL_TOKENS.WETH,
-            collateralForSignal,
-            10000,
-            DEFAULT_STRATEGY
-          );
-      const btcSignal = lite
-        ? null
-        : await marketService.getSignal(
-            chainId,
-            ARBITRUM_SIGNAL_TOKENS.WBTC,
-            collateralForSignal,
-            10000,
-            DEFAULT_STRATEGY
-          );
+      const ethSignal = await marketService.getSignal(
+        chainId,
+        ARBITRUM_SIGNAL_TOKENS.WETH,
+        collateralForSignal,
+        10000,
+        DEFAULT_STRATEGY
+      );
+      const btcSignal = await marketService.getSignal(
+        chainId,
+        ARBITRUM_SIGNAL_TOKENS.WBTC,
+        collateralForSignal,
+        10000,
+        DEFAULT_STRATEGY
+      );
 
-      const openDb = lite ? [] : await positionService.getOpenPositions(userAddress, chainId);
-      const livePositions = await buildLiveBotPositionViews({
-        wallet: userAddress,
-        state: hlState,
-      });
+      const openDb = await positionService.getOpenPositions(userAddress, chainId);
 
-      const megaPumpSweep = lite ? { BTC: null, ETH: null } : await fetchMegaPairPumpSweep();
-      const pumpSweepLines = lite
-        ? []
-        : [megaPumpSweep.BTC, megaPumpSweep.ETH]
-            .filter((row): row is NonNullable<typeof row> => Boolean(row))
-            .map(formatPumpSweepLine);
+      const megaPumpSweep = await fetchMegaPairPumpSweep();
+      const pumpSweepLines = [megaPumpSweep.BTC, megaPumpSweep.ETH]
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .map(formatPumpSweepLine);
 
       const blockers: string[] = [];
       if (!hlAgentOk) blockers.push('HL agent not approved — enable bot in app');
@@ -1108,12 +1079,8 @@ const healthServer = http.createServer(async (req, res) => {
         !bestAvailable &&
         hlOpenCoins.length < maxPositions
       ) {
-        const longRules = config.hyperliquid.directionProfile.long;
-        const minConf = longRules.minConfidence ?? config.hyperliquid.minSignalConfidence;
-        const minTfs = longRules.minDirectionalTfs ?? config.hyperliquid.minDirectionalTfs;
-        const minAlign = longRules.minTrendAlignment ?? config.hyperliquid.minTrendAlignment;
         blockers.push(
-          `no HL perp tradeable after scan (profile bars: ${minConf}% conf, ${minTfs} TFs, ${minAlign}% align)`
+          `no HL perp passed global scan (min ${config.hyperliquid.minSignalConfidence}% conf, ${config.hyperliquid.minDirectionalTfs} TFs, ${config.hyperliquid.minTrendAlignment}% align)`
         );
       }
 
@@ -1184,10 +1151,6 @@ const healthServer = http.createServer(async (req, res) => {
         },
         globalScan: {
           coinsScanned: lastHlGlobalScanStats.coinsScanned,
-          coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
-          scanComplete: lastHlGlobalScanStats.complete,
-          universeCoins: lastHlGlobalScanStats.universeCoins,
-          scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
           standardCandidates: globalScan.standard.length,
           aggressiveCandidates: globalScan.aggressive.length,
           candidateCount: userSignals.length,
@@ -1195,20 +1158,9 @@ const healthServer = http.createServer(async (req, res) => {
           candidates: userSignals.slice(0, 8).map((s) => ({
             coin: s.coin,
             direction: s.direction,
-            longClass: s.longClass ?? null,
             confidence: s.confidence,
             reason: s.reason,
             mode: s.botMode,
-            queueable: s.queueable !== false,
-            mtfBreakdown: s.mtfBreakdown,
-          })),
-          boardCandidates: boardScanCandidates(globalScan).slice(0, 16).map((s) => ({
-            coin: s.coin,
-            direction: s.direction,
-            confidence: s.confidence,
-            reason: s.reason,
-            queueable: s.queueable !== false,
-            mtfBreakdown: s.mtfBreakdown,
           })),
           best: bestAvailable
             ? {
@@ -1226,8 +1178,6 @@ const healthServer = http.createServer(async (req, res) => {
                 reason: bestGlobal.reason,
               }
             : null,
-          scannedAt: lastHlGlobalScanStats.scannedAt,
-          scanSkips: lastHlScanSkips.slice(-120),
         },
         megaPairVolume: getMegaPairVolumeSnapshot(),
         pumpSweep: {
@@ -1253,14 +1203,11 @@ const healthServer = http.createServer(async (req, res) => {
           dbOpenPositions: openDb.length,
           onChainOpenTokens: hlOpenCoins,
         },
-        directionProfile: (() => {
-          const live = getLiveDirectionProfile();
-          const cfg = config.hyperliquid.directionProfile;
-          return {
+        directionProfile: {
           mode: getDirectionProfileMode(),
-          name: live.name,
-          description: cfg.description,
-          primaryDirection: live.primaryDirection,
+          name: config.hyperliquid.directionProfile.name,
+          description: config.hyperliquid.directionProfile.description,
+          primaryDirection: config.hyperliquid.directionProfile.primaryDirection,
           analysisTimeframes: config.hyperliquid.directionProfile.analysisTimeframes,
           longAnalysisTimeframes: analysisTimeframesForDirection('LONG'),
           shortAnalysisTimeframes: analysisTimeframesForDirection('SHORT'),
@@ -1271,11 +1218,10 @@ const healthServer = http.createServer(async (req, res) => {
             config.hyperliquid.directionProfile.useAggressiveScalpSignals,
           enableHtfSr: config.hyperliquid.directionProfile.enableHtfSr,
           enableLlmConfirm: config.hyperliquid.directionProfile.enableLlmConfirm,
-          allowLongOpens: live.allowLongOpens,
-          allowShortOpens: live.allowShortOpens,
+          allowLongOpens: config.hyperliquid.directionProfile.allowLongOpens,
+          allowShortOpens: config.hyperliquid.directionProfile.allowShortOpens,
           shortRelaxSecondaryGates:
             config.hyperliquid.directionProfile.short.relaxSecondaryGates,
-          autoNewEntriesBlocked: getAutoNewEntriesBlockReason(),
           btcRegime: (() => {
             const r = getLiveBtcRegime();
             if (!r) return null;
@@ -1289,12 +1235,10 @@ const healthServer = http.createServer(async (req, res) => {
               aboveSma4h: r.aboveSma4h,
               bullScore: r.bullScore,
               sticky: r.sticky,
-              dataSource: r.dataSource,
               checkedAt: r.checkedAt,
             };
           })(),
-        };
-        })(),
+        },
         llmTradeConfirm: {
           enabled: config.hyperliquid.llmTradeConfirm.enabled,
           mode: config.hyperliquid.llmTradeConfirm.mode,
@@ -1304,13 +1248,7 @@ const healthServer = http.createServer(async (req, res) => {
           lastVerdict: getLastLlmTradeConfirmVerdict(),
         },
         lastOpenError: getLastHlOpenErrorForClient(userAddress),
-        entryBlockedReason: await resolveHlEntryBlockReason(userAddress),
-        execution: getHlExecutionState(userAddress),
-        executionDiagnostic: getExecutionDiagnostic(userAddress),
-        livePositions,
-        recentOpenBlocks: lite ? [] : await fetchRecentHlOpenBlocks(userAddress, 25),
-        recentOpenAudits: lite ? [] : await fetchRecentHlOpenAudits(userAddress, 15),
-        openGateAudit: buildOpenGateAudit(config.hyperliquid.directionProfile),
+        recentOpenBlocks: await fetchRecentHlOpenBlocks(userAddress, 25),
         tradeCycleSec: config.trading.checkIntervalMs / 1000,
         successFees: {
           accruedUsd: feeSummary.accruedUsd,
@@ -1483,40 +1421,6 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/api/hl-trader-search' && req.method === 'GET') {
-    try {
-      const ip =
-        String(req.headers['x-forwarded-for'] ?? '')
-          .split(',')[0]
-          ?.trim() ||
-        req.socket.remoteAddress ||
-        'unknown';
-      if (hlTraderSearchRateLimited(ip)) {
-        res.writeHead(429, corsHeaders);
-        res.end(JSON.stringify({ success: false, error: 'Too many searches' }));
-        return;
-      }
-      const q = (url.searchParams.get('q') || '').trim();
-      if (q.length < 2) {
-        res.writeHead(200, corsHeaders);
-        res.end(JSON.stringify({ success: true, results: [] }));
-        return;
-      }
-      const results = await searchHlTraders(q);
-      res.writeHead(200, {
-        ...corsHeaders,
-        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
-      });
-      res.end(JSON.stringify({ success: true, results }));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'trader search failed';
-      logger.error('API: hl-trader-search failed', { error: msg });
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
   if (url.pathname === '/api/public-leaderboard' && req.method === 'GET') {
     try {
       const sortRaw = (url.searchParams.get('sort') || 'recent_all').toLowerCase();
@@ -1607,40 +1511,15 @@ const healthServer = http.createServer(async (req, res) => {
           standard: scan.standard.length,
           aggressive: scan.aggressive.length,
           count: scan.standard.length + scan.aggressive.length,
-          standardCandidates: boardScanCandidates(scan),
-          tradeableCandidates: globalSignalsForBotMode(scan, 'standard').slice(0, 8),
+          standardCandidates: scan.standard.slice(0, 8),
           aggressiveCandidates: scan.aggressive.slice(0, 8),
           scannedAt: lastHlGlobalScanStats.scannedAt || lastCycleStats?.at || new Date().toISOString(),
           minConfidence: config.hyperliquid.minSignalConfidence,
-          scanComplete: lastHlGlobalScanStats.complete,
-          coinsAnalyzed: lastHlGlobalScanStats.coinsAnalyzed,
-          scanUniverseCoins: lastHlGlobalScanStats.universeCoins,
-          botUniverse: lastHlGlobalScanStats.universeCoins,
-          scanSkips: lastHlScanSkips.slice(-80),
         })
       );
     } catch (err: any) {
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: err.message || 'global-signals failed' }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/hl-info' && req.method === 'POST') {
-    try {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      const raw = Buffer.concat(chunks).toString('utf8');
-      const body = JSON.parse(raw || '{}') as Record<string, unknown>;
-      const { proxyHlInfoPost } = await import('./services/hlInfoProxy');
-      const data = await proxyHlInfoPost(body);
-      res.writeHead(200, corsHeaders);
-      res.end(JSON.stringify(data));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'hl-info failed';
-      const status = /not allowed/i.test(msg) ? 400 : 502;
-      res.writeHead(status, corsHeaders);
-      res.end(JSON.stringify({ error: msg }));
     }
     return;
   }
@@ -1653,32 +1532,6 @@ const healthServer = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ success: true, prices }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'token-prices failed';
-      res.writeHead(500, corsHeaders);
-      res.end(JSON.stringify({ success: false, error: msg }));
-    }
-    return;
-  }
-
-  if (url.pathname === '/api/admin/signups' && req.method === 'GET') {
-    if (!requireBotAdmin()) return;
-    try {
-      const hoursRaw = Number(url.searchParams.get('hours') ?? 24);
-      const limitRaw = Number(url.searchParams.get('limit') ?? 100);
-      const withinHours = Number.isFinite(hoursRaw) ? hoursRaw : 24;
-      const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
-      const signups = await subscriptionService.listRecentProfileSignups(withinHours, limit);
-      res.writeHead(200, corsHeaders);
-      res.end(
-        JSON.stringify({
-          success: true,
-          withinHours,
-          count: signups.length,
-          signups,
-          checkedAt: new Date().toISOString(),
-        })
-      );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'signups query failed';
       res.writeHead(500, corsHeaders);
       res.end(JSON.stringify({ success: false, error: msg }));
     }
@@ -1746,12 +1599,7 @@ const healthServer = http.createServer(async (req, res) => {
           ? Math.max(1, Math.floor(leverageRaw))
           : undefined;
       const dryRun = Boolean(body.dryRun);
-      const ctx = await Promise.race([
-        buildTradingCycleContext(),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('trading context timeout 35s')), 35_000);
-        }),
-      ]);
+      const ctx = await buildTradingCycleContext();
       const result = await hyperliquidTradingService.forceOpenForAutoTradeUsers({
         coin,
         direction,
@@ -1939,8 +1787,6 @@ const DEFAULT_STRATEGY: TradingStrategy = 'aggressive'; // AGGRESSIVE = maximum 
 const ACTIVE_CHAINS: number[] = [42161];
 
 let isTradingCycleRunning = false;
-let tradingCycleStartedAt = 0;
-const TRADING_CYCLE_WATCHDOG_MS = 30_000;
 
 async function processApprovedTrades(): Promise<void> {
   try {
@@ -2061,52 +1907,21 @@ async function updateBotAnalysis(): Promise<void> {
  * Main trading loop - runs on schedule to open new positions
  */
 async function runTradingCycle(): Promise<void> {
-  if (config.hyperliquid.botHalted) {
-    lastTradeCheck = Date.now();
-    lastCycleStats = {
-      at: new Date(lastTradeCheck).toISOString(),
-      activeBots: 0,
-      processed: 0,
-      succeeded: 0,
-      skipped: 0,
-      failed: 0,
-      globalSignals: 0,
-      ms: 0,
-    };
-    logger.info('HL bot halted — no opens, no closes; open books left untouched');
+  // Prevent concurrent trading cycles (race condition prevention)
+  if (isTradingCycleRunning) {
+    logger.debug('Trading cycle already running, skipping');
     return;
   }
 
-  // Prevent concurrent trading cycles (race condition prevention)
-  if (isTradingCycleRunning) {
-    if (
-      tradingCycleStartedAt > 0 &&
-      Date.now() - tradingCycleStartedAt > TRADING_CYCLE_WATCHDOG_MS
-    ) {
-      logger.error('Trading cycle watchdog — releasing stuck lock so opens can resume', {
-        stuckMs: Date.now() - tradingCycleStartedAt,
-      });
-      isTradingCycleRunning = false;
-    } else {
-      logger.debug('Trading cycle already running, skipping');
-      return;
-    }
-  }
-
   isTradingCycleRunning = true;
-  tradingCycleStartedAt = Date.now();
   logger.info('Starting trading cycle');
 
   try {
     // First, process any approved trades
     await processApprovedTrades();
 
-    // UI MTF snapshots must never block Hyperliquid opens.
-    void updateBotAnalysis().catch((err) => {
-      logger.warn('Background MTF analysis failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    // UPDATE ANALYSIS FOR ALL USERS TO SEE (before checking individual users)
+    await updateBotAnalysis();
 
     try {
       const cycleStarted = Date.now();
@@ -2121,14 +1936,7 @@ async function runTradingCycle(): Promise<void> {
         roundRobinOffset: offset,
       });
 
-      await refreshLiveDirectionProfile();
-
-      const ctx = await Promise.race([
-        buildTradingCycleContext(),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('trading context timeout 35s')), 35_000);
-        }),
-      ]);
+      const ctx = await buildTradingCycleContext();
       lastGlobalSignals = ctx.globalSignals;
 
       const stats = await processUserBatch(wallets, ctx, total);
@@ -2165,7 +1973,6 @@ async function runTradingCycle(): Promise<void> {
     }
   } finally {
     isTradingCycleRunning = false;
-    tradingCycleStartedAt = 0;
   }
 }
 
@@ -2197,16 +2004,6 @@ async function main(): Promise<void> {
   logStartupInfo();
   await validateProductionEnvironment();
 
-  const { setRuntimeLetRunAll } = await import('./services/hlRuntimePolicy');
-  const letRunReset = await setRuntimeLetRunAll(false, 'aug21-restore');
-  if (!letRunReset.ok) {
-    logger.warn('Could not clear let_run_all (21 Aug trail mode)', {
-      error: letRunReset.error,
-    });
-  } else {
-    logger.info('Runtime let_run_all=false (21 Aug — profit trail can close)');
-  }
-
   // Seed BTC (or forced) direction profile before the first trade cycle.
   const bootProfile = await refreshLiveDirectionProfile();
   logger.info('Direction profile ready', {
@@ -2237,57 +2034,40 @@ async function main(): Promise<void> {
   await ensureProfitTrailStateHydrated();
 
   // Trail/SL for open perps even when auto-trade is paused (manual opens, etc.).
-  // Halted: skip — leave every open book exactly as it is.
-  if (!config.hyperliquid.botHalted) {
-    await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
-  }
+  await hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+
+  // Run immediately on startup
+  await runTradingCycle();
+  void hyperliquidTradingService.runFastPositionMonitor();
 
   const tradeIntervalSeconds = Math.floor(config.trading.checkIntervalMs / 1000);
   const tradeCronExpression = `*/${tradeIntervalSeconds} * * * * *`;
 
-  cron.schedule(tradeCronExpression, () => {
-    void runTradingCycle();
+  cron.schedule(tradeCronExpression, async () => {
+    await runTradingCycle();
   });
-
-  // First cycle must not block cron — a hung scan used to freeze the bot for hours.
-  void runTradingCycle();
-  if (!config.hyperliquid.botHalted) {
-    void hyperliquidTradingService.runFastPositionMonitor();
-  }
 
   const positionMonitorMs = config.hyperliquid.positionMonitorMs;
 
-  if (!config.hyperliquid.botHalted) {
-    if (positionMonitorMs < 1000) {
-      setInterval(() => {
-        void hyperliquidTradingService.runFastPositionMonitor();
-      }, positionMonitorMs);
-    } else {
-      const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
-      cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
-        await hyperliquidTradingService.runFastPositionMonitor();
-      });
-    }
-
+  if (positionMonitorMs < 1000) {
     setInterval(() => {
-      void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
-    }, 60_000);
+      void hyperliquidTradingService.runFastPositionMonitor();
+    }, positionMonitorMs);
+  } else {
+    const positionMonitorSec = Math.floor(positionMonitorMs / 1000);
+    cron.schedule(`*/${positionMonitorSec} * * * * *`, async () => {
+      await hyperliquidTradingService.runFastPositionMonitor();
+    });
   }
+
+  setInterval(() => {
+    void hyperliquidTradingService.refreshOpenPositionMonitorFromApprovals();
+  }, 60_000);
 
   setInterval(() => {
     void processPendingTradeCloseEmails(40);
   }, 15_000);
   void processPendingTradeCloseEmails(40).catch(() => undefined);
-
-  const followPollMs = Math.max(10_000, config.followWalletPollMs);
-  setInterval(() => {
-    void runFollowWalletAlertTick().catch((err) => {
-      logger.warn('Follow-wallet alert tick failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-  }, followPollMs);
-  void runFollowWalletAlertTick().catch(() => undefined);
 
   setInterval(() => {
     void syncBettingClosesForEmails(25).catch(() => undefined);
@@ -2304,27 +2084,24 @@ async function main(): Promise<void> {
   }, twitterTickMs);
   void runTwitterSocialTick().catch(() => undefined);
 
-  if (!config.hyperliquid.botHalted) {
-    const autoBetMs = Math.max(30_000, config.hyperliquid.autoBettingIntervalMs);
-    setInterval(() => {
-      void runAutoBettingCycle().catch((err) => {
-        logger.warn('Auto-betting cycle error', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+  const autoBetMs = Math.max(30_000, config.hyperliquid.autoBettingIntervalMs);
+  setInterval(() => {
+    void runAutoBettingCycle().catch((err) => {
+      logger.warn('Auto-betting cycle error', {
+        error: err instanceof Error ? err.message : String(err),
       });
-    }, autoBetMs);
-    void runAutoBettingCycle().catch(() => undefined);
-  }
+    });
+  }, autoBetMs);
+  void runAutoBettingCycle().catch(() => undefined);
 
   logger.info(`Bot service started.`);
   logger.info(`- Payment monitoring: ACTIVE (treasury watched)`);
-  if (config.hyperliquid.botHalted) {
-    logger.info('- HL bot HALTED — no new opens, no closes; open positions left on Hyperliquid');
-  } else {
-    logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
-    logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
-    logger.info(`- AI auto-betting: every ${Math.round(Math.max(30_000, config.hyperliquid.autoBettingIntervalMs) / 1000)}s`);
-  }
+  logger.info(`- HL trading cycle: every ${tradeIntervalSeconds}s`);
+  logger.info(`- HL position monitor: every ${positionMonitorMs}ms (fast profit grab)`);
+  logger.info(`- Trade/bet win emails: every 15s`);
+  logger.info(`- Betting history sync: every 60s`);
+  logger.info(`- X/IG/FB social tick: every ${Math.round(twitterTickMs / 1000)}s`);
+  logger.info(`- AI auto-betting: every ${Math.round(autoBetMs / 1000)}s`);
   void ensureTwitterSettings()
     .then((s) => {
       const snapHint = twitterCredentialsConfigured()

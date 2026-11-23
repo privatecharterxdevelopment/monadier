@@ -31,11 +31,13 @@ export type HlDirectionRules = {
   minTrendAlignment: number;
   requiredH1Trend: 'UP' | 'DOWN' | null;
   /**
-   * Optional 5m trend gate. LONG typically requires UP; SHORT may require DOWN.
+   * Optional 5m trend gate (LONG only). If 5m is DOWN → no LONG.
+   * Unset on SHORT / shared rules — SHORT paths stay unchanged.
    */
   required5mTrend?: 'UP' | 'DOWN' | null;
   /**
-   * Optional 15m trend gate. LONG typically requires UP; SHORT may require DOWN.
+   * Optional 15m trend gate (bear_market LONG counter-trend).
+   * Unset on PRIMARY / shared COUNTER_TREND — SHORT paths stay unchanged.
    */
   required15mTrend?: 'UP' | 'DOWN' | null;
   /**
@@ -50,14 +52,6 @@ export type HlDirectionRules = {
   bypassMacroBetaWhenTrusted: boolean;
   bypassPumpShortWhenTrusted: boolean;
   bypassEntryLocationWhenTrusted: boolean;
-  /** Trusted MTF SHORT — skip 15m candle-structure veto (volume/chop). */
-  bypassPreOpenWhenTrusted?: boolean;
-  /** Trusted MTF SHORT — skip 1m/5m re-check (scan already scored TFs). */
-  bypassScalpAlignWhenTrusted?: boolean;
-  /** Trusted MTF SHORT — skip “already extended” momentum veto on standard mode. */
-  bypassEntryMomentumWhenTrusted?: boolean;
-  /** Trusted MTF SHORT — skip S/R location gate (HTF quality has its own bypass). */
-  bypassSrLocationWhenTrusted?: boolean;
 };
 
 /**
@@ -84,7 +78,7 @@ export type HlDirectionProfile = {
   /** Structural pre-open micro-check (candle count + timeframe). */
   preOpenTimeframe: HlPreOpenTimeframe;
   preOpenTimeframeLong: '15m';
-  preOpenTimeframeShort: '15m';
+  preOpenTimeframeShort: '1m';
   preOpenCandleCount: number;
   /**
    * Pre-open volume ratio floor. June short used 0.85; long regime kept later 0.5.
@@ -129,8 +123,6 @@ export type HlDirectionProfile = {
   allowShortOpens: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
-  /** Bear-only REVERSAL_LONG path. Absent on bull_market. */
-  reversalLong?: import('./bearReversalLong').BearReversalLongRules;
 };
 
 /** Aggressive rules for the direction the profile is built to trade. */

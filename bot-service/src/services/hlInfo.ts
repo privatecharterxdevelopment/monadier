@@ -1,6 +1,5 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { proxyHlInfoPost } from './hlInfoProxy';
 
 export type HlClearinghouseState = {
   marginSummary?: {
@@ -16,7 +15,6 @@ export type HlClearinghouseState = {
       unrealizedPnl?: string;
       positionValue?: string;
       leverage?: { value?: number; type?: 'cross' | 'isolated' };
-      cumFunding?: { allTime?: string; sinceOpen?: string; sinceChange?: string };
     };
   }>;
 };
@@ -30,10 +28,6 @@ export type HlUserAbstraction =
 
 type ClearinghouseCacheEntry = { at: number; data: HlClearinghouseState };
 const clearinghouseCache = new Map<string, ClearinghouseCacheEntry>();
-
-export function invalidateHlClearinghouseCache(userAddress: string): void {
-  clearinghouseCache.delete(userAddress.toLowerCase());
-}
 
 export function normalizeHlUserAbstraction(raw: unknown): HlUserAbstraction | null {
   if (raw == null) return null;
@@ -108,49 +102,63 @@ export async function fetchHlUserAbstraction(
 
 export async function fetchHlClearinghouseState(
   userAddress: string,
-  opts?: { critical?: boolean; forceRefresh?: boolean }
+  opts?: { critical?: boolean }
 ): Promise<HlClearinghouseState | null> {
   const user = userAddress.toLowerCase();
-  const ttlMs = opts?.critical ? 800 : 3_000;
-  const attempts = opts?.critical ? 8 : 3;
-
-  if (opts?.forceRefresh) {
-    invalidateHlClearinghouseCache(user);
-  }
+  const ttlMs = opts?.critical ? 1_500 : 3_000;
+  const attempts = opts?.critical ? 6 : 3;
 
   const hit = clearinghouseCache.get(user);
-  const cacheFresh = hit != null && Date.now() - hit.at < ttlMs;
-  if (cacheFresh && !opts?.critical) {
+  if (hit && Date.now() - hit.at < ttlMs) {
     return hit.data;
   }
 
-  let lastErr: string | null = null;
-
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const data = (await proxyHlInfoPost({
-        type: 'clearinghouseState',
-        user,
-      })) as HlClearinghouseState;
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'clearinghouseState',
+          user,
+        }),
+        signal: AbortSignal.timeout(opts?.critical ? 12_000 : 8_000),
+      });
+      if (res.status === 429 || res.status >= 500) {
+        if (hit) {
+          logger.warn('HL clearinghouse rate-limited — serving stale', {
+            user: user.slice(0, 10),
+            status: res.status,
+          });
+          return hit.data;
+        }
+        await new Promise((r) => setTimeout(r, 350 * (attempt + 1) * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) {
+        if (attempt < attempts - 1) {
+          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+        break;
+      }
+      const data = (await res.json()) as HlClearinghouseState;
       clearinghouseCache.set(user, { at: Date.now(), data });
       return data;
     } catch (err: unknown) {
-      lastErr = err instanceof Error ? err.message : String(err);
       if (hit && attempt >= attempts - 1) {
         logger.warn('HL clearinghouse error — serving stale', {
           user: user.slice(0, 10),
-          error: lastErr,
+          error: err instanceof Error ? err.message : String(err),
         });
         return hit.data;
       }
       if (attempt < attempts - 1) {
-        const base = opts?.critical ? 350 : 300;
-        await new Promise((r) => setTimeout(r, base * (attempt + 1) + Math.floor(Math.random() * 120)));
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
       } else {
-        logger.warn('HL clearinghouseState failed', {
+        logger.debug('HL clearinghouseState failed', {
           user: user.slice(0, 10),
-          error: lastErr,
-          critical: Boolean(opts?.critical),
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }
@@ -163,10 +171,19 @@ export async function fetchHlSpotUsdcUsd(userAddress: string): Promise<number> {
   const user = userAddress.toLowerCase();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const data = (await proxyHlInfoPost({
-        type: 'spotClearinghouseState',
-        user,
-      })) as {
+      const res = await fetch(config.hyperliquid.infoUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'spotClearinghouseState',
+          user,
+        }),
+      });
+      if (!res.ok) {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        continue;
+      }
+      const data = (await res.json()) as {
         balances?: Array<{ coin?: string; total?: string; hold?: string }>;
       };
       const row = (data.balances ?? []).find((b) => String(b.coin ?? '').toUpperCase() === 'USDC');
@@ -495,35 +512,21 @@ async function fetchHlInfoCached<T>(
 type HlRawFill = {
   coin?: string;
   closedPnl?: string | number;
-  fee?: string | number;
   time?: number;
   dir?: string;
 };
 
-export type HlCloseFillPnl = {
-  grossUsd: number;
-  feeUsd: number;
-  netUsd: number;
-};
-
-function isHlRawFillClose(dir: string, pnl: number): boolean {
-  return (
-    /^close/i.test(dir) ||
-    /long\s*>\s*short|short\s*>\s*long/i.test(dir) ||
-    (Number.isFinite(pnl) && pnl !== 0 && !/^open/i.test(dir))
-  );
-}
-
 /**
- * Net realized P/L from HL close fills — matches app trade history (closedPnl − fee).
+ * Sum HL fill `closedPnl` for a coin close — source of truth for emails /
+ * notifications / success fees (uPnL at trigger time can diverge from fills).
  */
-export async function fetchHlCloseNetPnlUsd(opts: {
+export async function fetchHlCloseRealizedPnlUsd(opts: {
   userAddress: string;
   coin: string;
   /** Only fills at/after this ms (close order time − small slack). */
   sinceMs: number;
   lookbackMs?: number;
-}): Promise<HlCloseFillPnl | null> {
+}): Promise<number | null> {
   try {
     const res = await fetch(config.hyperliquid.infoUrl, {
       method: 'POST',
@@ -540,8 +543,7 @@ export async function fetchHlCloseNetPnlUsd(opts: {
 
     const coin = opts.coin.toUpperCase();
     const since = opts.sinceMs - (opts.lookbackMs ?? 15_000);
-    let gross = 0;
-    let fee = 0;
+    let sum = 0;
     let matched = 0;
     for (const f of fills) {
       if (String(f.coin ?? '').toUpperCase() !== coin) continue;
@@ -549,36 +551,25 @@ export async function fetchHlCloseNetPnlUsd(opts: {
       if (!Number.isFinite(t) || t < since) continue;
       const dir = String(f.dir ?? '');
       const pnl = Number(f.closedPnl ?? 0);
-      if (!isHlRawFillClose(dir, pnl)) continue;
+      const isClose =
+        /^close/i.test(dir) ||
+        /long\s*>\s*short|short\s*>\s*long/i.test(dir) ||
+        (Number.isFinite(pnl) && pnl !== 0 && !/^open/i.test(dir));
+      if (!isClose) continue;
       if (!Number.isFinite(pnl)) continue;
-      const fillFee = Number(f.fee ?? 0);
-      gross += pnl;
-      fee += Number.isFinite(fillFee) ? fillFee : 0;
+      sum += pnl;
       matched += 1;
     }
     if (matched === 0) return null;
-    const net = gross - fee;
-    const round = (n: number) => Math.round(n * 1e6) / 1e6;
-    return { grossUsd: round(gross), feeUsd: round(fee), netUsd: round(net) };
+    return Math.round(sum * 1e6) / 1e6;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    logger.warn('HL close net pnl fetch failed', {
+    logger.warn('HL close realized pnl fetch failed', {
       coin: opts.coin,
       error: msg.slice(0, 160),
     });
     return null;
   }
-}
-
-/** @deprecated Use fetchHlCloseNetPnlUsd — gross only, diverges from UI history. */
-export async function fetchHlCloseRealizedPnlUsd(opts: {
-  userAddress: string;
-  coin: string;
-  sinceMs: number;
-  lookbackMs?: number;
-}): Promise<number | null> {
-  const row = await fetchHlCloseNetPnlUsd(opts);
-  return row ? row.grossUsd : null;
 }
 
 export function maxLeverageForCoin(
@@ -620,28 +611,6 @@ export function formatHlCloseSize(size: number, szDecimals: number): string {
 }
 
 /** HL perp prices: max 5 sig figs, max (6 - szDecimals) decimal places. */
-export function hlTickSize(price: number, szDecimals = 0, isSpot = false): number {
-  if (!(price > 0) || !Number.isFinite(price)) return 1e-6;
-  const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
-  const decTick = 10 ** -maxDecimals;
-  if (price > 100_000) return 1;
-  const mag = Math.floor(Math.log10(price));
-  const sigTick = 10 ** (mag - 4);
-  return Math.max(decTick, sigTick);
-}
-
-export function roundHlPrice(
-  price: number,
-  szDecimals: number,
-  mode: 'nearest' | 'long_stop' | 'short_stop' = 'nearest'
-): number {
-  const tick = hlTickSize(price, szDecimals);
-  if (!(tick > 0) || !Number.isFinite(price)) return price;
-  if (mode === 'long_stop') return Math.ceil(price / tick - 1e-12) * tick;
-  if (mode === 'short_stop') return Math.floor(price / tick + 1e-12) * tick;
-  return Math.round(price / tick) * tick;
-}
-
 export function formatHlPrice(price: number, szDecimals = 0, isSpot = false): string {
   const maxDecimals = Math.max(0, (isSpot ? 8 : 6) - szDecimals);
   if (price > 100_000) return String(Math.round(price));

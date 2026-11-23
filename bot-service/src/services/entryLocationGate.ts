@@ -1,25 +1,26 @@
 /**
  * Entry location gate — resistance/support awareness before HL bot opens.
  *
- * Blocks LONG into a ceiling that already rejected price multiple times.
- * Allows LONG only on confirmed breakout above resistance or pullback toward support.
+ * Floor detection: swing-low clusters → support level/zone; nearSupport when
+ * price is in the lower half of the S–R box or hugging the S band.
+ *
+ * SHORT: R-fade / upper range, or confirmed breakdown — never blind floor shorts.
+ * Floor reverse: confirmed support bounce (pierce + reclaim) → flip SHORT→LONG.
+ * LONG: support / lower range, or confirmed breakout *through* R (not tagging it).
+ * At resistance: never SHORT (no R-fade, no LONG→SHORT flip). Green tape
+ * may LONG through R; otherwise wait. Dump SHORTs = breakdown, not fade.
  */
 import { config } from '../config';
 import { signalEngine, type Candle } from './signalEngine';
+import { logger } from '../utils/logger';
+import { btcTapeIsGreen } from './macroBetaGate';
 import {
-  confirmedBreakdownThroughPriorSupport,
-  isShortDumpContinuation,
-} from './shortDumpStructure';
-
-export type LocationBlockCode =
-  | 'LOCATION_BREAKOUT'
-  | 'LOCATION_PULLBACK'
-  | 'LOCATION_RESISTANCE'
-  | 'LOCATION_BREAKDOWN'
-  | 'LOCATION_DUMP_CONTINUATION'
-  | 'LOCATION_SUPPORT'
-  | 'LOCATION_OK'
-  | 'LOCATION_SKIP_DATA';
+  computeResistanceZone,
+  computeSupportZone,
+  evaluateZoneReversalGate,
+  zoneReversalConfirmed,
+  type PriceZone,
+} from './resistanceZone';
 
 export type SrZoneAnalysis = {
   support: number;
@@ -34,14 +35,16 @@ export type SrZoneAnalysis = {
   confirmedBreakdown: boolean;
   nearResistance: boolean;
   nearSupport: boolean;
-  dumpContinuation?: boolean;
+  resistanceZone?: PriceZone | null;
+  supportZone?: PriceZone | null;
 };
 
 export type EntryLocationResult = {
   ok: boolean;
-  code: LocationBlockCode;
   reason: string;
   analysis: SrZoneAnalysis;
+  /** Zone rejection/bounce says take the other side. */
+  flipTo?: 'LONG' | 'SHORT';
 };
 
 function pricePosition(price: number, support: number, resistance: number): number {
@@ -157,39 +160,78 @@ function confirmedBreakdown(candles: Candle[], level: number, buffer: number, ba
   return recent.every((c) => c.close < level * (1 - buffer));
 }
 
-export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZoneAnalysis {
+export function analyzeSrZones(candlesPrimary: Candle[], candlesSecondary: Candle[]): SrZoneAnalysis {
   const cfg = config.hyperliquid.entryLocation;
-  const price = candles15[candles15.length - 1]?.close ?? 0;
+  const price = candlesPrimary[candlesPrimary.length - 1]?.close ?? 0;
 
-  const resistance15 = resolveResistanceLevel(candles15, cfg.swingClusterPct);
-  const support15 = resolveSupportLevel(candles15, cfg.swingClusterPct);
+  const zoneOpts = {
+    swingClusterPct: cfg.swingClusterPct,
+    touchTolerancePct: cfg.touchTolerancePct,
+  };
+  // Primary: price-relative swing-cluster bands (same algo as chart).
+  // Fallback scalars only if a side has no active zone near price.
+  const resistanceZone = computeResistanceZone(candlesPrimary, zoneOpts);
+  const supportZone = computeSupportZone(candlesPrimary, zoneOpts);
 
-  let resistance = resistance15;
-  let support = support15;
+  let resistance = resistanceZone?.mid ?? resolveResistanceLevel(candlesPrimary, cfg.swingClusterPct);
+  let support = supportZone?.mid ?? resolveSupportLevel(candlesPrimary, cfg.swingClusterPct);
 
-  if (candles1h.length >= 20) {
-    const resistance1h = resolveResistanceLevel(candles1h, cfg.swingClusterPct);
-    const support1h = resolveSupportLevel(candles1h, cfg.swingClusterPct);
-    resistance = Math.min(resistance, resistance1h);
-    support = Math.max(support, support1h);
+  // Prefer nearer secondary-TF zone on the correct side of price (never Himalaya shelves).
+  if (candlesSecondary.length >= 20) {
+    const resistance1h = computeResistanceZone(candlesSecondary, zoneOpts);
+    const support1h = computeSupportZone(candlesSecondary, zoneOpts);
+    if (resistance1h && resistance1h.mid >= price * 0.998) {
+      resistance =
+        resistanceZone != null
+          ? Math.min(resistance, resistance1h.mid)
+          : resistance1h.mid;
+    }
+    if (support1h && support1h.mid <= price * 1.002) {
+      support =
+        supportZone != null ? Math.max(support, support1h.mid) : support1h.mid;
+    }
   }
 
-  const resTests = countLevelTests(candles15, resistance, 'resistance', cfg.touchTolerancePct);
-  const supTests = countLevelTests(candles15, support, 'support', cfg.touchTolerancePct);
+  // Hard geometry: resistance must sit at/above price, support at/below.
+  if (resistance < price) {
+    resistance =
+      resistanceZone?.mid ??
+      Math.max(...candlesPrimary.slice(-24).map((c) => c.high), price);
+  }
+  if (support > price) {
+    support =
+      supportZone?.mid ??
+      Math.min(...candlesPrimary.slice(-24).map((c) => c.low), price);
+  }
+
+  const resTests = resistanceZone
+    ? { touches: resistanceZone.touches, rejections: resistanceZone.rejections }
+    : countLevelTests(candlesPrimary, resistance, 'resistance', cfg.touchTolerancePct);
+  const supTests = supportZone
+    ? { touches: supportZone.touches, rejections: supportZone.rejections }
+    : countLevelTests(candlesPrimary, support, 'support', cfg.touchTolerancePct);
 
   const pos = pricePosition(price, support, resistance);
   const distToResPct = resistance > 0 ? (resistance - price) / resistance : 1;
   const distToSupPct = support > 0 ? (price - support) / support : 1;
 
   const nearResistance =
+    (resistanceZone != null &&
+      price >= resistanceZone.zoneLow * (1 - cfg.nearLevelPct) &&
+      price <= resistanceZone.zoneHigh * (1 + cfg.nearLevelPct)) ||
     pos >= cfg.rangeTopBlock ||
     distToResPct <= cfg.nearLevelPct ||
     price >= resistance * (1 - cfg.nearLevelPct);
 
   const nearSupport =
-    pos <= cfg.rangeBottomBlock ||
-    distToSupPct <= cfg.nearLevelPct ||
-    price <= support * (1 + cfg.nearLevelPct);
+    (supportZone != null &&
+      price <= supportZone.zoneHigh * (1 + Math.max(cfg.nearLevelPct, 0.008)) &&
+      price >= supportZone.zoneLow * (1 - cfg.nearLevelPct)) ||
+    // Entire lower half = floor risk (chart S / dump shelf). Narrow 0.35 band
+    // let TRUMP-style Open S sit on consolidation low while pos looked "mid".
+    pos <= Math.max(cfg.rangeBottomBlock, 0.5) ||
+    distToSupPct <= Math.max(cfg.nearLevelPct, 0.008) ||
+    price <= support * (1 + Math.max(cfg.nearLevelPct, 0.008));
 
   return {
     support,
@@ -201,19 +243,21 @@ export function analyzeSrZones(candles15: Candle[], candles1h: Candle[]): SrZone
     supportTouches: supTests.touches,
     supportRejections: supTests.rejections,
     confirmedBreakoutUp: confirmedBreakoutUp(
-      candles15,
+      candlesPrimary,
       resistance,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
     confirmedBreakdown: confirmedBreakdown(
-      candles15,
+      candlesPrimary,
       support,
       cfg.breakoutBufferPct,
       cfg.breakoutConfirmBars
     ),
     nearResistance,
     nearSupport,
+    resistanceZone,
+    supportZone,
   };
 }
 
@@ -230,133 +274,119 @@ export function evaluateEntryLocation(
   const cfg = config.hyperliquid.entryLocation;
 
   if (direction === 'LONG') {
-    if (analysis.confirmedBreakoutUp) {
+    // BTC / majors still green: LONG through local R. Never fade a green tape.
+    if (
+      btcTapeIsGreen() &&
+      (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock)
+    ) {
       return {
         ok: true,
-        code: 'LOCATION_BREAKOUT',
         analysis,
-        reason: `Breakout above resistance ${fmtLevel(analysis.resistance)} confirmed`,
+        reason: `Green tape LONG-only — continue through local R ${fmtLevel(analysis.resistance)}`,
+      };
+    }
+    // At the resistance line: no LONG unless green tape / confirmed breakout.
+    // Do NOT flip to SHORT — resistance shorts are off.
+    if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
+      const zone =
+        analysis.resistanceZone != null
+          ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+          : fmtLevel(analysis.resistance);
+      return {
+        ok: false,
+        analysis,
+        reason: `LONG blocked — at/near upper range R ${zone} (top of range = SHORT, not LONG)`,
       };
     }
 
-    if (analysis.pricePosition <= cfg.pullbackMaxPosition) {
+    const ceiling = analysis.resistanceZone?.zoneHigh ?? analysis.resistance;
+    const clearedAboveR =
+      ceiling > 0 && analysis.price > ceiling * (1 + cfg.breakoutBufferPct);
+    if (analysis.confirmedBreakoutUp && clearedAboveR) {
       return {
         ok: true,
-        code: 'LOCATION_PULLBACK',
         analysis,
-        reason: `Pullback entry (${(analysis.pricePosition * 100).toFixed(0)}% of range, support ${fmtLevel(analysis.support)})`,
+        reason: `Breakout through resistance ${fmtLevel(ceiling)} confirmed`,
       };
     }
 
-    if (analysis.nearResistance) {
-      const failedTests = analysis.resistanceRejections;
-      if (failedTests >= cfg.minRejectionsToBlock) {
-        return {
-          ok: false,
-          code: 'LOCATION_RESISTANCE',
-          analysis,
-          reason: `LONG blocked — resistance ${fmtLevel(analysis.resistance)} rejected ${failedTests}× (need break above or pullback to support)`,
-        };
-      }
-      if (failedTests >= 1 || analysis.pricePosition >= cfg.rangeTopBlock) {
-        return {
-          ok: false,
-          code: 'LOCATION_RESISTANCE',
-          analysis,
-          reason: `LONG blocked — price at resistance ${fmtLevel(analysis.resistance)} without breakout (${failedTests} rejection${failedTests === 1 ? '' : 's'})`,
-        };
-      }
+    // 3) Lower line / near S → LONG allowed (bounce).
+    if (analysis.nearSupport || analysis.pricePosition <= cfg.rangeBottomBlock) {
+      return {
+        ok: true,
+        analysis,
+        reason: `Support/lower-range LONG (${(analysis.pricePosition * 100).toFixed(0)}% of range, S ${fmtLevel(analysis.support)})`,
+      };
     }
 
+    // 4) Mid-range — no LONG.
     return {
-      ok: true,
-      code: 'LOCATION_OK',
+      ok: false,
       analysis,
-      reason: `Entry ok — ${(analysis.pricePosition * 100).toFixed(0)}% of range (R ${fmtLevel(analysis.resistance)})`,
+      reason: `LONG blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need lower line / S ≤${(cfg.rangeBottomBlock * 100).toFixed(0)}% or breakout above R)`,
     };
   }
 
+  // ── SHORT ──────────────────────────────────────────────────────────────
+  // Breakdown through the floor is the only valid way to short the lows.
   if (analysis.confirmedBreakdown) {
     return {
       ok: true,
-      code: 'LOCATION_BREAKDOWN',
       analysis,
       reason: `Breakdown below support ${fmtLevel(analysis.support)} confirmed`,
     };
   }
 
-  if (analysis.dumpContinuation) {
-    return {
-      ok: true,
-      code: 'LOCATION_DUMP_CONTINUATION',
-      analysis,
-      reason: `Dump continuation below support ${fmtLevel(analysis.support)} — SHORT allowed`,
-    };
-  }
-
-  if (analysis.pricePosition >= 1 - cfg.pullbackMaxPosition) {
-    return {
-      ok: true,
-      code: 'LOCATION_PULLBACK',
-      analysis,
-      reason: `Pullback short (${(analysis.pricePosition * 100).toFixed(0)}% of range)`,
-    };
-  }
-
-  if (analysis.nearSupport) {
-    const failedTests = analysis.supportRejections;
-    if (failedTests >= cfg.minRejectionsToBlock) {
-      return {
-        ok: false,
-        code: 'LOCATION_SUPPORT',
-        analysis,
-        reason: `SHORT blocked — support ${fmtLevel(analysis.support)} held ${failedTests}× (need break below or rally off support)`,
-      };
-    }
-    if (failedTests >= 1 || analysis.pricePosition <= cfg.rangeBottomBlock) {
-      return {
-        ok: false,
-        code: 'LOCATION_SUPPORT',
-        analysis,
-        reason: `SHORT blocked — price at support ${fmtLevel(analysis.support)} without breakdown`,
-      };
-    }
-  }
-
-  if (
-    analysis.pricePosition <= cfg.rangeBottomBlock &&
-    !analysis.confirmedBreakdown &&
-    !analysis.dumpContinuation
-  ) {
+  // Hard: never short the floor / lower half without breakdown (user: dump shelf Open S).
+  const floorReject = Math.max(cfg.rangeBottomBlock, 0.5);
+  if (analysis.nearSupport || analysis.pricePosition <= floorReject) {
+    const zone =
+      analysis.supportZone != null
+        ? `${fmtLevel(analysis.supportZone.zoneLow)}–${fmtLevel(analysis.supportZone.zoneHigh)}`
+        : fmtLevel(analysis.support);
     return {
       ok: false,
-      code: 'LOCATION_SUPPORT',
       analysis,
-      reason: `SHORT blocked — price in bottom ${(analysis.pricePosition * 100).toFixed(0)}% of range (no breakdown — won't short the low)`,
+      reason: `SHORT blocked — at/near range floor ${zone} (pos ${(analysis.pricePosition * 100).toFixed(0)}% ≤${(floorReject * 100).toFixed(0)}%); need breakdown or R-fade`,
+    };
+  }
+
+  // No resistance shorts — R-fade / tagging the high is not a SHORT.
+  if (analysis.nearResistance || analysis.pricePosition >= cfg.rangeTopBlock) {
+    const zone =
+      analysis.resistanceZone != null
+        ? `${fmtLevel(analysis.resistanceZone.zoneLow)}–${fmtLevel(analysis.resistanceZone.zoneHigh)}`
+        : fmtLevel(analysis.resistance);
+    return {
+      ok: false,
+      analysis,
+      reason: `SHORT blocked — no resistance shorts (R ${zone}); need confirmed breakdown`,
     };
   }
 
   return {
-    ok: true,
-    code: 'LOCATION_OK',
+    ok: false,
     analysis,
-    reason: `Entry ok — ${(analysis.pricePosition * 100).toFixed(0)}% of range (S ${fmtLevel(analysis.support)})`,
+    reason: `SHORT blocked — mid-range ${(analysis.pricePosition * 100).toFixed(0)}% (need R ≥${(cfg.rangeTopBlock * 100).toFixed(0)}% or confirmed breakdown)`,
   };
 }
 
 export async function validateEntryLocation(opts: {
   symbol: string;
+  coin?: string;
   direction: 'LONG' | 'SHORT';
 }): Promise<EntryLocationResult> {
-  // Scalp S/R — ~4h on 5m + ~6h on 15m (not 24–72h 1h charts).
-  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
+  // Match chart zone lines: primary 1h (what user sees) + 15m for nearer bands.
+  const candles1h = await signalEngine.fetchCandles(opts.symbol, '1h', 48);
   const candles15 = await signalEngine.fetchCandles(opts.symbol, '15m', 24);
+  // Keep 5m for zone-reversal confirmation (wick/rejection speed).
+  const candles5 = await signalEngine.fetchCandles(opts.symbol, '5m', 48);
 
-  if (candles15.length < 12 || candles5.length < 12) {
+  if (candles1h.length < 12 || candles15.length < 12) {
+    // Fail closed — never open blind without S/R (especially SHORT into support).
     return {
-      ok: true,
-      code: 'LOCATION_SKIP_DATA',
-      reason: 'insufficient candle history — location check skipped',
+      ok: false,
+      reason: 'entry location blocked — insufficient candle history for S/R',
       analysis: {
         support: 0,
         resistance: 0,
@@ -370,17 +400,98 @@ export async function validateEntryLocation(opts: {
         confirmedBreakdown: false,
         nearResistance: false,
         nearSupport: false,
+        resistanceZone: null,
+        supportZone: null,
       },
     };
   }
 
-  const sr = analyzeSrZones(candles5, candles15);
-  sr.dumpContinuation = isShortDumpContinuation({
-    candles15m: candles15,
-    candles5m: candles5,
-  });
-  if (!sr.confirmedBreakdown && confirmedBreakdownThroughPriorSupport(candles15)) {
-    sr.confirmedBreakdown = true;
+  const sr = analyzeSrZones(candles1h, candles15);
+
+  // In-house zone bands: no blind opens inside resistance/support — require reversal first.
+  const zoneGate = evaluateZoneReversalGate(
+    opts.direction,
+    sr.price,
+    candles5.length >= 12 ? candles5 : candles15,
+    sr.resistanceZone ?? null,
+    sr.supportZone ?? null,
+    {
+      breakoutBufferPct: config.hyperliquid.entryLocation.breakoutBufferPct,
+      breakoutBars: config.hyperliquid.entryLocation.breakoutConfirmBars,
+      lookbackBars: 4,
+    }
+  );
+  if (!zoneGate.ok) {
+    return {
+      ok: false,
+      reason: zoneGate.reason,
+      analysis: sr,
+    };
   }
-  return evaluateEntryLocation(opts.direction, sr);
+
+  // Floor reverse: confirmed support bounce → LONG on ANY coin (user: not majors-only).
+  // Dump tape (incl. BTC) still hard-blocks in hlTrading — no knife into red tape.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
+    if (zoneGate.flipTo === 'LONG' && !config.hyperliquid.directionProfile.allowLongOpens) {
+      return {
+        ok: false,
+        reason: `${zoneGate.reason} — LONGs disabled by profile; no floor SHORT either`,
+        analysis: sr,
+      };
+    }
+    logger.info('HL floor/R zone flip proposed', {
+      coin: opts.coin,
+      from: opts.direction,
+      to: zoneGate.flipTo,
+      reason: zoneGate.reason,
+      profile: config.hyperliquid.directionProfile.name,
+    });
+    return {
+      ok: true,
+      reason: zoneGate.reason,
+      analysis: sr,
+      flipTo: zoneGate.flipTo,
+    };
+  }
+
+  // Flip disabled: treat counter-confirmation as wait/block (do not open against zone).
+  if (
+    !config.hyperliquid.zoneFlipEnabled &&
+    zoneGate.flipTo &&
+    zoneGate.flipTo !== opts.direction
+  ) {
+    return {
+      ok: false,
+      reason: `${zoneGate.reason} — zone flip disabled; waiting (no counter-open)`,
+      analysis: sr,
+    };
+  }
+
+  const classic = evaluateEntryLocation(opts.direction, sr);
+  const revCandles = candles5.length >= 12 ? candles5 : candles15;
+
+  // Floor reverse (classic): SHORT at S + bounce → LONG any coin when LONGs enabled.
+  if (
+    config.hyperliquid.zoneFlipEnabled &&
+    config.hyperliquid.directionProfile.allowLongOpens &&
+    opts.direction === 'SHORT' &&
+    !classic.ok &&
+    sr.nearSupport &&
+    !sr.confirmedBreakdown &&
+    sr.supportZone != null &&
+    zoneReversalConfirmed(revCandles, sr.supportZone, 4)
+  ) {
+    return {
+      ok: true,
+      reason: `Floor reverse — support bounce → flip SHORT→LONG ($${sr.supportZone.zoneLow.toFixed(4)}–$${sr.supportZone.zoneHigh.toFixed(4)})`,
+      analysis: sr,
+      flipTo: 'LONG',
+    };
+  }
+
+  return classic;
 }

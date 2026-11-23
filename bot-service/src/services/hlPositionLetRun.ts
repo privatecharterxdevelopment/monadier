@@ -18,8 +18,7 @@ const supabase = createClient(config.supabaseUrl, config.supabaseServiceKey);
 type PrefMap = Map<string, boolean>;
 type CacheEntry = { at: number; prefs: PrefMap };
 const cache = new Map<string, CacheEntry>();
-/** Short TTL so a UI “Hold ON” is picked up by the monitor within ~1s. */
-const CACHE_MS = 1_000;
+const CACHE_MS = 15_000;
 
 function walletKey(wallet: string): string {
   return wallet.toLowerCase();
@@ -75,9 +74,6 @@ export async function resolvePositionLetRun(opts: {
   longLetRun: boolean;
 }): Promise<{ letRun: boolean; source: string; letRunAll: boolean }> {
   const letRunAll = await getRuntimeLetRunAll();
-  if (letRunAll) {
-    return { letRun: true, source: 'global_all', letRunAll };
-  }
   const prefs = await loadPrefs(opts.wallet);
   const pref = prefs.get(coinKey(opts.coin));
   if (pref === true) return { letRun: true, source: 'user_on', letRunAll };
@@ -105,10 +101,7 @@ export async function setUserPositionLetRun(
       { onConflict: 'wallet_address,coin' }
     );
     if (error) return { ok: false, error: error.message };
-    const hit = cache.get(wk);
-    const merged = new Map(hit?.prefs ?? []);
-    merged.set(ck, letRun);
-    cache.set(wk, { at: Date.now(), prefs: merged });
+    cache.delete(wk);
     return { ok: true };
   } catch (err) {
     return {
