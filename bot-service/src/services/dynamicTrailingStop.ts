@@ -517,6 +517,19 @@ async function evaluateDynamicTrailInner(
     rec.timeInProfitMs = 0;
   }
 
+  // 23.11.: user loss-SL was armed while red, trade is now green past the fee floor →
+  // hand over to the profit trail (otherwise the stop sat below entry forever).
+  if (
+    rec.phase === 'armed' &&
+    rec.lossSlArmed &&
+    input.pnlUsd >= profitCloseNeedUsd(feesUsd, input.collateralUsd)
+  ) {
+    rec.phase = 'idle';
+    rec.lossSlArmed = false;
+    rec.currentTrailStop = null;
+    rec.trailArmedAt = null;
+  }
+
   // Phase 1 — idle: after 2m continuous green, arm an in-profit peak floor.
   // Loss SL% still arms after max-hold while red (if the user set an SL).
   if (rec.phase === 'idle') {

@@ -179,7 +179,8 @@ function mayAutoCloseInRed(reason: string, _holdMs = 0): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'dust_flatten') return true;
   // 23.11.: armed trail stop hit = protective exit, also when the fill is red.
-  if (reason === 'trailing_stop' || reason === 'profit_lock') return true;
+  // 23.11.: armed trail / profit floor / the user's own SL% are protective exits.
+  if (reason === 'trailing_stop' || reason === 'profit_lock' || reason === 'stop_loss') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
@@ -2950,14 +2951,26 @@ export class HyperliquidTradingService {
       }
 
       if (shouldCloseTrail) {
-        clearTrailState(lockKey);
-        await this.closeMarketPosition(
+        // 23.11.: clear the trail only after a confirmed close — a failed close used to
+        // wipe the armed stop and leave the position unprotected ("Arming (idle)").
+        const closed = await this.closeMarketPosition(
           userAddress,
           pos.coin,
           trailExitReason,
           closeCtx,
           trailCloseDetail
         );
+        if (closed?.success) {
+          clearTrailState(lockKey);
+        } else {
+          logger.warn('HL trail close failed — keeping armed stop, retry next cycle', {
+            user: userAddress.slice(0, 10),
+            coin: pos.coin,
+            exitReason: trailExitReason,
+            pnlUsd: pnl.toFixed(4),
+            error: closed?.error,
+          });
+        }
         continue;
       }
 
