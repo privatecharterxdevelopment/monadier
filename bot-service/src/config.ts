@@ -271,8 +271,8 @@ export const config = {
      * Default 0 = user decides via settings (no forced SL).
      */
     botMinStopLossPercent: Number(process.env.HL_BOT_MIN_SL_PERCENT ?? 0),
-    /** Hard cap on bot leverage (user setting above this is clamped). 0 = no cap. */
-    botMaxLeverage: Number(process.env.HL_BOT_MAX_LEVERAGE ?? 10),
+    /** Optional cap on bot leverage. Default 0 = no cap — user setting applies (July behaviour). */
+    botMaxLeverage: Number(process.env.HL_BOT_MAX_LEVERAGE ?? 0),
     /** Admin / Cursor force-open when user vault SL is 0 — emergency SL + trail apply. */
     opsDeskStopLossPercent: Number(process.env.HL_OPS_DESK_SL_PERCENT || 5),
     defaultProfitLockPercent: Number(process.env.HL_DEFAULT_PROFIT_LOCK_PERCENT || 2),

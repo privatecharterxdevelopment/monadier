@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { effectiveBotLeverage, effectiveBotStopLossPercent } from './subscription';
 import { config } from '../config';
 
-describe('bot risk settings (user SL, leverage capped)', () => {
+describe('bot risk settings (user SL + user leverage)', () => {
   it('user SL Off/0/legacy 0.1 → 0 (user decides, no forced floor)', () => {
     assert.equal(config.hyperliquid.botMinStopLossPercent, 0);
     for (const raw of [0, null, undefined, 0.1, -5]) {
@@ -16,10 +16,9 @@ describe('bot risk settings (user SL, leverage capped)', () => {
     assert.equal(effectiveBotStopLossPercent(40), 40);
   });
 
-  it('leverage capped at HL_BOT_MAX_LEVERAGE, default 5 when unset', () => {
-    const cap = config.hyperliquid.botMaxLeverage;
-    assert.equal(effectiveBotLeverage(40), Math.min(40, cap));
+  it('leverage = user setting (no cap by default), 5 when unset', () => {
+    assert.equal(effectiveBotLeverage(40), 40);
     assert.equal(effectiveBotLeverage(3), 3);
-    assert.equal(effectiveBotLeverage(null), Math.min(5, cap));
+    assert.equal(effectiveBotLeverage(null), 5);
   });
 });

@@ -61,7 +61,7 @@ describe('July 2026 engine — risk settings', () => {
     assert.equal(resolveOpenStopLossPercent('bot', 20), 20);
   });
 
-  it('bot leverage is capped', () => {
-    assert.ok(config.hyperliquid.botMaxLeverage > 0 && config.hyperliquid.botMaxLeverage <= 10);
+  it('bot leverage = user setting (no cap by default)', () => {
+    assert.equal(config.hyperliquid.botMaxLeverage, 0);
   });
 });
