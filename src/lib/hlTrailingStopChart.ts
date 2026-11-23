@@ -271,6 +271,13 @@ export type BotTrailServerTruth = {
     | 'PROFIT_SL_UNVERIFIED';
   emergencySlPx?: number | null;
   emergencySlConfirmed?: boolean;
+  /**
+   * 21 Aug bot: profit trail runs in the bot (market close when the floor is hit),
+   * no exchange profit-SL order. Set when the API row has no profitSl* fields.
+   */
+  softwareTrail?: boolean;
+  softwareArmed?: boolean;
+  softwareStopPx?: number | null;
 };
 
 /** Map /api/hl-position-trails row → UI truth. Computed stopPx is ignored unless confirmed. */
@@ -289,10 +296,12 @@ export function toBotTrailServerTruth(
         profitSlStatus?: 'idle' | 'PROFIT_SL_PENDING' | 'PROFIT_SL_CONFIRMED';
         emergencySlPx?: number | null;
         emergencySlConfirmed?: boolean;
+        armed?: boolean;
       }
     | undefined
 ): BotTrailServerTruth | undefined {
   if (!t) return undefined;
+  const softwareTrail = t.profitSlStatus === undefined && t.profitSlConfirmed === undefined;
   const phase =
     t.phase === 'idle' || t.phase === 'pending' || t.phase === 'armed' || t.phase === 'trailing'
       ? t.phase
@@ -310,6 +319,9 @@ export function toBotTrailServerTruth(
     profitSlStatus: t.profitSlStatus ?? 'idle',
     emergencySlPx: t.emergencySlPx ?? null,
     emergencySlConfirmed: Boolean(t.emergencySlConfirmed),
+    softwareTrail,
+    softwareArmed: softwareTrail ? Boolean(t.armed ?? (t.stopPx != null && t.phase !== 'idle')) : false,
+    softwareStopPx: softwareTrail ? t.stopPx ?? null : null,
   };
 }
 
@@ -401,6 +413,33 @@ export function trailStopForOpenPosition(opts: {
       verification: stale ? 'stale' : 'unverified',
       title: `Stop px from bot memory only — NOT confirmed on Hyperliquid${staleNote}`,
     };
+  }
+
+  if (server?.softwareTrail) {
+    if (server.softwareArmed && server.softwareStopPx != null && server.softwareStopPx > 0) {
+      const px = server.softwareStopPx;
+      const breached = side === 'long' ? opts.markPx <= px : opts.markPx >= px;
+      return {
+        stopPx: px,
+        armed: true,
+        kind: breached || server.wouldCloseNow ? 'close_now' : 'profit',
+        label: fmtStopPx(px),
+        sublabel: `BOT-TRAIL · lock ${server.lockPnlUsd >= 0 ? '+' : ''}$${server.lockPnlUsd.toFixed(2)}`,
+        verification: stale ? 'stale' : 'verified',
+        title: `Profit-Trail aktiv im Bot (kein HL-Order) — schliesst per Market bei ${fmtStopPx(px)}${staleNote}`,
+      };
+    }
+    if (opts.unrealizedPnlUsd > 0) {
+      return {
+        stopPx: null,
+        armed: false,
+        kind: 'arming',
+        label: 'ARMING',
+        sublabel: 'Bot-Trail · arm nach 30s grün + Gebühren',
+        verification: stale ? 'stale' : 'pending',
+        title: `Bot-Trail wartet: arm nach 30s durchgehend im Profit und uPnL > 4× Gebühren${staleNote}`,
+      };
+    }
   }
 
   if (opts.unrealizedPnlUsd > 0 || server?.profitSlStatus === 'PROFIT_SL_PENDING') {
