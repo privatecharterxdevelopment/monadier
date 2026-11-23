@@ -435,9 +435,9 @@ export function trailStopForOpenPosition(opts: {
         armed: false,
         kind: 'arming',
         label: 'ARMING',
-        sublabel: 'Bot-Trail · arm nach 30s grün + Gebühren',
+        sublabel: 'Bot-Trail · scharf nach 6s im Plus + Gebühren gedeckt',
         verification: stale ? 'stale' : 'pending',
-        title: `Bot-Trail wartet: arm nach 30s durchgehend im Profit und uPnL > 4× Gebühren${staleNote}`,
+        title: `Bot-Trail wartet: scharf nach 6s im Profit, sobald uPnL die Gebühren-Schwelle deckt${staleNote}`,
       };
     }
   }

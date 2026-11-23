@@ -526,7 +526,10 @@ async function evaluateDynamicTrailInner(
         input.collateralUsd,
         rec.timeInProfitMs,
         input.totalHoldMs
-      )
+      ) &&
+      // 23.11.: arm only once uPnL clears the fee/min-close floor, so the first stop
+      // sits BELOW mark (LONG) / ABOVE mark (SHORT) and cannot fire at +cents.
+      input.pnlUsd >= profitCloseNeedUsd(feesUsd, input.collateralUsd)
     ) {
       const initialStop = peakProfitFloorStopPx(
         input.direction,

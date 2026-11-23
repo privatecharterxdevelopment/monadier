@@ -230,7 +230,7 @@ export const config = {
        */
       profitFloorPeakDropFrac: Number(process.env.HL_TRAIL_FLOOR_PEAK_DROP_FRAC || 0.65),
       /** After trail arms — min ms before trail/peak can close (3m). */
-      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 180_000),
+      trailMinActiveBeforeCloseMs: Number(process.env.HL_TRAIL_MIN_ACTIVE_MS || 0), // 23.11.: close as soon as stop is hit (was 3m)
       /**
        * Profit close must clear round-trip fees × this (default 1.5) plus a USD floor.
        * Stops 1-cent leftovers that fill red after fees/slippage (VINE).
@@ -273,7 +273,7 @@ export const config = {
       /**
        * Extra green-hold before LONG profit closes (on top of shared arm hold).
        */
-      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 150_000),
+      longMinGreenHoldMs: Number(process.env.HL_TRAIL_LONG_GREEN_HOLD_MS || 6_000), // 23.11.: = arm time (was 2.5m)
       /**
        * If true, LONGs skip stage-1 breakeven lock closes. Default OFF —
        * bottom BE lock stays; only stage-2 ATR trail gets more room.
