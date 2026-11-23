@@ -17,7 +17,8 @@ describe('resolveOpenStopLossPercent', () => {
     assert.ok(resolveOpenStopLossPercent('ops', 0) >= 1);
   });
 
-  it('bot respects vault only (0 stays 0)', () => {
-    assert.equal(resolveOpenStopLossPercent('bot', 0), 0);
+  it('bot never opens without SL: 0 → HL_BOT_MIN_SL_PERCENT floor', () => {
+    assert.ok(resolveOpenStopLossPercent('bot', 0) > 0);
+    assert.equal(resolveOpenStopLossPercent('bot', 15), 15);
   });
 });

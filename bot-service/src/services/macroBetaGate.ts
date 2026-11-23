@@ -50,6 +50,7 @@ const ETH_BETA_COINS = new Set([
   'FXS',
   'SSV',
   'RPL',
+  'ETHFI',
   'EIGEN',
   'ZRO',
   'ALT',
@@ -317,8 +318,4 @@ export async function validateMacroBetaAlignment(opts: {
       blockers: ['macro data unavailable'],
     };
   }
-}
-
-export function btcLeadIsPumping(): boolean {
-  return false;
 }

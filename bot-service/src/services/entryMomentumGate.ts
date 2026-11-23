@@ -1,17 +1,15 @@
 /**
- * Pre-open gate — only enter when price is already moving in our direction.
- * No opens on weak/contra momentum; bot waits for plus, never auto-closes red.
+ * Pre-open gate — buy dips / sell rallies, never chase extended moves.
  */
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-
-export type EntryMomentumBlockCode = 'MOMENTUM_WEAK' | 'MOMENTUM_FETCH_ERROR' | 'MOMENTUM_PASS';
+import { evaluateMacroBetaAlignment } from './macroBetaGate';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type EntryMomentumResult = {
   ok: boolean;
-  code: EntryMomentumBlockCode;
   reason: string;
   change5mPct: number;
   change15mPct: number;
@@ -37,6 +35,17 @@ function lastNCandlesMove(candles: Candle[], n: number, direction: 'LONG' | 'SHO
   return closed.every((c) => c.close <= c.open * 1.0001);
 }
 
+function rangePosition(candles: Candle[]): number {
+  const closed = candles.slice(0, -1).slice(-24);
+  if (closed.length < 4) return 0.5;
+  const price = closed[closed.length - 1]?.close ?? 0;
+  const hi = Math.max(...closed.map((c) => c.high));
+  const lo = Math.min(...closed.map((c) => c.low));
+  const span = hi - lo;
+  if (span <= 0 || price <= 0) return 0.5;
+  return (price - lo) / span;
+}
+
 export async function validateEntryMomentum(opts: {
   coin: string;
   direction: 'LONG' | 'SHORT';
@@ -49,48 +58,108 @@ export async function validateEntryMomentum(opts: {
     const [c5m, c15m, c1h] = await Promise.all([
       signalEngine.fetchCandles(symbol, '5m', 20),
       signalEngine.fetchCandles(symbol, '15m', 20),
-      signalEngine.fetchCandles(symbol, '1h', 10),
+      signalEngine.fetchCandles(symbol, '1h', 26),
     ]);
 
     const change5mPct = pctChangeClosed(c5m, 1);
     const change15mPct = pctChangeClosed(c15m, 1);
     const change1hPct = pctChangeClosed(c1h, 1);
+    const rangePos = rangePosition(c1h);
+
+    const bounce =
+      opts.direction === 'LONG' ? await evaluateBounceLongSetup(coin) : null;
+
+    const macro = await evaluateMacroBetaAlignment({ coin, direction: opts.direction });
+    if (!macro.ok) {
+      // Precision: dump→bounce LONG is allowed while anchors are still soft-dumping.
+      if (!(bounce?.ok && bounce.grade)) {
+        return {
+          ok: false,
+          reason: `Entry blocked — macro against ${opts.direction}: ${macro.blockers.join('; ') || macro.reason}`,
+          change5mPct,
+          change15mPct,
+          change1hPct,
+          momentumAligned: false,
+        };
+      }
+    }
 
     const min5 = cfg.minMove5mPct;
-    const min15 = cfg.minMove15mPct;
+    const bounce5m = change5mPct >= min5 && lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'LONG');
+    const fade5m = change5mPct <= -min5 && lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'SHORT');
 
     let momentumAligned = false;
+    let reason = '';
+
     if (opts.direction === 'LONG') {
-      momentumAligned =
-        change5mPct >= min5 &&
-        change15mPct >= min15 &&
-        change1hPct >= -cfg.maxCounter1hPct &&
-        lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'LONG');
+      // Precision bounce off dump low: allow LONG even mid-range during early/impulse phase.
+      if (bounce?.ok && bounce.grade) {
+        const pref = config.hyperliquid.preferLongAfterDump;
+        const maxBounce =
+          bounce.grade === 'impulse' ? pref.impulseMaxBouncePct : pref.maxBouncePct;
+        const chaseOk = bounce.bouncePct <= maxBounce;
+        // Still block if 1h is dumping hard against bounce
+        if (!(change1hPct < -cfg.maxCounter1hPct) && chaseOk) {
+          momentumAligned = true;
+          reason = `${bounce.reason} · momentum gate OK (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%)`;
+        }
+      }
+
+      if (!momentumAligned && change15mPct >= cfg.maxChase15mPct && change1hPct >= cfg.maxChase1hPct) {
+        reason =
+          `LONG blocked — ${coin} already extended (15m +${change15mPct.toFixed(2)}%, 1h +${change1hPct.toFixed(2)}%) — wait for pullback, buy low`;
+      } else if (!momentumAligned && rangePos > cfg.longMaxRangePosition) {
+        reason =
+          `LONG blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (buy low, not at highs)`;
+      } else if (!momentumAligned && !bounce5m) {
+        const inLowerRange = rangePos <= cfg.longMaxRangePosition;
+        const smallDip = change5mPct <= 0 && change5mPct > -0.3;
+        if (inLowerRange && smallDip) {
+          momentumAligned = true;
+          reason =
+            `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m dip ${change5mPct.toFixed(2)}% to buy`;
+        } else {
+          reason =
+            `LONG blocked — ${coin} needs 5m bounce from dip (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        }
+      } else if (!momentumAligned && change1hPct < -cfg.maxCounter1hPct) {
+        reason = `LONG blocked — ${coin} 1h still dumping (${change1hPct.toFixed(2)}%) — wait for higher-low`;
+      } else if (!momentumAligned) {
+        momentumAligned = true;
+        reason =
+          `Dip-buy OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m +${change5mPct.toFixed(2)}% bounce · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
+      }
     } else {
-      momentumAligned =
-        change5mPct <= -min5 &&
-        change15mPct <= -min15 &&
-        change1hPct <= cfg.maxCounter1hPct &&
-        lastNCandlesMove(c5m, cfg.minConfirmCandles5m, 'SHORT');
+      if (change15mPct <= cfg.maxChaseShort15mPct && change1hPct <= cfg.maxChaseShort1hPct) {
+        reason =
+          `SHORT blocked — ${coin} already extended down (15m ${change15mPct.toFixed(2)}%, 1h ${change1hPct.toFixed(2)}%) — wait for bounce, sell high`;
+      } else if (rangePos < cfg.shortMinRangePosition) {
+        reason =
+          `SHORT blocked — ${coin} at ${(rangePos * 100).toFixed(0)}% of 1h range (sell high, not at lows)`;
+      } else if (!fade5m) {
+        const inUpperRange = rangePos >= cfg.shortMinRangePosition;
+        const smallRally = change5mPct >= 0 && change5mPct < 0.3;
+        if (inUpperRange && smallRally) {
+          momentumAligned = true;
+          reason =
+            `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · small 5m bounce +${change5mPct.toFixed(2)}% to fade`;
+        } else {
+          reason =
+            `SHORT blocked — ${coin} needs 5m rejection from rally (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, range ${(rangePos * 100).toFixed(0)}%)`;
+        }
+      } else if (change1hPct > cfg.maxCounter1hPct) {
+        reason = `SHORT blocked — ${coin} 1h still ripping (+${change1hPct.toFixed(2)}%) — wait for lower-high`;
+      } else {
+        momentumAligned = true;
+        reason =
+          `Rally-fade OK — ${coin} at ${(rangePos * 100).toFixed(0)}% range · 5m ${change5mPct.toFixed(2)}% fade · 15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%`;
+      }
     }
 
     if (!momentumAligned) {
-      const reason =
-        `Entry blocked — ${opts.direction} ${coin} needs live momentum (5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}%, ` +
-        `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}%, 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%) — ` +
-        `need 5m/15m ${opts.direction === 'LONG' ? 'up' : 'down'} + ${cfg.minConfirmCandles5m}× 5m candles confirming`;
-      logger.info('Entry momentum gate blocked', {
-        coin,
-        direction: opts.direction,
-        gate: 'entry_momentum',
-        code: 'MOMENTUM_WEAK',
-        change5mPct,
-        change15mPct,
-        change1hPct,
-      });
+      logger.info('Entry momentum gate blocked', { coin, direction: opts.direction, change5mPct, change15mPct, rangePos });
       return {
         ok: false,
-        code: 'MOMENTUM_WEAK',
         reason,
         change5mPct,
         change15mPct,
@@ -101,10 +170,7 @@ export async function validateEntryMomentum(opts: {
 
     return {
       ok: true,
-      code: 'MOMENTUM_PASS',
-      reason:
-        `Entry momentum OK ${opts.direction} ${coin} — 5m ${change5mPct >= 0 ? '+' : ''}${change5mPct.toFixed(2)}% · ` +
-        `15m ${change15mPct >= 0 ? '+' : ''}${change15mPct.toFixed(2)}% · 1h ${change1hPct >= 0 ? '+' : ''}${change1hPct.toFixed(2)}%`,
+      reason,
       change5mPct,
       change15mPct,
       change1hPct,
@@ -114,7 +180,6 @@ export async function validateEntryMomentum(opts: {
     const msg = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      code: 'MOMENTUM_FETCH_ERROR',
       reason: `Entry momentum check failed — open blocked (${msg.slice(0, 60)})`,
       change5mPct: 0,
       change15mPct: 0,

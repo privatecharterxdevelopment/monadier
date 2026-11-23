@@ -128,11 +128,11 @@ export const config = {
     /** Parallel MTF scans per trading cycle (all HL perps). */
     scanConcurrency: Number(process.env.HL_SCAN_CONCURRENCY || 8),
     /** Global scan — min combined MTF confidence to qualify. */
-    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 62),
+    minSignalConfidence: Number(process.env.HL_MIN_SIGNAL_CONFIDENCE || 55),
     /** Global scan — min timeframes pointing same direction (of 1m/5m/15m/1h). */
-    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 3),
+    minDirectionalTfs: Number(process.env.HL_MIN_DIRECTIONAL_TFS || 2),
     /** Global scan — min % of TFs sharing the dominant trend (0–100). */
-    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 60),
+    minTrendAlignment: Number(process.env.HL_MIN_TREND_ALIGNMENT || 50),
     /** Live BTC regime (or forced env). Always read via getter — never freeze at boot.
      *  HL_ALLOW_SHORT_OPENS=false kills new SHORTs on top of the live profile. */
     get directionProfile() {
@@ -144,11 +144,16 @@ export const config = {
      * clamps each user's own preference (2 or 3) against this ceiling. A ceiling of 2
      * silently capped every 3-slot user back to 2.
      */
-    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 2),
+    maxConcurrentPositions: Number(process.env.HL_MAX_CONCURRENT_POSITIONS || 3),
     /** Minimum order notional — skips sloppy micro-trades. */
     minNotionalUsd: Number(process.env.HL_MIN_NOTIONAL_USD || 20),
     /** Bot open floor — $1M filters thin alts; scan universe is still top-N by volume. */
-    minDayVolumeUsd: Number(process.env.HL_MIN_DAY_VOLUME_USD || 1_000_000),
+    /** July 2026: bot scan/open floor $2.5M 24h notional (env may only lower it). */
+    minDayVolumeUsd: (() => {
+      const n = Number(process.env.HL_MIN_DAY_VOLUME_USD);
+      if (Number.isFinite(n) && n > 0 && n <= 2_500_000) return n;
+      return 2_500_000;
+    })(),
     minOpenInterestUsd: Number(process.env.HL_MIN_OPEN_INTEREST_USD || 0),
     /**
      * Hard-delist — bot never scans/opens these (LONG or SHORT).
@@ -234,13 +239,32 @@ export const config = {
      */
     minTradableUniverse: Number(process.env.HL_MIN_TRADABLE_UNIVERSE || 40),
     /** Max coins to MTF-scan per cycle (top by 24h volume). 0 = all listed HL perps. */
-    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 40),
+    maxLiquidScanUniverse: Number(process.env.HL_MAX_LIQUID_SCAN || 0),
     liquidUniverseCacheMs: Number(process.env.HL_LIQUID_UNIVERSE_CACHE_MS || 60_000),
     /** Close HL perps at this % gain on margin (user DB setting overrides). */
     /** 0 = user disabled TP. */
     defaultTakeProfitPercent: Number(process.env.HL_DEFAULT_TP_PERCENT || 0),
     /** 0 = user disabled SL in DB — do NOT override with default in monitor. */
     /** 0 = no SL until user sets one in bot settings (bot decides / profit-only). */
+    preferLongAfterDump: {
+      swingLookback15m: Number(process.env.HL_PREF_LONG_SWING_BARS || 12),
+      nearSwingLowPct: Number(process.env.HL_PREF_LONG_NEAR_LOW_PCT || 0.55),
+      minBouncePct: Number(process.env.HL_PREF_LONG_MIN_BOUNCE || 0.12),
+      /** Early bounce ceiling (tight). */
+      maxBouncePct: Number(process.env.HL_PREF_LONG_MAX_BOUNCE || 1.8),
+      /** Impulse continuation still valid — covers monster greens off the low. */
+      impulseMaxBouncePct: Number(process.env.HL_PREF_LONG_IMPULSE_MAX_BOUNCE || 5.5),
+      impulseMaxBarsSinceLow: Number(process.env.HL_PREF_LONG_IMPULSE_MAX_BARS || 8),
+      impulseMinDumpPct: Number(process.env.HL_PREF_LONG_IMPULSE_MIN_DUMP || 0.85),
+      impulseMinBodyRatio: Number(process.env.HL_PREF_LONG_IMPULSE_BODY || 0.55),
+      dumpLookback15mBars: Number(process.env.HL_PREF_LONG_15M_BARS || 4),
+      dumpLookback1hBars: Number(process.env.HL_PREF_LONG_1H_BARS || 3),
+      sharpDump15mPct: Number(process.env.HL_PREF_LONG_SHARP_15M || 0.7),
+      sharpDump1hPct: Number(process.env.HL_PREF_LONG_SHARP_1H || 1.1),
+      confidenceBoost: Number(process.env.HL_PREF_LONG_CONF_BOOST || 18),
+      /** Floor conf when injecting a precision bounce LONG candidate. */
+      impulseCandidateConf: Number(process.env.HL_PREF_LONG_IMPULSE_CONF || 62),
+    },
     defaultStopLossPercent: Number(process.env.HL_DEFAULT_SL_PERCENT || 0),
     /**
      * Bot loss-stop floor (% of margin) when the user SL is Off/0.
@@ -426,14 +450,14 @@ export const config = {
      */
     sameCoinReentryMinMs: Math.max(
       3_600_000,
-      Number(process.env.HL_SAME_COIN_REENTRY_MS || 3_600_000)
+      Number(process.env.HL_SAME_COIN_REENTRY_MS || 1_800_000)
     ),
     /**
      * Opposite-direction same-coin block. Floor 10 minutes (anti-flip).
      */
     blockOppositeSameCoinMs: Math.max(
       10 * 60 * 1000,
-      Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 10 * 60 * 1000)
+      Number(process.env.HL_BLOCK_OPPOSITE_SAME_COIN_MS || 1_800_000)
     ),
     /**
      * Validated REVERSAL_LONG after a SHORT close on the same coin.
@@ -511,20 +535,20 @@ export const config = {
     },
     /** Pre-open — price must confirm bounce/rejection at good level (not chase extended moves). */
     entryMomentum: {
-      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.08),
-      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.12),
-      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.15),
-      minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 2),
+      minMove5mPct: Number(process.env.HL_ENTRY_MOM_5M || 0.03),
+      minMove15mPct: Number(process.env.HL_ENTRY_MOM_15M || 0.06),
+      maxCounter1hPct: Number(process.env.HL_ENTRY_MOM_1H_COUNTER || 0.25),
+      minConfirmCandles5m: Number(process.env.HL_ENTRY_MOM_5M_CANDLES || 1),
       /** Block LONG when 15m/1h already extended up — wait for pullback. */
       maxChase15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_15M || 0.28),
       maxChase1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_1H || 0.45),
       /** Block SHORT when 15m AND 1h already extended down — wait for bounce. */
-      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.55),
-      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.9),
+      maxChaseShort15mPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_15M || -0.28),
+      maxChaseShort1hPct: Number(process.env.HL_ENTRY_MAX_CHASE_SHORT_1H || -0.45),
       /** LONG dip-buy: price must be in lower X of 1h range unless breakout. */
       longMaxRangePosition: Number(process.env.HL_ENTRY_LONG_MAX_RANGE || 0.62),
       /** 0 = dump shorts allowed anywhere in the 1h range (floor filter off). */
-      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0),
+      shortMinRangePosition: Number(process.env.HL_ENTRY_SHORT_MIN_RANGE || 0.32),
     },
     /**
      * Range-regime exit profile.
@@ -591,26 +615,26 @@ export const config = {
     scalpOpen: {
       /** 0 = no rank cap (bear profile). Positive N = top-N by 24h volume. */
       maxVolumeRank: Number(process.env.HL_OPEN_MAX_VOLUME_RANK || 0),
-      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS === 'true',
+      allowCautiousAlts: process.env.HL_ALLOW_CAUTIOUS_OPENS !== 'false',
       require1m5mAlign: process.env.HL_SCALP_REQUIRE_1M5M !== 'false',
       minTfConfidence: Number(process.env.HL_SCALP_MIN_TF_CONF || 52),
-      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 1),
+      minConfirm1mCandles: Number(process.env.HL_SCALP_1M_CONFIRM || 2),
     },
     /** Mandatory profile-specific structure read immediately before every open. */
     preOpenCandles: {
       enabled: process.env.HL_PRE_OPEN_20_CANDLES !== 'false',
       candleCount: Number(process.env.HL_PRE_OPEN_CANDLE_COUNT || 20),
       timeframe: (process.env.HL_PRE_OPEN_CANDLE_TF || '1m') as '1m' | '5m' | '15m',
-      minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.04),
-      minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.52),
-      maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.8),
-      maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.2),
+      minNetMovePct: Number(process.env.HL_PRE_OPEN_MIN_NET_PCT || 0.15),
+      minDirectionalCandleRatio: Number(process.env.HL_PRE_OPEN_MIN_DIR_RATIO || 0.55),
+      maxRangePositionLong: Number(process.env.HL_PRE_OPEN_MAX_RANGE_LONG || 0.58),
+      maxRangePositionShort: Number(process.env.HL_PRE_OPEN_MAX_RANGE_SHORT || 0.42),
       breakoutRecentMovePct: Number(process.env.HL_PRE_OPEN_BREAKOUT_RECENT_PCT || 0.06),
       maxRejectionsAtLevel: Number(process.env.HL_PRE_OPEN_MAX_REJECTIONS || 2),
       // Volume-fade veto: only a genuine collapse (recent 5 bars < 50% of base) blocks.
       // 0.85 vetoed liquid majors during quiet hours (Sunday BTC 0.54×) — the trades we
       // actually want. Real dumps (<0.5×, e.g. XLM 0.17×) still block.
-      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.5),
+      minVolumeRatio: Number(process.env.HL_PRE_OPEN_MIN_VOL_RATIO || 0.45),
       /**
        * Reversal veto (structure flipping / active dump against the trade). ATR-normalized
        * so a sluggish −0.15% drift over 100min (noise inside a confirmed uptrend) never
@@ -657,13 +681,13 @@ export const config = {
     /** Stricter scan thresholds for mass-driven alts. */
     cautiousScan: {
       // Match standard short bar (58–62) — 74% starved mid/small caps vs July book.
-      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 62),
+      minSignalConfidence: Number(process.env.HL_CAUTIOUS_MIN_CONF || 74),
       minDirectionalTfs: Number(process.env.HL_CAUTIOUS_MIN_TFS || 3),
       minTrendAlignment: Number(process.env.HL_CAUTIOUS_MIN_ALIGN || 62),
     },
     /** Skip pair (LONG + SHORT) after a fat pump — mass alts retest highs. */
     freshPump: {
-      cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 2 * 60 * 60 * 1000),
+      cooldownMs: Number(process.env.HL_FRESH_PUMP_COOLDOWN_MS || 15 * 60 * 1000),
       cautiousBlock15mPct: Number(process.env.HL_FRESH_PUMP_15M || 0.22),
       cautiousBlock1hPct: Number(process.env.HL_FRESH_PUMP_1H || 0.4),
       cautiousBlock4hPct: Number(process.env.HL_FRESH_PUMP_4H || 0.75),
@@ -783,14 +807,14 @@ export const config = {
     /** Pump apex line + liquidity sweep / turnaround zone (1h swings). */
     pumpSweep: {
       enabled: process.env.HL_PUMP_SWEEP_ENABLED !== 'false',
-      majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY === 'true',
+      majorsOnly: process.env.HL_PUMP_SWEEP_MAJORS_ONLY !== 'false',
       /**
        * OFF by default: blanket-blocking every alt LONG whenever BTC/ETH is within
        * ~0.4% of its 72h high killed trend-following alt LONGs in normal grind-ups.
        * The per-coin apex/fade check still applies. Set HL_PUMP_SWEEP_BLOCK_ALTS=true
        * to restore the majors-sweep blanket block.
        */
-      blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS === 'true',
+      blockAltsOnMegaFade: process.env.HL_PUMP_SWEEP_BLOCK_ALTS !== 'false',
       lookbackBars1h: Number(process.env.HL_PUMP_SWEEP_LOOKBACK || 72),
       apexMaxAgeBars: Number(process.env.HL_PUMP_SWEEP_APEX_AGE || 36),
       nearApexPct: Number(process.env.HL_PUMP_SWEEP_NEAR_APEX || 0.004),

@@ -7,26 +7,14 @@ import { fetchHlLiquidUniverse, getHlLiquidityForCoin, isHlCoinLiquid, type HlLi
 import { isBotTradeCoin, isExcludedHlCoin } from './botTradeUniverse';
 import {
   globalSignalsForBotMode,
-  isOpenableLongCandidate,
+  counterTrendBlocked,
   type GlobalSignalCandidate,
 } from './globalMarketScan';
-import {
-  openSlotsRemaining,
-  orderOpenPicksWithSameCoinArbitration,
-  type LongDisposition,
-} from './sameCoinDirectionArbitration';
+import { type LongDisposition } from './sameCoinDirectionArbitration';
 import { isOpenDirectionAllowed } from './weekendTradingRules';
 import {
-  getAutoNewEntriesBlockReason,
-  shouldBlockNewEntriesForAutoRegime,
-  getLiveDirectionProfile,
-} from './liveDirectionProfile';
-import {
-  isProfileDirectionOpenAllowed,
-  profileDirectionBlockReason,
-} from './profileDirectionGate';
-import { isLongAllowedCoin, longAllowlistReason } from './longAllowlist';
-import {
+  isSameCoinOpenBlocked,
+  isSameCoinOpenBlockedSync,
   isOpenCooldownBlockedAsync,
   rememberCoinClose,
   resolveWalletLastBotCloseMs,
@@ -34,14 +22,6 @@ import {
 } from './hlCoinCloseGuard';
 import { syncVanishedHlOpens } from './hlOpenPositionSnapshot';
 import { syncWalletMissingExchangeCloses } from './hlExchangeCloseBackfill';
-import {
-  evaluateEntryLocationQuality,
-  logEntryLocationRecord,
-} from './entryLocationQuality';
-import {
-  capLeverageByEntryRange,
-  requiresHardEntryLocationGate,
-} from './entryLeverageCap';
 import { validatePreTradeLiquidity } from './liquiditySweepGate';
 import {
   coinToAssetIndex,
@@ -90,21 +70,17 @@ import { validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import {
   classifyCoinTier,
-  isVolumeRankOpenable,
   MAJOR_COINS,
   needsCautionPath,
   volumeRankForCoin,
 } from './coinTier';
 import { validateNotFreshlyPumped } from './freshPumpGate';
-import { signalEngine } from './signalEngine';
-import { tapeStillPumping, validateScalpAlignment } from './scalpAlignGate';
+import { validateScalpAlignment } from './scalpAlignGate';
 import { validatePreOpenCandleAnalytics } from './preOpenCandleAnalytics';
-import { validateProfileEntryTrend } from './profileEntryTrendGate';
-import { validateLongDumpTapeGate } from './longDumpTapeGate';
-import {
-  evaluateShortEntryQualityPreSubmit,
-  logShortEntryQualityRecord,
-} from './shortEntryQuality';
+import { validatePerpMarketContext } from './perpMarketContextGate';
+import { validatePumpSweepGate } from './pumpSweepGate';
+import { validateCoinNews } from './coinNewsGate';
+import type { NewsTradeMode } from './newsTradeMode';
 import {
   validateMegaPairVolumeForDirection,
 } from './megaPairVolumeMonitor';
@@ -417,14 +393,27 @@ export function balanceForTradingRisk(
 function liquidityPickScore(signal: GlobalSignalCandidate, tier: 'major' | 'mid' | 'cautious'): number {
   const volM = signal.dayVolumeUsd / 1_000_000;
   const oiM = signal.openInterestUsd / 1_000_000;
-  const bullBook = getLiveDirectionProfile().name === 'bull_market';
-  const tierBonus =
-    tier === 'major' ? (bullBook ? 95 : 40) : tier === 'mid' ? (bullBook ? 22 : 15) : bullBook ? -35 : -25;
-  const reversalBonus =
-    signal.direction === 'LONG' && signal.longClass === 'REVERSAL_LONG' && tier === 'major'
-      ? 90
-      : 0;
-  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus + reversalBonus;
+  const tierBonus = tier === 'major' ? 40 : tier === 'mid' ? 15 : -25;
+  return volM * 12 + oiM * 3 + signal.confidence * 0.15 + tierBonus;
+}
+
+/** July 2026 — majors / strong scans skip the live volume-sweep re-check. */
+function bypassesLiquidityGate(signal: GlobalSignalCandidate): boolean {
+  if (MAJOR_COINS.has(signal.coin.toUpperCase())) return true;
+  if (isStrongGlobalScanPick(signal)) return true;
+  const tfs = signal.directionalTfCount ?? 0;
+  return signal.confidence >= 65 && tfs >= 2;
+}
+
+/** July 2026 — global scan already proved multi-TF alignment. */
+function isStrongGlobalScanPick(pick: GlobalSignalCandidate): boolean {
+  const trendAlign = pick.trendAlignment ?? 0;
+  const conf = pick.confidence;
+  const tfs = pick.directionalTfCount ?? 0;
+  if (conf >= 70 && tfs >= 3 && trendAlign >= 70) return true;
+  if (conf >= 54 && tfs >= 2 && trendAlign >= 48) return true;
+  if (MAJOR_COINS.has(pick.coin.toUpperCase()) && conf >= 52 && tfs >= 2) return true;
+  return false;
 }
 
 export type UserProcessResult = 'ok' | 'skip' | 'fail';
@@ -591,8 +580,9 @@ export class HyperliquidTradingService {
     );
   }
 
-  /** Ranked signals that pass liquidity gates — prefers high 24h volume / OI. */
+  /** Ranked signals that pass liquidity gates — JULY 2026 engine (89ab24f). */
   private async pickBestSignalsPassingLiquidityGate(
+    userAddress: string,
     signals: GlobalSignalCandidate[],
     liquidUniverse: HlLiquidUniverse,
     excludeCoins: string[],
@@ -605,12 +595,22 @@ export class HyperliquidTradingService {
       if (excluded.has(signal.coin.toUpperCase())) continue;
       if (!isBotTradeCoin(signal.coin)) continue;
       if (!isHlCoinLiquid(liquidUniverse, signal.coin)) continue;
+      // Ops kill-switches only (HL_ALLOW_LONG_OPENS / HL_ALLOW_SHORT_OPENS) — default both on.
       if (!isOpenDirectionAllowed(signal.direction)) continue;
-      if (!isProfileDirectionOpenAllowed(signal.direction)) continue;
+
+      const flipGate = isSameCoinOpenBlockedSync(userAddress, signal.coin, signal.direction);
+      if (flipGate.blocked) {
+        logger.debug('HL signal skip: same-coin anti-flip', {
+          coin: signal.coin,
+          direction: signal.direction,
+          reason: flipGate.reason,
+        });
+        continue;
+      }
 
       const rank = volumeRankForCoin(liquidUniverse, signal.coin);
       const maxRank = config.hyperliquid.scalpOpen.maxVolumeRank;
-      if (!isVolumeRankOpenable(rank, maxRank)) {
+      if (maxRank > 0 && rank > maxRank) {
         logger.debug('HL signal skip: outside top liquid universe', {
           coin: signal.coin,
           volumeRank: rank,
@@ -620,26 +620,23 @@ export class HyperliquidTradingService {
       }
 
       const tier = classifyCoinTier(signal.coin, liquidUniverse).tier;
-      const allowCautiousLong =
-        config.hyperliquid.scalpOpen.allowCautiousAlts ||
-        getLiveDirectionProfile().name === 'bull_market';
-      if (needsCautionPath(tier) && !allowCautiousLong && signal.direction !== 'SHORT') {
-        logger.debug('HL signal skip: cautious alt LONG (SHORT still allowed)', {
-          coin: signal.coin,
-        });
+      if (needsCautionPath(tier) && !config.hyperliquid.scalpOpen.allowCautiousAlts) {
+        logger.debug('HL signal skip: cautious alt (scalp whitelist off)', { coin: signal.coin });
         continue;
       }
-      if (signal.direction === 'LONG' && !isOpenableLongCandidate(signal)) {
-        logger.debug('HL signal skip: LONG not TREND/REVERSAL', { coin: signal.coin });
-        continue;
-      }
+
       const liq = getHlLiquidityForCoin(liquidUniverse, signal.coin);
-      const gate = await validatePreTradeLiquidity({
-        symbol: signal.symbol,
-        direction: signal.direction,
-        dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
-        timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
-      });
+      const gate = bypassesLiquidityGate(signal)
+        ? {
+            ok: true as const,
+            reason: `${signal.coin} — volume gate skipped (major/strong scan)`,
+          }
+        : await validatePreTradeLiquidity({
+            symbol: signal.symbol,
+            direction: signal.direction,
+            dayVolumeUsd: liq?.dayVolumeUsd ?? signal.dayVolumeUsd,
+            timeframe: signal.botMode === 'aggressive' ? '1m' : '5m',
+          });
 
       if (!gate.ok) {
         logger.debug('HL signal skip: volume/sweep gate', {
@@ -652,10 +649,7 @@ export class HyperliquidTradingService {
 
       passing.push({
         signal: { ...signal, liquidityReason: gate.reason },
-        score: liquidityPickScore(
-          signal,
-          classifyCoinTier(signal.coin, liquidUniverse).tier
-        ),
+        score: liquidityPickScore(signal, tier),
       });
       logger.info('HL signal passed pre-trade gate', {
         coin: signal.coin,
@@ -681,18 +675,6 @@ export class HyperliquidTradingService {
   ): Promise<UserProcessResult> {
     const strategy = normalizeHlBotStrategy(settings.hlBotStrategy);
     await warmCoinCloseCacheForWallet(userAddress);
-    if (shouldBlockNewEntriesForAutoRegime()) {
-      const autoReason = getAutoNewEntriesBlockReason();
-      noteHlOpenSkipReason(
-        userAddress,
-        `BTC regime gate — new entries paused (${autoReason ?? 'regime not ready'})`
-      );
-      logger.info('HL open skip: AUTO BTC regime not ready', {
-        user: userAddress.slice(0, 10),
-        reason: autoReason,
-      });
-      return openCoins.length > 0 ? 'ok' : 'skip';
-    }
 
     const signals = globalSignalsForBotMode(ctx.globalScan, strategy);
     const maxPositions = config.hyperliquid.maxConcurrentPositions;
@@ -714,24 +696,6 @@ export class HyperliquidTradingService {
     let coinsOpen = [...openCoins];
     let cycleResult: UserProcessResult = 'skip';
     let lastError: string | undefined;
-
-    if (openSlotsRemaining(coinsOpen.length, maxPositions) <= 0) {
-      const seenLong = new Set<string>();
-      for (const sig of signals) {
-        if (sig.direction !== 'LONG' || !isOpenableLongCandidate(sig)) continue;
-        const key = sig.coin.toUpperCase();
-        if (openCoins.some((c) => c.toUpperCase() === key) || seenLong.has(key)) continue;
-        seenLong.add(key);
-        noteOpenBlock(
-          userAddress,
-          sig.coin,
-          'LONG',
-          'SLOT_FULL — max concurrent positions in use',
-          { code: 'SLOT_FULL', confidence: sig.confidence }
-        );
-      }
-      return openCoins.length > 0 ? 'ok' : 'skip';
-    }
 
     while (coinsOpen.length < maxPositions) {
       const slotsLeft = maxPositions - coinsOpen.length;
@@ -762,22 +726,13 @@ export class HyperliquidTradingService {
       }
 
       const pickLimit = Math.max(slotsLeft, 8);
-      let picks = await this.pickBestSignalsPassingLiquidityGate(
+      const picks = await this.pickBestSignalsPassingLiquidityGate(
+        userAddress,
         signals,
         ctx.liquidUniverse,
         coinsOpen,
         pickLimit
       );
-      if (picks.length > 0) {
-        const ordered = await orderOpenPicksWithSameCoinArbitration({
-          picks,
-          markPxByCoin: Object.fromEntries(
-            Object.entries(ctx.mids).map(([k, v]) => [k, Number(v)])
-          ),
-        });
-        picks = ordered.picks;
-        recordLongDispositions(userAddress, ordered.longDispositions);
-      }
       if (picks.length === 0) {
         const top = signals.find(
           (s) => !coinsOpen.some((c) => c.toUpperCase() === s.coin.toUpperCase())
@@ -843,6 +798,8 @@ export class HyperliquidTradingService {
           botModeLabel: strategy === 'profit_grabber' ? 'Agg' : 'Std',
           ctx,
           stopLossPercent: settings.stopLossPercent,
+          newsTradeMode: settings.newsTradeMode,
+          marginMode: 'isolated',
         });
 
         if (opened.success) {
@@ -919,6 +876,7 @@ export class HyperliquidTradingService {
     /** manual = Perps tab (no auto SL/trail). ops = admin/Cursor force-open. bot = auto-trade. */
     positionScope?: HlOpenPositionScope;
     marginMode?: 'cross' | 'isolated';
+    newsTradeMode?: NewsTradeMode;
   }): Promise<{ success: boolean; error?: string }> {
     try {
       const { meta, mids } = opts.ctx;
@@ -959,11 +917,9 @@ export class HyperliquidTradingService {
         return { success: false as const, error };
       };
 
-      // Bear/bull profile kills auto-bot entries only — manual + ops use skipOpenGates and must never hit this.
-      if (!opts.skipOpenGates && !isProfileDirectionOpenAllowed(opts.direction)) {
-        const profile = getLiveDirectionProfile();
-        return failOpen(profileDirectionBlockReason(profile, opts.direction), 'direction_profile');
-      }
+      const skipOpenGates = opts.skipOpenGates === true;
+      let openReasonFull = `${opts.botModeLabel} ${opts.direction} ${coin} · FORCE ${effectiveLeverage}× · ${opts.pick.reason}`;
+      const gatesPassed: HlOpenGatePass[] = [];
 
       patchExecutionDiagnostic(opts.userAddress, {
         coin,
@@ -980,52 +936,6 @@ export class HyperliquidTradingService {
         userSlPercent: opts.stopLossPercent,
       });
 
-      const skipOpenGates = opts.skipOpenGates === true;
-      let openReasonFull = `${opts.botModeLabel} ${opts.direction} ${coin} · FORCE ${effectiveLeverage}× · ${opts.pick.reason}`;
-
-      const shortRules = config.hyperliquid.directionProfile.short;
-      const reversalLong = opts.pick.longClass === 'REVERSAL_LONG';
-      const trustedMtf =
-        shortRules.trustMtfScan &&
-        opts.pick.confidence >= Math.max(58, shortRules.minConfidence - 4);
-      const coinTierInfo = classifyCoinTier(coin);
-      const relaxSecondary =
-        shortRules.relaxSecondaryGates &&
-        trustedMtf &&
-        coinTierInfo.tier !== 'major';
-      const hardEntryLocation = requiresHardEntryLocationGate(coin, effectiveLeverage);
-      const aggShort =
-        opts.pick.botMode === 'aggressive' && opts.direction === 'SHORT';
-
-      const symbol = hlCoinToBinanceSymbol(coin);
-      const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
-
-      if (!skipOpenGates && opts.direction === 'LONG' && !isLongAllowedCoin(coin)) {
-        return failOpen(longAllowlistReason(coin), 'LONG_NOT_TRADABLE');
-      }
-      if (!skipOpenGates && opts.direction === 'LONG' && !isOpenableLongCandidate(opts.pick)) {
-        return failOpen(
-          `LONG blocked — ${coin} is not TREND_LONG or REVERSAL_LONG (${opts.pick.longClass ?? 'NONE'})`,
-          'LONG_CLASS'
-        );
-      }
-
-      if (
-        !skipOpenGates &&
-        needsCautionPath(coinTier) &&
-        opts.direction === 'LONG' &&
-        opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence
-      ) {
-        const reason = `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`;
-        logger.info('HL open blocked — cautious confidence', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          reason,
-        });
-        return failOpen(reason, 'CAUTIOUS_CONFIDENCE');
-      }
-
       if (skipOpenGates) {
         logger.info('HL open — entry gates skipped (force/manual)', {
           user: opts.userAddress.slice(0, 10),
@@ -1034,538 +944,185 @@ export class HyperliquidTradingService {
           leverage: effectiveLeverage,
           notionalUsd: opts.notionalUsd,
         });
-      }
+      } else {
+        // ── JULY 2026 ENGINE (89ab24f, 14.07.) — gate order + relax rules 1:1 ──
+        const pass = (gate: string, reason: string) => {
+          gatesPassed.push({ gate: gate as HlOpenGatePass['gate'], code: 'PASS', reason });
+          markGatePassed(opts.userAddress, gate);
+        };
+        pass('signal_scan', `${opts.pick.reason} · conf ${opts.pick.confidence}% · ${opts.pick.directionalTfCount ?? '?'} TFs`);
+        if (opts.pick.liquidityReason) pass('pre_trade_liquidity', opts.pick.liquidityReason);
 
-      const gatesPassed: HlOpenGatePass[] = [];
-      if (!skipOpenGates) {
-        gatesPassed.push({
-          gate: 'signal_scan',
-          code: 'SIGNAL_PICKED',
-          reason: `${opts.pick.reason} · conf ${opts.pick.confidence}% · ${opts.pick.directionalTfCount ?? '?'} TFs`,
-        });
-        if (opts.pick.liquidityReason) {
-          gatesPassed.push({
-            gate: 'pre_trade_liquidity',
-            code: 'LIQUIDITY_PASS',
-            reason: opts.pick.liquidityReason,
-          });
-        }
-      }
-
-      if (!skipOpenGates) {
-      const highConfMtfScalpPassEarly =
-        !hardEntryLocation &&
-        opts.direction === 'SHORT' &&
-        ((shortRules.trustMtfScan &&
-          opts.pick.confidence >= 90 &&
-          (opts.pick.directionalTfCount ?? 0) >= 3) ||
-          (aggShort && opts.pick.confidence >= 86));
-
-      const profileTrend = await validateProfileEntryTrend({
-        coin,
-        direction: opts.direction,
-        longClass: opts.pick.longClass,
-        skipConfirmCandles: highConfMtfScalpPassEarly,
-        allow15mSideways: opts.direction === 'LONG',
-        allowH1Sideways: opts.direction === 'LONG',
-      });
-      logOpenGate(
-        {
-          userAddress: opts.userAddress,
-          coin,
-          direction: opts.direction,
-          gate: 'profile_entry_trend',
-          ok: profileTrend.ok,
-          code: profileTrend.ok ? 'PROFILE_TREND_PASS' : 'PROFILE_TREND_BLOCK',
-          reason: profileTrend.reason,
-          metrics: { trend5m: profileTrend.trend5m, trend15m: profileTrend.trend15m },
-        },
-        gatesPassed
-      );
-      if (!profileTrend.ok) {
-        return failOpen(profileTrend.reason, 'PROFILE_TREND_BLOCK');
-      }
-      markGatePassed(opts.userAddress, 'profile_entry_trend');
-
-      if (opts.direction === 'LONG') {
-        const dumpTape = await validateLongDumpTapeGate({ coin });
-        logOpenGate(
-          {
-            userAddress: opts.userAddress,
-            coin,
-            direction: opts.direction,
-            gate: 'long_dump_tape',
-            ok: dumpTape.ok,
-            code: dumpTape.ok ? 'DUMP_TAPE_PASS' : 'DUMP_TAPE_BLOCK',
-            reason: dumpTape.reason,
-          },
-          gatesPassed
-        );
-        if (!dumpTape.ok) {
-          return failOpen(dumpTape.reason, 'DUMP_TAPE_BLOCK');
-        }
-        markGatePassed(opts.userAddress, 'long_dump_tape');
-      }
-
-      if (opts.direction === 'SHORT') {
-        try {
-          const btc1m = await signalEngine.fetchCandles('BTCUSDT', '1m', 12);
-          const btc5m = await signalEngine.fetchCandles('BTCUSDT', '5m', 10);
-          const btcLivePump =
-            tapeStillPumping(btc1m) || tapeStillPumping(btc5m);
-          if (btcLivePump) {
-            const reason =
-              coin === 'BTC'
-                ? 'Open blocked — BTC SHORT refused while 1m/5m still pumping'
-                : 'Open blocked — BTC live bullish tape; no alt SHORT while BTC pumps';
-            logOpenGate(
-              {
-                userAddress: opts.userAddress,
-                coin,
-                direction: opts.direction,
-                gate: 'live_tape',
-                ok: false,
-                code: 'BTC_LIVE_PUMP_BLOCK',
-                reason,
-              },
-              gatesPassed
-            );
-            return failOpen(reason, 'BTC_LIVE_PUMP_BLOCK');
-          }
-        } catch (err) {
-          logger.warn('BTC live tape check failed — blocking SHORT (fail closed)', {
-            coin,
-            error: err instanceof Error ? err.message : String(err),
-          });
+        if (!isHlCoinLiquid(opts.ctx.liquidUniverse, coin)) {
           return failOpen(
-            'Open blocked — BTC live tape check failed (fail closed)',
-            'BTC_LIVE_PUMP_BLOCK'
+            `Bot blocked — ${coin} below $${(config.hyperliquid.minDayVolumeUsd / 1e6).toFixed(1)}M 24h volume`,
+            'LIQUIDITY'
           );
         }
-      }
 
-      const bullMajorLong =
-        opts.direction === 'LONG' &&
-        getLiveDirectionProfile().name === 'bull_market' &&
-        isOpenableLongCandidate(opts.pick) &&
-        MAJOR_COINS.has(coin);
-      const freshPumpGate = bullMajorLong
-        ? { ok: true as const, reason: 'Bull LONG — post-pump cooldown bypass' }
-        : relaxSecondary && shortRules.bypassFreshPumpWhenTrusted
-          ? { ok: true as const, reason: 'Fresh pump bypass — trusted MTF scan' }
+        const flipGate = await isSameCoinOpenBlocked(opts.userAddress, coin, opts.direction);
+        if (flipGate.blocked) {
+          return failOpen(flipGate.reason ?? 'Same-coin re-entry blocked', 'COOLDOWN');
+        }
+
+        const symbol = hlCoinToBinanceSymbol(coin);
+        const { tier: coinTier } = classifyCoinTier(coin, opts.ctx.liquidUniverse);
+
+        if (
+          needsCautionPath(coinTier) &&
+          opts.pick.confidence < config.hyperliquid.cautiousScan.minSignalConfidence
+        ) {
+          return failOpen(
+            `Cautious alt ${coin}: confidence ${opts.pick.confidence}% below ${config.hyperliquid.cautiousScan.minSignalConfidence}%`,
+            'CAUTIOUS_CONFIDENCE'
+          );
+        }
+
+        const newsGate = await validateCoinNews({
+          coin,
+          direction: opts.direction,
+          tier: coinTier,
+          newsTradeMode: opts.newsTradeMode,
+        });
+        if (!newsGate.ok) return failOpen(newsGate.reason, 'NEWS');
+
+        const strongMtf = isStrongGlobalScanPick(opts.pick);
+        const signalUnlocksPump =
+          MAJOR_COINS.has(coin) ||
+          strongMtf ||
+          opts.pick.confidence >= config.hyperliquid.minSignalConfidence;
+        const freshPumpGate = signalUnlocksPump
+          ? {
+              ok: true as const,
+              reason: `Fresh pump skipped — scan signal ${opts.direction} ${opts.pick.confidence.toFixed(0)}%`,
+            }
           : await validateNotFreshlyPumped({ coin, tier: coinTier });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'fresh_pump',
-        ok: freshPumpGate.ok,
-        code: freshPumpGate.ok ? 'FRESH_PUMP_PASS' : 'FRESH_PUMP_BLOCK',
-        reason: freshPumpGate.reason,
-      }, gatesPassed);
-      if (!freshPumpGate.ok) {
-        return failOpen(freshPumpGate.reason, 'FRESH_PUMP_BLOCK');
-      }
-      markGatePassed(opts.userAddress, 'fresh_pump');
+        if (!freshPumpGate.ok) return failOpen(freshPumpGate.reason, 'FRESH_PUMP');
 
-      const candleAnalytics =
-        relaxSecondary && shortRules.bypassPreOpenWhenTrusted
+        // BTC/ETH never relax; alts relax secondary gates on strong scan or conf ≥ 48.
+        const relaxSecondaryGates = MAJOR_COINS.has(coin)
+          ? false
+          : strongMtf || opts.pick.confidence >= 48;
+
+        const candleAnalytics = relaxSecondaryGates
           ? {
               ok: true as const,
-              code: 'PRE_OPEN_PASS' as const,
-              reason: 'Pre-open bypass — trusted MTF scan',
-              summary: 'Pre-open bypass — trusted MTF scan',
-              netMovePct: 0,
-              greenCount: 0,
-              redCount: 0,
-              rangePosition: 0.5,
-              recentMovePct: 0,
-              volumeRatio: 1,
-              structure: 'chop' as const,
-              rejectionsAtHigh: 0,
-              rejectionsAtLow: 0,
-              shortBreakdownConfirmed: true,
+              reason: `Scan pick — 20-candle check skipped (${opts.pick.confidence}%)`,
+              summary: `scan ${opts.pick.confidence}%`,
             }
-          : await validatePreOpenCandleAnalytics({
-              coin,
-              direction: opts.direction,
-              aggressiveScalp: aggShort && opts.pick.confidence >= 86,
-            });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'pre_open_candles',
-        ok: candleAnalytics.ok,
-        code: candleAnalytics.code,
-        reason: candleAnalytics.reason,
-        metrics: {
-          netMovePct: Number(candleAnalytics.netMovePct.toFixed(4)),
-          rangePosition: Number(candleAnalytics.rangePosition.toFixed(4)),
-          recentMovePct: Number(candleAnalytics.recentMovePct.toFixed(4)),
-          volumeRatio: Number(candleAnalytics.volumeRatio.toFixed(4)),
-          structure: candleAnalytics.structure,
-          shortBreakdownConfirmed: candleAnalytics.shortBreakdownConfirmed,
-        },
-      }, gatesPassed);
-      if (!candleAnalytics.ok) {
-        return failOpen(candleAnalytics.reason, candleAnalytics.code);
-      }
-      markGatePassed(opts.userAddress, 'pre_open_candles');
+          : await validatePreOpenCandleAnalytics({ coin, direction: opts.direction });
+        if (!candleAnalytics.ok) return failOpen(candleAnalytics.reason, 'CANDLE_ANALYTICS');
 
-      const highConfMtfScalpPass =
-        !hardEntryLocation &&
-        opts.direction === 'SHORT' &&
-        ((shortRules.trustMtfScan &&
-          opts.pick.confidence >= 90 &&
-          (opts.pick.directionalTfCount ?? 0) >= 3) ||
-          (aggShort && opts.pick.confidence >= 86));
-
-      const scalpGate =
-        highConfMtfScalpPass
+        const scalpGate = relaxSecondaryGates
           ? {
               ok: true as const,
-              code: 'SCALP_PASS' as const,
-              reason: `Scalp deferred — ${opts.pick.confidence}% MTF scan (${opts.pick.directionalTfCount ?? '?'} TFs)`,
-              tf1m: opts.direction,
-              tf5m: opts.direction,
+              reason: `Scan pick — scalp confirm skipped (${opts.pick.confidence}%, ${opts.pick.directionalTfCount} TFs)`,
             }
-          : relaxSecondary &&
-              shortRules.bypassScalpAlignWhenTrusted &&
-              opts.direction === 'SHORT'
-            ? {
-                ok: true as const,
-                code: 'SCALP_PASS' as const,
-                reason: 'Scalp align bypass — trusted MTF scan',
-                tf1m: opts.direction,
-                tf5m: opts.direction,
-              }
-            : await validateScalpAlignment({
-                coin,
-                direction: opts.direction,
-                longClass: opts.pick.longClass,
-                aggressiveScalp: aggShort,
-              });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'scalp_align',
-        ok: scalpGate.ok,
-        code: scalpGate.code,
-        reason: scalpGate.reason,
-        metrics: { tf1m: scalpGate.tf1m, tf5m: scalpGate.tf5m },
-      }, gatesPassed);
-      if (!scalpGate.ok) {
-        return failOpen(scalpGate.reason, scalpGate.code);
-      }
-      markGatePassed(opts.userAddress, 'scalp_align');
+          : await validateScalpAlignment({ coin, direction: opts.direction });
+        if (!scalpGate.ok) return failOpen(scalpGate.reason, 'SCALP_ALIGN');
 
-      const macroGate =
-        relaxSecondary && shortRules.bypassMacroBetaWhenTrusted && !aggShort
+        const macroGate = await validateMacroBetaAlignment({ coin, direction: opts.direction });
+        if (!macroGate.ok) return failOpen(macroGate.reason, 'MACRO_BETA');
+
+        const pickH1 = opts.pick?.h1Trend;
+        if (counterTrendBlocked(opts.direction, pickH1)) {
+          return failOpen(
+            `Open blocked — ${coin} ${opts.direction} against 1h trend (${pickH1 ?? 'unknown'})`,
+            'H1_COUNTER_TREND'
+          );
+        }
+
+        const pumpShortGate = await validateNoAltPumpShort({ coin, direction: opts.direction });
+        if (!pumpShortGate.ok) return failOpen(pumpShortGate.reason, 'PUMP_SHORT');
+
+        const megaGate =
+          opts.direction === 'LONG'
+            ? validateMegaPairVolumeForDirection('LONG')
+            : MAJOR_COINS.has(coin)
+              ? { ok: true as const, reason: `${coin} — mega SHORT flow gate skipped (trading mega pair)` }
+              : validateMegaPairVolumeForDirection('SHORT');
+        if (!megaGate.ok) return failOpen(megaGate.reason, 'MEGA_PAIR');
+
+        const perpCtxGate = relaxSecondaryGates
+          ? { ok: true as const, reason: `Strong MTF scan — perp context skipped (${opts.pick.confidence}%)` }
+          : await validatePerpMarketContext({ coin, direction: opts.direction });
+        if (!perpCtxGate.ok) return failOpen(perpCtxGate.reason, 'PERP_CONTEXT');
+
+        const pumpSweepGate = relaxSecondaryGates
+          ? { ok: true as const, reason: `Scan pick — pump sweep skipped (${opts.pick.confidence}%)`, analysis: null }
+          : await validatePumpSweepGate({ coin, direction: opts.direction });
+        if (!pumpSweepGate.ok) return failOpen(pumpSweepGate.reason, 'PUMP_SWEEP');
+
+        const locationGate = relaxSecondaryGates
           ? {
               ok: true as const,
-              reason: 'Macro beta bypass — trusted MTF scan',
-              blockers: [] as string[],
-              snapshot: {
-                coin,
-                anchor: 'SELF' as const,
-                btc: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
-                eth: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
-                coinMom: { change15mPct: 0, change1hPct: 0, trend15m: 'FLAT' as const, trend1h: 'FLAT' as const, consecutiveGreen15m: 0, consecutiveRed15m: 0 },
-                checkedAt: new Date().toISOString(),
-              },
-            }
-          : await validateMacroBetaAlignment({
-              coin,
-              direction: opts.direction,
-            });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'macro_beta',
-        ok: macroGate.ok,
-        code: macroGate.ok ? 'MACRO_PASS' : 'MACRO_BLOCK',
-        reason: macroGate.reason,
-        metrics: { blockers: macroGate.blockers.join('; ') || undefined },
-      }, gatesPassed);
-      if (!macroGate.ok) {
-        return failOpen(macroGate.reason, 'MACRO_BLOCK');
-      }
-      markGatePassed(opts.userAddress, 'macro_beta');
-
-      const pumpShortGate =
-        relaxSecondary && shortRules.bypassPumpShortWhenTrusted && !aggShort
-          ? {
-              ok: true as const,
-              reason: 'Alt pump-short bypass — trusted MTF',
-              code: 'PUMP_SHORT_PASS' as const,
-              change15mPct: 0,
-              change1hPct: 0,
-              change4hPct: 0,
-              higherLong: 0,
-            }
-          : await validateNoAltPumpShort({
-              coin,
-              direction: opts.direction,
-            });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'pump_short',
-        ok: pumpShortGate.ok,
-        code: pumpShortGate.code,
-        reason: pumpShortGate.reason,
-        metrics: {
-          change15mPct: pumpShortGate.change15mPct,
-          change1hPct: pumpShortGate.change1hPct,
-          change4hPct: pumpShortGate.change4hPct,
-          higherLong: pumpShortGate.higherLong,
-        },
-      }, gatesPassed);
-      if (!pumpShortGate.ok) {
-        return failOpen(pumpShortGate.reason, pumpShortGate.code);
-      }
-      markGatePassed(opts.userAddress, 'pump_short');
-
-      const skipMomentum =
-        reversalLong ||
-        aggShort ||
-        (relaxSecondary &&
-          shortRules.bypassEntryMomentumWhenTrusted &&
-          opts.direction === 'SHORT');
-      const momentumGate = skipMomentum
-        ? {
-            ok: true as const,
-            code: 'MOMENTUM_PASS' as const,
-            reason: reversalLong
-              ? 'Entry momentum bypass — REVERSAL_LONG floor bounce'
-              : aggShort
-                ? 'Entry momentum bypass — aggressive scalp SHORT'
-                : 'Entry momentum bypass — trusted MTF SHORT',
-            change5mPct: 0,
-            change15mPct: 0,
-            change1hPct: 0,
-            momentumAligned: true,
-          }
-        : await validateEntryMomentum({
-            coin,
-            direction: opts.direction,
-          });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'entry_momentum',
-        ok: momentumGate.ok,
-        code: momentumGate.code,
-        reason: momentumGate.reason,
-        metrics: {
-          change5mPct: momentumGate.change5mPct,
-          change15mPct: momentumGate.change15mPct,
-          change1hPct: momentumGate.change1hPct,
-        },
-      }, gatesPassed);
-      if (!momentumGate.ok) {
-        return failOpen(momentumGate.reason, momentumGate.code);
-      }
-      markGatePassed(opts.userAddress, 'entry_momentum');
-
-      const megaGate = validateMegaPairVolumeForDirection(opts.direction);
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'mega_pair',
-        ok: megaGate.ok,
-        code: megaGate.code,
-        reason: megaGate.reason,
-        metrics: { inflowCount: megaGate.inflowCount, outflowCount: megaGate.outflowCount },
-      }, gatesPassed);
-      if (!megaGate.ok) {
-        return failOpen(megaGate.reason, megaGate.code);
-      }
-      markGatePassed(opts.userAddress, 'mega_pair');
-
-      const locationGate =
-        relaxSecondary && shortRules.bypassSrLocationWhenTrusted && !hardEntryLocation
-          ? {
-              ok: true as const,
-              code: 'LOCATION_OK' as const,
-              reason: 'S/R location bypass — trusted MTF scan',
+              reason: `Scan pick — S/R gate skipped (${opts.pick.confidence}%)`,
               analysis: {
-                support: markPx * 0.95,
-                resistance: markPx * 1.05,
+                support: 0,
+                resistance: 0,
                 price: markPx,
                 pricePosition: 0.5,
                 resistanceTouches: 0,
                 resistanceRejections: 0,
-                recentResistanceRejections: 0,
                 supportTouches: 0,
                 supportRejections: 0,
                 confirmedBreakoutUp: false,
-                confirmedBreakdown: true,
+                confirmedBreakdown: false,
                 nearResistance: false,
                 nearSupport: false,
-                dumpContinuation: opts.direction === 'SHORT',
               },
             }
-          : await validateEntryLocation({
-              symbol,
-              direction: opts.direction,
-            });
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'entry_location',
-        ok: locationGate.ok,
-        code: locationGate.code,
-        reason: locationGate.reason,
-        metrics: {
-          pricePosition: locationGate.analysis.pricePosition,
-          support: locationGate.analysis.support,
-          resistance: locationGate.analysis.resistance,
-          confirmedBreakdown: locationGate.analysis.confirmedBreakdown,
-          dumpContinuation: locationGate.analysis.dumpContinuation === true,
-        },
-      }, gatesPassed);
-      if (!locationGate.ok) {
-        return failOpen(locationGate.reason, locationGate.code);
-      }
-      markGatePassed(opts.userAddress, 'entry_location');
+          : await validateEntryLocation({ symbol, coin, direction: opts.direction });
+        if (!locationGate.ok) return failOpen(locationGate.reason, 'ENTRY_LOCATION');
 
-      const bypassHtfLocation =
-        !hardEntryLocation &&
-        relaxSecondary &&
-        shortRules.bypassEntryLocationWhenTrusted &&
-        opts.direction === 'SHORT';
-      const htfLocation = bypassHtfLocation
-        ? {
-            coin,
-            side: opts.direction,
-            price: markPx,
-            rangePosition1h: 0,
-            rangePosition4h: 0,
-            distanceResistanceATR: null,
-            distanceSupportATR: null,
-            distanceSwingHighATR: null,
-            distanceSwingLowATR: null,
-            impulse15mATR: null,
-            impulse5mATR: null,
-            consecutiveDirectionCandles: 0,
-            atr1h: 0,
-            nearResistance: false,
-            nearSupport: false,
-            confirmedBreakoutUp: false,
-            confirmedBreakdown: false,
-            upperWickRejection: false,
-            lowerWickRejection: false,
-            chasingCompletedMove: false,
-            upsideRoomATR: null,
-            downsideRoomATR: null,
-            deterministicLocationDecision: 'ALLOW' as const,
-            blockedBy: [] as string[],
-            reason: reversalLong
-              ? 'HTF location bypass — REVERSAL_LONG'
-              : 'HTF location bypass — trusted MTF scan',
-          }
-        : await evaluateEntryLocationQuality({
-            coin,
-            direction: opts.direction,
-            markPx,
-          });
-      logEntryLocationRecord({
-        record: htfLocation,
-        finalDecision: htfLocation.deterministicLocationDecision === 'ALLOW' ? 'OPEN' : 'NO_OPEN',
-      });
-      const htfCode =
-        htfLocation.deterministicLocationDecision === 'ALLOW'
-          ? 'HTF_LOCATION_PASS'
-          : htfLocation.blockedBy[0] ?? 'HTF_LOCATION_BLOCK';
-      logOpenGate({
-        userAddress: opts.userAddress,
-        coin,
-        direction: opts.direction,
-        gate: 'entry_location_quality',
-        ok: htfLocation.deterministicLocationDecision === 'ALLOW',
-        code: htfCode,
-        reason: htfLocation.reason,
-        metrics: {
-          rangePosition1h: htfLocation.rangePosition1h,
-          rangePosition4h: htfLocation.rangePosition4h,
-          confirmedBreakdown: htfLocation.confirmedBreakdown,
-        },
-      }, gatesPassed);
-      if (htfLocation.deterministicLocationDecision !== 'ALLOW') {
-        return failOpen(htfLocation.reason, htfCode);
-      }
-      markGatePassed(opts.userAddress, 'entry_location_quality');
+        const momentumGate = relaxSecondaryGates
+          ? {
+              ok: true as const,
+              reason: `Scan pick — momentum confirm skipped (${opts.pick.confidence}%)`,
+              change5mPct: 0,
+              change15mPct: 0,
+              change1hPct: 0,
+              momentumAligned: true,
+            }
+          : await validateEntryMomentum({ coin, direction: opts.direction });
+        if (!momentumGate.ok) return failOpen(momentumGate.reason, 'MOMENTUM');
 
-      const levCap = capLeverageByEntryRange({
-        coin,
-        direction: opts.direction,
-        requested: effectiveLeverage,
-        rangePosition1h: htfLocation.rangePosition1h,
-        chasingCompletedMove: htfLocation.chasingCompletedMove,
-      });
-      if (levCap.capped) {
-        const prevLev = effectiveLeverage;
-        effectiveLeverage = levCap.leverage;
-        notionalUsd = notionalUsd * (effectiveLeverage / prevLev);
-        size = notionalUsd / markPx;
-        logOpenGate(
-          {
-            userAddress: opts.userAddress,
-            coin,
-            direction: opts.direction,
-            gate: 'leverage_location_cap',
-            ok: true,
-            code: 'LEV_RANGE_CAP',
-            reason: levCap.reason ?? `Capped ${prevLev}× → ${effectiveLeverage}×`,
-            metrics: { rangePosition1h: htfLocation.rangePosition1h, prevLev, effectiveLeverage },
-          },
-          gatesPassed
-        );
-        logger.info('HL open leverage capped by 1h range', {
-          user: opts.userAddress.slice(0, 10),
-          coin,
-          direction: opts.direction,
-          prevLev,
-          effectiveLeverage,
-          range1h: htfLocation.rangePosition1h,
-          reason: levCap.reason,
+        for (const [g, r] of [
+          ['news', newsGate.reason],
+          ['fresh_pump', freshPumpGate.reason],
+          ['candle_analytics', candleAnalytics.reason],
+          ['scalp_align', scalpGate.reason],
+          ['macro_beta', macroGate.reason],
+          ['pump_short', pumpShortGate.reason],
+          ['mega_pair', megaGate.reason],
+          ['perp_context', perpCtxGate.reason],
+          ['pump_sweep', pumpSweepGate.reason],
+          ['entry_location', locationGate.reason],
+          ['entry_momentum', momentumGate.reason],
+        ] as const) {
+          pass(g, r);
+        }
+
+        openReasonFull = buildHlOpenReasonDoc({
+          mode: opts.botModeLabel,
+          pick: opts.pick,
+          notionalUsd: opts.notionalUsd,
+          leverage: effectiveLeverage,
+          locationGate,
+          macroGate,
+          momentumGate,
+          pumpShortGate,
+          newsGate,
+          freshPumpGate,
+          pumpSweepGate,
+          megaPairLine: megaGate.reason,
+          liquidityReason: opts.pick.liquidityReason,
+          scalpAlignLine: scalpGate.reason,
+          candleAnalyticsLine: candleAnalytics.summary,
+        } as Parameters<typeof buildHlOpenReasonDoc>[0]);
+        patchExecutionDiagnostic(opts.userAddress, {
+          gatesPassed: gatesPassed.map((g) => g.gate),
         });
-      }
-      if (notionalUsd < config.hyperliquid.minNotionalUsd) {
-        return failOpen(
-          `Notional $${notionalUsd.toFixed(2)} below floor after leverage cap — wait better location`,
-          'LEV_CAP_NOTIONAL'
-        );
-      }
-
-      const openReasonDoc = buildHlOpenReasonDoc({
-        mode: opts.botModeLabel,
-        pick: opts.pick,
-        notionalUsd: opts.notionalUsd,
-        leverage: effectiveLeverage,
-        locationGate,
-        macroGate,
-        momentumGate,
-        pumpShortGate,
-        freshPumpGate,
-        megaPairLine: megaGate.reason,
-        liquidityReason: opts.pick.liquidityReason,
-        scalpAlignLine: scalpGate.reason,
-        candleAnalyticsLine: candleAnalytics.summary,
-        gatesPassed,
-      });
-      openReasonFull = openReasonDoc;
-      patchExecutionDiagnostic(opts.userAddress, {
-        gatesPassed: gatesPassed.map((g) => g.gate),
-      });
       }
 
       const client = createAgentClient(opts.userAddress);
@@ -1581,52 +1138,7 @@ export class HyperliquidTradingService {
         isClose: false,
       });
 
-      /** Final SHORT quality — immediately before submit; manual/force skips extra HL polling. */
       let submitMarkPx = markPx;
-      if (opts.direction === 'SHORT' && !skipOpenGates) {
-        const shortQuality = await evaluateShortEntryQualityPreSubmit({
-          coin,
-          markPxAtGate: markPx,
-        });
-        submitMarkPx = shortQuality.markPx;
-        if (submitMarkPx > 0 && Math.abs(submitMarkPx - markPx) / markPx > 0.0001) {
-          size = notionalUsd / submitMarkPx;
-        }
-        logShortEntryQualityRecord(shortQuality.record);
-        logOpenGate(
-          {
-            userAddress: opts.userAddress,
-            coin,
-            direction: opts.direction,
-            gate: 'short_entry_quality',
-            ok: shortQuality.ok,
-            code: shortQuality.code,
-            reason: shortQuality.reason,
-            metrics: {
-              entryType: shortQuality.record.entryType,
-              distanceSupportAtr: shortQuality.record.distanceSupportAtr,
-              distanceResistanceAtr: shortQuality.record.distanceResistanceAtr,
-              dumpExtensionAtr: shortQuality.record.dumpExtensionAtr,
-              reversalRiskScore: shortQuality.record.reversalRiskScore,
-              reversalHardVeto: shortQuality.record.reversalHardVeto,
-              markDriftReevaluated: shortQuality.reevaluated,
-              candleAgeMs: shortQuality.candleAgeMs,
-            },
-          },
-          skipOpenGates ? [] : gatesPassed
-        );
-        if (!shortQuality.ok) {
-          return failOpen(shortQuality.reason, shortQuality.code);
-        }
-        if (!skipOpenGates) {
-          markGatePassed(opts.userAddress, 'short_entry_quality');
-          gatesPassed.push({
-            gate: 'short_entry_quality',
-            code: shortQuality.code,
-            reason: shortQuality.reason,
-          });
-        }
-      }
 
       setHlExecutionState(opts.userAddress, {
         state: 'ORDER_SUBMITTED',

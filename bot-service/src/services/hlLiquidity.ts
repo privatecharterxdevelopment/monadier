@@ -36,8 +36,11 @@ function toNum(raw: unknown): number {
 }
 
 /** Every listed HL perp with a live mark — full scan universe. */
+/** July 2026 bot universe — live mark + 24h volume floor (no illiquids). */
 function passesScanUniverse(m: HlPerpLiquidity): boolean {
-  return m.markPx > 0;
+  if (m.markPx <= 0) return false;
+  const minVol = config.hyperliquid.minDayVolumeUsd;
+  return !(minVol > 0) || m.dayVolumeUsd >= minVol;
 }
 
 /** Optional open-time floor — only when env sets minDayVolumeUsd / minOpenInterestUsd > 0. */

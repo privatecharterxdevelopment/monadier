@@ -3,12 +3,12 @@
  */
 import { config } from '../config';
 import { MAJOR_COINS } from './coinTier';
-import { btcLeadIsPumping } from './macroBetaGate';
 import {
   fetchPumpSweepAnalysis,
   fetchMegaPairPumpSweep,
   type PumpSweepAnalysis,
 } from './pumpSweepAnalytics';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type PumpSweepGateResult = {
   ok: boolean;
@@ -57,45 +57,20 @@ function gateForDirection(
     return { ok: true, reason: `Pump sweep OK — ${coin} ${a.phase.replace(/_/g, ' ')}` };
   }
 
-  if (a.phase === 'near_turnaround') {
+  if (a.phase === 'at_sweep_low' || a.phase === 'near_turnaround') {
     return {
       ok: false,
       reason:
-        `SHORT blocked — ${coin} at turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — wait for bounce-fade` +
-        ` · apex $${a.pumpApex.toFixed(2)} (${a.apexAgeBars}h ago)`,
+        `SHORT blocked — ${coin} at sweep low / turnaround zone ($${a.sweepLow.toFixed(2)}–$${a.turnaroundEstimate.toFixed(2)}) — do not sell the dip`,
     };
   }
-  if (a.phase === 'at_sweep_low') {
-    return {
-      ok: true,
-      reason:
-        `Pump sweep OK — dump continuation at sweep low $${a.sweepLow.toFixed(2)} (floor filter off)`,
-    };
-  }
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep < 0.5) {
-    return {
-      ok: true,
-      reason:
-        `Pump sweep OK — dump continuation in lower half (${(a.positionInSweep * 100).toFixed(0)}% of range)`,
-    };
-  }
-  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.5) {
+  if (a.phase === 'post_dump_bounce' && a.positionInSweep >= 0.3) {
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} post-dump rally fade zone (${(a.positionInSweep * 100).toFixed(0)}% of range)`,
     };
   }
   if (a.phase === 'at_apex' || (a.phase === 'post_pump_fade' && a.positionInSweep >= cfg.shortAllowAbovePosition)) {
-    if (
-      direction === 'SHORT' &&
-      a.retraceFromApexPct < cfg.minRetraceFromApexPct * 0.5
-    ) {
-      return {
-        ok: false,
-        reason:
-          `SHORT blocked — ${coin} at apex but still climbing (+${(-a.retraceFromApexPct).toFixed(2)}% from low) — wait for real fade`,
-      };
-    }
     return {
       ok: true,
       reason: `Pump sweep OK — ${coin} fading from apex $${a.pumpApex.toFixed(2)} (SHORT fade zone)`,
@@ -124,12 +99,7 @@ export async function validatePumpSweepGate(opts: {
     if (!MAJOR_COINS.has(coin) && config.hyperliquid.pumpSweep.blockAltsOnMegaFade) {
       const mega = await fetchMegaPairPumpSweep();
       macro = mega.BTC ?? mega.ETH ?? null;
-      if (
-        opts.direction === 'LONG' &&
-        !btcLeadIsPumping() &&
-        macro &&
-        (macro.phase === 'at_apex' || macro.phase === 'post_pump_fade')
-      ) {
+      if (opts.direction === 'LONG' && macro && (macro.phase === 'at_apex' || macro.phase === 'post_pump_fade')) {
         return {
           ok: false,
           reason:
@@ -142,7 +112,32 @@ export async function validatePumpSweepGate(opts: {
     }
 
     const verdict = gateForDirection(opts.direction, analysis);
-    return { ok: verdict.ok, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
+    if (verdict.ok || opts.direction !== 'LONG') {
+      return { ok: verdict.ok, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
+    }
+
+    // Precision bounce: allow LONG mid-fade / post-dump reclaim — never at apex.
+    if (analysis.phase === 'at_apex') {
+      return { ok: false, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
+    }
+    const bounce = await evaluateBounceLongSetup(coin);
+    if (
+      bounce.ok &&
+      bounce.grade &&
+      (analysis.phase === 'at_sweep_low' ||
+        analysis.phase === 'near_turnaround' ||
+        analysis.phase === 'post_dump_bounce' ||
+        (analysis.phase === 'post_pump_fade' && analysis.positionInSweep <= 0.55))
+    ) {
+      return {
+        ok: true,
+        reason: `${bounce.reason} · pump-sweep allow (${analysis.phase}) · ${analysis.summary}`,
+        analysis,
+        macro,
+      };
+    }
+
+    return { ok: false, reason: `${verdict.reason} · ${analysis.summary}`, analysis, macro };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: true, reason: `Pump sweep skipped (${msg.slice(0, 40)})`, analysis: null };

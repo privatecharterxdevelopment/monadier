@@ -4,7 +4,7 @@
 import { config } from '../config';
 import { signalEngine } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
-import { btcLeadIsPumping } from './macroBetaGate';
+import { evaluateBounceLongSetup } from './bounceLongSetup';
 
 export type PerpMarketContext = {
   coin: string;
@@ -130,7 +130,17 @@ export async function validatePerpMarketContext(opts: {
     ].join(' · ');
 
     if (opts.direction === 'LONG') {
-      if (!btcLeadIsPumping() && ctx.rangePosition >= cfg.maxLongRangePosition) {
+      const bounce = await evaluateBounceLongSetup(opts.coin);
+      const bounceOk =
+        bounce.ok &&
+        bounce.grade != null &&
+        ctx.rangePosition < 0.9 &&
+        bounce.bouncePct <=
+          (bounce.grade === 'impulse'
+            ? config.hyperliquid.preferLongAfterDump.impulseMaxBouncePct
+            : config.hyperliquid.preferLongAfterDump.maxBouncePct);
+
+      if (ctx.rangePosition >= cfg.maxLongRangePosition && !bounceOk) {
         return {
           ok: false,
           reason: `LONG blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (buy high, need pullback) · ${summary}`,
@@ -138,9 +148,9 @@ export async function validatePerpMarketContext(opts: {
         };
       }
       if (
-        !btcLeadIsPumping() &&
         ctx.change24hPct >= cfg.maxLong24hUpPct &&
-        ctx.rangePosition >= cfg.maxLong24hRangePosition
+        ctx.rangePosition >= cfg.maxLong24hRangePosition &&
+        !bounceOk
       ) {
         return {
           ok: false,
@@ -162,8 +172,28 @@ export async function validatePerpMarketContext(opts: {
           ctx,
         };
       }
+      if (bounceOk) {
+        return {
+          ok: true,
+          reason: `${bounce.reason} · perp context OK · ${summary}`,
+          ctx,
+        };
+      }
     } else {
-      // SHORT dumps print at range lows — that is the trade (21 Jun). Never block the washout.
+      if (ctx.rangePosition <= 1 - cfg.maxLongRangePosition) {
+        return {
+          ok: false,
+          reason: `SHORT blocked — ${ctx.coin} at ${(ctx.rangePosition * 100).toFixed(0)}% of 24h range (sell low) · ${summary}`,
+          ctx,
+        };
+      }
+      if (ctx.change24hPct <= -cfg.maxLong24hUpPct && ctx.rangePosition <= cfg.maxLong24hRangePosition) {
+        return {
+          ok: false,
+          reason: `SHORT blocked — ${ctx.coin} already ${ctx.change24hPct.toFixed(2)}% 24h near lows · ${summary}`,
+          ctx,
+        };
+      }
       if (ctx.funding <= -cfg.maxLongFunding) {
         return {
           ok: false,

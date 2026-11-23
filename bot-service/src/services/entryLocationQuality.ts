@@ -208,7 +208,7 @@ export function scoreEntryLocationQuality(opts: {
 
   const longBreakoutOk = side === 'LONG' && sr.confirmedBreakoutUp;
   const shortContinuation =
-    sr.dumpContinuation === true ||
+    (sr as { dumpContinuation?: boolean }).dumpContinuation === true ||
     isShortDumpContinuation({ candles15m, candles5m });
   const shortBreakdownOk =
     side === 'SHORT' && (sr.confirmedBreakdown || shortContinuation);
