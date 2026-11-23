@@ -457,7 +457,7 @@ function OverviewPanel({
         <Kpi
           label="P/L 24h"
           value={fmtUsd(stats.pnl_24h, true)}
-          sub={`HL bot closes · ${stats.closed_trades_24h} in 24h · all-time ${fmtUsd(stats.total_pnl, true)}`}
+          sub={`HL fills − fees · ${stats.closed_trades_24h} in 24h · all-time ${fmtUsd(stats.total_pnl, true)}`}
           positive={stats.pnl_24h >= 0}
         />
         <Kpi
@@ -1432,9 +1432,14 @@ function TradesPanel({
       {userStats && hasFilter ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <Kpi
-            label="Closed P/L"
+            label="Closed P/L (HL)"
             value={fmtUsdTrade(userStats.closed_pnl_total, true)}
             positive={userStats.closed_pnl_total >= 0}
+            sub={
+              userStats.wallet_pnl_usd != null
+                ? `wallet ${fmtUsdTrade(userStats.wallet_pnl_usd, true)} vs deposits`
+                : 'HL fills − fees'
+            }
           />
           <Kpi
             label="Gross profits"
@@ -2199,7 +2204,9 @@ function UsersPanel({
           <th className="px-4 py-3">Wallet</th>
           <th className="px-4 py-3">Country</th>
           <th className="px-4 py-3">Tier</th>
-          <th className="px-4 py-3">Closed P/L</th>
+          <th className="px-4 py-3" title="Hyperliquid fills: closedPnl minus trading fees. Wallet line is equity minus deposits.">
+            Closed P/L (HL)
+          </th>
           <th className="px-4 py-3">Trades</th>
           <th className="px-4 py-3">Open</th>
           <th className="px-4 py-3">Open uPnL</th>
@@ -2217,6 +2224,7 @@ function UsersPanel({
           const openCount = u.open_positions_count ?? positions.length;
           const openUpnl = positions.reduce((sum, p) => sum + (p.profit_loss ?? 0), 0);
           const closedPnl = u.closed_pnl_total ?? 0;
+          const walletPnl = u.wallet_pnl_usd;
           const feesAccrued = u.fees_accrued_usd ?? 0;
           const feesPaid = u.fees_paid_usd ?? 0;
           const feesOwed = Math.max(0, feesAccrued - feesPaid);
@@ -2250,6 +2258,16 @@ function UsersPanel({
                 }`}
               >
                 {fmtUsdTrade(closedPnl, true)}
+                {walletPnl != null ? (
+                  <span
+                    className={`block text-[10px] ${
+                      walletPnl >= 0 ? 'text-green-400/80' : 'text-red-400/80'
+                    }`}
+                    title="Wallet vs deposits (perp + spot USDC)"
+                  >
+                    wallet {fmtUsdTrade(walletPnl, true)}
+                  </span>
+                ) : null}
               </td>
               <td className="px-4 py-2 text-xs">{u.closed_trades_count ?? 0}</td>
               <td className="px-4 py-2 text-xs">

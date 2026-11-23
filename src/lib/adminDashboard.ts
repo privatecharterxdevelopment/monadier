@@ -7,6 +7,7 @@ import {
   sumAdminOpenUpnl,
   countAdminPositionsByCoin,
 } from './adminHlLivePositions';
+import { fetchAdminHlWalletPnlMap, type AdminHlWalletPnl } from './adminHlWalletPnl';
 
 const HL_BOT_CHAIN_ID = 42161;
 const FEE_WINS_BEFORE_BLOCK = 20;
@@ -136,6 +137,8 @@ export type AdminTradeHistoryUserStats = {
   wallet_address: string;
   email: string | null;
   closed_pnl_total: number;
+  /** Perp+spot equity − net deposits (Hyperliquid). */
+  wallet_pnl_usd?: number | null;
   /** Sum of profitable closes only (>0). */
   closed_profit_total: number;
   /** Sum of losing closes only (<0), as negative number. */
@@ -225,6 +228,8 @@ export type AdminUserRow = {
   kyc_status?: string | null;
   onboarding_completed?: boolean | null;
   closed_pnl_total?: number;
+  /** Perp+spot equity − net deposits (Hyperliquid). */
+  wallet_pnl_usd?: number | null;
   closed_trades_count?: number;
   open_positions_count?: number;
   fees_accrued_usd?: number;
@@ -1241,16 +1246,114 @@ export async function refreshAdminHlLiveOverlay(
   };
 }
 
+function overlayHlWalletClosedPnl(
+  dash: AdminHlDashboard,
+  pnlByWallet: Map<string, AdminHlWalletPnl>
+): AdminHlDashboard {
+  if (pnlByWallet.size === 0) return dash;
+
+  const users = dash.users.map((u) => {
+    const w = u.wallet_address?.trim().toLowerCase() ?? '';
+    const s = w ? pnlByWallet.get(w) : undefined;
+    if (!s) return u;
+    return {
+      ...u,
+      closed_pnl_total: s.closedNet,
+      wallet_pnl_usd: s.walletPnlUsd,
+      closed_trades_count: s.closedCount,
+    };
+  });
+
+  const active_bots = dash.active_bots.map((b) => {
+    const s = pnlByWallet.get(b.wallet_address.toLowerCase());
+    if (!s) return b;
+    return {
+      ...b,
+      bot_closed_pnl_usd: s.closedNet,
+      bot_closed_trades_count: s.closedCount,
+      bot_profitable_closes: s.winCount,
+    };
+  });
+
+  let closedNet = 0;
+  let closedCount = 0;
+  let wins = 0;
+  let closedNet24h = 0;
+  let closedCount24h = 0;
+  let lossCount24h = 0;
+  let lossSum24h = 0;
+  for (const s of pnlByWallet.values()) {
+    closedNet += s.closedNet;
+    closedCount += s.closedCount;
+    wins += s.winCount;
+    closedNet24h += s.closedNet24h;
+    closedCount24h += s.closedCount24h;
+    lossCount24h += s.lossCount24h;
+    lossSum24h += s.lossSum24h;
+  }
+
+  return {
+    ...dash,
+    users,
+    active_bots,
+    stats: {
+      ...dash.stats,
+      closed_trades_24h: closedCount24h,
+      closed_trades_total: closedCount,
+      loss_closes_24h: lossCount24h,
+      loss_pnl_24h: lossSum24h,
+      total_pnl: closedNet,
+      pnl_24h: closedNet24h,
+      win_rate: closedCount > 0 ? Math.round((wins / closedCount) * 1000) / 10 : 0,
+    },
+  };
+}
+
+function applyHlPnlToUserStats(
+  stats: AdminTradeHistoryUserStats,
+  pnl: AdminHlWalletPnl | undefined
+): AdminTradeHistoryUserStats {
+  if (!pnl) return stats;
+  return {
+    ...stats,
+    closed_pnl_total: pnl.closedNet,
+    wallet_pnl_usd: pnl.walletPnlUsd,
+    closed_profit_total: pnl.profitTotal,
+    closed_loss_total: pnl.lossTotal,
+    closed_trades_count: pnl.closedCount,
+    closed_win_count: pnl.winCount,
+    closed_loss_count: pnl.lossCount,
+  };
+}
+
+async function overlayTradeHistoryPageHlPnl(
+  page: AdminHlTradeHistoryPage
+): Promise<AdminHlTradeHistoryPage> {
+  const w = page.user_stats?.wallet_address?.trim().toLowerCase();
+  if (!w || !page.user_stats) return page;
+  const hlMap = await fetchAdminHlWalletPnlMap([w]);
+  return {
+    ...page,
+    user_stats: applyHlPnlToUserStats(page.user_stats, hlMap.get(w)),
+  };
+}
+
 /** Overlay live HL perps + authoritative HL close P/L stats onto the DB snapshot. */
 export async function enrichAdminHlDashboard(
   dash: AdminHlDashboard
 ): Promise<AdminHlDashboard> {
   const reconciled = reconcileAdminBotRunnable(dash);
   const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
-  const [hlLive, pnlAll, pnl24h] = await Promise.all([
+  const walletList = [
+    ...reconciled.active_bots.map((b) => b.wallet_address),
+    ...reconciled.users.map((u) => u.wallet_address ?? ''),
+  ];
+  const [hlLive, pnlAll, pnl24h, statsByWallet, hlPnlByWallet] = await Promise.all([
     fetchAdminHlLiveOpenPositions(reconciled),
     aggregateHlTradeHistoryPnl(),
     aggregateHlTradeHistoryPnl(dayAgo),
+    fetchAdminWalletBotStats(walletList),
+    fetchAdminHlWalletPnlMap(walletList),
   ]);
 
   const hlCloses = dedupeAdminTradeCloses(
@@ -1258,13 +1361,7 @@ export async function enrichAdminHlDashboard(
   );
   const openUpnl = sumAdminOpenUpnl(hlLive);
 
-  const walletList = [
-    ...reconciled.active_bots.map((b) => b.wallet_address),
-    ...reconciled.users.map((u) => u.wallet_address ?? ''),
-  ];
-  const statsByWallet = await fetchAdminWalletBotStats(walletList);
-
-  return mergeAdminUserFeeFields(
+  const merged = mergeAdminUserFeeFields(
     mergeWalletBotStatsIntoDashboard(
       {
         ...reconciled,
@@ -1288,6 +1385,7 @@ export async function enrichAdminHlDashboard(
       statsByWallet
     )
   );
+  return overlayHlWalletClosedPnl(merged, hlPnlByWallet);
 }
 
 function mapAdminTradeCloseRow(raw: Record<string, unknown>): AdminTradeClose {
@@ -1458,7 +1556,7 @@ async function fetchAdminTradeHistoryUserStats(
   const feesPaid = (feePaidRes.data ?? []).reduce((sum, row) => sum + num(row.amount_usd), 0);
   const feeWinCount = Number(feeStateRes.data?.success_win_count) || 0;
 
-  return {
+  const base: AdminTradeHistoryUserStats = {
     wallet_address: primaryWallet,
     email: profileRes.data?.email != null ? String(profileRes.data.email) : null,
     closed_pnl_total: closedPnl,
@@ -1474,6 +1572,9 @@ async function fetchAdminTradeHistoryUserStats(
     wins_until_fee: Math.max(0, FEE_WINS_BEFORE_BLOCK - feeWinCount),
     lifetime_bot_fee_wins: lifetimeRes.count ?? 0,
   };
+
+  const hlMap = await fetchAdminHlWalletPnlMap(targetWallets);
+  return applyHlPnlToUserStats(base, hlMap.get(primaryWallet));
 }
 
 /** Direct table query when RPC is missing or filter RPC is stale. */
@@ -1623,6 +1724,8 @@ function parseAdminHlTradeHistoryPayload(
         wallet_address: String(rawStats.wallet_address ?? ''),
         email: rawStats.email != null ? String(rawStats.email) : null,
         closed_pnl_total: num(rawStats.closed_pnl_total),
+        wallet_pnl_usd:
+          rawStats.wallet_pnl_usd != null ? num(rawStats.wallet_pnl_usd) : null,
         closed_profit_total: num(rawStats.closed_profit_total),
         closed_loss_total: num(rawStats.closed_loss_total),
         closed_trades_count: Number(rawStats.closed_trades_count) || 0,
@@ -1704,7 +1807,7 @@ export async function fetchAdminHlTradeHistory(
   if (!error) {
     const parsed = parseAdminHlTradeHistoryPayload(data, pageSize);
     if (!hasFilter || !tradeHistoryRpcIgnoredFilter(parsed.rows, wallet, email)) {
-      return parsed;
+      return overlayTradeHistoryPageHlPnl(parsed);
     }
     console.warn('[adminDashboard] trade history RPC ignored filter — using table fallback');
   } else if (!isMissingAdminTradeHistoryRpc(error)) {
@@ -1717,7 +1820,9 @@ export async function fetchAdminHlTradeHistory(
       p_offset: offset,
     });
     if (!legacy.error) {
-      return parseAdminHlTradeHistoryPayload(legacy.data, pageSize);
+      return overlayTradeHistoryPageHlPnl(
+        parseAdminHlTradeHistoryPayload(legacy.data, pageSize)
+      );
     }
     console.error('[adminDashboard] get_admin_hl_trade_history legacy failed', legacy.error);
   }
