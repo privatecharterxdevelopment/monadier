@@ -249,7 +249,7 @@ export const config = {
       estimatedFeeBpsPerSide: Number(process.env.HL_TRAIL_FEE_BPS_SIDE || 3.5),
       useAtr: process.env.HL_TRAIL_USE_ATR !== 'false',
       atrPeriod: Number(process.env.HL_TRAIL_ATR_PERIOD || 14),
-      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 4.2),
+      atrMultiplier: Number(process.env.HL_TRAIL_ATR_MULT || 4.6), // 23.11.: was 4.2 — a bit more air
       atrTimeframe: (process.env.HL_TRAIL_ATR_TF || '5m') as '1m' | '5m' | '15m',
       atrCacheMs: Number(process.env.HL_TRAIL_ATR_CACHE_MS || 60_000),
       atrMinPctOfFallback: Number(process.env.HL_TRAIL_ATR_MIN_PCT_FALLBACK || 0.5),

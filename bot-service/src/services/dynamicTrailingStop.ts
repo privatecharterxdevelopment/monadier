@@ -253,9 +253,10 @@ function breakevenPlusFeesStopPx(
  * while a real run still has air to develop.
  *
  *   L1 fee     peak < 2× min-close → lock fee/min cover only (not glued to the print)
- *   L2 partial peak < 4× min-close → keep ~55%
- *   L3 core    peak < 8× min-close → keep ~40%
- *   L4 runner  bigger / trailing → keep ~28–32% (air) but still ≥ min cover
+ *   L2 partial peak < 4× min-close → keep ~50%
+ *   L3 core    peak < 8× min-close → keep ~36%
+ *   L4 runner  bigger / trailing → keep ~25–29% (air) but still ≥ min cover
+ *   (23.11.: ~10% more air than 21 Aug — 0.55/0.40/0.42/0.28/0.32)
  */
 function stagedProfitLock(
   peakPnlUsd: number,
@@ -274,14 +275,14 @@ function stagedProfitLock(
     keepFrac = 0;
   } else if (ratio < 4) {
     level = 'partial';
-    keepFrac = 0.55;
+    keepFrac = 0.5;
   } else if (ratio < 8) {
     level = 'core';
-    keepFrac = 0.4;
+    keepFrac = 0.36;
   } else {
     level = 'runner';
     keepFrac =
-      phase === 'trailing' ? (direction === 'LONG' ? 0.28 : 0.32) : 0.42;
+      phase === 'trailing' ? (direction === 'LONG' ? 0.25 : 0.29) : 0.38;
   }
   return {
     level,
