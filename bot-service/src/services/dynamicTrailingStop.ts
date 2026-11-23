@@ -684,8 +684,10 @@ async function evaluateDynamicTrailInner(
         rec.currentTrailStop = candidate;
       }
       const activeFloor = rec.currentTrailStop ?? candidate;
+      // 23.11.: armed floor crossed = close, even if price gapped through below fee
+      // cover / into red. Holding it is how BTC ran from +$ to −$8 with stop "armed".
       if (
-        closeSafe &&
+        (closeSafe || rec.currentTrailStop != null) &&
         isTrailStopCrossed(input.direction, input.markPrice, activeFloor) &&
         !longGreenTooYoungToClose(rec, input.pnlUsd) &&
         !trailTooYoungToClose(rec, input.nowMs, 1) &&
@@ -817,7 +819,8 @@ async function evaluateDynamicTrailInner(
     if (
       isTrailStopCrossed(input.direction, input.markPrice, rec.currentTrailStop) &&
       !trailTooYoungToClose(rec, input.nowMs, trailMult) &&
-      input.pnlUsd > 0 &&
+      // 23.11.: an ARMED stop is protection — it fires even if price gapped through into red.
+      true && // phase is armed/trailing here
       !longGreenTooYoungToClose(rec, input.pnlUsd) &&
       !longPeakTooSmallToTrailClose(
         input.direction,

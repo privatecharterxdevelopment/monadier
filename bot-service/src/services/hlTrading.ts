@@ -178,6 +178,8 @@ function isUserInitiatedClose(reason: string): boolean {
 function mayAutoCloseInRed(reason: string, _holdMs = 0): boolean {
   const cfg = config.hyperliquid;
   if (reason === 'dust_flatten') return true;
+  // 23.11.: armed trail stop hit = protective exit, also when the fill is red.
+  if (reason === 'trailing_stop' || reason === 'profit_lock') return true;
   if (!cfg.profitOnlyExits) {
     return reason === 'stop_loss' || reason === 'signal_reversal' || reason === 'trailing_stop';
   }
@@ -2933,6 +2935,8 @@ export class HyperliquidTradingService {
       // Belt: never fire trail/TP into red (or NaN pnl) when profitOnlyExits.
       if (
         shouldCloseTrail &&
+        trailExitReason !== 'trailing_stop' &&
+        trailExitReason !== 'profit_lock' &&
         config.hyperliquid.profitOnlyExits &&
         (!(Number.isFinite(pnl)) || pnl <= 0)
       ) {
