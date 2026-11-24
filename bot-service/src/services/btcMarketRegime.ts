@@ -57,7 +57,7 @@ function scoreBtc(opts: {
   // Asymmetric while still in a bull run: mild red days / score -1..-3 must NOT
   // flip to bear_market (that arms Jun-26 primary SHORT and shorts the dip).
   // Need a hard break: deep score AND weekly still red.
-  const bearFloor = Number(process.env.HL_BTC_BEAR_SCORE_FLOOR || -5);
+  const bearFloor = Number(process.env.HL_BTC_BEAR_SCORE_FLOOR || -3); // 24.11.: -3 (was -5) — switch to SHORT-primary earlier
   const clearBearBreak =
     bullScore <= bearFloor && opts.change7dPct < Number(process.env.HL_BTC_BEAR_7D_MAX || 0);
   const regime: HlDirectionProfileName = clearBearBreak ? 'bear_market' : 'bull_market';
