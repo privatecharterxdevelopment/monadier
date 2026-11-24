@@ -9,6 +9,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { signalEngine, type Candle } from './signalEngine';
 import { hlCoinToBinanceSymbol } from './hlSymbols';
+import { setBtcLeadTrends } from './btcLeadBias';
 
 export type MacroMomentum = {
   change15mPct: number;
@@ -347,6 +348,7 @@ export async function refreshBtcLeadMomentum(): Promise<MacroMomentum> {
     try {
       const mom = await fetchMomentum('BTCUSDT');
       btcLeadMom = mom;
+      setBtcLeadTrends(mom.trend15m, mom.trend1h);
       btcLeadAt = Date.now();
       return mom;
     } finally {

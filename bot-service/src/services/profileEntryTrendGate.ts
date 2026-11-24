@@ -83,7 +83,7 @@ export async function validateProfileEntryTrend(opts: {
     const trend15m = tf15?.trend;
 
     if (required5) {
-      if (isGoingDown(trend5m) || !trendMatches(trend5m, required5)) {
+      if ((required5 === 'UP' && isGoingDown(trend5m)) || !trendMatches(trend5m, required5)) {
         return {
           ok: false,
           reason: `${opts.direction} blocked — 5m trend ${trend5m ?? 'n/a'} (need ${required5}; finger weg if 5m down)`,
@@ -94,7 +94,7 @@ export async function validateProfileEntryTrend(opts: {
     }
 
     if (required15) {
-      if (isGoingDown(trend15m) || !trendMatches(trend15m, required15)) {
+      if ((required15 === 'UP' && isGoingDown(trend15m)) || !trendMatches(trend15m, required15)) {
         return {
           ok: false,
           reason: `${opts.direction} blocked — 15m trend ${trend15m ?? 'n/a'} (need ${required15}; finger weg if 15m down)`,

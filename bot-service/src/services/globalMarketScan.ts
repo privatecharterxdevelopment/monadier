@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { getBtcLead } from './btcLeadBias';
 import {
   analysisTimeframesForDirection,
   shortAnalysisTimeframes,
@@ -73,6 +74,8 @@ function pickPreferredCandidate(
   // 24.11.: neutral — no BTC lead / primary-side bias. Side whose own 1h trend
   // agrees wins; if both (or neither) agree, the higher confidence wins.
   if (profile.symmetric) {
+    const btcLead = getBtcLead();
+    if (longC && shortC && btcLead !== 'FLAT') return btcLead === 'DOWN' ? shortC : longC;
     if (longC && shortC) {
       const lUp = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP');
       const sDown = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');

@@ -1,3 +1,4 @@
+import { applyBtcLeadBias } from './btcLeadBias';
 /**
  * Live direction profile — BTC auto regime, with manual env override.
  *
@@ -86,7 +87,7 @@ export function getDirectionProfileMode(): DirectionProfileMode {
 }
 
 export function getLiveDirectionProfile(): HlDirectionProfile {
-  return liveProfile;
+  return applyBtcLeadBias(liveProfile);
 }
 
 export function getLiveBtcRegime(): BtcRegimeSnapshot | null {
