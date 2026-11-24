@@ -28,6 +28,7 @@ function allowlistIsOpen(allow: string[]): boolean {
 export function isLongAllowedCoin(coin: string): boolean {
   // Bull run: LONG-primary across the book — majors-only ban was a bear/meme patch.
   if (config.hyperliquid.directionProfile.name === 'bull_market') return true;
+  if (config.hyperliquid.directionProfile.symmetric) return true;
   const allow = longAllowlistCoins();
   if (allowlistIsOpen(allow)) return true;
   return allow.includes(normalizeLongCoin(coin));

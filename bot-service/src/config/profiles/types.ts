@@ -1,4 +1,4 @@
-export type HlDirectionProfileName = 'bear_market' | 'bull_market';
+export type HlDirectionProfileName = 'bear_market' | 'bull_market' | 'neutral';
 export type HlProfileDirection = 'LONG' | 'SHORT';
 /** SHORT stack. */
 export type HlShortAnalysisTimeframe = '1m' | '5m' | '15m' | '1h';
@@ -123,6 +123,8 @@ export type HlDirectionProfile = {
   allowShortOpens: boolean;
   long: HlDirectionRules;
   short: HlDirectionRules;
+  /** 24.11.: no BTC bias — LONG and SHORT use identical rules; coin MTF decides. */
+  symmetric?: boolean;
 };
 
 /** Aggressive rules for the direction the profile is built to trade. */

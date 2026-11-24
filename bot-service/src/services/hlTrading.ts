@@ -1704,7 +1704,8 @@ export class HyperliquidTradingService {
         // At resistance → SHORT only if 1h is not UP. Green tape never fades.
         if (
           flipped === 'SHORT' &&
-          config.hyperliquid.directionProfile.primaryDirection === 'LONG'
+          config.hyperliquid.directionProfile.primaryDirection === 'LONG' &&
+          !config.hyperliquid.directionProfile.symmetric
         ) {
           const h1 = h1ForFlip;
           const conf = Number(opts.pick.confidence) || 0;
