@@ -1809,6 +1809,22 @@ export class HyperliquidTradingService {
         } // end else (flip allowed)
       }
 
+      // User rule: no LONGs on alts near resistance / upper range — only BTC/ETH may.
+      if (opts.direction === 'LONG' && coin !== 'BTC' && coin !== 'ETH') {
+        const rangePos = locationGate.analysis.pricePosition;
+        const atResistance =
+          locationGate.analysis.nearResistance ||
+          rangePos >= config.hyperliquid.entryLocation.rangeTopBlock ||
+          /resistance/i.test(locationGate.reason);
+        if (atResistance) {
+          return rejectOpen(
+            'entry_location',
+            `ALT LONG at resistance blocked (${coin}, range ${(rangePos * 100).toFixed(0)}%) — only BTC/ETH may long near R`,
+            'alt long at resistance'
+          );
+        }
+      }
+
       // Gate HTF S/R — 1h/4h strong levels, ATR proximity, level decay.
       // Skipped entirely when the active profile disables it (bear_market/June-26
       // replica never had this gate). Otherwise always evaluate; LONGs near HTF
