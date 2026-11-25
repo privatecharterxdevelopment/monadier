@@ -89,14 +89,14 @@ export const TermAuthToastProvider: React.FC<{ children: React.ReactNode }> = ({
       {toast && (
         <div className="term-auth-toast-wrap" role="status" aria-live="assertive">
           {toast.variant === 'err' || toast.variant === 'ok' ? (
-            <div className={`hl-toast hl-toast--${toast.variant}`}>
+            <div className={`term-auth-toast term-auth-toast--${toast.variant}`}>
               {toast.variant === 'ok' ? (
-                <span className="hl-toast__mark" aria-hidden>
+                <span className="term-auth-toast__mark" aria-hidden>
                   ✓
                 </span>
               ) : null}
               {toast.variant === 'err' ? (
-                <span className="hl-toast__mark" aria-hidden>
+                <span className="term-auth-toast__mark" aria-hidden>
                   !
                 </span>
               ) : null}
