@@ -168,6 +168,7 @@ export const config = {
         'EIGEN',
         'XLM',
         'MON',
+        'BIGTIME',
         ...(process.env.HL_EXCLUDED_COINS || '')
           .split(',')
           .map((s) => s.trim().toUpperCase())
