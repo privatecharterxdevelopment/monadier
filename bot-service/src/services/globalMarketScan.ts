@@ -277,6 +277,16 @@ async function scanStandardCoin(
  *   LONG  → 15m / 1h / (4h)
  *   SHORT → 1m / 5m / 15m / 1h
  */
+
+/** Diagnostics: why each side was dropped in the last scans (no trading effect). */
+export const scanSkipStats: Record<'LONG' | 'SHORT', Record<string, number>> = { LONG: {}, SHORT: {} };
+export const scanSkipStatsSince = new Date().toISOString();
+function scanSkip(dir: 'LONG' | 'SHORT', gate: string): null {
+  const bucket = scanSkipStats[dir];
+  bucket[gate] = (bucket[gate] ?? 0) + 1;
+  return null;
+}
+
 async function scanStandardCoinDirection(
   coin: string,
   liq: { dayVolumeUsd: number; openInterestUsd: number },
@@ -288,42 +298,42 @@ async function scanStandardCoinDirection(
   // ROOT: bear_market allowLongOpens=false → never analyze LONG at all.
   if (wantedDirection === 'LONG') {
     if (!config.hyperliquid.directionProfile.allowLongOpens) {
-      return null;
+      return scanSkip(wantedDirection, 'if (!config.hyperliquid.directionProfile.allowLongOpens) {');
     }
     if (!isLongAllowedCoin(coin)) {
-      return null;
+      return scanSkip(wantedDirection, 'if (!isLongAllowedCoin(coin)) {');
     }
   }
   // ROOT: bull_market allowShortOpens=false → never analyze SHORT at all.
   if (wantedDirection === 'SHORT' && !config.hyperliquid.directionProfile.allowShortOpens) {
-    return null;
+    return scanSkip(wantedDirection, 'if (wantedDirection === SHORT && !config.hyperliquid.directionProfile.allowShort');
   }
   if (wantedDirection === 'SHORT' && btcLeadIsPumping()) {
-    return null;
+    return scanSkip(wantedDirection, 'if (wantedDirection === SHORT && btcLeadIsPumping()) {');
   }
   if (wantedDirection === 'SHORT' && !btcLeadAllowsCautiousShort().ok) {
-    return null;
+    return scanSkip(wantedDirection, 'if (wantedDirection === SHORT && !btcLeadAllowsCautiousShort().ok) {');
   }
   try {
     const symbol = hlCoinToBinanceSymbol(coin);
     const tfs = analysisTimeframesForDirection(wantedDirection) as Timeframe[];
     const analysis = await analyzeMarketMTFBySymbol(symbol, STANDARD_STRATEGY, tfs);
-    if (!analysis) return null;
-    if (analysis.isWeak) return null;
-    if (analysis.direction !== wantedDirection) return null;
+    if (!analysis) return scanSkip(wantedDirection, '!analysis');
+    if (analysis.isWeak) return scanSkip(wantedDirection, 'analysis.isWeak');
+    if (analysis.direction !== wantedDirection) return scanSkip(wantedDirection, 'analysis.direction !== wantedDirection');
 
     const peak = await resolvePeakAwareDirection(coin, analysis.direction);
     const direction = peak.direction;
     const peakLiquidityGrab = peak.peakLiquidityGrab;
     // Peak may flip LONG→SHORT; kill that when shorts are hard-disabled.
-    if (wantedDirection === 'SHORT' && direction !== 'SHORT') return null;
+    if (wantedDirection === 'SHORT' && direction !== 'SHORT') return scanSkip(wantedDirection, 'wantedDirection === SHORT && direction !== SHORT');
     if (wantedDirection === 'LONG' && direction === 'SHORT') {
-      if (btcLeadIsPumping()) return null;
+      if (btcLeadIsPumping()) return scanSkip(wantedDirection, 'btcLeadIsPumping()');
       if (!config.hyperliquid.directionProfile.allowShortOpens || !peakLiquidityGrab) {
-        return null;
+        return scanSkip(wantedDirection, 'if (!config.hyperliquid.directionProfile.allowShortOpens || !peakLiquidityGrab) ');
       }
     }
-    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return null;
+    if (!isActiveProfileDirection(direction, peakLiquidityGrab)) return scanSkip(wantedDirection, '!isActiveProfileDirection(direction, peakLiquidityGrab)');
 
     const tierInfo = classifyCoinTier(coin, preloadedUniverse);
     const cautious = needsCautionPath(tierInfo.tier) && !relaxed;
@@ -332,7 +342,7 @@ async function scanStandardCoinDirection(
       : relaxed
         ? Math.max(52, config.hyperliquid.minSignalConfidence - 5)
         : config.hyperliquid.minSignalConfidence;
-    if (analysis.confidence < minConf) return null;
+    if (analysis.confidence < minConf) return scanSkip(wantedDirection, 'analysis.confidence < minConf');
     const minTfs = relaxed
       ? 2
       : cautious
@@ -347,23 +357,23 @@ async function scanStandardCoinDirection(
       const pumpSkip = await validateNotFreshlyPumped({ coin, tier: tierInfo.tier });
       if (!pumpSkip.ok) {
         logger.debug('HL scan skip: fresh pump cooldown', { coin, reason: pumpSkip.reason });
-        return null;
+        return scanSkip(wantedDirection, 'if (!pumpSkip.ok) {');
       }
       if (
         (analysis.metrics?.directionalTfCount ?? 0) <
         config.hyperliquid.cautiousScan.minDirectionalTfs
       ) {
-        return null;
+        return scanSkip(wantedDirection, 'config.hyperliquid.cautiousScan.minDirectionalTfs');
       }
       if (
         (analysis.metrics?.trendAlignment ?? 0) <
         config.hyperliquid.cautiousScan.minTrendAlignment
       ) {
-        return null;
+        return scanSkip(wantedDirection, 'config.hyperliquid.cautiousScan.minTrendAlignment');
       }
     }
-    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return null;
-    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return null;
+    if ((analysis.metrics?.directionalTfCount ?? 0) < minTfs) return scanSkip(wantedDirection, '(analysis.metrics?.directionalTfCount ?? 0) < minTfs');
+    if ((analysis.metrics?.trendAlignment ?? 0) < minAlign) return scanSkip(wantedDirection, '(analysis.metrics?.trendAlignment ?? 0) < minAlign');
     const directionalTfCount = analysis.metrics?.directionalTfCount ?? 0;
     const trustedDirection = isTrustedProfileCandidate(
       direction,
@@ -380,12 +390,12 @@ async function scanStandardCoinDirection(
         peakLiquidityGrab,
       })
     ) {
-      return null;
+      return scanSkip(wantedDirection, 'profile thresholds (conf/TFs/align/h1)');
     }
     const entryTrend = await validateProfileEntryTrend({ coin, direction });
     if (!entryTrend.ok) {
       logger.debug('HL scan skip: profile 15m entry-trend', { coin, direction, reason: entryTrend.reason });
-      return null;
+      return scanSkip(wantedDirection, 'if (!entryTrend.ok) {');
     }
     const dirRules = rulesFor(direction, peakLiquidityGrab);
     if (
@@ -404,16 +414,17 @@ async function scanStandardCoinDirection(
             analysis.metrics?.h1Trend === 'STRONG_UPTREND'))
       )
     ) {
-      return null;
+      return scanSkip(wantedDirection, 'h1 trend against direction');
     }
     if (direction === 'SHORT' && !trustedDirection && !peakLiquidityGrab) {
       const pumpGate = await validateNoAltPumpShort({ coin, direction: 'SHORT' });
       if (!pumpGate.ok) {
         logger.debug('HL scan skip: pump-short gate', { coin, reason: pumpGate.reason });
-        return null;
+        return scanSkip(wantedDirection, 'if (!pumpGate.ok) {');
       }
     }
     const tfLabel = tfs.join('/');
+    scanSkip(wantedDirection, 'PASSED → candidate');
     return {
       coin,
       symbol,
@@ -436,7 +447,7 @@ async function scanStandardCoinDirection(
       peakLiquidityGrab,
     };
   } catch {
-    return null;
+    return scanSkip(wantedDirection, 'analysis error / data fetch failed');
   }
 }
 

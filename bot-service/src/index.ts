@@ -1,3 +1,4 @@
+import { getBtcTapePhase, btcLeadAllowsCautiousShort } from './services/macroBetaGate';
 import cron from 'node-cron';
 import http from 'http';
 import { config } from './config';
@@ -19,6 +20,8 @@ import {
 } from './services/liveDirectionProfile';
 import {
   lastHlGlobalScanStats,
+  scanSkipStats,
+  scanSkipStatsSince,
   lastGlobalScanResult,
   scanGlobalHlSignals,
   globalSignalsForBotMode,
@@ -247,8 +250,17 @@ const healthServer = http.createServer(async (req, res) => {
         lastCheck: new Date(lastTradeCheck).toISOString(),
         tradesExecuted: totalTradesExecuted,
         engine: 'aug21-50482df',
-        gitCommit: process.env.GIT_COMMIT || 'unknown',
+        gitCommit: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT || 'unknown',
         lastCycle: lastCycleStats,
+        direction: {
+          profile: config.hyperliquid.directionProfile.name,
+          allowLong: config.hyperliquid.directionProfile.allowLongOpens,
+          allowShort: config.hyperliquid.directionProfile.allowShortOpens,
+          btcTape: getBtcTapePhase(),
+          btcShortGate: btcLeadAllowsCautiousShort(),
+        },
+        scanSkipsSince: scanSkipStatsSince,
+        scanSkips: scanSkipStats,
       })
     );
     return;
