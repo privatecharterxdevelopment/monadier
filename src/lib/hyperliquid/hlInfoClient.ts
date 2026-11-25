@@ -116,20 +116,34 @@ function makeError(message: string, status?: number): HlInfoError {
   return err;
 }
 
+async function fetchInfo(url: string, body: Record<string, unknown>): Promise<Response> {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(8_000),
+  });
+}
+
 async function postOnce<T>(body: Record<string, unknown>): Promise<T> {
   let res: Response;
-  const url =
-    typeof window !== 'undefined'
-      ? `${getBotApiBase()}/api/hl-info`
-      : HL_INFO_URL;
+  // Browser reads HL directly (each user's own IP budget). The bot IP is kept
+  // free for orders/closes; the bot proxy is only a fallback on 429/network error.
+  const inBrowser = typeof window !== 'undefined';
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    res = await fetchInfo(HL_INFO_URL, body);
+    if (inBrowser && (res.status === 429 || res.status >= 500)) {
+      res = await fetchInfo(`${getBotApiBase()}/api/hl-info`, body);
+    }
   } catch (err) {
-    throw makeError(err instanceof Error ? err.message : 'Hyperliquid network error');
+    if (!inBrowser) {
+      throw makeError(err instanceof Error ? err.message : 'Hyperliquid network error');
+    }
+    try {
+      res = await fetchInfo(`${getBotApiBase()}/api/hl-info`, body);
+    } catch (err2) {
+      throw makeError(err2 instanceof Error ? err2.message : 'Hyperliquid network error');
+    }
   }
   if (res.status === 429) {
     rateLimitUntil = Date.now() + RATE_LIMIT_PAUSE_MS;
