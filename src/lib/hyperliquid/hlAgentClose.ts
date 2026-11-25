@@ -86,8 +86,14 @@ export async function closeHlPositionViaAgent(params: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20_000),
       });
     } catch (err) {
+      if (err instanceof Error && /timeout|timed out|abort/i.test(`${err.name} ${err.message}`)) {
+        lastErr = new Error('Server antwortet nicht — Close wird erneut versucht.');
+        if (attempt < maxAttempts - 1) continue;
+        throw new Error('Server antwortet nicht. Bitte Seite neu laden und Position prüfen.');
+      }
       if (isNetworkCloseError(err)) {
         lastErr = new Error('Network error — check Wi‑Fi/VPN, then retry close.');
         if (attempt < maxAttempts - 1) {

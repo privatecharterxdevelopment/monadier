@@ -12,11 +12,21 @@ async function postHlTradeApi<T>(
   const maxAttempts = 5;
   let lastErr = 'Hyperliquid request failed';
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const res = await fetch(`${getBotApiBase()}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${getBotApiBase()}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (err) {
+      // Never auto-retry an order after a timeout — it may already have filled.
+      if (err instanceof Error && /timeout|timed out|abort/i.test(`${err.name} ${err.message}`)) {
+        throw new Error('Server antwortet nicht (20s). Bitte Positionen prüfen, bevor du erneut klickst.');
+      }
+      throw err;
+    }
     let json: { success?: boolean; error?: string | null } = {};
     try {
       json = (await res.json()) as { success?: boolean; error?: string | null };

@@ -472,6 +472,8 @@ async function fetchHlInfoCached<T>(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        // Never hang meta/mids forever — manual Open/Close await these.
+        signal: AbortSignal.timeout(5_000),
       });
       lastStatus = res.status;
       if (res.status === 429 || res.status >= 500) {
