@@ -91,14 +91,13 @@ export function estimateRoundTripFeesUsd(notionalUsd: number): number {
 }
 
 /** Profit exits must stay net green after fees — never harvest a cents stub. */
-export function profitCloseNeedUsd(feesUsd: number, collateralUsd = 0): number {
+export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number {
+  // User rule: arm the profit SL as soon as the trade is net green after fees.
+  // Fees are re-costed at the real HL taker rate (4.5 bps/side), +15% and +$0.05 buffer.
   const trail = config.hyperliquid.dynamicTrail;
-  const raw = trail.minProfitCloseFeesMult;
-  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
-  const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
-  const vsMargin =
-    collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
-  return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin);
+  const bps = Math.max(4.5, trail.estimatedFeeBpsPerSide || 0);
+  const scaled = Math.max(0, feesUsd) * (bps / Math.max(0.1, trail.estimatedFeeBpsPerSide || bps));
+  return scaled * 1.15 + 0.05;
 }
 
 export function profitClearsFeeGate(
