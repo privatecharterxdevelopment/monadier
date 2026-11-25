@@ -51,7 +51,7 @@ async function postHlTradeApi<T>(
     }
     if (rateLimited) {
       throw new Error(
-        'Hyperliquid busy — order may still land. Check positions in ~15s before tapping again.'
+        `Hyperliquid Rate-Limit (${res.status}): ${raw || 'Too many requests'} — Positionen in ~15s prüfen, bevor du erneut klickst.`
       );
     }
     throw new Error(lastErr);
