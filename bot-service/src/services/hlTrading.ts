@@ -41,7 +41,8 @@ import { resolveHlOrderBuilderIfCharged, estimateCollectedSuccessFee } from './h
 import { recordHlBotClose, type HlCloseSnapshot, calculateHlSuccessFee } from './hlSuccessFees';
 import { syncWalletLiquidations } from './hlLiquidationSync';
 import { getPlatformFeeStatus, PLATFORM_FEE_WINS_BEFORE_BLOCK } from './platformFees';
-import { recordHlBotOpenMarker } from './hlChartMarkers';
+import { recordHlBotOpenMarker, recordHlChartMarker } from './hlChartMarkers';
+import { isUserManualHlPosition, markHlPositionOwner } from './hlPositionScope';
 import { recordHlOpenBlock, type HlOpenBlockGate } from './hlOpenBlocks';
 import { shouldTakeProfitOnPnl } from './pnlExits';
 import { validateEntryLocation } from './entryLocationGate';
@@ -1352,6 +1353,7 @@ export class HyperliquidTradingService {
           leverage: effectiveLeverage,
           notionalUsd: opts.notionalUsd.toFixed(2),
         });
+        markHlPositionOwner(opts.userAddress, coin, 'bot');
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
           coin,
@@ -2147,6 +2149,7 @@ export class HyperliquidTradingService {
         evaluationId: disagreement.evaluationId,
       });
 
+      markHlPositionOwner(opts.userAddress, coin, 'bot');
       await recordHlBotOpenMarker({
         walletAddress: opts.userAddress,
         coin,
@@ -2613,6 +2616,10 @@ export class HyperliquidTradingService {
       const positionDirection: 'LONG' | 'SHORT' = size > 0 ? 'LONG' : 'SHORT';
       const markPrice = markFromPosition(entry, size, pnl);
       const coinUpper = pos.coin.toUpperCase();
+      // User manual position: hands off — user closes it himself.
+      if (await isUserManualHlPosition(userAddress, coinUpper)) {
+        continue;
+      }
       const letRunCoin = config.hyperliquid.letRunCoins.includes(coinUpper);
       const letRunAll = config.hyperliquid.letRunAll;
       const letRunDecision = await resolvePositionLetRun({
@@ -3334,6 +3341,16 @@ export class HyperliquidTradingService {
       }
       const flat = !Number.isFinite(size) || Math.abs(size) < 1e-12;
 
+      // Hard rule: the bot NEVER auto-closes a user manual position.
+      if (!userInitiated && !flat && (await isUserManualHlPosition(userAddress, coinUpper))) {
+        logger.info('HL auto-close skipped — user manual position', {
+          user: userAddress.slice(0, 10),
+          coin: coinUpper,
+          reason,
+        });
+        return { success: false, error: 'User manual position — bot does not close it' };
+      }
+
       // Idempotent manual close: UI often shows a ghost after the fill already landed.
       // Returning an error here makes traders think Close is broken.
       if (flat) {
@@ -3882,7 +3899,21 @@ export class HyperliquidTradingService {
         hlPositionOpenedAt.set(lockKey, Date.now());
       }
 
+      if (!opts.reduceOnly && !opts.botManaged) {
+        // USER MANUAL: bot never trails / SLs / closes / re-levers this position.
+        markHlPositionOwner(opts.userAddress, coin, 'manual');
+        await recordHlChartMarker({
+          walletAddress: opts.userAddress,
+          coin,
+          eventType: 'open',
+          direction: opts.side,
+          price: markPx,
+          closeReason: 'manual_open',
+          source: 'manual',
+        });
+      }
       if (opts.botManaged) {
+        markHlPositionOwner(opts.userAddress, coin, 'bot');
         await recordHlBotOpenMarker({
           walletAddress: opts.userAddress,
           coin,
