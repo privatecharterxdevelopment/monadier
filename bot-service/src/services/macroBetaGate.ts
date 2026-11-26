@@ -178,13 +178,9 @@ async function fetchMomentum(symbol: string): Promise<MacroMomentum> {
     signalEngine.fetchCandles(symbol, '5m', 8),
   ]);
   if (c15m.length < 6) {
-    // Data hiccup (HL 429 etc.): keep the last known BTC phase/momentum
-    // instead of forcing 'inflow' (which blocked every SHORT).
-    if (symbol === 'BTCUSDT' && btcLeadMom) {
-      return btcLeadMom;
-    }
     if (symbol === 'BTCUSDT') {
-      lastBtcPhaseReason = 'BTC tape unavailable — keeping last phase';
+      lastBtcPhase = 'inflow';
+      lastBtcPhaseReason = 'BTC tape unavailable — no SHORT until classified';
     }
     return emptyMacroMomentum();
   }
@@ -373,10 +369,14 @@ export function btcLeadIsPumping(): boolean {
 export function btcTapeIsGreen(): boolean {
   if (lastBtcPhase === 'inflow') return true;
   const m = btcLeadMom;
-  if (!m) return false;
-  // Only a real BTC bounce blocks SHORTs — tiny green 5m/15m ticks inside a
-  // downtrend no longer do (that starved every short).
-  return m.live1hBarPct >= 0.3 && m.change15mPct >= 0.15;
+  if (!m) return true;
+  return (
+    m.live1hBarPct >= 0.08 ||
+    m.live5mBarPct >= 0.05 ||
+    m.closed15mBarPct >= 0.08 ||
+    m.change15mPct >= 0.08 ||
+    (m.consecutiveGreen15m >= 2 && m.live1hBarPct >= 0)
+  );
 }
 
 /**
