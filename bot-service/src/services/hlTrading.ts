@@ -1457,7 +1457,8 @@ export class HyperliquidTradingService {
 
       const trustedDirection = trustsDirectionProfile(opts.pick);
       const freshPumpGate =
-        trustedDirection && directionRules.bypassFreshPumpWhenTrusted
+        // LONGs never bypass the fresh-pump cooldown (no buying right after a pump).
+        trustedDirection && directionRules.bypassFreshPumpWhenTrusted && opts.direction === 'SHORT'
           ? {
               ok: true as const,
               reason: `${directionProfile.name}: trusted MTF ${opts.direction} skips fresh-pump cooldown`,
@@ -1878,17 +1879,8 @@ export class HyperliquidTradingService {
       // NEVER skip entry-momentum on SHORT — sell high / no flush-bottom chase.
       // Regression: 23bd6b8 (2026-08-12) “allow SHORT continuation” + relaxSecondaryGates
       // skipped this gate and dropped shortMinRange to 0.12 → FIL bottom shorts. Do not repeat.
-      const momentumGate =
-        relaxSecondaryGates && opts.direction === 'LONG'
-          ? {
-              ok: true as const,
-              reason: `Scan pick — LONG momentum confirm skipped (${opts.pick.confidence}%)`,
-              change5mPct: 0,
-              change15mPct: 0,
-              change1hPct: 0,
-              momentumAligned: true,
-            }
-          : await validateEntryMomentum({ coin, direction: opts.direction });
+      // User rule (26.11.): buy low — LONG anti-chase is NEVER skipped (ETH pump-top long).
+      const momentumGate = await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
         return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
       }
