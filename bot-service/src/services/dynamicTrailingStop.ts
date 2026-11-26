@@ -100,6 +100,19 @@ export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number 
   return scaled * 1.15 + 0.05;
 }
 
+/**
+ * Rung scale for the staged lock (the pre-26.11. arm need): the trail only tightens
+ * relative to this, so arming early at fees does not choke winners into $1 closes.
+ */
+function trailRungScaleUsd(feesUsd: number, collateralUsd = 0): number {
+  const trail = config.hyperliquid.dynamicTrail;
+  const raw = trail.minProfitCloseFeesMult;
+  const mult = Number.isFinite(raw) && raw >= 1 ? raw : 1.5;
+  const minUsd = Math.max(0.75, config.hyperliquid.minProfitCloseUsd || 0.75);
+  const vsMargin = collateralUsd > 1 ? Math.min(6, collateralUsd * 0.03) : 0;
+  return Math.max(minUsd, Math.max(0, feesUsd) * mult, vsMargin, profitCloseNeedUsd(feesUsd));
+}
+
 export function profitClearsFeeGate(
   pnlUsd: number,
   feesUsd: number,
@@ -268,7 +281,8 @@ function stagedProfitLock(
 ): { level: 'fee' | 'partial' | 'core' | 'runner'; keepFrac: number; lockUsd: number } | null {
   const need = profitCloseNeedUsd(feesUsd, collateralUsd);
   if (!(peakPnlUsd > 0) || !(need > 0)) return null;
-  const ratio = peakPnlUsd / need;
+  // Rungs on the wider scale (room to run); floor stays at fee cover (armed early).
+  const ratio = peakPnlUsd / trailRungScaleUsd(feesUsd, collateralUsd);
   let level: 'fee' | 'partial' | 'core' | 'runner';
   let keepFrac: number;
   if (ratio < 2) {
