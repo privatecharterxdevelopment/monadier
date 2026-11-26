@@ -30,9 +30,7 @@ function parseMode(raw: string | undefined): {
   forcedName: string | null;
 } {
   const value = String(raw ?? '').trim().toLowerCase();
-  // 24.11.: default = neutral (no BTC regime). Set HL_DIRECTION_PROFILE=auto for the old switch.
-  if (!value) return { mode: 'forced', forcedName: 'neutral' };
-  if (value === 'auto' || value === 'btc' || value === 'dynamic') {
+  if (!value || value === 'auto' || value === 'btc' || value === 'dynamic') {
     return { mode: 'auto', forcedName: null };
   }
   return { mode: 'forced', forcedName: value };

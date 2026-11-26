@@ -70,19 +70,6 @@ function pickPreferredCandidate(
     return longC;
   }
 
-  // 24.11.: neutral — no BTC lead / primary-side bias. Side whose own 1h trend
-  // agrees wins; if both (or neither) agree, the higher confidence wins.
-  if (profile.symmetric) {
-    if (longC && shortC) {
-      const lUp = h1TrendMatchesRequired(longC.h1Trend ?? undefined, 'UP');
-      const sDown = h1TrendMatchesRequired(shortC.h1Trend ?? undefined, 'DOWN');
-      if (lUp && !sDown) return longC;
-      if (sDown && !lUp) return shortC;
-      return longC.confidence >= shortC.confidence ? longC : shortC;
-    }
-    return longC ?? shortC;
-  }
-
   const primary = profile.primaryDirection;
   const edge = primary === 'SHORT' ? 18 : 8;
   const btcInflow = btcLeadIsPumping();

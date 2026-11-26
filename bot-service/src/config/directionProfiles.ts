@@ -1,4 +1,3 @@
-import { NEUTRAL } from './profiles/neutral';
 import {
   LONG_ANALYSIS_TIMEFRAMES_BASE,
   SHORT_ANALYSIS_TIMEFRAMES,
@@ -88,7 +87,6 @@ export function preOpenTimeframeForDirection(
  */
 export function resolveDirectionProfile(raw: string | undefined) {
   const value = String(raw ?? '').trim().toLowerCase();
-  if (value === 'neutral' || value === 'none' || value === 'both') return NEUTRAL;
   if (
     value === 'bear_market' ||
     value === 'bear' ||
