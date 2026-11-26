@@ -97,7 +97,7 @@ export function profitCloseNeedUsd(feesUsd: number, _collateralUsd = 0): number 
   const trail = config.hyperliquid.dynamicTrail;
   const bps = Math.max(4.5, trail.estimatedFeeBpsPerSide || 0);
   const scaled = Math.max(0, feesUsd) * (bps / Math.max(0.1, trail.estimatedFeeBpsPerSide || bps));
-  return scaled * 1.15 + 0.05;
+  return scaled + 0.05;
 }
 
 /**
@@ -324,9 +324,14 @@ export function peakProfitFloorStopPx(
 ): { px: number; level: string; lockUsd: number; keepFrac: number } | null {
   if (entryPrice <= 0 || absSize <= 0) return null;
   const staged = stagedProfitLock(peakPnlUsd, feesUsd, direction, phase, collateralUsd);
-  const lockUsd =
-    staged?.lockUsd ??
-    profitCloseNeedUsd(feesUsd, collateralUsd);
+  const need = profitCloseNeedUsd(feesUsd, collateralUsd);
+  // User rule (26.11.): SL follows the peak — give back at most max($0.40, 30%) of
+  // the peak NET profit. Fees = need − $0.05 (real 4.5 bps round trip).
+  const realFees = Math.max(0, need - 0.05);
+  const peakNet = Math.max(0, peakPnlUsd - realFees);
+  const givebackLock =
+    peakNet > 0 ? realFees + Math.max(0, peakNet - Math.max(0.4, peakNet * 0.3)) : 0;
+  const lockUsd = Math.max(staged?.lockUsd ?? need, givebackLock, need);
   if (!(lockUsd > 0)) return null;
   const move = lockUsd / absSize;
   const px = direction === 'LONG' ? entryPrice + move : entryPrice - move;
