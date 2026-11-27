@@ -196,3 +196,36 @@ export async function validateEntryMomentum(opts: {
     };
   }
 }
+
+
+/**
+ * Loose anti-chase for LONG (always on, also for trusted scan picks).
+ * Only blocks a real pump-top buy — not normal trend entries.
+ * Block if: last 1h (4×15m) ≥ +2.0%, OR last 15m bar ≥ +1.0%,
+ * OR price in the top 10% of the last 12h range after ≥ +3% off the 12h low.
+ */
+export async function validateLongNotAtPumpTop(coin: string): Promise<{ ok: boolean; reason: string }> {
+  try {
+    const symbol = hlCoinToBinanceSymbol(coin.toUpperCase());
+    const c = await signalEngine.fetchCandles(symbol, '15m', 50);
+    if (!c || c.length < 10) return { ok: true, reason: 'anti-chase: not enough candles — allow' };
+    const last = c[c.length - 1];
+    const px = last.close;
+    const ref1h = c[Math.max(0, c.length - 5)].close;
+    const ch1h = ((px - ref1h) / ref1h) * 100;
+    const ch15 = ((last.close - last.open) / last.open) * 100;
+    const win = c.slice(-48);
+    const hi = Math.max(...win.map((k) => k.high));
+    const lo = Math.min(...win.map((k) => k.low));
+    const pos = hi > lo ? (px - lo) / (hi - lo) : 0.5;
+    const offLow = lo > 0 ? ((px - lo) / lo) * 100 : 0;
+    if (ch1h >= 2.0) return { ok: false, reason: `LONG anti-chase — 1h already +${ch1h.toFixed(2)}% (pump top)` };
+    if (ch15 >= 1.0) return { ok: false, reason: `LONG anti-chase — 15m bar +${ch15.toFixed(2)}% (pump candle)` };
+    if (pos >= 0.9 && offLow >= 3) {
+      return { ok: false, reason: `LONG anti-chase — top ${(100 - pos * 100).toFixed(0)}% of 12h range, +${offLow.toFixed(1)}% off low` };
+    }
+    return { ok: true, reason: `anti-chase ok (1h ${ch1h.toFixed(2)}% · 15m ${ch15.toFixed(2)}% · range ${(pos * 100).toFixed(0)}%)` };
+  } catch {
+    return { ok: true, reason: 'anti-chase: data error — allow' };
+  }
+}

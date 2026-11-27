@@ -50,7 +50,7 @@ import { evaluateInvalidationExit } from './invalidationExit';
 import { validateHtfSr, type HtfSrResult } from './htfSrGate';
 import { emptyMacroMomentum, refreshBtcLeadMomentum, btcLeadIsPumping, btcLeadAllowsCautiousShort, btcTapeIsGreen, validateMacroBetaAlignment } from './macroBetaGate';
 import { validateMegaPairVolumeForDirection } from './megaPairVolumeMonitor';
-import { validateEntryMomentum } from './entryMomentumGate';
+import { validateLongNotAtPumpTop, validateEntryMomentum } from './entryMomentumGate';
 import { validateNoAltPumpShort } from './pumpShortGate';
 import { validateCandleWickGate } from './candleWickGate';
 import { validateLongDumpTapeGate } from './longDumpTapeGate';
@@ -1874,6 +1874,10 @@ export class HyperliquidTradingService {
           : await validateEntryMomentum({ coin, direction: opts.direction });
       if (!momentumGate.ok) {
         return rejectOpen('entry_momentum', momentumGate.reason, 'entry momentum');
+      }
+      if (opts.direction === 'LONG') {
+        const chase = await validateLongNotAtPumpTop(coin);
+        if (!chase.ok) return rejectOpen('entry_momentum', chase.reason, 'long pump-top chase');
       }
 
       // LLM / Gemini Vision second opinion + disagreement cycle.
