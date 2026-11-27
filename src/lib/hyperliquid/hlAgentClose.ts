@@ -1,3 +1,4 @@
+import { notifyHlTradeExecuted } from './hlInfoClient';
 import { getBotApiBase } from '../signalService';
 import { isHlRateLimitError } from '../devLog';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
@@ -131,12 +132,14 @@ export async function closeHlPositionViaAgent(params: {
     ) {
       clearHlUserInfoCache(wallet);
       requestTradeNotificationRefresh();
+      notifyHlTradeExecuted(wallet);
       return;
     }
 
     if (res.ok && json.success) {
       clearHlUserInfoCache(wallet);
       requestTradeNotificationRefresh();
+      notifyHlTradeExecuted(wallet);
       return;
     }
 

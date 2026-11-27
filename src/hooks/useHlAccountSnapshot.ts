@@ -1,3 +1,4 @@
+import { onHlTradeExecuted } from '../lib/hyperliquid/hlInfoClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlFundingSnapshot } from '../lib/hyperliquid/funding';
 import { isMeaningfulHlPosition } from '../lib/hyperliquid/format';
@@ -267,6 +268,8 @@ export function useHlAccountSnapshot(wallet: string | undefined) {
     if (!wallet) return;
     await pollOnce(wallet.toLowerCase(), true);
   }, [wallet]);
+
+  useEffect(() => onHlTradeExecuted(() => void refresh()), [refresh]);
 
   return { snapshot: data, refresh, hasSnapshot: data != null };
 }

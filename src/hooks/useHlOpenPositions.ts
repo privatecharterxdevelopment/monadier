@@ -1,3 +1,4 @@
+import { onHlTradeExecuted } from '../lib/hyperliquid/hlInfoClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchHlAccountState, type HlPosition } from '../lib/hyperliquid/user';
 
@@ -45,6 +46,8 @@ export function useHlOpenPositions(walletAddress: string | undefined) {
     const id = setInterval(() => void refresh(), 5000);
     return () => clearInterval(id);
   }, [walletAddress, refresh]);
+
+  useEffect(() => onHlTradeExecuted(() => void refresh()), [refresh]);
 
   const livePnlUsd = positions.reduce(
     (sum, p) => sum + (Number.parseFloat(p.unrealizedPnl || '0') || 0),

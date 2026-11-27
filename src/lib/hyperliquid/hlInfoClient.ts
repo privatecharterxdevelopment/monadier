@@ -280,6 +280,29 @@ export function clearHlUserInfoCache(user?: string) {
   }
 }
 
+export const HL_TRADE_EVENT = 'monadier:hl-trade';
+
+/**
+ * After an order/close: drop account cache and tell every positions hook to refetch
+ * now, then again at 1.2s / 3s / 6s (HL clearinghouse can lag a moment).
+ */
+export function notifyHlTradeExecuted(user?: string) {
+  if (typeof window === 'undefined') return;
+  const fire = () => {
+    clearHlUserInfoCache(user);
+    window.dispatchEvent(new CustomEvent(HL_TRADE_EVENT, { detail: { user } }));
+  };
+  fire();
+  for (const ms of [1200, 3000, 6000]) window.setTimeout(fire, ms);
+}
+
+export function onHlTradeExecuted(cb: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const h = () => cb();
+  window.addEventListener(HL_TRADE_EVENT, h);
+  return () => window.removeEventListener(HL_TRADE_EVENT, h);
+}
+
 /** Invalidate meta cache after long idle — optional manual refresh. */
 export function clearHlInfoCache() {
   cache.clear();

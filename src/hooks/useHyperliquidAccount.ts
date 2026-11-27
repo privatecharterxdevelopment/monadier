@@ -1,3 +1,4 @@
+import { onHlTradeExecuted } from '../lib/hyperliquid/hlInfoClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchHlAccountState,
@@ -224,6 +225,13 @@ export function useHyperliquidAccount(address: string | undefined) {
     const id = setInterval(() => void pollHeavy(), HEAVY_REFRESH_MS);
     return () => clearInterval(id);
   }, [address, refreshHeavy]);
+
+  useEffect(() => {
+    if (!address) return undefined;
+    return onHlTradeExecuted(() => {
+      void refreshCore(address).catch(() => {});
+    });
+  }, [address, refreshCore]);
 
   const refreshAfterTrade = useCallback(
     async (addr?: string) => {

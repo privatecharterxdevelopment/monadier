@@ -1,3 +1,4 @@
+import { notifyHlTradeExecuted } from './hlInfoClient';
 import { getBotApiBase } from '../signalService';
 import { clearHlInfoCache, clearHlUserInfoCache } from './hlInfoClient';
 import { requestTradeNotificationRefresh } from '../tradeNotificationEvents';
@@ -87,6 +88,7 @@ export async function placeHlManualPerpOrderViaAgent(opts: {
     botManaged: opts.botManaged === true,
     scope: opts.botManaged ? 'bot' : 'manual',
   });
+  notifyHlTradeExecuted(opts.walletAddress.toLowerCase());
 }
 
 export async function updateHlManualPerpLeverageViaAgent(opts: {
